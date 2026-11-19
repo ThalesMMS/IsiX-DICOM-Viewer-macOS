@@ -62,6 +62,11 @@ final class SRView: HorosSceneView {
 
     // MARK: Outlets of SR.xib
 
+    // The outlets and the stored fields of the volume, the fused series, the
+    // exports, the mouse and the 3D points below are instance variables of
+    // the former Horos and OsiriX plugin SDK, each with the type its header
+    // declared: a plugin reads and writes them at the exported offset, and no
+    // setter runs. The others of that SDK are at the end of the fields.
     @IBOutlet var export3DWindow: NSWindow?
     @IBOutlet var framesSlider: NSSlider?
     /// The `rotation` outlet; -rotation is the export's angle.
@@ -83,7 +88,14 @@ final class SRView: HorosSceneView {
     @IBOutlet var point3DTextColorWell: NSColorWell?
     @IBOutlet var point3DPropagateToAll: NSButton?
     @IBOutlet var point3DSetDefault: NSButton?
-    @IBOutlet weak var controller: SRController?
+    @IBOutlet weak var controller: SRController? {
+        didSet { controllerOfSDK = controller }
+    }
+    /// The pointers to the window's controller and to the fused viewer with no
+    /// retain, as that SDK kept them: written with the weak references and not
+    /// read, since those are the ones that become nil.
+    unowned(unsafe) var controllerOfSDK: SRController?
+    unowned(unsafe) var blendingControllerOfSDK: ViewerController?
 
     /// Where SR.xib sets the `rotation` outlet.
     @objc(setRotation:)
@@ -92,14 +104,31 @@ final class SRView: HorosSceneView {
     // MARK: The volume
 
     /// 0 perspective, 1 parallel, 2 endoscopy.
-    var projectionMode = 0
+    var _projectionMode: Int32 = 0
+    var projectionMode: Int {
+        get { Int(_projectionMode) }
+        set { _projectionMode = Int32(truncatingIfNeeded: newValue) }
+    }
     var pixList: NSMutableArray?
     var firstObject: DCMPix?
     /// The voxels the surfaces are built from: the viewer's, or their grey
     /// levels for an RGB series.
-    private var voxels: UnsafeMutablePointer<Float>?
-    private var greyVoxels: UnsafeMutablePointer<Float>?
-    var cosines = [Float](repeating: 0, count: 9)
+    var voxels: UnsafeMutablePointer<Float>?
+    var greyVoxels: UnsafeMutablePointer<Float>?
+    /// The slices' orientation, nine floats inside the view.
+    var _cosines = IsiXSRViewCosines()
+    var cosines: [Float] {
+        get { withUnsafeBytes(of: _cosines) { Array($0.bindMemory(to: Float.self)) } }
+        set { _cosines = Self.cosinesStorage(newValue) }
+    }
+    static func cosinesStorage(_ values: [Float]) -> IsiXSRViewCosines {
+        var stored = IsiXSRViewCosines()
+        withUnsafeMutableBytes(of: &stored) { bytes in
+            let floats = bytes.bindMemory(to: Float.self)
+            for index in 0..<min(values.count, floats.count) { floats[index] = values[index] }
+        }
+        return stored
+    }
     /// The slices' orientation as VTK's user matrix, row by row.
     var matrix: [Double] = SurfacePlacement.identity
     private var source: IsiXVTKIsoSurfaceSource?
@@ -111,11 +140,16 @@ final class SRView: HorosSceneView {
 
     /// Not retained, as before: the fused viewer outlives the view or closes it.
     weak var blendingController: ViewerController?
-    private var blendingPixList: NSMutableArray?
-    private var blendingFirstObject: DCMPix?
+    var blendingPixList: NSMutableArray?
+    var blendingFirstObject: DCMPix?
     private var blendingSource: IsiXVTKIsoSurfaceSource?
     private var blendingMatrix: [Double] = SurfacePlacement.identity
-    private var blendingFactor: Float = 0.5
+    var blendingFactor: Float = 0.5
+    // The last slice, the voxels and the orientation of the fused series, as
+    // that SDK kept them: written with the fused series and not read.
+    unowned(unsafe) var _blendingLastObject: DCMPix?
+    var _blendingData: UnsafeMutablePointer<Float>?
+    var _blendingcosines = IsiXSRViewCosines()
 
     // MARK: The surfaces
 
@@ -125,12 +159,25 @@ final class SRView: HorosSceneView {
     /// only colour or transparency keeps the geometry.
     private var isoGeometry: [SurfaceGeometryKey?] = [nil, nil]
     private var BisoGeometry: [SurfaceGeometryKey?] = [nil, nil]
-    private var isoBuildSeconds: [TimeInterval] = [0, 0]
+    /// How long each surface took to build, two intervals inside the view.
+    var _isoBuildSeconds = IsiXSRViewBuildSeconds()
+    private var isoBuildSeconds: [TimeInterval] {
+        get { [_isoBuildSeconds.v.0, _isoBuildSeconds.v.1] }
+        set { _isoBuildSeconds.v = (newValue.first ?? 0, newValue.count > 1 ? newValue[1] : 0) }
+    }
 
     // MARK: Exports
 
-    var camPosition = IsiXVTKPoint(x: 0, y: 0, z: 0)
-    var camFocal = IsiXVTKPoint(x: 0, y: 0, z: 0)
+    /// The camera kept for the exports, three doubles each inside the view.
+    var _camPosition = IsiXSRViewPoint(), _camFocal = IsiXSRViewPoint()
+    var camPosition: IsiXVTKPoint {
+        get { IsiXVTKPoint(x: _camPosition.v.0, y: _camPosition.v.1, z: _camPosition.v.2) }
+        set { _camPosition.v = (newValue.x, newValue.y, newValue.z) }
+    }
+    var camFocal: IsiXVTKPoint {
+        get { IsiXVTKPoint(x: _camFocal.v.0, y: _camFocal.v.1, z: _camFocal.v.2) }
+        set { _camFocal.v = (newValue.x, newValue.y, newValue.z) }
+    }
     var numberOfFramesValue = 0
     var rotationValue: Float = 0
     var rotationOrientation = 0
@@ -138,7 +185,11 @@ final class SRView: HorosSceneView {
     var savedViewSizeFrame = NSRect.zero
     var noWaitDialog = false
     var splash: WaitRendering?
-    var startRenderingTimeValue: Date?
+    var _startRenderingTime: NSDate?
+    var startRenderingTimeValue: Date? {
+        get { _startRenderingTime as Date? }
+        set { _startRenderingTime = newValue as NSDate? }
+    }
 
     // MARK: Mouse and cursors
 
@@ -167,6 +218,44 @@ final class SRView: HorosSceneView {
     var point3DDefaultColorRed: Float = 1, point3DDefaultColorGreen: Float = 0, point3DDefaultColorBlue: Float = 0
     var point3DDefaultColorAlpha: Float = 1
 
+    // MARK: The other instance variables of the former plugin SDK
+
+    // Nothing of the application stands behind these: each has the type that
+    // SDK's header declared and stays nil or 0 unless a plugin writes it. The
+    // objects of VTK's pipeline, which the adapter's classes above stand for
+    // (the source, the outline, the letters, the surfaces), were C++ objects
+    // and are never released; neither are the labels and the pairs of the
+    // surfaces' pipelines, kept as untyped pointers.
+    unowned(unsafe) var _blendingReader: AnyObject?, _flip: AnyObject?, _blendingFlip: AnyObject?, _textX: AnyObject?
+    unowned(unsafe) var _aRenderer: AnyObject?, _aCamera: AnyObject?, _outlineRect: AnyObject?, _mapOutline: AnyObject?
+    unowned(unsafe) var _outlineData: AnyObject?, _reader: AnyObject?, _isoResample: AnyObject?, _BisoResample: AnyObject?
+    unowned(unsafe) var _matrice: AnyObject?, _matriceBlending: AnyObject?
+    var _oText = IsiXSRViewTextActors()
+    /// Declared only by older copies of the SDK's headers: the earlier name of
+    /// the colour well of the background, which the view keeps as backColor.
+    /// The copy of that outlet, retained as it is, written when the nib has
+    /// connected it and never read.
+    var backgroundColorOfSDK: NSColorWell?
+    var _isoDeci = IsiXSRViewSurfacePair(), _isoSmoother = IsiXSRViewSurfacePair(), _isoExtractor = IsiXSRViewSurfacePair()
+    var _isoNormals = IsiXSRViewSurfacePair(), _isoMapper = IsiXSRViewSurfacePair(), _iso = IsiXSRViewSurfacePair()
+    var _BisoDeci = IsiXSRViewSurfacePair(), _BisoSmoother = IsiXSRViewSurfacePair(), _BisoExtractor = IsiXSRViewSurfacePair()
+    var _BisoNormals = IsiXSRViewSurfacePair(), _BisoMapper = IsiXSRViewSurfacePair(), _Biso = IsiXSRViewSurfacePair()
+    var _isoGeometry = IsiXSRViewSurfaceGeometry(), _BisoGeometry = IsiXSRViewSurfaceGeometry()
+    // The sheet of an export that is gone, the image of a drag and the lists
+    // of the 3D points, which the view keeps above as arrays of the adapter's
+    // actors and of values: the view releases what a plugin stores in them.
+    var _export3DVRWindow: NSWindow?
+    var _VRFrames: NSMatrix?
+    var _destinationImage: NSImage?
+    var _point3DActorArray: NSMutableArray?, _point3DPositionsArray: NSMutableArray?, _point3DRadiusArray: NSMutableArray?
+    var _point3DColorsArray: NSMutableArray?, _point3DDisplayPositionArray: NSMutableArray?, _point3DTextArray: NSMutableArray?
+    var _point3DPositionsStringsArray: NSMutableArray?, _point3DTextSizesArray: NSMutableArray?
+    var _point3DTextColorsArray: NSMutableArray?
+    // The SpaceNavigator, whose driver the view no longer connects.
+    var _snCloseEventTimer: Timer?
+    var _snStopped = false
+    var _snConnexionClientID: UInt16 = 0
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         commonInit()
@@ -194,6 +283,14 @@ final class SRView: HorosSceneView {
         connect2SpaceNavigator()
 
         nc.addObserver(self, selector: #selector(windowWillClose(_:)), name: NSWindow.willCloseNotification, object: nil)
+    }
+
+    /// The view of SR.xib has its outlets: the earlier name of the background's
+    /// colour well takes the well.
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        // The nib is loaded on the main thread.
+        MainActor.assumeIsolated { backgroundColorOfSDK = backColor }
     }
 
     isolated deinit {
@@ -382,14 +479,19 @@ final class SRView: HorosSceneView {
     @objc(setBlendingPixSource:)
     func setBlendingPixSource(_ bC: ViewerController?) {
         blendingController = bC
+        blendingControllerOfSDK = bC
         guard let bC, let list = bC.pixList(), let first = list.firstObject as? DCMPix else {
             blendingSource = nil
             blendingPixList = nil
             blendingFirstObject = nil
+            _blendingLastObject = nil
+            _blendingData = nil
             return
         }
         blendingPixList = list
         blendingFirstObject = first
+        _blendingLastObject = list.lastObject as? DCMPix
+        _blendingData = bC.volumePtr()
 
         var thickness = Float(first.sliceInterval)
         if thickness == 0 {
@@ -398,6 +500,7 @@ final class SRView: HorosSceneView {
         }
         var blendingCosines = [Float](repeating: 0, count: 9)
         first.orientation(&blendingCosines)
+        _blendingcosines = Self.cosinesStorage(blendingCosines)
         if let data = bC.volumePtr() {
             blendingSource = try? IsiXVTKIsoSurfaceSource(voxels: data, width: first.pwidth, height: first.pheight, depth: list.count,
                                                           spacingX: first.pixelSpacingX, spacingY: first.pixelSpacingY,

@@ -115,13 +115,17 @@ check(re.search(r'while \(!stop\(\)\) \{.*?if \(!stop\(\)\) \[self acceptConnect
       'the listener loop does not look at the abort before each wait')
 scp = (root / 'Horos/Sources/DCMTKQueryRetrieveSCP.swift').read_text()
 check('listener.serve(until: { [unowned self] in self.isAborted })' in scp, 'the listener does not serve until it is aborted')
-quitting = body(application, 'func finishTermination(_ sender: Any?) {')
-check('dicomListener.stopListeners(before: Date(timeIntervalSinceNow: 10))' in quitting, 'quitting no longer stops the listeners')
+quitting = body(application, 'private func makeQuit() -> OrderlyQuit')
+check('stopListeners: { deadline in listener.stopListeners(before: deadline) }' in quitting, 'quitting no longer stops the listeners')
 # exit() destroys DCMTK's static loggers: a listener thread still in its
 # one-second wait for an association crashed reading them. Quitting waits for
-# the listener threads to end, not for a fixed pause shorter than that wait.
+# the listener threads to end, not for a fixed pause shorter than that wait,
+# and tells AppKit to terminate only afterwards.
+order = (root / 'Horos/Sources/OrderlyQuit.swift').read_text()
+waits = body(order, 'private func proceed(')
 check('Thread.sleep(forTimeInterval: 0.5)' not in quitting
-      and 0 <= quitting.find('stopListeners(') < quitting.find('NSApp.terminate('),
+      and 0 <= waits.find('stopListeners(limits.deadline(since: start))') < waits.find('self.stopsEnded()')
+      and 0 <= body(order, 'private func stopsEnded()').find('work.reply(true)'),
       'quitting reaches exit() without waiting for the listener threads to end')
 
 if failures:

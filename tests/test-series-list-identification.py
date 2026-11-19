@@ -165,9 +165,15 @@ need(draw, [
 registry = source('ViewerController+ViewerRegistry.swift')
 frames = registry[registry.index('class func horosSeriesWindowColors()'):registry.index('class func horosSeriesOpenColors()')]
 need(frames, [
-    ('guard viewerRegistry.displayedViewers.count > 1, let active = viewerRegistry.frontMostDisplayedViewer(on: nil),', 'only the active window frames a thumbnail, and only among several windows'),
-    ('colors.setObject(SeriesListIdentification.color(for: active), forKey: series)', 'the frame has the colour of the active window\'s study'),
+    ('guard let active = viewerRegistry.frontMostDisplayedViewer(on: nil), let series = active.imageView()?.seriesObj() as AnyObject?,',
+     'only the active window frames a thumbnail'),
+    ('let color = ViewerWindowBorder.color(for: active, active: true) else { return colors }',
+     'the thumbnail has the frame of the window\'s views, or none where they have none'),
+    ('colors.setObject(color, forKey: series)', 'the frame has the colour of the window\'s frame'),
 ], 'the frames of the thumbnails')
+for gone in ('displayedViewers.count > 1', 'numberOf2DViewer()'):
+    if gone in frames:
+        failures.append(f'the frames of the thumbnails: {gone} counts the windows apart from the frame of the views')
 need(registry[registry.index('class func horosSeriesOpenColors()'):], [
     ('for (series, viewer) in viewerRegistry.displayedSeries() {', 'every displayed series has a colour'),
     ('colors.setObject(SeriesListIdentification.color(for: viewer), forKey: series)', 'the colour is its window\'s study\'s'),
@@ -176,13 +182,61 @@ need(registry[registry.index('class func horosSeriesOpenColors()'):], [
 # The windows: the frame, the badge and what follows a change of the active window.
 drawing = source('DCMView+Drawing.swift')
 need(drawing, [
-    ('if ViewerController.numberOf2DViewer() > 1 && is2DViewer && self.stringID == nil, let viewer, !viewer.fullScreenON() {', 'a window among several has a frame'),
-    ('color: active ? SeriesListIdentification.color(for: viewer) : SeriesListIdentification.neutralColor, active: active)',
-     'the active window\'s frame has the colour of its study, the others are neutral'),
+    ('if is2DViewer && self.stringID == nil, let viewer, !viewer.fullScreenON() {', 'a 2D viewer\'s own view may have a frame, out of full screen'),
+    ('frameInset = ViewerWindowBorder.color(for: viewer, active: active).map {', 'the frame and its colour are asked where the thumbnail asks them'),
+    ('PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf), color: $0, active: active) } ?? 0',
+     'the frame is drawn in that colour, and none without one'),
 ], 'the frame of a window')
+if 'numberOf2DViewer() > 1 && is2DViewer' in drawing:
+    failures.append('the frame of a window: the view counts the registered viewers, in the Dock or on another Space too')
+
+# One rule for the image and the thumbnail (WindowFrameRule, IsiXImaging, with
+# its own tests): how many windows are on screen, and with one window whether
+# it shows a study other than the one it was opened with.
+border = source('ViewerWindowBorder.swift')
+need(border, [
+    ('switch WindowFrameRule.frame(severalOnScreen: graph.registry.severalViewersAreOnScreen, isActive: active,', 'the rule is the module\'s, over the windows on screen'),
+    ('study: SeriesListIdentification.study(of: viewer), studies: graph.windowStudies) {', 'and over the study the window was opened with'),
+    ('case .none: return nil', 'no frame'),
+    ('case .neutral: return SeriesListIdentification.neutralColor', 'the neutral frame of the views that are not the active one'),
+    ('case .study(let study): return SeriesListIdentification.color(of: study)', 'the colour of the study on the active view'),
+    ('graph.windowStudies.show(study.flatMap { study in study.studyInstanceUID.map { StudyReference(uid: $0, date: study.date) } })',
+     'the window keeps the study it shows, and the first as the one it was opened with'),
+    ('graph.windowStudies.reopen()', 'an opening asked for makes the study shown the opening one'),
+    ('forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak graph] _ in', 'a change of Space draws the frame again'),
+    ('viewer.seriesListPresenter.build(showSelected: false, selectionOnly: true)', 'the lists recolour the cell that carries the frame'),
+], 'the frame\'s rule')
+# The widths drawn are the ones the annotations keep clear of.
+rule = (root / 'Modules/IsiXImaging/Sources/ViewerSeriesList/WindowFrameRule.swift').read_text()
+need(rule, [
+    ('public static let activeWidth = 3.0', 'the rule has the width the active frame is drawn with'),
+    ('public static let inactiveWidth = 2.0', 'and the width of the others'),
+    ('public static var annotationReserve: Double { activeWidth + annotationClearance }', 'the annotations leave the frame and its clearance'),
+], 'the widths of the frame')
+counted = source('ViewerRegistry.swift')
+counted = counted[counted.index('@MainActor var severalViewersAreOnScreen: Bool {'):counted.index('@MainActor func displayedSeries()')]
+need(counted, [
+    ('return WindowFrameRule.severalOnScreen(entries.lazy.map { entry in', 'the register counts the windows on screen by the module\'s rule'),
+    ('WindowFrameRule.Presence(isVisible: window?.isVisible ?? false, isMiniaturized: window?.isMiniaturized ?? false,', 'a window in the Dock is not on screen'),
+    ('isOnActiveSpace: window?.isOnActiveSpace ?? false,', 'nor one on another Space'),
+    ('isClosing: entry.isClosing || entry.viewer.windowWillClose(), isFullScreen: entry.isFullScreen)', 'nor one closing or full screen'),
+], 'the windows on screen')
+# Where the study of a window is set: every series shown, and the openings asked for.
+need(source('ViewerSeriesLoad.swift'), [
+    ('ViewerWindowBorder.studyShown(firstImage()?.series?.study, in: viewer)', 'every series a window takes tells the study it shows'),
+], 'the study a window shows')
+opener = source('ViewerOpener.swift')
+need(opener, [
+    ('if viewerNavigations == 0, let viewer { ViewerWindowBorder.reopened(viewer) }', 'an opening asked for in an open window is the study it was opened with'),
+], 'the study a window was opened with')
+navigation = source('ViewerOpener+Navigation.swift')
+for start in ('    func loadNextSeries(_ curImage: NSManagedObject?, direction: Int, viewer: ViewerController?, firstViewer: Bool, keyImagesOnly: Bool) {\n',
+              '    func loadSeries(_ series: NSManagedObject?, viewer: ViewerController?, keyImagesOnly: Bool) -> ViewerController? {\n'):
+    if start + '        viewerNavigations += 1\n        defer { viewerNavigations -= 1 }\n' not in navigation:
+        failures.append('the study a window was opened with: a series taken from the viewer\'s own lists or steps changes it (' + start.strip()[:24] + ')')
 graphics = source('PlanarFramePresenter.swift')
 need(graphics[graphics.index('public static func drawWindowBorder('):graphics.index('public static func drawOverflow(')], [
-    ('let width: Float = active ? 5 : 2', 'the active frame is thick, the others thin'),
+    ('let width: Float = active ? 3 : 2', 'the active frame is 3 points wide, the others 2'),
     ('halfWidth: Float(Double(size.width) / 2) - width * sf / 2, halfHeight: Float(Double(size.height) / 2) - width * sf / 2)',
      'the frame is whole inside the view'),
 ], 'the frame of a window')
@@ -191,6 +245,10 @@ need(textual, [
     ('let seriesNumber = viewer2D?.seriesMenuPresenter.numberOfShownSeries() ?? 0', 'a window shows the number of its series'),
     ('let badge = SeriesListIdentification.badge(number: seriesNumber, study: SeriesListIdentification.study(of: viewer2D))', 'the badge has the colour of the window\'s study'),
     ('let top = lowerCorners.labelTop(preferred:', '"Previous" keeps clear of the lower corners\' lines'),
+    ('colourBoxSize: colourBoxSize, edgeReserve: viewer2D == nil ? 0 : WindowFrameRule.annotationReserve)',
+     'the lines and the badge leave the room of the frame, with or without one'),
+    ('edgeReserve: self.horos_stringID == nil && self.is2DViewer() ? WindowFrameRule.annotationReserve : 0)',
+     'the orientation letters leave the room of the frame'),
 ], 'the window\'s annotations')
 if 'studyNumber(dateIndex: self.horos_studyDateIndex)' in textual:
     failures.append('a window still draws the number of its study')
@@ -206,6 +264,13 @@ became = became[:became.index('\n    }\n')]
 need(became, [
     ('SeriesListIdentification.activeWindowChanged(among: registry.displayedViewers)', 'every viewer follows the active window'),
 ], 'a window becoming the active one')
+for moment in ('func windowDidMiniaturize() {', 'func windowDidDeminiaturize() {'):
+    body = window[window.index(moment):]
+    if 'ViewerWindowBorder.windowsChanged(among: registry.displayedViewers)' not in body[:body.index('\n    }\n')]:
+        failures.append('the frames are not drawn again: ' + moment)
+closing = window[window.index('func closeWindow() {'):window.index('func finishClosingWindow() {')]
+if 'ViewerWindowBorder.windowClosed(viewer, remaining: registry.isClosingAllWindows ? [] : registry.displayedViewers)' not in closing:
+    failures.append('the frames are not drawn again when a window closes')
 
 # The modes it replaces are gone.
 everything = ''.join(path.read_text(errors='replace') for folder in ('Horos/Sources', 'Preference Panes', 'Modules/IsiXPreferences/Sources',

@@ -61,8 +61,9 @@ final class SMTPConnection: @unchecked Sendable {
         /// The conversation stopped on an error.
         case failed(SMTPError)
         /// The connection ended, or never opened, without an SMTP error; a
-        /// stream error has been logged.
-        case closed
+        /// stream error has been logged, and is given here as it was logged
+        /// for whoever tells the user why a message did not leave.
+        case closed(streamError: String?)
     }
 
     /// Certificates trusted besides the system's, for a local test server's
@@ -110,7 +111,7 @@ final class SMTPConnection: @unchecked Sendable {
         self.completion = completion
         guard let port = UInt16(exactly: port).flatMap(NWEndpoint.Port.init(rawValue:)) else {
             NSLog("Stream error: %@", "invalid port \(self.port)")
-            finish(.closed)
+            finish(.closed(streamError: "invalid port \(self.port)"))
             return
         }
         let parameters = NWParameters.tcp
@@ -124,7 +125,7 @@ final class SMTPConnection: @unchecked Sendable {
         connection.stateUpdateHandler = { [self] state in stateChanged(state) }
         connection.start(queue: queue)
         queue.asyncAfter(deadline: .now() + SMTPConnection.openTimeout) { [self] in
-            if !isOpen { finish(.closed) }
+            if !isOpen { finish(.closed(streamError: nil)) }
         }
     }
 
@@ -137,9 +138,9 @@ final class SMTPConnection: @unchecked Sendable {
             flush()
         case let .waiting(error), let .failed(error):
             NSLog("Stream error: %@", SMTPConnection.describe(error))
-            finish(.closed)
+            finish(.closed(streamError: SMTPConnection.describe(error)))
         case .cancelled:
-            finish(.closed)
+            finish(.closed(streamError: nil))
         default:
             break
         }
@@ -166,9 +167,9 @@ final class SMTPConnection: @unchecked Sendable {
             if isFinished { return }
             if let error {
                 NSLog("Stream error: %@", SMTPConnection.describe(error))
-                finish(.closed)
+                finish(.closed(streamError: SMTPConnection.describe(error)))
             } else if isComplete {
-                finish(.closed)
+                finish(.closed(streamError: nil))
             } else {
                 receive()
             }
@@ -199,7 +200,7 @@ final class SMTPConnection: @unchecked Sendable {
             case .continueWithoutTLS:
                 handOver(addingTLS: false)
             case .close:
-                finish(.closed)
+                finish(.closed(streamError: nil))
             }
         }
     }

@@ -10,30 +10,21 @@
 
 import AppKit
 
-/// The toolbar of the window, the toolbar panel that replaces it and the items kept for both, and the timer that checks the 12-bit display.
-final class ViewerToolbarState: @unchecked Sendable {
-    var toolbar: NSToolbar?
-    var toolbarPanel: ToolbarPanelController?
-    var retainedToolbarItems: NSMutableArray?
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var t12BitTimer: Timer?
-}
-
 extension ViewerController {
     var horos_toolbar: NSToolbar? {
-        get { toolbarState.toolbar }
-        set { toolbarState.toolbar = newValue }
+        get { _toolbar }
+        set { _toolbar = newValue }
     }
     var horos_toolbarPanel: ToolbarPanelController? {
-        get { toolbarState.toolbarPanel }
-        set { toolbarState.toolbarPanel = newValue }
+        get { _toolbarPanel }
+        set { _toolbarPanel = newValue }
     }
     var horos_retainedToolbarItems: NSMutableArray? {
-        get { toolbarState.retainedToolbarItems }
-        set { toolbarState.retainedToolbarItems = newValue }
+        get { _retainedToolbarItems }
+        set { _retainedToolbarItems = newValue }
     }
     var horos_t12BitTimer: Timer? {
-        get { toolbarState.t12BitTimer }
-        set { toolbarState.t12BitTimer = newValue }
+        get { _t12BitTimer.wrappedValue }
+        set { _t12BitTimer.wrappedValue = newValue }
     }
 }

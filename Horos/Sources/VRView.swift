@@ -39,6 +39,7 @@
 
 import AppKit
 import Accelerate
+import IsiXImaging
 import IsiXVolumeRendering
 import IsiXPreferences
 
@@ -66,10 +67,17 @@ import IsiXPreferences
 /// What the view does not own (its controller, the outlets, the first image,
 /// the fused viewer) is `unowned(unsafe)`, as the Objective-C's assign was.
 /// The two pixel lists are retained and released by hand, as -setPixSource::,
-/// the fusion and -dealloc did. The C arrays are buffers of the view, zeroed
-/// as the instance variables were, and freed with it.
+/// the fusion and -dealloc did.
+///
+/// The state is also the instance variables of the former Horos and OsiriX
+/// plugin SDK: a plugin built for it reads and writes each at the offset the
+/// application exports, so each is a stored field of this class with the C
+/// declaration's type, never private, lazy, weak or observed; a plugin's
+/// write calls no setter. The C arrays are inside the view, zeroed as the
+/// instance variables were, and the horos_ pointers to them are their
+/// addresses there (VRView+LegacyPluginSDK.swift).
 @objc(VRView)
-public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
+public class VRView: VTKView, NSDraggingSource, NSMenuItemValidation {
 
     /// The process's dependencies, made with the view: it reads its
     /// preferences from their store.
@@ -135,8 +143,12 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
 
     // MARK: - The controller and the VTK adapter
 
-    /// Set by the nibs' `controller` outlet (-setController:).
+    /// Set by the nibs' `controller` outlet (-setController:). Not retained:
+    /// the controller takes it back as it is released (horosControllerWasReleased()).
     final unowned(unsafe) var horos_controller: VRController?
+    /// Whether the controller was released, and with it the volume it lent
+    /// the view.
+    final var horos_controllerReleased = false
     /// The view's VTK objects: the window and renderer, the pipeline, the
     /// camera, the crop box, the 2D actors and the 3D points. Nil while
     /// NSView's initializer sets the frame, and after -dealloc lets it go.
@@ -165,11 +177,10 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_alertDisplayed = false
     final var horos_firstPixel: Float = 0
     final var horos_secondPixel: Float = 0
-    /// The conversion buffers into VTK's 16 bits.
-    final let horos_srcf = VRView.zeroed(vImage_Buffer.self, count: 1)
-    final let horos_dst8 = VRView.zeroed(vImage_Buffer.self, count: 1)
-    /// cosines[9].
-    final let horos_cosines = VRView.zeroed(Float.self, count: 9)
+    /// The conversion buffers into VTK's 16 bits (horos_srcf, horos_dst8).
+    final var _srcf = vImage_Buffer(), _dst8 = vImage_Buffer()
+    /// cosines[9] (horos_cosines).
+    final var _cosines = IsiXVRViewCosines()
 
     // MARK: - The fused series
 
@@ -187,10 +198,9 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_blendingOFFSET16: Float = 0
     final var horos_isBlendingRGB = false
     final var horos_blendingNeedToFlip = false
-    final let horos_blendingSrcf = VRView.zeroed(vImage_Buffer.self, count: 1)
-    final let horos_blendingDst8 = VRView.zeroed(vImage_Buffer.self, count: 1)
-    /// blendingcosines[9].
-    final let horos_blendingcosines = VRView.zeroed(Float.self, count: 9)
+    final var _blendingSrcf = vImage_Buffer(), _blendingDst8 = vImage_Buffer()
+    /// blendingcosines[9] (horos_blendingcosines).
+    final var _blendingcosines = IsiXVRViewCosines()
 
     // MARK: - Engines, window and transfer functions
 
@@ -199,15 +209,19 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_lodDisplayed: Float = 0
     final var horos_wl: Float = 0
     final var horos_ww: Float = 0
-    /// table[257][3], blendingtable[257][3] and alpha[257], from their first element.
-    final let horos_table = VRView.zeroed(Double.self, count: 257 * 3)
-    final let horos_blendingtable = VRView.zeroed(Double.self, count: 257 * 3)
-    final let horos_alpha = VRView.zeroed(Double.self, count: 257)
-    /// WLWWString[200], the window text.
-    final let horos_WLWWString = VRView.zeroed(CChar.self, count: 200)
-    final var horos_currentOpacityArray: [Any]?
+    /// table[257][3], blendingtable[257][3] and alpha[257], which horos_table,
+    /// horos_blendingtable and horos_alpha point to from their first element.
+    final var _table = IsiXVRViewColourTable(), _blendingtable = IsiXVRViewColourTable()
+    final var _alpha = IsiXVRViewOpacityTable()
+    /// WLWWString[200], the window text (horos_WLWWString).
+    final var _WLWWString = IsiXVRViewWindowText()
+    /// The opacity points last applied, as the array the SDK declared
+    /// (horos_currentOpacityArray answers them to Swift).
+    final var _currentOpacityArray: NSArray?
     final var horos_advancedCLUT = false
-    final var horos_appliedCurves: [AnyHashable: Any]?
+    /// The 16-bit CLUT's functions the volume holds now; nil once another
+    /// opacity or colour table replaced them.
+    final var horos_appliedCLUT: AdvancedCLUTFunctions?
     final var horos_appliedResolution = false
     final var horos_gDataValuesChanged = false
     final var horos_fullDepthMode: Int32 = 0
@@ -239,10 +253,10 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_orientationCubeShown = false
     final var horos_isRotating = false
     final var horos_flyto = false
-    /// flyToDestination[3], camPosition[3] and camFocal[3].
-    final let horos_flyToDestination = VRView.zeroed(Float.self, count: 3)
-    final let horos_camPosition = VRView.zeroed(Double.self, count: 3)
-    final let horos_camFocal = VRView.zeroed(Double.self, count: 3)
+    /// flyToDestination[3], camPosition[3] and camFocal[3] (horos_flyToDestination,
+    /// horos_camPosition, horos_camFocal).
+    final var _flyToDestination = IsiXVRViewFloatTriple()
+    final var _camPosition = IsiXVRViewPoint(), _camFocal = IsiXVRViewPoint()
     final var horos_autoRotate: Timer?
     final var horos_startAutoRotate: Timer?
 
@@ -253,7 +267,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_rotationOrientation = 0
     final var horos_verticalAngleForVR: Float = 0
     final var horos_rotateDirectionForVR: Float = 0
-    final var horos_matrixExportLayout: Any?
+    final var horos_matrixExportLayout: AnyObject?
 
     // MARK: - Tools, cursors and the mouse
 
@@ -281,13 +295,14 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
 
     final var horos_measureLength: Float = 0
     final var horos_measureAngle: Float = 0
-    /// angleMeasurementPatient[3][3], a point a row.
-    final let horos_angleMeasurementPatient = VRView.zeroed(Double.self, count: 9)
+    /// angleMeasurementPatient[3][3], a point a row (horos_angleMeasurementPatient).
+    final var _angleMeasurementPatient = IsiXVRViewAnglePoints()
     final var horos_angleMeasurementCount: Int32 = 0
-    /// Oval2DCos[9], Oval2DPosition[3] and Oval2DPixZBufferOrigin[2].
-    final let horos_Oval2DCos = VRView.zeroed(Float.self, count: 9)
-    final let horos_Oval2DPosition = VRView.zeroed(Float.self, count: 3)
-    final let horos_Oval2DPixZBufferOrigin = VRView.zeroed(Int32.self, count: 2)
+    /// Oval2DCos[9], Oval2DPosition[3] and Oval2DPixZBufferOrigin[2] (horos_Oval2DCos,
+    /// horos_Oval2DPosition, horos_Oval2DPixZBufferOrigin).
+    final var _Oval2DCos = IsiXVRViewCosines()
+    final var _Oval2DPosition = IsiXVRViewFloatTriple()
+    final var _Oval2DPixZBufferOrigin = IsiXVRViewPixelOrigin()
     final var horos_Oval2DPix: DCMPix?
     final var horos_Oval2DCenter = NSPoint.zero
     final var horos_WorldOval2DCenter = NSPoint.zero
@@ -299,10 +314,12 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
 
     // MARK: - The 3D points
 
-    final let horos_point3DActorArray = NSMutableArray(capacity: 0)
-    final let horos_point3DPositionsArray = NSMutableArray(capacity: 0)
-    final let horos_point3DRadiusArray = NSMutableArray(capacity: 0)
-    final let horos_point3DColorsArray = NSMutableArray(capacity: 0)
+    /// The four lists of the points (horos_point3DActorArray and its siblings
+    /// answer them, and make again one a plugin set to nil).
+    final var _point3DActorArray: NSMutableArray? = NSMutableArray(capacity: 0)
+    final var _point3DPositionsArray: NSMutableArray? = NSMutableArray(capacity: 0)
+    final var _point3DRadiusArray: NSMutableArray? = NSMutableArray(capacity: 0)
+    final var _point3DColorsArray: NSMutableArray? = NSMutableArray(capacity: 0)
     final var horos_display3DPoints = false
     /// The 3D point the last pick found: its actor, a VTK object the view only compares.
     final var horos_picked3DPoint: UnsafeMutableRawPointer?
@@ -312,12 +329,83 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     final var horos_point3DDefaultColorBlue: Float = 0
     final var horos_point3DDefaultColorAlpha: Float = 0
 
+    // MARK: - Instance variables of the former plugin SDK without state here
+
+    // What the SDK declared and the view no longer keeps: kept with the exact
+    // type, at 0, NO and nil, read by nothing here. The VTK objects are the
+    // VTK adapter's now, and the SDK's variables that pointed to them are
+    // pointers to C++ objects, never retained; the presenter and the stereo
+    // presentation are kept above under their Swift classes; the 3D measures
+    // and their projection are the adapter's; the 3D mouse, the drag image,
+    // the clamping, the RGB volume and the 16-bit CLUT's archived curves have
+    // no counterpart; three outlets of the export windows and the shading's
+    // object controller are not in the nibs.
+    final unowned(unsafe) var _blendingReader: AnyObject?, _blendingVolumeMapper: AnyObject?, _blendingVolume: AnyObject?
+    final unowned(unsafe) var _blendingVolumeProperty: AnyObject?, _blendingColorTransferFunction: AnyObject?
+    final unowned(unsafe) var _blendingOpacityTransferFunction: AnyObject?, _aRenderer: AnyObject?, _aCamera: AnyObject?
+    final unowned(unsafe) var _outlineRect: AnyObject?, _mapOutline: AnyObject?, _outlineData: AnyObject?, _cropcallback: AnyObject?
+    final unowned(unsafe) var _croppingBox: AnyObject?, _volumeMapper: AnyObject?, _volume: AnyObject?, _volumeProperty: AnyObject?
+    final unowned(unsafe) var _colorTransferFunction: AnyObject?, _textWLWW: AnyObject?, _textX: AnyObject?, _textTilt: AnyObject?
+    final unowned(unsafe) var _reader: AnyObject?, _opacityTransferFunction: AnyObject?, _red: AnyObject?, _green: AnyObject?
+    final unowned(unsafe) var _blue: AnyObject?, _ROI3DData: AnyObject?, _ROI3D: AnyObject?, _ROI3DActor: AnyObject?
+    final unowned(unsafe) var _Line2DData: AnyObject?, _Line2D: AnyObject?, _Line2DActor: AnyObject?, _Line2DText: AnyObject?
+    final unowned(unsafe) var _lineMeasurementProjectionNotice: AnyObject?, _Oval2DData: AnyObject?, _Oval2D: AnyObject?
+    final unowned(unsafe) var _Oval2DActor: AnyObject?, _Oval2DText: AnyObject?, _Angle2DData: AnyObject?, _Angle2D: AnyObject?
+    final unowned(unsafe) var _Angle2DActor: AnyObject?, _Angle2DText: AnyObject?, _horosRenderWindow: AnyObject?
+    final unowned(unsafe) var _horosRenderer: AnyObject?, _horosInteractor: AnyObject?, _horosPicked3DPoint: AnyObject?
+    final var _oText = IsiXVRViewTextActors()
+    final var _horosPresenter: AnyObject?, _horosStereo: AnyObject?
+    final var _storedLineMeasurements: NSMutableArray?, _lineMeasurementWorld = IsiXVRViewLineEnds()
+    final var _lineMeasurementDirection = IsiXVRViewPoint(), _lineMeasurementHasProjection = false
+    final var _lineMeasurementRenderObserver: UInt = 0
+    final unowned(unsafe) var _export3DVRWindow: NSWindow?, _VRFrames: NSMatrix?, _VRquality: NSMatrix?
+    final unowned(unsafe) var _shadingController: NSObjectController?
+    final var _dataFRGB: UnsafeMutablePointer<UInt8>?, _clamping = false, _destinationImage: NSImage?, _appliedCurves: NSData?
+    final var _snCloseEventTimer: Timer?, _snStopped = false, _snConnexionClientID: UInt16 = 0
+    // Declared only by older copies of the SDK's headers. Two are the earlier
+    // names of what the view keeps under a later one, and hold a copy that the
+    // view writes with the other and never reads: the colour well of the
+    // background (viewBackgroundColor), not retained, as the outlet is not,
+    // and whether the volume turns by itself (isRotating). The others have
+    // nothing behind them: the composite functions of the former ray caster
+    // and the shadows of the orientation labels were C++ objects of a library
+    // the volume is not drawn with any more, never retained; the fly-to moves
+    // by the same fraction at each tick of the view's timer and counts no
+    // step; and the automatic cropping box, whose first bounds and whose
+    // switch these were, is not computed.
+    final unowned(unsafe) var backgroundColorOfSDK: NSColorWell?
+    final var rotateOfSDK = false
+    final unowned(unsafe) var _compositeFunction: AnyObject?, _blendingCompositeFunction: AnyObject?
+    final var _oTextS = IsiXVRViewLabelShadows()
+    final var _incFlyTo: Int32 = 0
+    final var _initialCroppingBoxBounds = IsiXVRViewBoxBounds(), _dontUseAutoCropping = false
+
+    /// The planes of the crop last captured into a camera, and the corners
+    /// the camera made of them (camera(withThumbnail:)).
+    final var capturedCropPlaneCount = -1, capturedCropOrigins = [Double](), capturedCropNormals = [Double]()
+    final var capturedCropCorners = (low: N3Vector(), high: N3Vector())
+
+    /// The view of VR.xib has its outlets: the earlier name of the background's
+    /// colour well takes the well.
+    public override func awakeFromNib() {
+        super.awakeFromNib()
+        // The nib is loaded on the main thread.
+        MainActor.assumeIsolated { backgroundColorOfSDK = viewBackgroundColor }
+    }
+
+    /// Whether the volume turns by itself, written with the copy that the
+    /// earlier name of the instance variable exports.
+    final func setRotating(_ rotating: Bool) {
+        horos_isRotating = rotating
+        rotateOfSDK = rotating
+    }
+
     // MARK: - Shared by the views
 
     /// The lock of the views' drawing and of their captures, one for all.
     nonisolated(unsafe) static var horos_drawLock: NSRecursiveLock?
 
-    /// A buffer of the view in place of a C array instance variable, zeroed.
+    /// A buffer of the view, zeroed.
     private static func zeroed<Element>(_ type: Element.Type, count: Int) -> UnsafeMutablePointer<Element> {
         let buffer = UnsafeMutablePointer<Element>.allocate(capacity: count)
         UnsafeMutableRawPointer(buffer).initializeMemory(as: UInt8.self, repeating: 0,
@@ -335,7 +423,12 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
     @objc public dynamic var renderingMode = 0
     @objc public var currentOpacityArray: [Any]! { horos_currentOpacityArray }
     @objc public dynamic var exportDCM: DICOMExport!
-    @objc public dynamic var dcmSeriesString: String!
+    /// The series description of the DICOM export, as the string the SDK declared.
+    final var _dcmSeriesString: NSString?
+    @objc public dynamic var dcmSeriesString: String! {
+        get { _dcmSeriesString as String? }
+        set { _dcmSeriesString = newValue as NSString? }
+    }
 
     // MARK: - Life
 
@@ -364,7 +457,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
                                             owner: self, userInfo: nil)
         addTrackingArea(cursorTracking)
 
-        horos_isRotating = false
+        setRotating(false)
 
         horos_splash = nil
         horos_currentTool = .t3DRotate
@@ -475,7 +568,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
         horos_rightMouseDownTimer?.invalidate()
         horos_rightMouseDownTimer = nil
 
-        horos_appliedCurves = nil
+        horos_appliedCLUT = nil
 
         if let stereo = horos_horosStereo as? StereoPresentation {
             stereo.turnOff = nil
@@ -486,16 +579,7 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
         horos_vtkIfAny = nil
         horos_horosPresenter = nil
 
-        for buffer in [horos_srcf, horos_dst8, horos_blendingSrcf, horos_blendingDst8] { buffer.deallocate() }
-        for buffer in [horos_cosines, horos_blendingcosines, horos_flyToDestination, horos_Oval2DCos, horos_Oval2DPosition] {
-            buffer.deallocate()
-        }
-        for buffer in [horos_table, horos_blendingtable, horos_alpha, horos_camPosition, horos_camFocal,
-                       horos_slabRotationPivot, horos_angleMeasurementPatient] {
-            buffer.deallocate()
-        }
-        horos_WLWWString.deallocate()
-        horos_Oval2DPixZBufferOrigin.deallocate()
+        horos_slabRotationPivot.deallocate()
     }
 
     // MARK: - Accessors of the header
@@ -522,6 +606,20 @@ public class VRView: NSView, NSDraggingSource, NSMenuItemValidation {
 
     @objc(setController:)
     public func setController(_ aController: VRController!) { horos_controller = aController }
+
+    /// Sent by the controller as it is released. Its window can outlive it and
+    /// still have this view drawn: the view forgets the controller, which it
+    /// does not retain, and draws no more of the volume that went with it.
+    func horosControllerWasReleased() {
+        horos_controller = nil
+        horos_controllerReleased = true
+    }
+
+    /// Whether a frame can be drawn: not once the controller and its volume
+    /// are gone, nor while the controller's window closes.
+    final var horosCanDrawFrame: Bool {
+        !horos_controllerReleased && horos_controller?.windowWillClose() != true
+    }
 
     @objc public func isRGB() -> Bool { horos_isRGB }
 

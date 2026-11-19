@@ -42,8 +42,10 @@ public final class IsiXPluginContext {
 
     /// Adds a menu command. The host shows it in the menu its placement
     /// names and calls `handler` on the main actor when the user picks it.
+    /// The Report menu needs the `report` capability.
     public func register(_ command: IsiXCommand, handler: @escaping @MainActor (IsiXCommandInvocation) throws -> Void) throws {
         try requireActive()
+        if command.placement == .report { try requireCapability(.report) }
         guard !command.id.isEmpty, !command.title.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw IsiXPluginError.invalidCommand(command.id)
         }

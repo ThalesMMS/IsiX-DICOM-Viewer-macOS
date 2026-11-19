@@ -111,7 +111,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="ImageTiling" width="110.5" minWidth="100" maxWidth="120" id="104">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Ladrilho de imagem">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Disposição das imagens">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>

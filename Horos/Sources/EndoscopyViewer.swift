@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 import IsiXPreferences
 
 private let NAVIGATORMODE_BASIC: Int32 = 1
@@ -627,18 +628,25 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         // tranform coordinates
 
         let pixList = mprController?.originalView()?.pixList() as NSArray?
-
-        unsafeBitCast(pixList?.object(at: cULong(Double(position.z).rounded())) as AnyObject?, to: DCMPix?.self)?
-            .convertX(position.x,
-                         pixY: position.y,
-                         toDICOMCoords: &pos,
-                         pixelCenter: true)
-
-        unsafeBitCast(pixList?.object(at: cULong(Double(focalPoint.z).rounded())) as AnyObject?, to: DCMPix?.self)?
-            .convertX(focalPoint.x,
-                         pixY: focalPoint.y,
-                         toDICOMCoords: &fp,
-                         pixelCenter: true)
+        // A point of the path lies between two slices, at the centre of a
+        // resampled voxel: its place in the patient is between the places the
+        // two slices give it, and not the nearer slice's, half a slice off the
+        // path drawn. A point past the last slice is held to it.
+        let sliceCount = pixList?.count ?? 0
+        func patientPoint(_ voxel: OSIVoxel) -> [Float] {
+            var lower = [Float](repeating: 0, count: 3), upper = [Float](repeating: 0, count: 3)
+            guard sliceCount > 0 else { return lower }
+            let at = EndoscopyNavigation.slices(around: Double(voxel.z), count: sliceCount)
+            for (index, into) in [(at.lower, 0), (at.upper, 1)] {
+                var point = [Float](repeating: 0, count: 3)
+                unsafeBitCast(pixList?.object(at: index) as AnyObject?, to: DCMPix?.self)?
+                    .convertX(voxel.x, pixY: voxel.y, toDICOMCoords: &point, pixelCenter: true)
+                if into == 0 { lower = point } else { upper = point }
+            }
+            return EndoscopyNavigation.blend(lower, upper, at: at.fraction)
+        }
+        pos = patientPoint(position)
+        fp = patientPoint(focalPoint)
         pos[0] *= factor
         pos[1] *= factor
         pos[2] *= factor
@@ -1481,7 +1489,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
                 self.setCameraPosition(cpos, focalPoint: fpos)
             }
         } else if err == ERROR_NOENOUGHMEM {
-            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant can not allocate enough memory, try to increase the resample voxel size in the settings.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant cannot allocate enough memory. Close other studies or open a smaller series.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         } else if err == ERROR_CANNOTFINDPATH {
             HorosAlertPanel.run(title: NSLocalizedString("Can't find path", comment: ""), message: NSLocalizedString("Path Assistant can not find a path from A to B.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
@@ -1600,6 +1608,12 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
     // MARK: - Fly Assistant
 
+    /// Where the points given to the assistant put the centre of the first
+    /// voxel: x and y are the MPR views' pixel coordinates, which count a
+    /// pixel from its corner (the cross and the path are drawn there, and the
+    /// camera takes them with pixelCenter), z the slice's index.
+    private static let assistantFirstVoxelCentre = SIMD3<Float>(0.5, 0.5, 0)
+
     /// The volume's dimensions and spacing, as the assistant takes them.
     private func assistantGeometry() -> (dim: [Int32], spacing: [Float]) {
         var dim = [Int32](repeating: 0, count: 3)
@@ -1642,9 +1656,10 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         if let assistant = assistant {
             //[assistant setThreshold:-600.0 Asynchronous:YES];
 
+            assistant.firstVoxelCentre = Self.assistantFirstVoxelCentre
             assistant.centerlineResampleStepLength = centerlineResampleStepLength
         } else {
-            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant can not allocate enough memory, try to increase the resample voxel size in the settings.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant cannot allocate enough memory. Close other studies or open a smaller series.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
 
         //misc
@@ -1689,12 +1704,13 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         let threshold = assistantPanelTextThreshold?.floatValue ?? 0
         centerlineResampleStepLength = assistantPanelTextStepLength?.floatValue ?? 0
         if let assistant = assistant {
+            assistant.firstVoxelCentre = Self.assistantFirstVoxelCentre
             let waiting = self.showWaiting(NSLocalizedString("Distance Transform...", comment: ""))
             assistant.setThreshold(threshold, asynchronous: false)
             assistant.centerlineResampleStepLength = centerlineResampleStepLength
             waiting?.close()
         } else {
-            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant can not allocate enough memory, try to increase the resample voxel size in the settings.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant cannot allocate enough memory. Close other studies or open a smaller series.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
     }
 
@@ -1712,15 +1728,19 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
             let dir = Point3D.point()
             pt.x = endoscopyView(mprController?.originalView())?.crossPositionX() ?? 0
             pt.y = endoscopyView(mprController?.originalView())?.crossPositionY() ?? 0
-            pt.z = Float(pixListIvar?.count ?? 0) - (mprController?.xReslicedView()?.crossPositionY() ?? 0)
+            // z is the slice's index, as the two points' z and the camera take it: the
+            // resliced view's row of the slice s is count - s - 1 or s, by the stack's order.
+            let sign = mprController?.sign() ?? 0
+            pt.z = EndoscopyNavigation.slice(atCrossRow: mprController?.xReslicedView()?.crossPositionY() ?? 0,
+                                             sliceCount: pixListIvar?.count ?? 0, sign: sign)
 
             dir.x = Float(endoscopyView(mprController?.originalView())?.focalShiftX() ?? 0)
             dir.y = Float(endoscopyView(mprController?.originalView())?.focalShiftY() ?? 0)
-            dir.z = Float(-(endoscopyView(mprController?.xReslicedView())?.focalShiftY() ?? 0))
+            dir.z = EndoscopyNavigation.sliceDirection(ofRowShift: Float(endoscopyView(mprController?.xReslicedView())?.focalShiftY() ?? 0), sign: sign)
 
             var err = assistant?.caculateNextPosition(from: pt, towards: dir) ?? 0
             if err == ERROR_NOENOUGHMEM {
-                HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant can not allocate enough memory, try to increase the resample voxel size in the settings.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""), message: NSLocalizedString("Path Assistant cannot allocate enough memory. Close other studies or open a smaller series.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
                 return
             } else if err == ERROR_CANNOTFINDPATH {
                 HorosAlertPanel.run(title: NSLocalizedString("Can't find path", comment: ""), message: NSLocalizedString("Path Assistant can not find a path from current location.", comment: ""), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
@@ -1812,11 +1832,13 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
                 let pto = Point3D.point()
                 pto.x = pt.x; pto.y = pt.y
                 centerlineAxial?.add(pto)
+                // z is a slice's index; the resliced views draw the slice s on the row
+                // count - s - 1, whose centre, where their cross is, lies at count - s - 0.5.
                 let ptx = Point3D.point()
-                ptx.x = pt.x; ptx.y = Float(zmax) - pt.z
+                ptx.x = pt.x; ptx.y = Float(zmax) - 0.5 - pt.z
                 centerlineCoronal?.add(ptx)
                 let pty = Point3D.point()
-                pty.x = pt.y; pty.y = Float(zmax) - pt.z
+                pty.x = pt.y; pty.y = Float(zmax) - 0.5 - pt.z
                 centerlineSagittal?.add(pty)
                 i += 1
             }

@@ -39,7 +39,11 @@ FOUNDATION_EXPORT NSString * const HorosObjCExceptionKey;
 ///     try HorosObjCException.perform { database.save() }
 /// Calls `function(context)` and answers the Objective-C exception it raised,
 /// or nil: what +performBlock:error: does, without a block or an NSError, for
-/// a call made at every mouse event (a ROI's drag).
+/// a call made at every mouse event (a ROI's drag). `context` points to plain
+/// values the function reads (unretained references, numbers), never to a
+/// Swift closure: the exception abandons the function's frame without the
+/// releases it owed, and a closure that withoutActuallyEscaping lent would be
+/// found retained there, which stops the process.
 FOUNDATION_EXPORT NSException * _Nullable HorosObjCPerformFunction(void (*function)(void * _Nullable context), void * _Nullable context);
 
 @interface HorosObjCException : NSObject

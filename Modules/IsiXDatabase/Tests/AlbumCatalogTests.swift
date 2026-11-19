@@ -90,6 +90,19 @@ import Testing
         #expect(AlbumCatalog<Int>.renamedName(requested: "New", current: nil, existing: []) == "New")
     }
 
+    @Test func aDefaultAlbumMadeInAnotherLanguageIsNotMadeAgain() {
+        let translations = ["Today MR": Set(["RM de hoje", "RM di oggi"]), "Interesting Cases": Set(["Casos interessantes", "Casi interessanti"])]
+        let names: (String) -> Set<String> = { translations[$0] ?? [] }
+        let all = AlbumCatalog<Int>.defaultAlbums.map(\.name)
+        // A new database lacks every one of them.
+        #expect(AlbumCatalog<Int>.missingDefaultAlbums(among: [], names: names).map(\.name) == all)
+        // Made in Portuguese, read in Italian or in English: the two are there.
+        let missing = AlbumCatalog<Int>.missingDefaultAlbums(among: ["RM de hoje", "Casos interessantes", "Mine"], names: names).map(\.name)
+        #expect(missing == all.filter { $0 != "Today MR" && $0 != "Interesting Cases" })
+        // Under the English name, which is the name of a language with no entry.
+        #expect(!AlbumCatalog<Int>.missingDefaultAlbums(among: ["Today CT"], names: names).map(\.name).contains("Today CT"))
+    }
+
     @Test func theDefaultAlbumsAndTheirFormerFilters() {
         let defaults = AlbumCatalog<Int>.defaultAlbums
         #expect(defaults.count == 19)

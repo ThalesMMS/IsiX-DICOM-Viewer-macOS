@@ -106,7 +106,7 @@ final class UpdateInstaller: NSObject {
 
     static var isBusy: Bool { current != nil }
 
-    /// The build the user was last told about and left for later. The hourly
+    /// The build the user was last told about in this session. An automatic
     /// check does not ask about it again before the application is reopened.
     static var postponedBuild: String?
 

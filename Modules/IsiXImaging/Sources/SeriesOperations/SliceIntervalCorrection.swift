@@ -53,9 +53,9 @@ public struct SliceIntervalCorrection: Sendable, Equatable {
 
     /// The orientation and the intervals slices 1 and 2 give.
     public let spacing: SliceStackSpacing
-    /// The slices have no position (the first is at 0, 0, 0 and the axis
-    /// interval is 0): they are stacked along z by their spacing between slices,
-    /// in the axial negative orientation.
+    /// The slices have no position (the first carries none, is read at
+    /// 0, 0, 0, and the axis interval is 0): they are stacked along z by their
+    /// spacing between slices, in the axial negative orientation.
     public let stacksWithoutPosition: Bool
     /// The axis interval, the spacing between slices when they are stacked.
     public let interval: Double
@@ -67,13 +67,19 @@ public struct SliceIntervalCorrection: Sendable, Equatable {
     /// nil when slices 1 and 2 do not have the same orientation, or have none:
     /// the viewer then leaves the stack as it is. `spacingBetweenSlices` is the
     /// first slice's, used only when the slices have no position.
+    ///
+    /// `firstOriginIsDefined` says the first slice carries its position. One
+    /// that says it is at 0, 0, 0 is there: frames that all say so are frames
+    /// of one place, a cine, and their spacing between slices does not make
+    /// them a volume. Only slices that say nothing of where they are are
+    /// stacked.
     public init?(orientation1: [Double], orientation2: [Double], origin1: [Double], origin2: [Double],
-                 firstOrigin: [Double], spacingBetweenSlices: Double, flipNow: Bool) {
+                 firstOrigin: [Double], firstOriginIsDefined: Bool, spacingBetweenSlices: Double, flipNow: Bool) {
         guard let spacing = SliceStackSpacing(orientation1: orientation1, orientation2: orientation2,
                                               origin1: origin1, origin2: origin2) else { return nil }
         var interval = spacing.interval, interval3D = spacing.interval3D
         var stacks = false
-        if interval == 0 && firstOrigin[0] == 0 && firstOrigin[1] == 0 && firstOrigin[2] == 0 {
+        if interval == 0 && !firstOriginIsDefined && firstOrigin[0] == 0 && firstOrigin[1] == 0 && firstOrigin[2] == 0 {
             interval = spacingBetweenSlices
             if interval != 0 {
                 interval3D = -interval

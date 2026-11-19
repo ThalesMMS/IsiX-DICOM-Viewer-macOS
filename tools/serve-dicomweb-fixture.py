@@ -175,7 +175,7 @@ parser.add_argument('--patient-name', default='SYNTHETIC^DICOMWEB384')
 parser.add_argument('--patient-id', default='LOCAL-DICOMWEB-384')
 parser.add_argument('--store', type=Path, help='directory the instances STOW-RS stores are written to')
 parser.add_argument('--refuse-uids-file', type=Path, help='SOP Instance UIDs, one per line, that STOW-RS refuses')
-parser.add_argument('--pixeon-legacy-framing', action='store_true', help='synthetic Part 10 responses with the observed missing opening boundary and CRLF separators')
+parser.add_argument('--missing-opening-boundary', action='store_true', help='synthetic Part 10 responses with the observed missing opening boundary and CRLF separators')
 parser.add_argument('--part-delay', type=float, default=0.0, help='pause inside each WADO-RS part after the first, in seconds')
 parser.add_argument('--series', type=int, default=1, help='number of series the instances are split into')
 parser.add_argument('--series-sizes', help='instances of each series, comma-separated; overrides --instances and --series')
@@ -523,7 +523,7 @@ def multipart_parts(content_type, body):
 
 
 class Handler(BaseHTTPRequestHandler):
-    if args.pixeon_legacy_framing:
+    if args.missing_opening_boundary:
         server_version = 'DicomWebServices 20.2.0 synthetic'
         sys_version = ''
     protocol_version = 'HTTP/1.1'
@@ -656,23 +656,23 @@ class Handler(BaseHTTPRequestHandler):
         boundary = 'horos384boundary'
         typed = '; transfer-syntax=%s' % ExplicitVRLittleEndian if args.refuse_syntax or args.cut_syntax else ''
         head = ('--%s\r\nContent-Type: application/dicom%s\r\n\r\n' % (boundary, typed)).encode()
-        closing = ('--%s--%s' % (boundary, '' if args.pixeon_legacy_framing else '\r\n')).encode()
+        closing = ('--%s--%s' % (boundary, '' if args.missing_opening_boundary else '\r\n')).encode()
 
         def part(item):
             # Read from disk a block at a time: the response may be larger
             # than the memory it is worth holding.
-            yield head[len(boundary) + 4:] if args.pixeon_legacy_framing and item is wanted[0] else head
+            yield head[len(boundary) + 4:] if args.missing_opening_boundary and item is wanted[0] else head
             with item['path'].open('rb') as handle:
                 while block := handle.read(args.write_block):
                     yield block
-            if not args.pixeon_legacy_framing:
+            if not args.missing_opening_boundary:
                 yield b'\r\n'
 
         cut = bool(args.cut_syntax) and self.first_syntax() == args.cut_syntax
         if cut and derived:
             wanted = [derived if item is instances[0] else item for item in wanted]
-        length = sum(len(head) + item['path'].stat().st_size + (0 if args.pixeon_legacy_framing else 2) for item in wanted) + len(closing)
-        if args.pixeon_legacy_framing and wanted:
+        length = sum(len(head) + item['path'].stat().st_size + (0 if args.missing_opening_boundary else 2) for item in wanted) + len(closing)
+        if args.missing_opening_boundary and wanted:
             length -= len(boundary) + 4
         if cut and wanted[0] is not instances[0] and wanted[0] is not derived:
             with lock:

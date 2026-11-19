@@ -571,7 +571,10 @@ import IsiXPreferences
     /// The CPR (curved MPR), on volumic black and white data. The curved path
     /// a TAVR plan is drawn on is resampled from the same volume, so the same
     /// geometry has to hold: without it the CPR opened on a series it could
-    /// not resample and showed empty planes.
+    /// not resample and showed empty planes. A sender with Vessel Analysis's
+    /// tag opens it in Vessel Analysis, or turns the one open to it: the
+    /// Curved Path tool, and the path assistant run on the second point; any
+    /// other sender turns a Vessel Analysis window back to the curved MPR.
     func openCurvedMPR(_ sender: Any?) {
         viewer.checkEverythingLoaded()
         viewer.clear8bitRepresentations()
@@ -583,10 +586,21 @@ import IsiXPreferences
 
         viewer.movieStop(viewer)
 
-        if bringForward(nibName: "CPR") { return }
+        let vesselAnalysis = asksForVesselAnalysis(sender)
+        if let open = windowArranger.findViewer(nibName: "CPR", pixList: viewer.horos_pixList(at: 0)) {
+            open.window?.makeKeyAndOrderFront(viewer)
+            // The window open on these slices turns to the mode asked, and its title with it.
+            if let curved = open as? CPRController, curved.isInVesselAnalysis != vesselAnalysis {
+                if vesselAnalysis { curved.beginVesselAnalysis() } else { curved.endVesselAnalysis() }
+                curved.window?.title = Self.curvedMPRTitle(vesselAnalysis: vesselAnalysis)
+                retitle(curved)
+            }
+            return
+        }
 
         let waitWindow = viewer.startWaitWindow(NSLocalizedString("Loading...", comment: ""))
         let made = curvedMPRWindow()
+        if vesselAnalysis { made?.window?.title = Self.curvedMPRTitle(vesselAnalysis: true) }
         place(made)
         made?.showWindow(viewer)
         retitle(made)
@@ -594,8 +608,16 @@ import IsiXPreferences
         DispatchQueue.main.async {
             made?.showWindow(owner)
             made?.showWindow(owner)
+            // Once the openings have shown the path saved for the series: Vessel Analysis starts from two new points.
+            if vesselAnalysis { made?.beginVesselAnalysis() }
             owner.endWaitWindow(waitWindow)
         }
+    }
+
+    /// The title of the curved MPR's window before the 2D viewer's (retitle): its mode's.
+    private static func curvedMPRTitle(vesselAnalysis: Bool) -> String {
+        vesselAnalysis ? NSLocalizedString("Vessel Analysis", comment: "Title of the curved MPR window opened in Vessel Analysis")
+            : NSLocalizedString("Curved MPR", comment: "")
     }
 
     // MARK: - Region growing
@@ -795,6 +817,14 @@ import IsiXPreferences
     /// Gives `window`'s window the visible frame of the 2D viewer's 3D screen.
     func place(_ window: NSWindowController?) {
         window?.window?.setFrame(screen(for: viewer)?.visibleFrame ?? .zero, display: false)
+    }
+
+    /// Whether `sender` (a menu or toolbar item) has Vessel Analysis's tag. A
+    /// sender without a tag (a plugin's object, a viewer) opens the curved
+    /// MPR as always: asking it for one would raise.
+    private func asksForVesselAnalysis(_ sender: Any?) -> Bool {
+        guard let object = sender as? NSObject, object.responds(to: NSSelectorFromString("tag")) else { return false }
+        return ViewerSender.tag(object) == ViewerToolbarCatalog.vesselAnalysisTag
     }
 
     /// Brings forward the viewer of `nibName` open on these slices; false

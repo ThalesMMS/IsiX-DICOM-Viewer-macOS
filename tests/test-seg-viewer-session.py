@@ -59,7 +59,9 @@ expect(session.load(try DicomSEGCodec.encode(document)) != nil, "wrong study ref
 document.identity.studyInstanceUID = identity.studyInstanceUID
 document.geometry.frameOfReferenceUID = "9.8.7"
 expect(session.load(try DicomSEGCodec.encode(document)) != nil, "wrong frame refused")
+// The general list is written by series (PS 3.3 C.12.2): the image named here is of the open series, and is not open.
 document.identity = identity; document.geometry = geometry; document.identity.sourceSOPInstanceUIDs = ["9.8.7"]
+document.identity.sourceSeries = [DicomSEGSourceSeries(seriesInstanceUID: "1.2.3.8", instances: [DicomSEGSourceInstance(sopInstanceUID: "9.8.7")])]
 expect(session.load(try DicomSEGCodec.encode(document)) != nil, "other source images refused")
 // An identified ROI interchange document becomes a derived SEG in the same session.
 let roiSeries = ROIInterchangeSeries()

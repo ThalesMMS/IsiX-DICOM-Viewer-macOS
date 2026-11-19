@@ -546,6 +546,7 @@ IVAR_BLOCK
 - (void) buildMatrixPreview:(BOOL) showSelected;
 - (HorosRefreshCoalescer*) horosRefreshCoalescer;
 - (void) adjustSlider;
+- (void) setMovieIndex:(short) i;
 - (void) refreshToolbar;
 - (void) applicationDidResignActive:(NSNotification*) n;
 - (void) UpdateWLWWMenu:(NSNotification*) n;
@@ -978,6 +979,7 @@ static BOOL useToolbarPanel;
 }
 - (HorosRefreshCoalescer*) horosRefreshCoalescer { return harnessCoalescer; }
 - (void) adjustSlider { Record([NSString stringWithFormat: @"%@ adjustSlider", Name(self)]); }
+- (void) setMovieIndex:(short) i { Record([NSString stringWithFormat: @"%@ setMovieIndex %d", Name(self), i]); }
 - (void) refreshToolbar { Record([NSString stringWithFormat: @"%@ refreshToolbar", Name(self)]); }
 - (void) performSelector:(SEL) selector withObject:(id) object afterDelay:(NSTimeInterval) delay {
     Record([NSString stringWithFormat: @"%@ perform %@ with %@ after %a", Name(self), NSStringFromSelector(selector), Name(object), delay]);
@@ -1580,7 +1582,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-controller-') as tmp:
         try_helper = re.search(r'\n/// Runs `body` as an @try block.*?\nfunc viewerObjCTry.*?\n}\n', support, re.S)
         guards = try_helper.group(0) if try_helper else (objc_exception_guards.source(read(args.current, objc_exception_guards.PATH) or '', log=False) + '\n// The former helper, for a base revision that calls it.\nfunc viewerObjCTry(_ body: () -> Void) -> NSException? { HorosObjCException.caught(body) }\n')
         stand_ins = GRAPH_STAND_INS + (guards if 'ProgressiveRetrieveState.swift' in ' '.join(sources) else '')
-        (swift / 'GraphStandIns.swift').write_text(stand_ins)
+        # The loops over the series list panels reach every panel, the spare one too
+        # (test-thumbnail-list-outlives-panels.py). The code compared here reached the panels of
+        # the screens: the stand-in keeps that reach, so that the rest compares.
+        (swift / 'GraphStandIns.swift').write_text(stand_ins + '\nenum ViewerWindowArranger { static var maximumScreens: Int { NSScreen.screens.count } }\n')
         sources.append(str(swift / 'GraphStandIns.swift'))
         libraries = []
         for module in MODULES:

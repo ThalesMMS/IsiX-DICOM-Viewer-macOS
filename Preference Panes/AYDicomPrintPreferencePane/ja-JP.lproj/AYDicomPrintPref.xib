@@ -24,7 +24,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="653" height="450"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box horizontalCompressionResistancePriority="1000" title="Layout:" id="98">
+                    <box horizontalCompressionResistancePriority="1000" title="レイアウト:" id="98">
                         <rect key="frame" x="344" y="12" width="148" height="207"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lXg-1o-KuW">
@@ -34,34 +34,34 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="116">
                                     <rect key="frame" x="18" y="167" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Format:" id="371">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="フォーマット:" id="371">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="748" id="100">
-                                    <rect key="frame" x="15" y="141" width="115" height="26"/>
+                                    <rect key="frame" x="10" y="141" width="132" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Standard 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
+                                    <popUpButtonCell key="cell" type="push" title="標準 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="101">
                                             <items>
-                                                <menuItem title="Standard 1,1" id="112"/>
-                                                <menuItem title="Standard 1,2" tag="1" id="107"/>
-                                                <menuItem title="Standard 2,1" state="on" tag="2" id="351"/>
-                                                <menuItem title="Standard 2,2" tag="3" id="109"/>
-                                                <menuItem title="Standard 2,3" tag="4" id="105"/>
-                                                <menuItem title="Standard 2,4" tag="5" id="102"/>
-                                                <menuItem title="Standard 3,3" tag="6" id="104"/>
-                                                <menuItem title="Standard 3,4" tag="7" id="113"/>
-                                                <menuItem title="Standard 3,5" tag="8" id="111"/>
-                                                <menuItem title="Standard 4,4" tag="9" id="114"/>
-                                                <menuItem title="Standard 4,5" tag="10" id="115"/>
-                                                <menuItem title="Standard 4,6" tag="11" id="103"/>
-                                                <menuItem title="Standard 5,6" tag="12" id="110"/>
-                                                <menuItem title="Standard 5,7" tag="13" id="106"/>
+                                                <menuItem title="標準 1,1" id="112"/>
+                                                <menuItem title="標準 1,2" tag="1" id="107"/>
+                                                <menuItem title="標準 2,1" state="on" tag="2" id="351"/>
+                                                <menuItem title="標準 2,2" tag="3" id="109"/>
+                                                <menuItem title="標準 2,3" tag="4" id="105"/>
+                                                <menuItem title="標準 2,4" tag="5" id="102"/>
+                                                <menuItem title="標準 3,3" tag="6" id="104"/>
+                                                <menuItem title="標準 3,4" tag="7" id="113"/>
+                                                <menuItem title="標準 3,5" tag="8" id="111"/>
+                                                <menuItem title="標準 4,4" tag="9" id="114"/>
+                                                <menuItem title="標準 4,5" tag="10" id="115"/>
+                                                <menuItem title="標準 4,6" tag="11" id="103"/>
+                                                <menuItem title="標準 5,6" tag="12" id="110"/>
+                                                <menuItem title="標準 5,7" tag="13" id="106"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -77,7 +77,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="337">
                                     <rect key="frame" x="18" y="98" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Border Color:" id="372">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="枠の色:" id="372">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -86,22 +86,22 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="338">
                                     <rect key="frame" x="18" y="55" width="122" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Empty Image Color:" usesSingleLineMode="YES" id="373">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="空白画像の色:" usesSingleLineMode="YES" id="373">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="339">
-                                    <rect key="frame" x="15" y="72" width="75" height="26"/>
+                                    <rect key="frame" x="15" y="72" width="114" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="WHITE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="341" id="374">
+                                    <popUpButtonCell key="cell" type="push" title="白" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="341" id="374">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="340">
                                             <items>
-                                                <menuItem title="BLACK" id="342"/>
-                                                <menuItem title="WHITE" state="on" tag="1" id="341"/>
+                                                <menuItem title="黒" id="342"/>
+                                                <menuItem title="白" state="on" tag="1" id="341"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -110,15 +110,15 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="749" id="343">
-                                    <rect key="frame" x="15" y="29" width="75" height="26"/>
+                                    <rect key="frame" x="15" y="29" width="114" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="WHITE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="346" id="375">
+                                    <popUpButtonCell key="cell" type="push" title="白" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="346" id="375">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="344">
                                             <items>
-                                                <menuItem title="BLACK" id="345"/>
-                                                <menuItem title="WHITE" state="on" tag="1" id="346"/>
+                                                <menuItem title="黒" id="345"/>
+                                                <menuItem title="白" state="on" tag="1" id="346"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -129,7 +129,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="408">
                                     <rect key="frame" x="18" y="117" width="122" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Automatically" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="409">
+                                    <buttonCell key="cell" type="check" title="自動" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="409">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -142,7 +142,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="Settings:" id="117">
+                    <box horizontalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="設定:" id="117">
                         <rect key="frame" x="15" y="12" width="325" height="207"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="LPd-jN-w2n">
@@ -150,15 +150,15 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="119">
-                                    <rect key="frame" x="15" y="141" width="100" height="26"/>
+                                    <rect key="frame" x="8" y="141" width="138" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Landscape" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
+                                    <popUpButtonCell key="cell" type="push" title="横" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="120">
                                             <items>
-                                                <menuItem title="Portrait" id="122"/>
-                                                <menuItem title="Landscape" state="on" tag="1" id="121"/>
+                                                <menuItem title="縦" id="122"/>
+                                                <menuItem title="横" state="on" tag="1" id="121"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -167,23 +167,23 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="159">
-                                    <rect key="frame" x="148" y="141" width="136" height="26"/>
+                                    <rect key="frame" x="148" y="141" width="167" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="10 IN x 12 IN" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
+                                    <popUpButtonCell key="cell" type="push" title="10 × 12 インチ" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="160">
                                             <items>
-                                                <menuItem title="8 IN x 10 IN" id="167"/>
-                                                <menuItem title="8.5 IN x 11 IN" tag="1" id="161"/>
-                                                <menuItem title="10 IN x 12 IN" state="on" tag="2" id="171"/>
-                                                <menuItem title="10 IN x 14 IN" tag="3" id="169"/>
-                                                <menuItem title="11 IN x 14 IN" tag="4" id="163"/>
-                                                <menuItem title="11 IN x 17 IN" tag="5" id="165"/>
-                                                <menuItem title="14 IN x 14 IN" tag="6" id="162"/>
-                                                <menuItem title="14 IN x 17 IN" tag="7" id="172"/>
-                                                <menuItem title="24 CM x  24 CM" tag="8" id="170"/>
-                                                <menuItem title="24 CM x  30 CM" tag="9" id="164"/>
+                                                <menuItem title="8 × 10 インチ" id="167"/>
+                                                <menuItem title="8.5 × 11 インチ" tag="1" id="161"/>
+                                                <menuItem title="10 × 12 インチ" state="on" tag="2" id="171"/>
+                                                <menuItem title="10 × 14 インチ" tag="3" id="169"/>
+                                                <menuItem title="11 × 14 インチ" tag="4" id="163"/>
+                                                <menuItem title="11 × 17 インチ" tag="5" id="165"/>
+                                                <menuItem title="14 × 14 インチ" tag="6" id="162"/>
+                                                <menuItem title="14 × 17 インチ" tag="7" id="172"/>
+                                                <menuItem title="24 × 24 cm" tag="8" id="170"/>
+                                                <menuItem title="24 × 30 cm" tag="9" id="164"/>
                                                 <menuItem title="A4" tag="10" id="166"/>
                                                 <menuItem title="A3" tag="11" id="168"/>
                                             </items>
@@ -194,15 +194,15 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="137">
-                                    <rect key="frame" x="15" y="98" width="95" height="26"/>
+                                    <rect key="frame" x="15" y="98" width="128" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Magazine" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
+                                    <popUpButtonCell key="cell" type="push" title="マガジン" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="138">
                                             <items>
-                                                <menuItem title="Processor" id="140"/>
-                                                <menuItem title="Magazine" state="on" tag="1" id="139"/>
+                                                <menuItem title="プロセッサ" id="140"/>
+                                                <menuItem title="マガジン" state="on" tag="1" id="139"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -213,7 +213,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="125">
                                     <rect key="frame" x="148" y="167" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Film Size:" id="379">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="フィルムサイズ:" id="379">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -222,7 +222,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="149">
                                     <rect key="frame" x="18" y="167" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Film Orientation:" id="386">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="フィルムの向き:" id="386">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -231,22 +231,22 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="123">
                                     <rect key="frame" x="18" y="124" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Film Destination:" id="377">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="フィルムの出力先:" id="377">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="133">
-                                    <rect key="frame" x="15" y="52" width="57" height="26"/>
+                                    <rect key="frame" x="15" y="52" width="86" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="YES" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
+                                    <popUpButtonCell key="cell" type="push" title="はい" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="134">
                                             <items>
-                                                <menuItem title="NO" id="135"/>
-                                                <menuItem title="YES" state="on" tag="1" id="136"/>
+                                                <menuItem title="いいえ" id="135"/>
+                                                <menuItem title="はい" state="on" tag="1" id="136"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -257,7 +257,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="131">
                                     <rect key="frame" x="18" y="81" width="124" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Trim:" id="380">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="トリム:" id="380">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -266,7 +266,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="124">
                                     <rect key="frame" x="21" y="35" width="290" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Configuration Information:" id="378">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="構成情報:" id="378">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -287,24 +287,24 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="132">
                                     <rect key="frame" x="148" y="124" width="165" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Magnification Type:" id="381">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="拡大方式:" id="381">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="143">
-                                    <rect key="frame" x="148" y="98" width="100" height="26"/>
+                                    <rect key="frame" x="148" y="98" width="144" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="REPLICATE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
+                                    <popUpButtonCell key="cell" type="push" title="複製" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="144">
                                             <items>
-                                                <menuItem title="NONE" id="148"/>
-                                                <menuItem title="BILINEAR" tag="1" id="147"/>
-                                                <menuItem title="CUBIC" tag="2" id="145"/>
-                                                <menuItem title="REPLICATE" state="on" tag="3" id="146"/>
+                                                <menuItem title="なし" id="148"/>
+                                                <menuItem title="バイリニア" tag="1" id="147"/>
+                                                <menuItem title="キュービック" tag="2" id="145"/>
+                                                <menuItem title="複製" state="on" tag="3" id="146"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -317,7 +317,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="Job:" id="193">
+                    <box horizontalCompressionResistancePriority="1000" title="ジョブ:" id="193">
                         <rect key="frame" x="494" y="12" width="146" height="207"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="21w-IX-rlw">
@@ -325,16 +325,16 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="204">
-                                    <rect key="frame" x="15" y="141" width="67" height="26"/>
+                                    <rect key="frame" x="15" y="141" width="105" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="LOW" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
+                                    <popUpButtonCell key="cell" type="push" title="低" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="205">
                                             <items>
-                                                <menuItem title="HIGH" id="207"/>
-                                                <menuItem title="MED" tag="1" id="208"/>
-                                                <menuItem title="LOW" state="on" tag="2" id="206"/>
+                                                <menuItem title="高" id="207"/>
+                                                <menuItem title="中" tag="1" id="208"/>
+                                                <menuItem title="低" state="on" tag="2" id="206"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -343,16 +343,16 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="199">
-                                    <rect key="frame" x="15" y="98" width="98" height="26"/>
+                                    <rect key="frame" x="6" y="98" width="133" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Paper" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
+                                    <popUpButtonCell key="cell" type="push" title="用紙" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="200">
                                             <items>
-                                                <menuItem title="Blue Film" id="201"/>
-                                                <menuItem title="Clear Film" tag="1" id="203"/>
-                                                <menuItem title="Paper" state="on" tag="2" id="202"/>
+                                                <menuItem title="青フィルム" id="201"/>
+                                                <menuItem title="透明フィルム" tag="1" id="203"/>
+                                                <menuItem title="用紙" state="on" tag="2" id="202"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -376,7 +376,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="197">
                                     <rect key="frame" x="18" y="167" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Priority:" id="390">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="優先度:" id="390">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -385,7 +385,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="196">
                                     <rect key="frame" x="18" y="124" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Medium:" id="389">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="媒体:" id="389">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -394,7 +394,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="195">
                                     <rect key="frame" x="22" y="81" width="110" height="13"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Copies:" id="388">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="部数:" id="388">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -418,7 +418,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="DICOM Printers" id="261">
+                    <box horizontalCompressionResistancePriority="1000" title="DICOM プリンタ" id="261">
                         <rect key="frame" x="16" y="224" width="621" height="178"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="sZF-S3-YjI">
@@ -440,7 +440,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn width="145" minWidth="100" maxWidth="1000" id="266">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Printer">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="プリンタ">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -462,7 +462,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="159" minWidth="10" maxWidth="1000" id="265">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Host">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="ホスト">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -484,7 +484,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="74.4521484375" minWidth="25.452150344848633" maxWidth="1000" id="267">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Port">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="ポート">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -506,7 +506,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="190.60888671875" minWidth="45.108890533447266" maxWidth="1000" id="268">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AE タイトル">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -571,7 +571,7 @@
                                 <button id="271">
                                     <rect key="frame" x="64" y="13" width="170" height="20"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="square" title="set as default" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
+                                    <buttonCell key="cell" type="square" title="デフォルトに設定" bezelStyle="shadowlessSquare" alignment="center" borderStyle="border" inset="2" id="397">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="cellTitle"/>
                                     </buttonCell>
@@ -587,7 +587,7 @@
                                 <button verticalHuggingPriority="750" id="413">
                                     <rect key="frame" x="360" y="9" width="124" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Save as..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
+                                    <buttonCell key="cell" type="push" title="別名で保存…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="416">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -598,7 +598,7 @@
                                 <button verticalHuggingPriority="750" id="414">
                                     <rect key="frame" x="484" y="9" width="120" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Load from..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
+                                    <buttonCell key="cell" type="push" title="読み込む…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="415">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -614,7 +614,7 @@
                     <button id="405">
                         <rect key="frame" x="18" y="414" width="620" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Automatically resize window to a 'square size' before printing" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
+                        <buttonCell key="cell" type="check" title="印刷前にウインドウを正方形にリサイズ" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="406">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

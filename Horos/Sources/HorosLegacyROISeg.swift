@@ -115,7 +115,10 @@ public final class HorosLegacyROISeg: NSObject {
                 seriesInstanceUID: DicomSEGCodec.makeUID(),
                 studyInstanceUID: series.studyInstanceUID ?? "",
                 frameOfReferenceUID: series.frameOfReferenceUID ?? "",
-                sourceSOPInstanceUIDs: uniqueSOPs
+                sourceSOPInstanceUIDs: uniqueSOPs,
+                // The ROIs were drawn on the images of one series: theirs.
+                sourceSeries: [DicomSEGSourceSeries(seriesInstanceUID: series.seriesInstanceUID ?? "",
+                                                    instances: uniqueSOPs.map { DicomSEGSourceInstance(sopInstanceUID: $0) })]
             ),
             geometry: geometry,
             kind: .binary,

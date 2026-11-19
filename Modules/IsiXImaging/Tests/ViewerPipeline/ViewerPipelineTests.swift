@@ -99,6 +99,128 @@ import IsiXPreferences
         SliceStack.reverseSlices(volume, sliceCount: count, sliceFloatCount: slice)
         #expect((0..<(count * slice)).allSatisfy { volume[$0] == Float((count - 1 - $0 / slice) * slice + $0 % slice) })
     }
+
+    @Test func reorderingMovesEachSliceToItsPlace() {
+        let slice = 5
+        for order in [[0, 1, 2, 3], [3, 2, 1, 0], [1, 2, 3, 0], [2, 0, 1, 4, 3], [0, 4, 2, 3, 1, 5]] {
+            let volume = UnsafeMutablePointer<Float>.allocate(capacity: order.count * slice)
+            defer { volume.deallocate() }
+            for i in 0..<(order.count * slice) { volume[i] = Float(i) }
+            SliceStack.reorderSlices(volume, order: order, sliceFloatCount: slice)
+            #expect((0..<(order.count * slice)).allSatisfy { volume[$0] == Float(order[$0 / slice] * slice + $0 % slice) }, "\(order)")
+            #expect(SliceStackOrder.inverse(of: order).enumerated().allSatisfy { order[$0.element] == $0.offset })
+        }
+    }
+}
+
+/// The order of a whole stack, which the viewer reverses or sorts before a 3D
+/// reconstruction, applied as the viewer applies it: reversed when it
+/// descends, then sorted when still out of order, and applied again.
+@Suite struct SliceStackOrderTests {
+
+    let axial: [Double] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+    func order(_ z: [Double], orientation: [Double]? = nil) -> SliceStackOrder {
+        SliceStackOrder(origins: z.map { [10, -20, $0] }, orientations: z.map { _ in orientation ?? axial })
+    }
+
+    /// The viewer's arrangement: reversed when it descends, then sorted.
+    func arranged(_ z: [Double]) -> [Double] {
+        var z = z
+        if order(z).isDescending(stepInterval: z[2] - z[1]) { z.reverse() }
+        if case .unordered(let sorting) = order(z).arrangement { z = sorting.map { z[$0] } }
+        return z
+    }
+
+    @Test func aRegularStackKeepsItsDirectionAndItsStep() {
+        let descending = (0..<20).map { -926.096 - Double($0) }
+        #expect(order(descending).arrangement == .descending)
+        #expect(order(descending).isDescending(stepInterval: 1))
+        #expect(abs(order(descending).meanInterval3D - 1) < 1e-9)
+        #expect(order(Array(descending.reversed())).arrangement == .ascending)
+        #expect(arranged(descending) == descending.reversed())
+        #expect(arranged(arranged(descending)) == arranged(descending))
+    }
+
+    /// The CT of the report sorted by date: instances 1 to 5 share an
+    /// acquisition time and come first in ascending location, the other
+    /// slices descend. The step from slice 1 to 2 rises; the stack descends.
+    @Test func slicesSortedByDateWithATieAreSortedAlongTheNormal() throws {
+        let instances = [5, 4, 3, 2, 1] + Array(6...40)
+        let z = instances.map { -926.096 - Double($0 - 1) }
+        let stack = order(z)
+        guard case .unordered = stack.arrangement else {
+            Issue.record("a stack that rises then falls is out of order, not \(stack.arrangement)")
+            return
+        }
+        #expect(z[2] - z[1] > 0 && stack.isDescending(stepInterval: z[2] - z[1]))
+        #expect(abs(stack.meanInterval3D - 1) < 1e-9)
+        let once = arranged(z)
+        #expect(once == z.sorted())
+        #expect(order(once).arrangement == .ascending)
+        #expect(arranged(once) == once)
+    }
+
+    /// Another slice than the first out of place: sorted wherever it is.
+    @Test func aSliceOutOfPlaceIsSorted() {
+        var z = (0..<30).map { Double($0) * 1.25 }
+        z.swapAt(12, 17)
+        #expect(!order(z).isDescending(stepInterval: z[2] - z[1]))
+        #expect(arranged(z) == z.sorted())
+        #expect(arranged(arranged(z)) == z.sorted())
+    }
+
+    /// Instance numbers given twice (two acquisitions numbered from 1, each
+    /// slice 0.5 mm from its twin) and the twins taken in descending location:
+    /// the stack zigzags; it is sorted, and stays sorted.
+    @Test func repeatedInstanceNumbersInEitherOrderAreSorted() {
+        let twinsDescending = (0..<20).flatMap { [Double($0) + 0.5, Double($0)] }
+        #expect(arranged(twinsDescending) == twinsDescending.sorted())
+        #expect(arranged(arranged(twinsDescending)) == twinsDescending.sorted())
+        let twinsAscendingDownwards = (0..<20).flatMap { [-Double($0) - 0.5, -Double($0)] }
+        #expect(arranged(twinsAscendingDownwards) == twinsAscendingDownwards.sorted())
+    }
+
+    /// Slices missing, in order: not reordered; the mean interval spans the
+    /// stack, where slices 1 and 2 gave the step of one gap.
+    @Test func aStackWithGapsKeepsItsOrderAndGetsItsMeanInterval() {
+        let z = [0.0, 3, 6, 7, 8, 9, 13, 14, 15, 16].map { -$0 }
+        let stack = order(z)
+        #expect(stack.arrangement == .descending && stack.isMonotonic)
+        #expect(abs(stack.meanInterval3D - 16.0 / 9) < 1e-9)
+        #expect(arranged(z) == z.reversed())
+    }
+
+    /// Two time points of one series, or a repeated slice: no single order.
+    /// The viewer keeps the former rule, from slices 1 and 2.
+    @Test func repeatedPositionsLeaveTheFormerRule() {
+        let phases = (0..<10).map { Double($0) } + (0..<10).map { Double($0) }
+        #expect(order(phases).arrangement == .undetermined)
+        #expect(order(phases).isDescending(stepInterval: -1))
+        #expect(!order(phases).isDescending(stepInterval: 1))
+        #expect(order([0, 1, 1, 2]).arrangement == .undetermined)
+        #expect(order([0, 1, 1.0005, 2]).arrangement == .undetermined)
+    }
+
+    /// A scout of another orientation, slices without one, or one slice.
+    @Test func otherOrientationsHaveNoOrder() {
+        let coronal: [Double] = [1, 0, 0, 0, 0, -1, 0, 1, 0]
+        let mixed = SliceStackOrder(origins: [[0, 0, 0], [0, 0, 1], [0, 0, 2]], orientations: [coronal, axial, axial])
+        #expect(mixed.arrangement == .undetermined && mixed.meanInterval3D == 0)
+        #expect(order([0, 1, 2], orientation: [Double](repeating: 0, count: 9)).arrangement == .undetermined)
+        #expect(order([4]).arrangement == .undetermined)
+    }
+
+    /// The direction is the slice normal's: a sagittal stack whose normal
+    /// points to -x ascends as x falls, and a tilted stack keeps the distance
+    /// between its origins.
+    @Test func positionsAreMeasuredAlongTheNormal() {
+        let sagittal: [Double] = [0, 1, 0, 0, 0, -1, -1, 0, 0]
+        let stack = SliceStackOrder(origins: [[5, 0, 0], [4, 0, 0], [3, 0, 0]], orientations: Array(repeating: sagittal, count: 3))
+        #expect(stack.arrangement == .ascending)
+        let tilted = SliceStackOrder(origins: (0..<5).map { [0, Double($0) * 0.3, Double($0)] }, orientations: Array(repeating: axial, count: 5))
+        #expect(tilted.arrangement == .ascending && abs(tilted.meanInterval3D - (1.09 as Double).squareRoot()) < 1e-9)
+    }
 }
 
 @Suite struct MaskSubtractionTests {
@@ -217,5 +339,15 @@ import IsiXPreferences
         #expect(StackFusion.thickness(afterSteps: 1, active: true, current: 10, maximum: 10) == nil)
         #expect(StackFusion.thickness(afterSteps: 1, active: true, current: 1, maximum: 1) == nil)
         #expect(StackFusion.thickness(afterSteps: 0, active: true, current: 3, maximum: 10) == nil)
+    }
+
+    @Test func theSlabSliderReachesTheWholeSeries() {
+        #expect(StackFusion.sliderMaximum(sliceCounts: [347]) == 347)
+        // Every time of a 4D series has the slab: the shortest one rules.
+        #expect(StackFusion.sliderMaximum(sliceCounts: [120, 118, 120]) == 118)
+        // A slab needs two slices, and the images count them in 16 bits.
+        #expect(StackFusion.sliderMaximum(sliceCounts: [1]) == 2)
+        #expect(StackFusion.sliderMaximum(sliceCounts: []) == 2)
+        #expect(StackFusion.sliderMaximum(sliceCounts: [100_000]) == 32_767)
     }
 }

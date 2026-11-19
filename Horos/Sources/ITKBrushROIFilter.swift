@@ -56,6 +56,13 @@ public final class ITKBrushROIFilter: NSObject, @unchecked Sendable {
     private var erosionElements: [Int: [UInt8]] = [:]
     private var dilationElements: [Int: [UInt8]] = [:]
 
+    // The instance variables of the former Horos and OsiriX plugin SDK, with
+    // the type its header declared: the two elements that SDK's code drew
+    // once, for the first radius asked. The elements are kept per side above,
+    // and nothing of the application stands behind these two.
+    final var kernelDilate: UnsafeMutablePointer<UInt8>?
+    final var kernelErode: UnsafeMutablePointer<UInt8>?
+
     /// The erosion or dilation element of side `side`.
     private func element(side: Int, erosion: Bool) -> [UInt8] {
         lock.lock()

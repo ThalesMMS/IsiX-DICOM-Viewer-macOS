@@ -38,9 +38,11 @@
 // WebPortal and WebPortalServer are implemented in Swift
 // (Horos/Sources/WebPortal.swift); +initialize is in WebPortal+CAPI.m. This
 // header keeps <Horos/WebPortal.h>: it brings in the generated interface,
-// which declares the same class names and selectors.
+// which declares the same class names and selectors. WebPortalServer is a
+// subclass of HTTPServer, whose interface comes first.
 
 #import <Cocoa/Cocoa.h>
+#import "HTTPServer.h"
 
 #define THREAD_POOL_SIZE 4
 

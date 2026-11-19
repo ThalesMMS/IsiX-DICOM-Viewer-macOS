@@ -101,6 +101,7 @@ extension QueryController {
             fromDate.isEnabled = false
             toDate.isEnabled = false
         }
+        (_dateQueryFilter, _timeQueryFilter) = QueryController.dateAndTimeQueryFilters(tag: tag, from: fromDate.dateValue, to: toDate.dateValue)
     }
 
     /// The age of the birth date chosen, beside it.
@@ -156,6 +157,7 @@ extension QueryController {
             cellsString += String(format: "%d %d ", Int32(row), Int32(column))
         }
         _ = cellsString
+        _modalityQueryFilter = getModalityQueryFilter(chosenModalities())
     }
 
     /// Command-click on a modality chooses it alone.

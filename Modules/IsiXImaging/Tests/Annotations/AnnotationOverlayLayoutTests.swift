@@ -67,6 +67,7 @@ private struct View: AnnotationValueSource {
     var isPlane = true, spacingX = 0.7
     var wl: Float = 40, ww: Float = 400, modality = "CT", maxOfSeries: Float = 0
     var thickness = 2.5, sliceLocation = -33.25, slab: (Float, Float) = (7.5, -30)
+    var reconstructionSlab = false, hasLocation = true
     var viewPosition: String? = nil, patientPosition: String? = nil
     var patient: String? = "DOE^JANE"
 
@@ -100,7 +101,8 @@ private struct View: AnnotationValueSource {
         AnnotationWindowLevel(level: wl, width: ww, windowsAsPET: modality == "PT", maximumOfSeries: maxOfSeries)
     }
     func slice() -> AnnotationSlice {
-        AnnotationSlice(thickness: thickness, location: sliceLocation, stack: stack, viewPosition: viewPosition, patientPosition: patientPosition)
+        AnnotationSlice(thickness: thickness, location: sliceLocation, stack: stack, viewPosition: viewPosition, patientPosition: patientPosition,
+                        hasLocation: hasLocation, isReconstructionSlab: reconstructionSlab)
     }
     func thickSlab() -> (thickness: Float, location: Float) { slab }
     func patientName() -> String? { patient }
@@ -341,8 +343,10 @@ private func formerTextualData(_ view: View, keys: [String], annotations: [Strin
                     if !orientationDrawn { commands.append(.orientation) }
                     orientationDrawn = true
                 } else if item.isEqual(to: "Thickness / Location / Position") {
-                    if view.thickness != 0 && view.sliceLocation != 0 {
-                        if view.stack > 1 {
+                    // The slab by its own thickness, and the slice by its own, where the image has a location.
+                    let showsSlab = view.stack > 1 && view.hasLocation && view.slab.0.isFinite && view.slab.0 > 0
+                    if showsSlab || (view.stack <= 1 && view.thickness != 0 && view.hasLocation) {
+                        if showsSlab {
                             let vv = view.slab.0, pp = view.slab.1
                             if vv < 1.0 && vv != 0.0 {
                                 if fabs(Double(pp)) < 1.0 && pp != 0.0 {
@@ -468,6 +472,76 @@ struct AnnotationOverlayLayoutTests {
         }
     }
 
+    /// The thickness line of a view, in a language's number format.
+    private func thicknessLine(_ view: View, locale: String, fullText: Bool = true) -> String? {
+        var phrases = AnnotationPhrases.english
+        phrases.numberLocale = Locale(identifier: locale)
+        let layout = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 9.5, lineHeight: 17.2,
+                                             topLeftInset: 0, colourBoxSize: 0)
+        let drawn = layout.commands(for: "LowerLeft", lines: [["Thickness / Location / Position"]], fullText: fullText, patientNamePrefix: "",
+                                    phrases: phrases, values: view)
+        for case .text(let line, _, _, _) in drawn.commands where line.contains("Thickness") { return line }
+        return nil
+    }
+
+    @Test func theLineFollowsTheSlabWhereTheImageHasALocation() {
+        func line(stack: Int, hasLocation: Bool, raw: (Double, Double), slab: (Float, Float), fullText: Bool = true, view position: String? = nil) -> String? {
+            var view = View()
+            (view.stack, view.hasLocation, view.thickness, view.sliceLocation, view.slab, view.viewPosition) = (stack, hasLocation, raw.0, raw.1, slab, position)
+            let layout = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 9.5, lineHeight: 17.2,
+                                                 topLeftInset: 0, colourBoxSize: 0)
+            let drawn = layout.commands(for: "LowerLeft", lines: [["Thickness / Location / Position"]], fullText: fullText, patientNamePrefix: "",
+                                        phrases: .english, values: view)
+            for case .text(let text, _, _, _) in drawn.commands { return text }
+            return nil
+        }
+        // An image at location 0, a plane as any other, with a slab: the slab's line.
+        #expect(line(stack: 4, hasLocation: true, raw: (2, 0), slab: (20, -9)) == "Thickness: 20.00 mm Location: -9.00 mm")
+        // A series that does not say its slice thickness: the slab's own, the toolbar's.
+        #expect(line(stack: 4, hasLocation: true, raw: (0, -50), slab: (18, -59)) == "Thickness: 18.00 mm Location: -59.00 mm")
+        #expect(line(stack: 4, hasLocation: true, raw: (0, -50), slab: (18, -59), fullText: false) == "Thickness: 18.00 mm Location: -59.00 mm")
+        // A slab below 1 mm stays in micrometres.
+        #expect(line(stack: 2, hasLocation: true, raw: (0.4, 0), slab: (0.8, 12)) == "Thickness: 800.00 \u{B5}m Location: 12.00 mm")
+        // A slab with no thickness, or an image with no location: the positions, as before.
+        #expect(line(stack: 4, hasLocation: true, raw: (0, -50), slab: (0, -50), view: "AP")?.hasPrefix("Position: AP") == true)
+        #expect(line(stack: 4, hasLocation: false, raw: (2, 0), slab: (20, -9), view: "AP")?.hasPrefix("Position: AP") == true)
+        #expect(line(stack: 4, hasLocation: false, raw: (2, 0), slab: (20, -9)) == nil)
+        // Without a slab: the slice's line at location 0, in the full text only.
+        #expect(line(stack: 1, hasLocation: true, raw: (2, 0), slab: (0, 0)) == "Thickness: 2.00 mm Location: 0.00 mm")
+        #expect(line(stack: 1, hasLocation: true, raw: (2, 0), slab: (0, 0), fullText: false) == nil)
+        #expect(line(stack: 1, hasLocation: false, raw: (0, 5), slab: (0, 0), view: "AP")?.hasPrefix("Position: AP") == true)
+        #expect(line(stack: 1, hasLocation: true, raw: (0, 5), slab: (0, 0), view: "AP")?.hasPrefix("Position: AP") == true)
+        // What had a line keeps it.
+        #expect(line(stack: 1, hasLocation: true, raw: (2.5, -33.25), slab: (0, 0)) == "Thickness: 2.50 mm Location: -33.25 mm")
+        #expect(line(stack: 4, hasLocation: true, raw: (2.5, -33.25), slab: (7.5, -30)) == "Thickness: 7.50 mm Location: -30.00 mm")
+    }
+
+    @Test func theSlabOfAReconstructionIsWrittenAsItsSliderWritesIt() {
+        var view = View()
+        view.reconstructionSlab = true
+        view.sliceLocation = -33.25
+        let expected: [(Double, String, String)] = [(0.999, "1 mm", "1 mm"), (0.625, "0.62 mm", "0,62 mm"), (12.375, "12.4 mm", "12,4 mm"),
+                                                    (1, "1 mm", "1 mm"), (0.7, "0.7 mm", "0,7 mm"), (359, "359 mm", "359 mm")]
+        for (thickness, english, italian) in expected {
+            view.thickness = thickness
+            #expect(thicknessLine(view, locale: "en_US") == "Thickness: \(english) Location: -33.25 mm")
+            #expect(thicknessLine(view, locale: "it_IT") == "Thickness: \(italian) Location: -33.25 mm")
+            #expect(thicknessLine(view, locale: "en_US") == "Thickness: " + SlabThicknessText.text(thickness, locale: Locale(identifier: "en_US")) + " Location: -33.25 mm")
+            // The short text has no thickness line, as for a slice.
+            #expect(thicknessLine(view, locale: "en_US", fullText: false) == nil)
+        }
+        // The thickness of a slice of the 2D viewer is written as it was, in micrometres below 1 mm.
+        view.reconstructionSlab = false
+        view.thickness = 0.625
+        #expect(thicknessLine(view, locale: "it_IT") == "Thickness: 625.00 \u{B5}m Location: -33.25 mm")
+        view.thickness = 12.375
+        #expect(thicknessLine(view, locale: "it_IT") == "Thickness: 12.38 mm Location: -33.25 mm")
+        // And so is the thick slab of the 2D viewer, whatever the mark says.
+        view.reconstructionSlab = true
+        view.stack = 4
+        #expect(thicknessLine(view, locale: "en_US") == "Thickness: 7.50 mm Location: -30.00 mm")
+    }
+
     @Test func theFourCornersAndTheMiddlesAtEachLevel() {
         for level in [Level.none, .graphic, .basic, .full, .pluginOnly, .custom] {
             for ownLevel in [Level.basic, .full] {
@@ -537,8 +611,10 @@ struct AnnotationOverlayLayoutTests {
         view = View()
         for (thickness, location) in [(2.5, -33.25), (0.6, 0.3), (0.6, 12), (0, 5), (3, 0)] {
             for stack in [1, 4] {
-                for slab in [(Float(7.5), Float(-30)), (0.4, 0.2), (0.4, 15)] {
-                    for positions in [(nil, nil), ("AP", nil), (nil, "HFS"), ("PA", "FFS")] as [(String?, String?)] {
+                for slab in [(Float(7.5), Float(-30)), (0.4, 0.2), (0.4, 15), (0, -50), (.nan, 3)] {
+                    for positions in [(nil, nil), ("AP", nil), (nil, "HFS"), ("PA", "FFS"), ("LL", "none")] as [(String?, String?)] {
+                        // An image with a location has it also at 0; "none" stands for one without.
+                        view.hasLocation = positions.1 != "none"
                         view.thickness = thickness
                         view.sliceLocation = location
                         view.stack = stack
@@ -656,6 +732,8 @@ struct AnnotationOverlayLayoutTests {
     }
 
     @Test func theLettersAndTheNoticesAroundTheImage() {
+        // At scale 1 a point is a backing pixel: the letters stand where the
+        // former code, which counted in backing pixels at any scale, put them.
         for (x, y, width, height) in [(0.0, 0.0, 1024.0, 768.0), (13.5, 7.25, 333.3, 251.9)] {
             for (left, right, top, bottom) in [("R", "L", "A", "P"), ("RA", "LP", "", "IS"), ("", "", "", "")] {
                 for notices in [[], ["L"], ["", "Horizontally Flipped", "VOI LUT Applied"]] as [[String]] {
@@ -675,12 +753,125 @@ struct AnnotationOverlayLayoutTests {
                         yPosition = Float(Double(yPosition) + (stringSize.height + 3))
                     }
                     former.append(.text(bottom, x: cLong(x + width / 2), y: cLong(y + 2 + height - 6), alignment: .left))
-                    let layout = AnnotationOverlayLayout(originX: x, originY: y, width: width, height: height, scale: 2,
+                    let layout = AnnotationOverlayLayout(originX: x, originY: y, width: width, height: height, scale: 1,
                                                          characterWidth: stringSize.width, lineHeight: stringSize.height)
                     #expect(layout.orientationCommands(left: left, right: right, top: top, bottom: bottom, notices: notices) == former)
                 }
             }
         }
+    }
+
+    @Test func theLettersKeepTheirMarginsInPointsAtAnyScale() {
+        // The same view on a display of scale 1 and of scale 2: twice the
+        // pixels, the same points from each edge.
+        let one = AnnotationOverlayLayout(originX: 0, originY: 0, width: 512, height: 384, scale: 1, characterWidth: 9, lineHeight: 17)
+        #expect(one.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: ["Flipped"]) == [
+            .text("R", x: 6, y: 194, alignment: .left), .text("L", x: 501, y: 194, alignment: .left),
+            .text("A", x: 251, y: 20, alignment: .left), .text("Flipped", x: 256, y: 40, alignment: .center),
+            .text("P", x: 256, y: 380, alignment: .left),
+        ])
+        let two = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 18, lineHeight: 34)
+        #expect(two.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: ["Flipped"]) == [
+            .text("R", x: 12, y: 388, alignment: .left), .text("L", x: 1002, y: 388, alignment: .left),
+            .text("A", x: 503, y: 40, alignment: .left), .text("Flipped", x: 512, y: 80, alignment: .center),
+            .text("P", x: 512, y: 760, alignment: .left),
+        ])
+    }
+
+    @Test func theLettersKeepClearOfTheWindowsFrame() {
+        // The room of a frame of 3 points and 2 points beside it, in a view that can have one.
+        let one = AnnotationOverlayLayout(originX: 0, originY: 0, width: 512, height: 384, scale: 1, characterWidth: 9, lineHeight: 17,
+                                          edgeReserve: 5)
+        #expect(one.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: ["Flipped"]) == [
+            .text("R", x: 11, y: 194, alignment: .left), .text("L", x: 496, y: 194, alignment: .left),
+            .text("A", x: 251, y: 25, alignment: .left), .text("Flipped", x: 256, y: 45, alignment: .center),
+            .text("P", x: 256, y: 375, alignment: .left),
+        ])
+        let two = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 18, lineHeight: 34,
+                                          edgeReserve: 5)
+        #expect(two.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: ["Flipped"]) == [
+            .text("R", x: 22, y: 388, alignment: .left), .text("L", x: 992, y: 388, alignment: .left),
+            .text("A", x: 503, y: 50, alignment: .left), .text("Flipped", x: 512, y: 90, alignment: .center),
+            .text("P", x: 512, y: 750, alignment: .left),
+        ])
+        // The right letter ends, and the left one starts, past the frame and its clearance.
+        #expect(Double(992 + 18) <= 1024 - 5 * 2 && Double(22) >= 5 * 2)
+    }
+
+    // MARK: The room of the window's frame
+
+    private func starts(_ layout: AnnotationOverlayLayout) -> [String: [Int32]] {
+        var starts: [String: [Int32]] = [:]
+        for position in ["TopLeft", "TopMiddle", "TopRight", "MiddleLeft", "MiddleRight", "LowerLeft", "LowerMiddle", "LowerRight"] {
+            let start = layout.start(of: position)
+            starts[position] = [start.x, start.y]
+        }
+        return starts
+    }
+
+    @Test func theLinesKeepTheirMarginsWithoutAFrame() {
+        let one = AnnotationOverlayLayout(originX: 0, originY: 0, width: 512, height: 384, scale: 1, characterWidth: 9, lineHeight: 17)
+        #expect(starts(one) == ["TopLeft": [6, 19], "TopMiddle": [256, 17], "TopRight": [510, 19], "MiddleLeft": [6, 192],
+                                "MiddleRight": [510, 192], "LowerLeft": [6, 382], "LowerMiddle": [256, 382], "LowerRight": [510, 365]])
+        let two = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 18, lineHeight: 34)
+        #expect(starts(two) == ["TopLeft": [12, 38], "TopMiddle": [512, 34], "TopRight": [1020, 38], "MiddleLeft": [12, 384],
+                                "MiddleRight": [1020, 384], "LowerLeft": [12, 764], "LowerMiddle": [512, 764], "LowerRight": [1020, 730]])
+        #expect(one.edgeReserve == 0)
+    }
+
+    @Test func theLinesLeaveTheRoomOfTheWindowsFrameOnEverySide() {
+        let one = AnnotationOverlayLayout(originX: 0, originY: 0, width: 512, height: 384, scale: 1, characterWidth: 9, lineHeight: 17,
+                                          edgeReserve: 5)
+        #expect(starts(one) == ["TopLeft": [11, 24], "TopMiddle": [256, 22], "TopRight": [505, 24], "MiddleLeft": [11, 192],
+                                "MiddleRight": [505, 192], "LowerLeft": [11, 377], "LowerMiddle": [256, 377], "LowerRight": [505, 360]])
+        let two = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 18, lineHeight: 34,
+                                          edgeReserve: 5)
+        #expect(starts(two) == ["TopLeft": [22, 48], "TopMiddle": [512, 44], "TopRight": [1010, 48], "MiddleLeft": [22, 384],
+                                "MiddleRight": [1010, 384], "LowerLeft": [22, 754], "LowerMiddle": [512, 754], "LowerRight": [1010, 720]])
+        // Whatever the frame of the view and the scale, each corner moves in
+        // by the reserve, and the middles of the sides stay in the middle.
+        for (x, y, width, height) in [(0.0, 0.0, 800.0, 600.0), (13.5, 7.25, 333.3, 251.9)] {
+            for sf: Float in [1, 2] {
+                let bare = AnnotationOverlayLayout(originX: x, originY: y, width: width, height: height, scale: sf, characterWidth: 8,
+                                                   lineHeight: 14, topLeftInset: 24.5)
+                let framed = AnnotationOverlayLayout(originX: x, originY: y, width: width, height: height, scale: sf, characterWidth: 8,
+                                                     lineHeight: 14, topLeftInset: 24.5, edgeReserve: 5)
+                let moved = Int32(5 * sf)
+                for (position, inwards) in [("TopLeft", (1, 1)), ("TopRight", (-1, 1)), ("LowerLeft", (1, -1)), ("LowerRight", (-1, -1)),
+                                            ("TopMiddle", (0, 1)), ("LowerMiddle", (0, -1)), ("MiddleLeft", (1, 0)), ("MiddleRight", (-1, 0))] {
+                    let a = bare.start(of: position), b = framed.start(of: position)
+                    #expect(abs(b.x - a.x - Int32(inwards.0) * moved) <= 1 && abs(b.y - a.y - Int32(inwards.1) * moved) <= 1,
+                            "\(position) at scale \(sf)")
+                }
+                // The lines beside the orientation letters start a line further, as without a frame.
+                #expect(framed.withOrientationDrawn().start(of: "TopMiddle").y == framed.start(of: "TopMiddle").y + 14)
+            }
+        }
+    }
+
+    @Test func theStudyNumberBoxAndTheSignatureLeaveTheRoomOfTheFrame() {
+        let layout = AnnotationOverlayLayout(originX: 10, originY: 20, width: 500.7, height: 300.2, scale: 2, characterWidth: 8, lineHeight: 14,
+                                             edgeReserve: 5)
+        #expect(layout.studyNumberOrigin == (30, 38))
+        #expect(layout.signature == (498, 308))
+        let one = AnnotationOverlayLayout(originX: 0, originY: 0, width: 500, height: 300, scale: 1, characterWidth: 8, lineHeight: 14,
+                                          edgeReserve: 5)
+        #expect(one.studyNumberOrigin == (10, 9))
+        #expect(one.signature == (493, 293))
+    }
+
+    @Test func theFirstTopLeftLinesLeaveTheBoxRoomWithAndWithoutTheReserve() {
+        let lines = [["One"], ["Two"], ["Three"]]
+        func drawn(_ reserve: Double) -> [Command] {
+            let layout = AnnotationOverlayLayout(originX: 0, originY: 0, width: 1024, height: 768, scale: 2, characterWidth: 18, lineHeight: 34,
+                                                 colourBoxSize: 60, edgeReserve: reserve)
+            return layout.commands(for: "TopLeft", lines: lines, fullText: true, patientNamePrefix: prefix, phrases: .english, values: View()).commands
+        }
+        // The box moves in with the lines: the same two lines stand beside it.
+        #expect(drawn(0) == [.text("One", x: 72, y: 38, alignment: .left), .text("Two", x: 72, y: 72, alignment: .left),
+                             .text("Three", x: 12, y: 106, alignment: .left)])
+        #expect(drawn(5) == [.text("One", x: 82, y: 48, alignment: .left), .text("Two", x: 82, y: 82, alignment: .left),
+                             .text("Three", x: 22, y: 116, alignment: .left)])
     }
 
     // MARK: Description in large

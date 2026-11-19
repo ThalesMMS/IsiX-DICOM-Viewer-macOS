@@ -10,19 +10,6 @@
 
 import AppKit
 
-/// The cine of the slices and of the 4D frames: their timers, the speed measure and its direction, the times of the last slice and frame shown.
-final class ViewerPlaybackState: @unchecked Sendable {
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var timer: Timer?
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var movieTimer: Timer?
-    var speedometer: Int = 0
-    var direction: Float = 0
-    var lastTime: TimeInterval = 0
-    var lastTimeFrame: TimeInterval = 0
-    var lastMovieTime: TimeInterval = 0
-}
-
 extension ViewerController {
     /// The cine of this viewer, for one call: the players, their speeds and
     /// their timers.
@@ -31,31 +18,31 @@ extension ViewerController {
     }
 
     var horos_timer: Timer? {
-        get { playbackState.timer }
-        set { playbackState.timer = newValue }
+        get { _timer.wrappedValue }
+        set { _timer.wrappedValue = newValue }
     }
     var horos_movieTimer: Timer? {
-        get { playbackState.movieTimer }
-        set { playbackState.movieTimer = newValue }
+        get { _movieTimer.wrappedValue }
+        set { _movieTimer.wrappedValue = newValue }
     }
     var horos_speedometer: Int {
-        get { playbackState.speedometer }
-        set { playbackState.speedometer = newValue }
+        get { _speedometer }
+        set { _speedometer = newValue }
     }
     var horos_direction: Float {
-        get { playbackState.direction }
-        set { playbackState.direction = newValue }
+        get { _direction }
+        set { _direction = newValue }
     }
     var horos_lastTime: TimeInterval {
-        get { playbackState.lastTime }
-        set { playbackState.lastTime = newValue }
+        get { _lastTime }
+        set { _lastTime = newValue }
     }
     var horos_lastTimeFrame: TimeInterval {
-        get { playbackState.lastTimeFrame }
-        set { playbackState.lastTimeFrame = newValue }
+        get { _lastTimeFrame }
+        set { _lastTimeFrame = newValue }
     }
     var horos_lastMovieTime: TimeInterval {
-        get { playbackState.lastMovieTime }
-        set { playbackState.lastMovieTime = newValue }
+        get { _lastMovieTime }
+        set { _lastMovieTime = newValue }
     }
 }

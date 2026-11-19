@@ -59,6 +59,61 @@ public final class Camera: NSObject, NSCopying {
     private var _croppingPlanes: NSMutableArray?
     private var _previewImage: NSImage?
 
+    // Two instance variables that only older copies of the headers of the
+    // former Horos and OsiriX plugin SDK declare, which a plugin built with
+    // one reads at the offsets the application exports for them: the two
+    // opposite corners of the box the volume is cropped to. The camera keeps
+    // the crop as the six planes above; these are the lowest and the highest
+    // coordinates of the points of those planes, the origin for both while a
+    // plane is not valid, written again when the planes change and read by
+    // nothing here.
+    var minCroppingPlanes: Point3D? = Point3D()
+    var maxCroppingPlanes: Point3D? = Point3D()
+
+    /// Writes the two corners from the six planes. Who replaces a plane in the
+    /// array the camera hands out sends this afterwards.
+    func copyCroppingCorners() {
+        var low = N3Vector(), high = N3Vector()
+        var valid = false
+        for element in _croppingPlanes ?? [] {
+            guard let plane = (element as? NSValue)?.n3PlaneValue(), N3PlaneIsValid(plane) else {
+                valid = false
+                break
+            }
+            let point = plane.point
+            if valid {
+                low = N3VectorMake(min(low.x, point.x), min(low.y, point.y), min(low.z, point.z))
+                high = N3VectorMake(max(high.x, point.x), max(high.y, point.y), max(high.z, point.z))
+            } else {
+                low = point
+                high = point
+                valid = true
+            }
+        }
+        if valid == false {
+            low = N3Vector()
+            high = N3Vector()
+        }
+        setCroppingCorners(low: low, high: high)
+    }
+
+    /// Writes the two corners as given: for who has already computed them
+    /// from the same six planes.
+    func setCroppingCorners(low: N3Vector, high: N3Vector) {
+        let lowest = minCroppingPlanes ?? Point3D(), highest = maxCroppingPlanes ?? Point3D()
+        lowest.x = Float(low.x); lowest.y = Float(low.y); lowest.z = Float(low.z)
+        highest.x = Float(high.x); highest.y = Float(high.y); highest.z = Float(high.z)
+        minCroppingPlanes = lowest
+        maxCroppingPlanes = highest
+    }
+
+    /// The two corners as they are written.
+    var croppingCorners: (low: N3Vector, high: N3Vector) {
+        let low = minCroppingPlanes, high = maxCroppingPlanes
+        return (N3VectorMake(CGFloat(low?.x ?? 0), CGFloat(low?.y ?? 0), CGFloat(low?.z ?? 0)),
+                N3VectorMake(CGFloat(high?.x ?? 0), CGFloat(high?.y ?? 0), CGFloat(high?.z ?? 0)))
+    }
+
     @objc public dynamic var index: Int32 = 0
 
     @objc public dynamic var position: Point3D! {
@@ -81,7 +136,10 @@ public final class Camera: NSObject, NSCopying {
         // A mutable copy: -copy of a mutable array is an immutable NSArray,
         // which the Objective-C kept under the NSMutableArray type, so
         // -replaceObjectAtIndex:withObject: on it raised.
-        set { _croppingPlanes = Camera.mutableCopied(newValue) }
+        set {
+            _croppingPlanes = Camera.mutableCopied(newValue)
+            copyCroppingCorners()
+        }
     }
 
     @objc public dynamic var previewImage: NSImage! {
@@ -161,6 +219,7 @@ public final class Camera: NSObject, NSCopying {
         fusionPercentage = c?.fusionPercentage ?? 0
         windowCenterX = c?.windowCenterX ?? 0
         windowCenterY = c?.windowCenterY ?? 0
+        copyCroppingCorners()
     }
 
     @objc(copyWithZone:)
@@ -272,5 +331,6 @@ public final class Camera: NSObject, NSCopying {
         wl = Point3D.floatValue(xml?.value(forKey: "wl"))
         ww = Point3D.floatValue(xml?.value(forKey: "ww"))
         fusionPercentage = Point3D.floatValue(xml?.value(forKey: "fusionPercentage"))
+        copyCroppingCorners()
     }
 }

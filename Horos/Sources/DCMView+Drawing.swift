@@ -252,10 +252,10 @@ extension DCMView {
                 }
             }
 
-            let description = DescriptionInLarge.text(patientName: curStudy?.name, studyName: curStudy?.studyName, seriesName: curSeries?.name,
-                                                      date: UserDefaults.formatDateTime(curSeries?.date),
-                                                      openPatientNames: openPatientNames, openStudyNames: openStudyNames)
-            let text = NSAttributedString(string: description, attributes: [.font: NSFont(name: "Helvetica-Bold", size: 30) as Any])
+            let text = LargeDescriptionText.attributed(patientName: curStudy?.name, studyName: curStudy?.studyName, seriesName: curSeries?.name,
+                                                       date: UserDefaults.formatDateTime(curSeries?.date),
+                                                       openPatientNames: openPatientNames, openStudyNames: openStudyNames,
+                                                       studyComment: curStudy?.comment, seriesComment: curSeries?.comment, width: self.bounds.width)
 
             self.computeColor()
 
@@ -265,10 +265,10 @@ extension DCMView {
             }
             let frameColor = NSColor(deviceRed: boxColor.redComponent, green: boxColor.greenComponent, blue: boxColor.blueComponent, alpha: 1)
 
-            if let box = self.horos_showDescriptionInLargeText {
+            if let box = self.largeDescriptionBox {
                 box.set(attributedString: text, boxColor: boxColor, borderColor: frameColor)
             } else {
-                self.horos_showDescriptionInLargeText = AnnotationBox(attributedString: text, boxColor: boxColor, borderColor: frameColor)
+                self.largeDescriptionBox = AnnotationBox(attributedString: text, boxColor: boxColor, borderColor: frameColor)
             }
         }) {
             logDrawingException(exception, "-[DCMView computeDescriptionInLarge]")
@@ -674,11 +674,11 @@ extension DCMView {
         if Double(self.horos_previousScalingFactor) != factor && factor != 0 {
             let previous = Double(self.horos_previousScalingFactor)
             if previous != 0 {
-                self.horos_scaleValue = Float(Double(self.horos_scaleValue) * (factor / previous))
+                self.viewport.scale = Float(Double(self.horos_scaleValue) * (factor / previous))
                 var origin = self.horos_origin
                 origin.x *= CGFloat(factor / previous)
                 origin.y *= CGFloat(factor / previous)
-                self.horos_origin = origin
+                self.viewport.origin = origin
             }
             self.horos_previousScalingFactor = Float(factor)
 
@@ -1059,13 +1059,13 @@ extension DCMView {
                     let drawingFrameRect = self.horos_drawingFrameRect
                     PlanarFrameGraphics.beginBorders(size: drawingFrameRect.size, xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped)
 
-                    // More than one window: the key view of the frontmost one has a
-                    // thick frame in the colour of its study, the others a thin neutral one.
+                    // Where the window has a frame (ViewerWindowBorder): the key view of
+                    // the frontmost one in the colour of its study, the others thin and neutral.
                     var frameInset: CGFloat = 0
-                    if ViewerController.numberOf2DViewer() > 1 && is2DViewer && self.stringID == nil, let viewer, !viewer.fullScreenON() {
+                    if is2DViewer && self.stringID == nil, let viewer, !viewer.fullScreenON() {
                         let active = self.horos_isKeyView && (frontMost || ViewerController.frontMostDisplayed2DViewer(for: self.window?.screen) === viewer)
-                        frameInset = PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf),
-                                                             color: active ? SeriesListIdentification.color(for: viewer) : SeriesListIdentification.neutralColor, active: active)
+                        frameInset = ViewerWindowBorder.color(for: viewer, active: active).map {
+                            PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf), color: $0, active: active) } ?? 0
                     }
 
                     // A dotted line where the image overflows the view.
@@ -1215,7 +1215,7 @@ extension DCMView {
                     self.drawROISelectorRegion()
                 }
 
-                if self.showDescriptionInLarge, let box = self.horos_showDescriptionInLargeText {
+                if self.showDescriptionInLarge, let box = self.largeDescriptionBox {
                     let boxSize = self.convertToBacking(box.frameSize)
                     let r = NSMakeRect(drawingFrameRect.size.width / 2 - boxSize.width / 2, drawingFrameRect.size.height / 2 - boxSize.height / 2,
                                        boxSize.width, boxSize.height)

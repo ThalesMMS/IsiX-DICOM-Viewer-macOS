@@ -11,7 +11,6 @@
                 <outlet property="addGroup" destination="83" id="92"/>
                 <outlet property="addValue" destination="96" id="105"/>
                 <outlet property="addWindow" destination="39" id="91"/>
-                <outlet property="dicomEditingView" destination="53" id="74"/>
                 <outlet property="dicomFieldsCombo" destination="88" id="94"/>
                 <outlet property="search" destination="27" id="28"/>
                 <outlet property="searchView" destination="26" id="29"/>
@@ -118,11 +117,11 @@
             </view>
         </window>
         <customView id="26" userLabel="search">
-            <rect key="frame" x="0.0" y="0.0" width="252" height="42"/>
+            <rect key="frame" x="0.0" y="0.0" width="252" height="22"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <searchField wantsLayer="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="27">
-                    <rect key="frame" x="8" y="10" width="238" height="22"/>
+                    <rect key="frame" x="8" y="0" width="238" height="22"/>
                     <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="搜索字符串" bezelStyle="round" maximumRecents="20" recentsAutosaveName="XMLSearchSaveName" id="113">
                         <font key="font" metaFont="system"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -325,147 +324,6 @@ Gw
                 </constraints>
             </view>
         </window>
-        <customView id="53" userLabel="editTool">
-            <rect key="frame" x="0.0" y="0.0" width="246" height="42"/>
-            <autoresizingMask key="autoresizingMask"/>
-            <subviews>
-                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="70">
-                    <rect key="frame" x="12" y="2" width="25" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="编辑" id="129">
-                        <font key="font" metaFont="miniSystem"/>
-                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    </textFieldCell>
-                </textField>
-                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="68">
-                    <rect key="frame" x="49" y="2" width="26" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="添加" id="128">
-                        <font key="font" metaFont="miniSystem"/>
-                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    </textFieldCell>
-                </textField>
-                <button toolTip="启用编辑" translatesAutoresizingMaskIntoConstraints="NO" id="54">
-                    <rect key="frame" x="8" y="12" width="33" height="30"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="29" id="2fT-k1-83W"/>
-                        <constraint firstAttribute="height" constant="25" id="B6g-xT-M9r"/>
-                    </constraints>
-                    <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="Autofill" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyUpOrDown" inset="2" id="126">
-                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
-                        <font key="font" metaFont="system" size="10"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="switchEditing:" target="-2" id="171"/>
-                    </connections>
-                </button>
-                <button toolTip="添加新组/元素" translatesAutoresizingMaskIntoConstraints="NO" id="61">
-                    <rect key="frame" x="45" y="12" width="33" height="30"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="29" id="Bt9-NF-ogY"/>
-                    </constraints>
-                    <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="add-large" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyUpOrDown" inset="2" id="127">
-                        <behavior key="behavior" lightByContents="YES"/>
-                        <font key="font" metaFont="system" size="10"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="addDICOMField:" target="-2" id="72"/>
-                        <binding destination="-2" name="enabled" keyPath="editingActivated" id="75"/>
-                    </connections>
-                </button>
-                <matrix verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" translatesAutoresizingMaskIntoConstraints="NO" id="55">
-                    <rect key="frame" x="121" y="3" width="118" height="36"/>
-                    <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    <size key="cellSize" width="59" height="18"/>
-                    <buttonCell key="prototype" type="radio" title="单选" imagePosition="left" alignment="left" controlSize="small" inset="2" id="130">
-                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                        <font key="font" metaFont="smallSystem"/>
-                    </buttonCell>
-                    <cells>
-                        <column>
-                            <buttonCell type="radio" title="图像" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="58">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                            <buttonCell type="radio" title="序列" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="59">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                        </column>
-                        <column>
-                            <buttonCell type="radio" title="检查" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="Xjs-YY-1YQ">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                            <buttonCell type="radio" title="患者" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="by7-D4-bt6">
-                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                <font key="font" metaFont="smallSystem"/>
-                            </buttonCell>
-                        </column>
-                    </cells>
-                    <connections>
-                        <binding destination="-2" name="enabled" keyPath="editingActivated" id="76"/>
-                        <binding destination="-2" name="selectedTag" keyPath="self.editingLevel" id="McM-AO-NfU"/>
-                    </connections>
-                </matrix>
-                <button toolTip="保存对文件的修改" translatesAutoresizingMaskIntoConstraints="NO" id="162">
-                    <rect key="frame" x="82" y="12" width="33" height="30"/>
-                    <constraints>
-                        <constraint firstAttribute="width" constant="29" id="Rfk-Fj-m9n"/>
-                    </constraints>
-                    <buttonCell key="cell" type="bevel" bezelStyle="regularSquare" image="Save" imagePosition="only" alignment="center" borderStyle="border" imageScaling="proportionallyUpOrDown" inset="2" id="163">
-                        <behavior key="behavior" lightByContents="YES"/>
-                        <font key="font" metaFont="system" size="10"/>
-                    </buttonCell>
-                    <connections>
-                        <action selector="applyModifications:" target="-2" id="167"/>
-                        <binding destination="-2" name="enabled" keyPath="editingActivated" id="164"/>
-                        <binding destination="-2" name="enabled2" keyPath="self.modificationsToApply" previousBinding="164" id="166">
-                            <dictionary key="options">
-                                <integer key="NSMultipleValuesPlaceholder" value="-1"/>
-                                <integer key="NSNoSelectionPlaceholder" value="-1"/>
-                                <integer key="NSNotApplicablePlaceholder" value="-1"/>
-                                <integer key="NSNullPlaceholder" value="-1"/>
-                            </dictionary>
-                        </binding>
-                    </connections>
-                </button>
-                <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="168">
-                    <rect key="frame" x="81" y="2" width="35" height="11"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="应用" id="169">
-                        <font key="font" metaFont="miniSystem"/>
-                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                    </textFieldCell>
-                </textField>
-            </subviews>
-            <constraints>
-                <constraint firstItem="54" firstAttribute="top" secondItem="53" secondAttribute="top" constant="2" id="1Vl-Tj-Hpb"/>
-                <constraint firstItem="68" firstAttribute="top" secondItem="168" secondAttribute="top" id="1qR-0k-kOT"/>
-                <constraint firstItem="55" firstAttribute="leading" secondItem="168" secondAttribute="trailing" constant="7" id="7hq-Wf-WuU"/>
-                <constraint firstAttribute="bottom" secondItem="55" secondAttribute="bottom" constant="3" id="8Fi-Pf-4Dp"/>
-                <constraint firstItem="168" firstAttribute="top" secondItem="162" secondAttribute="bottom" constant="2" id="8kZ-U4-Njn"/>
-                <constraint firstItem="162" firstAttribute="bottom" secondItem="61" secondAttribute="bottom" id="BLa-NY-tcb"/>
-                <constraint firstItem="55" firstAttribute="top" secondItem="53" secondAttribute="top" constant="3" id="BT9-9f-c8b"/>
-                <constraint firstItem="168" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="68" secondAttribute="trailing" constant="6" id="DAN-hF-nxc"/>
-                <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="55" secondAttribute="trailing" constant="7" id="H9g-9c-7GI"/>
-                <constraint firstItem="70" firstAttribute="top" secondItem="54" secondAttribute="bottom" constant="2" id="Inh-xS-ozB"/>
-                <constraint firstItem="55" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="162" secondAttribute="trailing" constant="8" symbolic="YES" id="P3i-cg-vc5"/>
-                <constraint firstItem="70" firstAttribute="top" secondItem="68" secondAttribute="top" id="Rqv-Sg-DY9"/>
-                <constraint firstItem="61" firstAttribute="centerX" secondItem="68" secondAttribute="centerX" id="X9I-OS-oIX"/>
-                <constraint firstItem="54" firstAttribute="leading" secondItem="53" secondAttribute="leading" constant="10" id="ZN6-oL-Pli"/>
-                <constraint firstItem="68" firstAttribute="top" secondItem="61" secondAttribute="bottom" constant="2" id="ZNf-pZ-UAd"/>
-                <constraint firstItem="168" firstAttribute="centerX" secondItem="162" secondAttribute="centerX" id="aLa-Ao-t3X"/>
-                <constraint firstItem="61" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="54" secondAttribute="trailing" constant="8" symbolic="YES" id="b86-ec-Fmy"/>
-                <constraint firstItem="68" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="70" secondAttribute="trailing" constant="6" id="h0z-g3-YtH"/>
-                <constraint firstItem="61" firstAttribute="top" secondItem="162" secondAttribute="top" id="pfZ-GD-FcG"/>
-                <constraint firstItem="61" firstAttribute="top" secondItem="54" secondAttribute="top" id="q2e-WR-OZq"/>
-                <constraint firstItem="54" firstAttribute="centerX" secondItem="70" secondAttribute="centerX" id="q2k-7u-7We"/>
-                <constraint firstItem="61" firstAttribute="bottom" secondItem="54" secondAttribute="bottom" id="uno-Pp-wRY"/>
-                <constraint firstItem="70" firstAttribute="top" secondItem="54" secondAttribute="bottom" constant="2" id="vd6-yC-i4c"/>
-                <constraint firstItem="162" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="61" secondAttribute="trailing" constant="8" symbolic="YES" id="y3e-oA-qeA"/>
-            </constraints>
-        </customView>
         <window title="DICOM 验证器" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="DICOMValidator" animationBehavior="default" id="137" userLabel="verify" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES" utility="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" bottomStrut="YES"/>
@@ -650,9 +508,4 @@ Gw
             </view>
         </window>
     </objects>
-    <resources>
-        <image name="Autofill" width="128" height="128"/>
-        <image name="Save" width="49" height="45"/>
-        <image name="add-large" width="48" height="48"/>
-    </resources>
 </document>

@@ -42,11 +42,16 @@
 
 #import <Cocoa/Cocoa.h>
 
-static NSNotificationName const __deprecated N2StepDidBecomeActiveNotification = @"N2StepDidBecomeActiveNotification";
-static NSNotificationName const __deprecated N2StepDidBecomeInactiveNotification = @"N2StepDidBecomeInactiveNotification";
-static NSNotificationName const __deprecated N2StepDidBecomeEnabledNotification = @"N2StepDidBecomeEnabledNotification";
-static NSNotificationName const __deprecated N2StepDidBecomeDisabledNotification = @"N2StepDidBecomeDisabledNotification";
-static NSNotificationName const __deprecated N2StepTitleDidChangeNotification = @"N2StepTitleDidChangeNotification";
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m, and not const, as the Horos and OsiriX plugin
+// SDK declared them: plugins built for it look these names up. Nothing writes them.
+extern NSNotificationName __deprecated N2StepDidBecomeActiveNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName __deprecated N2StepDidBecomeInactiveNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName __deprecated N2StepDidBecomeEnabledNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName __deprecated N2StepDidBecomeDisabledNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName __deprecated N2StepTitleDidChangeNotification NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

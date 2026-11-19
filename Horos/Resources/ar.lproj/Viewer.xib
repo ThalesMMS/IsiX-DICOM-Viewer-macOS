@@ -143,7 +143,7 @@
                 <constraint firstAttribute="trailing" secondItem="oHc-oq-5Yg" secondAttribute="trailing" id="tjL-dI-C0z"/>
             </constraints>
         </customView>
-        <window title="المشاهد" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="Window" customClass="OSIWindow">
+        <window title="العارض" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="5" userLabel="Window" customClass="OSIWindow">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="312" y="231" width="725" height="442"/>
@@ -407,7 +407,7 @@
                         </menu>
                     </popUpButtonCell>
                 </popUpButton>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="24">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="24" customClass="IsiXTipMatrix">
                     <rect key="frame" x="2" y="16" width="182" height="33"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="33"/>
@@ -955,6 +955,11 @@
                                         <menuItem title="MPR منحني ثلاثي الأبعاد" tag="1" id="1090">
                                             <connections>
                                                 <action selector="cprViewer:" target="-2" id="2533"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="تحليل الأوعية" tag="11" id="Vsl-An-Pop">
+                                            <connections>
+                                                <action selector="cprViewer:" target="-2" id="Vsl-An-PAc"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="MPR متعامد ثنائي الأبعاد" tag="8" id="1251">

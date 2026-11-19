@@ -14,7 +14,13 @@ both the same synthetic inputs and compares what they print:
 * the DICOMDIR of a medium, and the listed file a wrong reference means;
 * whether an entry is the only one of its series;
 * a record's file path and its MAXPATHLEN check, its file type, and its series
-  UID and series ID (multi-frame files, series numbers that are not numbers);
+  ID (multi-frame files, series numbers that are not numbers). The series ID
+  is the key the index groups on, and it is compared as the Objective-C++
+  built it. The DICOM identifier it stored beside the key is not: for a
+  multi-frame file that was "<series UID>-<SOP instance UID>", which no UI
+  value can hold and a query about the series was answered with. The record's
+  Series Instance UID is stored now, by the reader, and the rule no longer
+  makes that value;
 * whether a stored file serves a transfer syntax asked of it as it is (with
   DCMTK's transfer syntax table, from the Debug build: exit 2 without it).
 
@@ -177,7 +183,7 @@ static NSString *series(NSString *frames, NSString *seriesUID, NSString *sop, NS
     if (sop) item[@"SOPUID"] = sop;
     void *encodings = NULL;
 SERIES_BLOCK
-    return [NSString stringWithFormat:@"%@\t%@", show(item[@"seriesDICOMUID"]), show(item[@"seriesID"])];
+    return show(item[@"seriesID"]);
 }
 
 static BOOL serves(const char *original, const char *requested)
@@ -249,14 +255,16 @@ for line in all.components(separatedBy: "\n") where !line.isEmpty {
     case "only":
         answer = "\(MediaScanRules.isOnlyEntryOfItsSeries(at: Int(f[1])!, seriesIDs: f[2...].map(nilIfDash)) ? 1 : 0)"
     case "path":
-        let path = MediaScanRules.referencedFilePath(f[1], basePath: f[2])
+        guard let path = MediaScanRules.referencedFilePath(f[1], basePath: f[2]) else {
+            fatalError("The fixture needs a valid File ID: \(f[1])")
+        }
         answer = "\(path)\t\(MediaScanRules.acceptsReferencedFilePath(path) ? 1 : 0)"
     case "type":
         answer = MediaScanRules.fileType(forTransferSyntax: nilIfDash(f[1]))
     case "series":
         let frames = nilIfDash(f[1]).map { ($0 as NSString).integerValue } ?? 0
-        let uid = MediaScanRules.seriesDICOMUID(seriesInstanceUID: nilIfDash(f[2]), sopInstanceUID: nilIfDash(f[3]), numberOfFrames: frames)
-        answer = "\(show(uid))\t\(show(MediaScanRules.seriesID(seriesNumber: nilIfDash(f[4]), seriesDICOMUID: uid)))"
+        answer = show(MediaScanRules.seriesID(seriesNumber: nilIfDash(f[4]), seriesInstanceUID: nilIfDash(f[2]),
+                                              sopInstanceUID: nilIfDash(f[3]), numberOfFrames: frames))
     case "serves":
         answer = "\(TransferSyntaxServing.servesOriginal(original: f[1], requested: f[2]) ? 1 : 0)"
     default:
@@ -288,8 +296,8 @@ def cases():
     for index, ids in [(0, ['a', 'b', '-']), (0, ['a', 'b', 'a']), (2, ['-', '-', '-']), (1, ['a', 'a']),
                        (0, ['é', 'e\u0301']), (1, ['x'] * 3), (0, ['x'])]:
         lines.append('only\t%d\t%s' % (index, '\t'.join(ids)))
-    for file_id, base in [('IMAGES\\IM1', '/V'), ('IMAGES/IM1', '/V/'), ('A\\B\\C', '/V/sub'), ('', '/V'),
-                          ('X' * 1020, '/V'), ('X' * 1021, '/V'), ('\\ROOT', '/V'), ('A\\\\B', '/V')]:
+    for file_id, base in [('IMAGES\\IM1', '/V'), ('IMAGES/IM1', '/V/'), ('A\\B\\C', '/V/sub'),
+                          ('X' * 1020, '/V'), ('X' * 1021, '/V')]:
         lines.append('path\t%s\t%s' % (file_id, base))
     for syntax in ['-', '1.2.840.10008.1.2.4.100', '1.2.840.10008.1.2.4.101', '1.2.840.10008.1.2.4.102',
                    '1.2.840.10008.1.2.1', '', '1.2.840.10008.1.2.4.100 ']:

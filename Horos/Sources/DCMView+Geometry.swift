@@ -162,7 +162,7 @@ extension DCMView {
         if self.curDCM == nil { return }
 
         if self.horos_scaleValue != x {
-            self.horos_scaleValue = x
+            self.viewport.scale = x
 
             if self.softwareInterpolation() || self.horos_blending?.softwareInterpolation() == true {
                 self.loadTextures()
@@ -199,7 +199,7 @@ extension DCMView {
                 self.setOriginX(origin.x, y: origin.y)
             }
 
-            self.horos_scaleValue = x
+            self.viewport.scale = x
 
             if self.softwareInterpolation() || self.horos_blending?.softwareInterpolation() == true {
                 self.loadTextures()
@@ -260,11 +260,12 @@ extension DCMView {
         self.scaleValue = self.scaleToFit(for: self.curDCM)
 
         if let pix = self.curDCM, pix.shutterEnabled {
-            self.horos_origin = ViewTransform.shutterOrigin(width: pix.pwidth, height: pix.pheight, shutter: pix.shutterRect,
+            self.viewport.origin = ViewTransform.shutterOrigin(width: pix.pwidth, height: pix.pheight, shutter: pix.shutterRect,
                                                             scale: self.horos_scaleValue, pixelRatio: pix.pixelRatio)
         } else {
-            self.horos_origin = .zero
+            self.viewport.origin = .zero
         }
+        ViewerSettingsPropagator.reframed(self)
 
         self.needsDisplay = true
 
@@ -306,6 +307,7 @@ extension DCMView {
         let origin = ViewTransform.openingOrigin(content: content, width: pix?.pwidth ?? 0, height: pix?.pheight ?? 0,
                                                  scale: self.horos_scaleValue, pixelRatio: pix?.pixelRatio ?? 0)
         self.setOriginX(origin.x, y: origin.y)
+        ViewerSettingsPropagator.reframed(self)
         self.needsDisplay = true
     }
 
@@ -318,17 +320,13 @@ extension DCMView {
 
     @objc(scaleToFit:)
     @IBAction public dynamic func scaleToFit(_ sender: Any!) {
-        self.setOriginX(0, y: 0)
-        self.rotation = 0
-        self.scaleToFit()
+        ViewerSettingsPropagator.zoomedAlone(self) { self.setOriginX(0, y: 0); self.rotation = 0; self.scaleToFit() }
         self.propagateIfMain()
     }
 
     @objc(actualSize:)
     @IBAction public dynamic func actualSize(_ sender: Any!) {
-        self.setOriginX(0, y: 0)
-        self.rotation = 0
-        self.scaleValue = 1
+        ViewerSettingsPropagator.zoomedAlone(self) { self.setOriginX(0, y: 0); self.rotation = 0; self.scaleValue = 1 }
         self.propagateIfMain()
     }
 
@@ -395,7 +393,7 @@ extension DCMView {
 
         let origin = self.horos_origin
         if origin.x != CGFloat(x) || origin.y != CGFloat(y) {
-            self.horos_origin = NSPoint(x: CGFloat(x), y: CGFloat(y))
+            self.viewport.origin = NSPoint(x: CGFloat(x), y: CGFloat(y))
             self.updateTilingViews()
             self.needsDisplay = true
 
@@ -412,7 +410,7 @@ extension DCMView {
     final func horosSetRotation(_ x: Float) {
         if self.horos_rotation != x {
             let rotation = ViewportState.normalizedRotation(x)
-            self.horos_rotation = rotation
+            self.viewport.rotation = rotation
 
             self.presentationStore.storeRotation(rotation, imageKeeps: self.imageKeepsPresentation)
 
@@ -423,13 +421,13 @@ extension DCMView {
 
     /// -setXFlipped:, called by the property's setter (DCMView.swift).
     public func horosSetXFlipped(_ v: Bool) {
-        self.horos_xFlipped = v
+        self.viewport.xFlipped = v
         self.saveFlip(v, horizontal: true, function: "-[DCMView setXFlipped:]")
     }
 
     /// -setYFlipped:, called by the property's setter (DCMView.swift).
     public func horosSetYFlipped(_ v: Bool) {
-        self.horos_yFlipped = v
+        self.viewport.yFlipped = v
         self.saveFlip(v, horizontal: false, function: "-[DCMView setYFlipped:]")
     }
 
@@ -440,6 +438,7 @@ extension DCMView {
                 self.presentationStore.storeFlip(v, horizontal: horizontal, imageKeeps: imageKeeps)
             }
         }
+        FlipsOfOlderSDK.write(v, horizontal: horizontal)
         self.updateTilingViews()
         self.needsDisplay = true
     }
@@ -591,7 +590,7 @@ extension DCMView {
             var origin = self.horos_origin
             origin.x *= CGFloat(yChanged)
             origin.y *= CGFloat(yChanged)
-            self.horos_origin = origin
+            self.viewport.origin = origin
 
             if is2DViewer && self.window?.isMainWindow == true {
                 viewer?.propagateSettings()
@@ -672,7 +671,7 @@ extension DCMView {
             curImage = -1
             if self.horos_flippedData { self.selectFirstTilingViewLater() }
         }
-        self.horos_curImage = curImage
+        self.stackNavigation.current = curImage
 
         if aView.curDCM != nil {
             self.setCOPYSETTINGSINSERIESdirectly(aView.copysettingsinseries)
@@ -987,80 +986,10 @@ extension DCMView {
     @objc(computeColor)
     public dynamic func computeColor() {
         if !self.is2DViewer() { return }
-        if let e = HorosObjCException.caught({ self.computeStudyColours() }) {
+        if let e = HorosObjCException.caught({
+            ViewerStudyColouring.mark(dcmViewersByStudyDate((ViewerController.getDisplayed2DViewers() as NSArray?) ?? []), patientOf: self.studyObj())
+        }) {
             NSLog("**** computeColor exception: %@", e)
-        }
-    }
-
-    private func computeStudyColours() {
-        let viewers = dcmViewersByStudyDate((ViewerController.getDisplayed2DViewers() as NSArray?) ?? [])
-
-        // "Previous" on the viewers whose study is older than another open
-        // study of the same patient.
-        var patients: [String] = [], dates: [Any] = []
-        for v in viewers {
-            let study = v.currentStudy()
-            patients.append(study?.patientUID ?? "")
-            dates.append(study?.date ?? NSNull())
-        }
-        let previous = PreviousStudyMark.previousIndices(patients: patients, dates: dates)
-        for (i, v) in viewers.enumerated() {
-            PreviousStudyMark.setPrevious(previous.contains(i), for: v)
-        }
-
-        var colouredStudies: [String?] = []
-        for v in viewers {
-            if let study = v.currentStudy(), v.currentSeries() != nil {
-                colouredStudies.append(study.studyInstanceUID)
-            }
-            for case let view as DCMView in (v.imageViews() as NSArray?) ?? [] {
-                view.studyColorR = 0
-                view.studyColorG = 0
-                view.studyColorB = 0
-                view.studyDateIndex = UInt(NSNotFound)
-                view.needsDisplay = true
-            }
-        }
-
-        guard !colouredStudies.isEmpty else { return }
-        let study = self.studyObj()
-        var allStudies: [Any]?
-
-        // The browser's history, with the distant studies, when it is this patient's.
-        let browser = BrowserController.currentBrowser()
-        let comparativeUID = browser?.comparativePatientUID as NSString?
-        if let comparativeUID, let patientUID = study?.patientUID,
-           comparativeUID.compare(patientUID, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) == .orderedSame,
-           browser?.comparativeStudies != nil {
-            allStudies = browser?.comparativeStudies
-        } else if let db = browser?.database {
-            // Every study of this patient.
-            var search = study?.patientUID
-            let predicate: NSPredicate
-            if (search?.count ?? 0) == 0 || search == "0" {
-                search = study?.name
-                predicate = NSPredicate(format: "(name == %@)", argumentArray: [search as Any])
-            } else {
-                predicate = NSPredicate(format: "(patientUID BEGINSWITH[cd] %@)", argumentArray: [search as Any])
-            }
-            let found = db.objects(forEntity: db.studyEntity(), predicate: predicate) as [Any]?
-            allStudies = (found as NSArray?)?.sortedArray(using: [NSSortDescriptor(key: "date", ascending: false)])
-        }
-
-        // The distant studies of the history are not database objects: their UIDs are read by key.
-        let patientStudies = (allStudies ?? []).map { ($0 as AnyObject).value(forKey: "studyInstanceUID") as? String }
-        let colors: [Any] = ViewerController.studyColors()?.map { $0 } ?? []
-        guard let marks = StudyColour.marks(viewerStudies: viewers.map { $0.studyInstanceUID() }, colouredStudies: colouredStudies,
-                                            patientStudies: patientStudies, colourCount: colors.count) else { return }
-        for (v, mark) in zip(viewers, marks) {
-            let boxColor = mark.colourIndex.map { colors[$0] as? NSColor } ?? nil
-            for case let view as DCMView in (v.imageViews() as NSArray?) ?? [] {
-                view.studyColorR = Float(boxColor?.redComponent ?? 0)
-                view.studyColorG = Float(boxColor?.greenComponent ?? 0)
-                view.studyColorB = Float(boxColor?.blueComponent ?? 0)
-                view.studyDateIndex = UInt(bitPattern: mark.dateIndex ?? NSNotFound)
-                view.needsDisplay = true
-            }
         }
     }
 }

@@ -117,7 +117,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
-                                    <rect key="frame" x="200" y="47" width="160" height="22"/>
+                                    <rect key="frame" x="200" y="47" width="170" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Обрамленный квадрат" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -222,14 +222,25 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="412">
-                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <rect key="frame" x="10" y="10" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Открывать PDF в Preview" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
+                                    <buttonCell key="cell" type="check" title="Открывать PDF в приложении «Просмотр»" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
                                         <binding destination="308" name="value" keyPath="values.openPDFwithPreview" id="440"/>
+                                    </connections>
+                                </button>
+                                <button toolTip="В тёмном режиме PDF-документы и структурированные отчёты показываются в инвертированных цветах: светлый текст на тёмной странице. Экспорт, печать и копирование дают исходную страницу." horizontalCompressionResistancePriority="1000" id="invert-pdf-control">
+                                    <rect key="frame" x="316" y="10" width="440" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Инверсия PDF и структурированных отчётов в тёмном режиме" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="invert-pdf-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.InvertsDocumentPagesInDarkMode" id="invert-pdf-binding"/>
                                     </connections>
                                 </button>
                             </subviews>
@@ -293,7 +304,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
-                                    <rect key="frame" x="300" y="26" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="26" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Модальности" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -424,12 +435,12 @@
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" toolTip="Единица длин, показываемых на изображениях и в 3D. «Автоматически» использует мкм до 0,1 мм, мм до 1 см и см начиная с 1 см. Экспортируемые значения сохраняют свои единицы." id="roi-length-unit-popup">
                                     <rect key="frame" x="170" y="10" width="134" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Автоматически" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="roi-length-unit-automatic" id="roi-length-unit-popup-cell">
+                                    <popUpButtonCell key="cell" type="push" title="Авто" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="roi-length-unit-automatic" id="roi-length-unit-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                         <menu key="menu" id="roi-length-unit-menu">
                                             <items>
-                                                <menuItem title="Автоматически" state="on" id="roi-length-unit-automatic"/>
+                                                <menuItem title="Авто" state="on" id="roi-length-unit-automatic"/>
                                                 <menuItem title="mm" tag="1" id="roi-length-unit-mm"/>
                                                 <menuItem title="cm" tag="2" id="roi-length-unit-cm"/>
                                             </items>
@@ -734,7 +745,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Pyh-nV-fiK">
-                                    <rect key="frame" x="300" y="119" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="119" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Модальности" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1093,7 +1104,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="505">
-                                    <rect key="frame" x="8" y="258" width="122" height="17"/>
+                                    <rect key="frame" x="2" y="258" width="128" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Размер окна:" id="506">
                                         <font key="font" metaFont="system"/>

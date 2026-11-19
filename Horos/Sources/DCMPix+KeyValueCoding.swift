@@ -68,7 +68,7 @@ extension DCMPix {
     }
 
     nonisolated(unsafe) private static let formerInstanceVariables: [String: Accessor] = [
-        "_srcFile": object({ $0.horos_srcFile }, { $0.horos_srcFile = $1 }),
+        "_srcFile": object({ $0.horos_srcFile }, { ($0.horos_srcFile, $0.horos_srcFileOfOlderSDK) = ($1, $1) }),
         "URIRepresentationAbsoluteString": object({ $0.horos_URIRepresentationAbsoluteString },
                                                   { $0.horos_URIRepresentationAbsoluteString = $1 }),
         "isBonjour": number({ $0.horos_isBonjour }, { $0.horos_isBonjour = $1.boolValue }, { NSNumber(value: $0) }),
@@ -79,7 +79,7 @@ extension DCMPix {
         "bitsAllocated": number({ $0.horos_bitsAllocated }, { $0.horos_bitsAllocated = $1.int16Value }, { NSNumber(value: $0) }),
         "bitsStored": number({ $0.horos_bitsStored }, { $0.horos_bitsStored = $1.int16Value }, { NSNumber(value: $0) }),
         "height": number({ $0.horos_height }, { $0.horos_height = $1.intValue }, { NSNumber(value: $0) }),
-        "width": number({ $0.horos_width }, { $0.horos_width = $1.intValue }, { NSNumber(value: $0) }),
+        "width": number({ $0.horos_width }, { $0.horos_width = $1.intValue; $0.horos_olderImageFieldsFollow() }, { NSNumber(value: $0) }),
         "fPlanarConf": number({ $0.horos_fPlanarConf }, { $0.horos_fPlanarConf = $1.intValue }, { NSNumber(value: $0) }),
         "estimatedRadiographicMagnificationFactor": number({ $0.horos_estimatedRadiographicMagnificationFactor },
                                                            { $0.horos_estimatedRadiographicMagnificationFactor = $1.doubleValue },
@@ -100,7 +100,10 @@ extension DCMPix {
         "positionerPrimaryAngle": object({ $0.horos_positionerPrimaryAngle }, { $0.horos_positionerPrimaryAngle = $1 }),
         "positionerSecondaryAngle": object({ $0.horos_positionerSecondaryAngle }, { $0.horos_positionerSecondaryAngle = $1 }),
         "shutterCircular": Accessor(get: { NSValue(point: $0.horos_shutterCircular) }, set: { pix, value in
-            if let value = value as? NSValue { pix.horos_shutterCircular = value.pointValue }
+            if let value = value as? NSValue {
+                pix.horos_shutterCircular = value.pointValue
+                pix.horos_olderShutterFieldsFollow()
+            }
         }),
         "shutterCircular_radius": number({ $0.horos_shutterCircular_radius }, { $0.horos_shutterCircular_radius = $1.intValue },
                                          { NSNumber(value: $0) }),
@@ -122,9 +125,9 @@ extension DCMPix {
         "wl": number({ $0.horos_wl }, { $0.horos_wl = $1.floatValue }, { NSNumber(value: $0) }),
         "fullww": number({ $0.horos_fullww }, { $0.horos_fullww = $1.floatValue }, { NSNumber(value: $0) }),
         "fullwl": number({ $0.horos_fullwl }, { $0.horos_fullwl = $1.floatValue }, { NSNumber(value: $0) }),
-        "originX": number({ $0.horos_originX }, { $0.horos_originX = $1.doubleValue }, { NSNumber(value: $0) }),
-        "originY": number({ $0.horos_originY }, { $0.horos_originY = $1.doubleValue }, { NSNumber(value: $0) }),
-        "originZ": number({ $0.horos_originZ }, { $0.horos_originZ = $1.doubleValue }, { NSNumber(value: $0) }),
+        "originX": number({ $0.horos_originX }, { $0.horos_originX = $1.doubleValue; $0.horos_olderImageFieldsFollow() }, { NSNumber(value: $0) }),
+        "originY": number({ $0.horos_originY }, { $0.horos_originY = $1.doubleValue; $0.horos_olderImageFieldsFollow() }, { NSNumber(value: $0) }),
+        "originZ": number({ $0.horos_originZ }, { $0.horos_originZ = $1.doubleValue; $0.horos_olderImageFieldsFollow() }, { NSNumber(value: $0) }),
         "isOriginDefined": number({ $0.horos_isOriginDefined }, { $0.horos_isOriginDefined = $1.boolValue }, { NSNumber(value: $0) }),
         "spacingBetweenSlices": number({ $0.horos_spacingBetweenSlices }, { $0.horos_spacingBetweenSlices = $1.doubleValue },
                                        { NSNumber(value: $0) }),
@@ -132,7 +135,8 @@ extension DCMPix {
         "generated": number({ $0.horos_generated }, { $0.horos_generated = $1.boolValue }, { NSNumber(value: $0) }),
         "notAbleToLoadImage": number({ $0.horos_notAbleToLoadImage }, { $0.horos_notAbleToLoadImage = $1.boolValue },
                                      { NSNumber(value: $0) }),
-        "VOILUTApplied": number({ $0.horos_VOILUTApplied }, { $0.horos_VOILUTApplied = $1.boolValue }, { NSNumber(value: $0) }),
+        "VOILUTApplied": number({ $0.horos_VOILUTApplied }, { ($0.horos_VOILUTApplied, $0.horos_useVOILUT) = ($1.boolValue, $1.boolValue) },
+                                { NSNumber(value: $0) }),
         "VOILUT_first": number({ $0.horos_VOILUT_first }, { $0.horos_VOILUT_first = $1.int32Value }, { NSNumber(value: $0) }),
         "VOILUT_number": number({ $0.horos_VOILUT_number }, { $0.horos_VOILUT_number = $1.uint32Value }, { NSNumber(value: $0) }),
         "VOILUT_depth": number({ $0.horos_VOILUT_depth }, { $0.horos_VOILUT_depth = $1.uint32Value }, { NSNumber(value: $0) }),
@@ -144,21 +148,21 @@ extension DCMPix {
         "viewPosition": object({ $0.horos_viewPosition }, { $0.horos_viewPosition = $1 }),
         "patientPosition": object({ $0.horos_patientPosition }, { $0.horos_patientPosition = $1 }),
         "checking": object({ $0.horos_checking }, { $0.horos_checking = $1 }),
-        "waveform": object({ $0.horos_waveform }, { $0.horos_waveform = $1 }),
+        "waveform": object({ $0.horos_waveform }, { $0.horos_waveform = $1 as? DCMWaveform }),
         "usRegions": object({ $0.horos_usRegions }, { $0.horos_usRegions = $1 }),
         "pixArray": object({ $0.horos_pixArray }, { $0.horos_pixArray = $1 }),
         // As an object, not as its class: the probes link this class without the controller.
         "thickSlab": Accessor(get: { $0.horos_thickSlab as AnyObject? }, set: { pix, value in
             _ = pix.perform(NSSelectorFromString("setThickSlabController:"), with: value)
         }, isScalar: false),
-        "clutEntryR": number({ $0.horos_clut.entries.r }, { $0.horos_clut.entries.r = $1.uint16Value }, { NSNumber(value: $0) }),
-        "clutEntryG": number({ $0.horos_clut.entries.g }, { $0.horos_clut.entries.g = $1.uint16Value }, { NSNumber(value: $0) }),
-        "clutEntryB": number({ $0.horos_clut.entries.b }, { $0.horos_clut.entries.b = $1.uint16Value }, { NSNumber(value: $0) }),
-        "clutDepthR": number({ $0.horos_clut.depths.r }, { $0.horos_clut.depths.r = $1.uint16Value }, { NSNumber(value: $0) }),
-        "clutDepthG": number({ $0.horos_clut.depths.g }, { $0.horos_clut.depths.g = $1.uint16Value }, { NSNumber(value: $0) }),
-        "clutDepthB": number({ $0.horos_clut.depths.b }, { $0.horos_clut.depths.b = $1.uint16Value }, { NSNumber(value: $0) }),
-        "fSetClut": number({ $0.horos_clut.set }, { $0.horos_clut.set = $1.boolValue }, { NSNumber(value: $0) }),
-        "fSetClut16": number({ $0.horos_clut.set16 }, { $0.horos_clut.set16 = $1.boolValue }, { NSNumber(value: $0) }),
+        "clutEntryR": number({ $0.horos_clutEntryR }, { $0.horos_clutEntryR = $1.uint16Value }, { NSNumber(value: $0) }),
+        "clutEntryG": number({ $0.horos_clutEntryG }, { $0.horos_clutEntryG = $1.uint16Value }, { NSNumber(value: $0) }),
+        "clutEntryB": number({ $0.horos_clutEntryB }, { $0.horos_clutEntryB = $1.uint16Value }, { NSNumber(value: $0) }),
+        "clutDepthR": number({ $0.horos_clutDepthR }, { $0.horos_clutDepthR = $1.uint16Value }, { NSNumber(value: $0) }),
+        "clutDepthG": number({ $0.horos_clutDepthG }, { $0.horos_clutDepthG = $1.uint16Value }, { NSNumber(value: $0) }),
+        "clutDepthB": number({ $0.horos_clutDepthB }, { $0.horos_clutDepthB = $1.uint16Value }, { NSNumber(value: $0) }),
+        "fSetClut": number({ $0.horos_fSetClut }, { $0.horos_fSetClut = $1.boolValue }, { NSNumber(value: $0) }),
+        "fSetClut16": number({ $0.horos_fSetClut16 }, { $0.horos_fSetClut16 = $1.boolValue }, { NSNumber(value: $0) }),
         "savedHeightInDB": number({ $0.horos_savedHeightInDB }, { $0.horos_savedHeightInDB = $1.int32Value }, { NSNumber(value: $0) }),
         "savedWidthInDB": number({ $0.horos_savedWidthInDB }, { $0.horos_savedWidthInDB = $1.int32Value }, { NSNumber(value: $0) }),
         "retainedCacheGroup": object({ DCMPixParsedFileCache.group(of: $0) }, { pix, group in

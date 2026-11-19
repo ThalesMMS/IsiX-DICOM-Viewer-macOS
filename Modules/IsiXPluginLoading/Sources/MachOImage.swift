@@ -22,7 +22,8 @@ public struct MachOImage: Sendable, Equatable {
     }
 
     public struct Slice: Sendable, Equatable {
-        /// `arm64`, `arm64e`, `x86_64`, or `cpu <type>/<subtype>` for others.
+        /// `arm64`, `arm64e`, `x86_64`, `i386`, `ppc`, `ppc64` or `arm`, or
+        /// `cpu <type>/<subtype>` for others.
         public var architecture: String
         public var fileType: FileType
         /// The install names of the libraries the slice links, in order.
@@ -110,27 +111,42 @@ public struct MachOImage: Sendable, Equatable {
 
     private static let cpuArchABI64: UInt32 = 0x0100_0000
 
+    /// The name of the processor family, the one a plugin's author knows: the
+    /// 32-bit Intel and PowerPC slices of a former OsiriX plugin are i386 and
+    /// ppc, whatever processor model their subtype names (`lipo` calls a few
+    /// of them i486 or ppc7400). Only arm64e, a different ABI that the arm64
+    /// host does not load, is told apart within its family. A processor
+    /// without a name here is told by its numbers.
     static func architectureName(cpuType: UInt32, cpuSubtype: UInt32) -> String {
         let subtype = cpuSubtype & 0x00FF_FFFF
         switch cpuType {
+        case 7: return "i386"
         case 7 | cpuArchABI64: return "x86_64"
+        case 12: return "arm"
         case 12 | cpuArchABI64: return subtype == 2 ? "arm64e" : "arm64"
+        case 18: return "ppc"
+        case 18 | cpuArchABI64: return "ppc64"
         default: return "cpu \(cpuType)/\(subtype)"
         }
     }
 
     private static func thinSlice(_ reader: Reader, at base: Int) throws(ReadError) -> Slice {
         guard let magic = reader.uint32(at: base, bigEndian: false) else { throw .truncated }
+        // A slice is written in its processor's byte order: a PowerPC slice
+        // is big-endian, its header and its load commands alike.
         let headerSize: Int
+        let bigEndian: Bool
         switch magic {
-        case 0xFEED_FACF: headerSize = 32
-        case 0xFEED_FACE: headerSize = 28
+        case 0xFEED_FACF: (headerSize, bigEndian) = (32, false)
+        case 0xFEED_FACE: (headerSize, bigEndian) = (28, false)
+        case 0xCFFA_EDFE: (headerSize, bigEndian) = (32, true)
+        case 0xCEFA_EDFE: (headerSize, bigEndian) = (28, true)
         default: throw .notMachO
         }
-        guard let cpuType = reader.uint32(at: base + 4, bigEndian: false),
-              let cpuSubtype = reader.uint32(at: base + 8, bigEndian: false),
-              let fileType = reader.uint32(at: base + 12, bigEndian: false),
-              let commandCount = reader.uint32(at: base + 16, bigEndian: false) else {
+        guard let cpuType = reader.uint32(at: base + 4, bigEndian: bigEndian),
+              let cpuSubtype = reader.uint32(at: base + 8, bigEndian: bigEndian),
+              let fileType = reader.uint32(at: base + 12, bigEndian: bigEndian),
+              let commandCount = reader.uint32(at: base + 16, bigEndian: bigEndian) else {
             throw .truncated
         }
         var slice = Slice(architecture: architectureName(cpuType: cpuType, cpuSubtype: cpuSubtype),
@@ -145,8 +161,8 @@ public struct MachOImage: Sendable, Equatable {
                           linkedLibraries: [], minimumSystem: nil)
         var cursor = base + headerSize
         for _ in 0..<min(Int(commandCount), 4096) {
-            guard let command = reader.uint32(at: cursor, bigEndian: false),
-                  let size = reader.uint32(at: cursor + 4, bigEndian: false), size >= 8,
+            guard let command = reader.uint32(at: cursor, bigEndian: bigEndian),
+                  let size = reader.uint32(at: cursor + 4, bigEndian: bigEndian), size >= 8,
                   reader.contains(cursor, Int(size)) else {
                 throw .truncated
             }
@@ -154,7 +170,7 @@ public struct MachOImage: Sendable, Equatable {
             case 0xC, 0x8000_0018, 0x8000_001F, 0x20, 0x8000_0023:
                 // LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB,
                 // LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB.
-                guard let nameOffset = reader.uint32(at: cursor + 8, bigEndian: false),
+                guard let nameOffset = reader.uint32(at: cursor + 8, bigEndian: bigEndian),
                       Int(nameOffset) < Int(size),
                       let name = reader.cString(at: cursor + Int(nameOffset), limit: Int(size) - Int(nameOffset)) else {
                     throw .truncated
@@ -162,8 +178,8 @@ public struct MachOImage: Sendable, Equatable {
                 slice.linkedLibraries.append(name)
             case 0x32:
                 // LC_BUILD_VERSION: platform, minos. Platform 1 is macOS.
-                if reader.uint32(at: cursor + 8, bigEndian: false) == 1,
-                   let minos = reader.uint32(at: cursor + 12, bigEndian: false) {
+                if reader.uint32(at: cursor + 8, bigEndian: bigEndian) == 1,
+                   let minos = reader.uint32(at: cursor + 12, bigEndian: bigEndian) {
                     slice.minimumSystem = decodeVersion(minos)
                 }
             case 0x1D:
@@ -171,7 +187,7 @@ public struct MachOImage: Sendable, Equatable {
                 slice.hasCodeSignature = true
             case 0x24:
                 // LC_VERSION_MIN_MACOSX.
-                if let version = reader.uint32(at: cursor + 8, bigEndian: false) {
+                if let version = reader.uint32(at: cursor + 8, bigEndian: bigEndian) {
                     slice.minimumSystem = decodeVersion(version)
                 }
             default:

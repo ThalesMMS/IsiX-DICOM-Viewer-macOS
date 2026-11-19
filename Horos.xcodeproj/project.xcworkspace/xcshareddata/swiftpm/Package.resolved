@@ -1,13 +1,13 @@
 {
-  "originHash" : "7cd27adf1578c0533872f6f9393e827f2fa24af20bbf4cbcadc5a7e9bb8271d0",
+  "originHash" : "c40b7c263773124e58170895da9d52e330e3c26bbd3b76c1aabaca5dbe203bb8",
   "pins" : [
     {
       "identity" : "dicom-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ThalesMMS/DICOM-Swift.git",
       "state" : {
-        "revision" : "cf9b5bf403dd6b002f827f51aa9d9e3266f41d31",
-        "version" : "3.3.0"
+        "revision" : "1fc34e5a20ad9bc09cdbe2a4e6ba5da09b95567b",
+        "version" : "4.0.0"
       }
     },
     {

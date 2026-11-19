@@ -16,6 +16,11 @@ import Foundation
 /// signature. It works in the view's backing pixels from its top left corner,
 /// on the frame the text is drawn in; the view draws each `Command`.
 ///
+/// The margins are in points, multiplied by the scale. A view whose window
+/// can draw a frame around it gives the room of that frame as `edgeReserve`:
+/// everything keeps that far from each side, frame or no frame, so nothing
+/// moves when the frame comes or goes, and nothing touches it.
+///
 /// The arithmetic is the C's: the positions were C ints and longs converted
 /// from CGFloat, toward zero and saturated, and the scale a float.
 public struct AnnotationOverlayLayout: Sendable, Equatable {
@@ -46,12 +51,16 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
     public let topLeftInset: Double
     /// The width the study number box takes from the first top left lines; 0 without a box.
     public let colourBoxSize: Int32
+    /// What the lines, the study number box and the letters leave free along
+    /// each side of the view, in points; 0 in a view that has no frame.
+    public let edgeReserve: Double
     /// Whether the orientation letters were drawn, which moves the positions
     /// beside them a line further.
     public private(set) var orientationDrawn = false
 
     public init(originX: Double, originY: Double, width: Double, height: Double, scale: Float,
-                characterWidth: Double, lineHeight: Double, topLeftInset: Double = 0, colourBoxSize: Int32 = 0) {
+                characterWidth: Double, lineHeight: Double, topLeftInset: Double = 0, colourBoxSize: Int32 = 0,
+                edgeReserve: Double = 0) {
         self.originX = originX
         self.originY = originY
         self.width = width
@@ -61,7 +70,11 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
         self.lineHeight = lineHeight
         self.topLeftInset = topLeftInset
         self.colourBoxSize = colourBoxSize
+        self.edgeReserve = edgeReserve
     }
+
+    /// The reserve along a side, in backing pixels.
+    private var reserve: Double { edgeReserve * Double(scale) }
 
     /// The layout once the orientation letters are drawn.
     public func withOrientationDrawn() -> AnnotationOverlayLayout {
@@ -74,18 +87,18 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
 
     /// Where the first line of `position` goes; 0, 0 for a name that is not a position.
     public func start(of position: String) -> (x: Int32, y: Int32) {
-        let sf = Double(scale), six = Double(6 * scale), two = Double(2 * scale)
+        let sf = Double(scale), six = Double(6 * scale) + reserve, two = Double(2 * scale) + reserve
         let left = cInt32(originX + six), right = cInt32(originX + width - two), middle = cInt32(originX + width / 2)
         let top = cInt32(originY + lineHeight + two), centre = cInt32(originY + height / 2), bottom = cInt32(originY + height - two)
         var start: (x: Int32, y: Int32)
         switch position {
-        case "TopLeft": start = (cInt32(originX + (6 + topLeftInset) * sf), top)
+        case "TopLeft": start = (cInt32(originX + (6 + topLeftInset) * sf + reserve), top)
         case "MiddleLeft": start = (left, centre)
         case "LowerLeft": start = (left, bottom)
         case "TopRight": start = (right, top)
         case "MiddleRight": start = (right, centre)
         case "LowerRight": start = (right, cInt32(originY + height - two - lineHeight))
-        case "TopMiddle": start = (middle, cInt32(originY + lineHeight))
+        case "TopMiddle": start = (middle, cInt32(originY + lineHeight + reserve))
         case "LowerMiddle": start = (middle, bottom)
         default: return (0, 0)
         }
@@ -155,7 +168,7 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
             }
             for text in texts.trimmed where !text.isEmpty {
                 // The first top left lines leave the study number box room.
-                let room = position == "TopLeft" && Float(y &- increment) < Float(colourBoxSize) + 2 * scale ? Int(colourBoxSize) : 0
+                let room = position == "TopLeft" && Float(y &- increment) < Float(colourBoxSize) + 2 * scale + Float(reserve) ? Int(colourBoxSize) : 0
                 commands.append(.text(text, x: x &+ room, y: y, alignment: alignment))
                 y += increment
             }
@@ -169,24 +182,29 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
     /// and right letters at mid-height, the top letter centred under the top
     /// edge, the notices centred under it a line apart, and the bottom letter
     /// starting at the middle of the bottom edge. A top letter that is empty
-    /// takes no line.
+    /// takes no line. The margins are points, as those of the lines: on a
+    /// display of scale 2 a letter stands as far from the edge as on one of
+    /// scale 1.
     public func orientationCommands(left: String, right: String, top: String, bottom: String, notices: [String]) -> [Command] {
-        let midHeight = DrawingGeometry.cLong(originY + 2 + height / 2)
+        let sf = Double(scale)
+        let midHeight = DrawingGeometry.cLong(originY + 2 * sf + height / 2)
         var commands: [Command] = [
-            .text(left, x: DrawingGeometry.cLong(originX + 6), y: midHeight, alignment: .left),
-            .text(right, x: DrawingGeometry.cLong(originX + width - (2 + characterWidth * Double(right.utf8.count))), y: midHeight, alignment: .left),
+            .text(left, x: DrawingGeometry.cLong(originX + 6 * sf + reserve), y: midHeight, alignment: .left),
+            .text(right, x: DrawingGeometry.cLong(originX + width - (2 * sf + reserve + characterWidth * Double(right.utf8.count))),
+                  y: midHeight, alignment: .left),
         ]
-        var y = Float(originY + lineHeight + 3)
+        var y = Float(originY + lineHeight + 3 * sf + reserve)
         if !top.utf8.isEmpty {
             commands.append(.text(top, x: DrawingGeometry.cLong(originX + width / 2 - (characterWidth * Double(top.utf8.count) / 2)),
                                   y: DrawingGeometry.cLong(Double(y)), alignment: .left))
-            y = Float(Double(y) + (lineHeight + 3))
+            y = Float(Double(y) + (lineHeight + 3 * sf))
         }
         for notice in notices {
             commands.append(.text(notice, x: DrawingGeometry.cLong(originX + width / 2), y: DrawingGeometry.cLong(Double(y)), alignment: .center))
-            y = Float(Double(y) + (lineHeight + 3))
+            y = Float(Double(y) + (lineHeight + 3 * sf))
         }
-        commands.append(.text(bottom, x: DrawingGeometry.cLong(originX + width / 2), y: DrawingGeometry.cLong(originY + 2 + height - 6), alignment: .left))
+        commands.append(.text(bottom, x: DrawingGeometry.cLong(originX + width / 2),
+                              y: DrawingGeometry.cLong(originY + 2 * sf + height - 6 * sf - reserve), alignment: .left))
         return commands
     }
 
@@ -206,12 +224,12 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
 
     /// Where the study number box's top left corner goes.
     public var studyNumberOrigin: (x: Double, y: Double) {
-        (originX + Double(5 * scale), originY + Double(4 * scale))
+        (originX + Double(5 * scale) + reserve, originY + Double(4 * scale) + reserve)
     }
 
     /// Where the signature of the full text ends: the bottom right corner.
     public var signature: (x: Int, y: Int) {
-        (DrawingGeometry.cLong(originX + width - 2), DrawingGeometry.cLong(originY + height - 2))
+        (DrawingGeometry.cLong(originX + width - 2 - reserve), DrawingGeometry.cLong(originY + height - 2 - reserve))
     }
 }
 
@@ -411,9 +429,11 @@ struct AnnotationLineTexts {
 
     private mutating func appendSlice(_ slice: AnnotationSlice, fullText: Bool, phrases: AnnotationPhrases, values: some AnnotationValueSource) {
         let mu = Int32(0xB5)
-        if slice.thickness != 0 && slice.location != 0 {
-            if slice.stack > 1 {
-                let slab = values.thickSlab()
+        // A slab is written by its own thickness, the toolbar's, whatever the image shown says of itself.
+        let slab = slice.stack > 1 ? values.thickSlab() : nil
+        let showsSlab = slice.hasLocation && (slab.map { $0.thickness.isFinite && $0.thickness > 0 } ?? false)
+        if showsSlab || (slice.stack <= 1 && slice.thickness != 0 && slice.hasLocation) {
+            if let slab, showsSlab {
                 let thickness = slab.thickness, location = slab.location
                 if thickness < 1.0 && thickness != 0.0 {
                     texts[0] += abs(Double(location)) < 1.0 && location != 0.0
@@ -422,6 +442,8 @@ struct AnnotationLineTexts {
                 } else {
                     texts[0] += String(format: phrases.thickness, abs(Double(thickness)), Double(location))
                 }
+            } else if fullText, slice.isReconstructionSlab {
+                texts[0] += String(format: phrases.slabThickness, SlabThicknessText.text(slice.thickness, locale: phrases.numberLocale), slice.location)
             } else if fullText {
                 if slice.thickness < 1.0 && slice.thickness != 0.0 {
                     texts[0] += abs(slice.location) < 1.0 && slice.location != 0.0

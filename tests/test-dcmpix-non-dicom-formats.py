@@ -573,12 +573,11 @@ static void *ivar( id o, const char *name)
     if( !v)
     {
         // The Swift class keeps them under horos_ and the name, and the
-        // orientation as the first of its fixed arrays (horos_arrays).
+        // orientation, an array inside the object, under horos_orientationArray.
         BOOL orientation = !strcmp( name, "orientation");
         char prefixed[ 256];
-        snprintf( prefixed, sizeof prefixed, "horos_%s", orientation ? "arrays" : name);
+        snprintf( prefixed, sizeof prefixed, orientation ? "horos_%sArray" : "horos_%s", name);
         v = class_getInstanceVariable( [o class], prefixed);
-        if( v && orientation) return *(void**) ((char*) o + ivar_getOffset( v));
     }
     if( !v) { fprintf( stderr, "no ivar %s\n", name); exit( 3); }
     return (char*) o + ivar_getOffset( v);

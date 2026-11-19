@@ -89,8 +89,13 @@ for needed in ('final var ratioLink = ROIRatioLink.none', 'ratioLink = ROIRatioL
     if needed not in roi:
         failures.append(f'ROI.swift no longer has: {needed}')
 coder = (root / 'Modules/IsiXROI/Sources/ROIArchiveCoder.swift').read_text()
-if 'public static let currentVersion = 16' not in coder:
-    failures.append('the class version of the ROI archive changed: the released versions refuse every ROI of a version they do not know')
+# The tie is one of the archive's own values, after those of the LGPL format;
+# only the former layout of version 16 has it where a study UID is.
+for needed in ('public static let currentVersion = 18',
+               'if let link = reader.string(), link.length > 0 { record.link = link }',
+               'if let studyUID, studyUID.length > 0 { record.link = studyUID }'):
+    if needed not in coder:
+        failures.append(f'ROIArchiveCoder.swift no longer has: {needed}')
 
 # --- Every language names the command ---------------------------------------
 for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):

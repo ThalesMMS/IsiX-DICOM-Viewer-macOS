@@ -134,7 +134,7 @@ import Testing
     func text(named name: String, link: ROIRatioLink) -> ROIArchiveRecord {
         let record = ROIArchiveRecord()
         record.type = 13
-        record.points = NSMutableArray()
+        record.points = []
         record.name = name as NSString
         record.link = link == .none ? nil : link.archived as NSString
         return record
@@ -151,8 +151,8 @@ import Testing
         #expect(ROIRatioLink(archived: measure?.link as String?) == .measure("N-1"))
     }
 
-    /// A ROI without a tie is archived as it always was, byte for byte.
-    @Test func aROIWithoutATieIsArchivedAsBefore() {
+    /// A ROI without a tie is archived as one whose tie is empty, byte for byte.
+    @Test func aROIWithoutATieIsArchivedAsOneWithAnEmptyTie() {
         let plain = text(named: "note", link: .none)
         let empty = text(named: "note", link: .none)
         empty.link = ""
@@ -161,13 +161,13 @@ import Testing
         #expect(archive(plain) != archive(text(named: "note", link: .measure("N-1"))))
     }
 
-    /// Where the tie is, another application's archive has a study UID: read
-    /// at its version, it is no tie.
-    @Test func aStudyUIDOfAnotherApplicationIsNoTie() {
+    /// The tie is among this application's own values, after those of the
+    /// LGPL format: a reader that stops at one of that format's versions
+    /// finds a study UID where it expects one, and no tie.
+    @Test func theTieIsNotWhereAStudyUIDIs() {
         let data = archive(text(named: "note", link: .measure("N-1")))
-        #expect(read(data, version: 16)?.link == "isix-measure:N-1")
-        // Versions 12 to 15 read the value and keep none of it.
-        for version in 12...15 {
+        #expect(read(data, version: ROIArchiveRecord.currentVersion)?.link == "isix-measure:N-1")
+        for version in 12...17 {
             let older = read(data, version: version)
             #expect(older != nil && older?.link == nil && older?.name == "note")
         }

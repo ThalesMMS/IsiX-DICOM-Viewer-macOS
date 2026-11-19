@@ -54,6 +54,7 @@ import Testing
             (NetworkPreferences.triesImageLevelRetrieveIfLocalImages, "TryIMAGELevelDICOMRetrieveIfLocalImages", Bool.self, "0"),
             (NetworkPreferences.multipleAssociationsRetrieve, "MultipleAssociationsRetrieve", Bool.self, "0"),
             (NetworkPreferences.modalityWorklistRefreshMinutes, "ModalityWorklistRefreshMinutes", Int.self, "0"),
+            (NetworkPreferences.findsPatientNamesInAnyWordOrder, "PatientNameAnyWordOrder", Bool.self, "1"),
             (NetworkPreferences.preferredSyntaxForIncoming, "preferredSyntaxForIncoming", Int.self, "2"),
             (NetworkPreferences.singleProcessMultiThreadedListener, "SingleProcessMultiThreadedListener", Bool.self, "1"),
             (NetworkPreferences.sendControllerConcurrentThreads, "SendControllerConcurrentThreads", Int.self, "1"),
@@ -68,6 +69,7 @@ import Testing
             (NetworkPreferences.xmlrpcServerDoesNotRespond, "httpXMLRPCServerDoNotRespond", Bool.self, "0"),
             (NetworkPreferences.closeAllWindowsBeforeXMLRPCOpen, "CloseAllWindowsBeforeXMLRPCOpen", Bool.self, "1"),
             (NetworkPreferences.bringOsiriXToFrontAfterReceivingMessage, "bringOsiriXToFrontAfterReceivingMessage", Bool.self, "1"),
+            (NetworkPreferences.xmlrpcRetrieveOpenWaitSeconds, "XMLRPCRetrieveOpenWaitSeconds", Int.self, "30"),
         ]
         for (key, name, type, value) in keys {
             #expect(key.name == name)
@@ -114,6 +116,8 @@ import Testing
         check(NetworkPreferences.xmlrpcWithPACSOnDemand, "XMLRPCWithPOD", Bool.self)
         check(NetworkPreferences.xmlrpcServerShowsFailureAlerts, "httpXMLRPCServerShowFailureAlerts", Bool.self)
         check(NetworkPreferences.xmlrpcServerWaitForStudy, "httpXMLRPCServerWaitForStudy", Int.self)
+        check(NetworkPreferences.linkSchemeStartupPolicy, "LinkSchemeStartupPolicy", Int.self)
+        check(NetworkPreferences.linkSchemePreviousHandlers, "LinkSchemePreviousHandlers", [String: PropertyListValue]?.self)
         check(NetworkPreferences.dicomNodes, "SERVERS", [PropertyListValue]?.self)
         check(NetworkPreferences.dicomwebNodes, "DICOMWEB_SERVERS", [PropertyListValue]?.self)
         check(NetworkPreferences.osirixServers, "OSIRIXSERVERS", [PropertyListValue]?.self)

@@ -32,7 +32,7 @@ plugins = source_text('BrowserController+Plugins')
 start = plugins.index('    @objc(patientsnamePredicate:soundex:)')
 method = plugins[start:plugins.index('    @objc(federatedSourceCatalog)', start)]
 if 'nonisolated func patientsnamePredicate' not in method \
-        or 'PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil)' not in method:
+        or 'PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil,' not in method:
     failures.append('the browser\'s -patientsnamePredicate:soundex: is not the database\'s name search, from any thread')
 
 code = r'''

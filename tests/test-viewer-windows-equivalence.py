@@ -489,6 +489,17 @@ NS_SWIFT_NAME(SeriesListIdentification)
 + (void) activeWindowChangedAmong:(NSArray*) viewers NS_SWIFT_NAME(activeWindowChanged(among:));
 @end
 
+// The frame of a window and of its thumbnail (ViewerWindowBorder, over
+// IsiXImaging's WindowFrameRule, which has its own tests). Here it answers as
+// the reference did: the study's colour among several displayed viewers, none
+// for one; the frames drawn again leave no record.
+NS_SWIFT_NAME(ViewerWindowBorder)
+@interface HorosViewerWindowBorder : NSObject
++ (nullable NSColor*) colorForViewer:(id) viewer active:(BOOL) active NS_SWIFT_NAME(color(for:active:));
++ (void) windowsChangedAmong:(NSArray*) viewers NS_SWIFT_NAME(windowsChanged(among:));
++ (void) windowClosed:(id) viewer remaining:(NSArray*) viewers NS_SWIFT_NAME(windowClosed(_:remaining:));
+@end
+
 NS_SWIFT_NAME(ToolbarPolicy)
 @interface HorosToolbarPolicy : NSObject
 + (BOOL) shouldKeepDetachedToolbarVisibleWhenFullScreen:(BOOL) fullScreen NS_SWIFT_NAME(shouldKeepDetachedToolbarVisible(whenFullScreen:));
@@ -1000,6 +1011,16 @@ static BrowserController *browser;
 + (NSString*) windowLabelForNumber:(NSInteger) number { return [NSString stringWithFormat: @"#%ld", (long)number]; }
 + (NSColor*) colorForViewer:(id) viewer { return [NSColor colorWithDeviceWhite: [Name(viewer) length] / 10.0 alpha: 1]; }
 + (void) activeWindowChangedAmong:(NSArray*) viewers {}
+@end
+
+@implementation HorosViewerWindowBorder
++ (NSColor*) colorForViewer:(id) viewer active:(BOOL) active
+{
+    NSArray *displayed = [NSClassFromString(@"ViewerController") performSelector: @selector(getDisplayed2DViewers)];
+    return displayed.count > 1 ? [HorosSeriesListIdentification colorForViewer: viewer] : nil;
+}
++ (void) windowsChangedAmong:(NSArray*) viewers {}
++ (void) windowClosed:(id) viewer remaining:(NSArray*) viewers {}
 @end
 
 @implementation HorosToolbarPolicy
@@ -1750,7 +1771,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-windows-') as tmp:
         # [sender tag] as the blocks send it.
         support = read(args.current, 'Horos/Sources/ViewerController+ImagePipelineSupport.swift').decode('utf-8')
         sender = re.search(r'\nenum ViewerSender \{.*?\n}\n', support, re.S).group(0)
-        (swift / 'Helpers.swift').write_text('import AppKit\n' + sender)
+        # The loops over the series list panels reach every panel, the spare one too
+        # (test-thumbnail-list-outlives-panels.py). The code compared here reached the panels of
+        # the screens: the stand-in keeps that reach, so that the rest compares.
+        (swift / 'Helpers.swift').write_text('import AppKit\nenum ViewerWindowArranger { static var maximumScreens: Int { NSScreen.screens.count } }\n' + sender)
         sources.append(str(swift / 'Helpers.swift'))
         if any(b'TemporaryPreferenceWork.' in (read(args.current, 'Horos/Sources/' + name) or b'') for name in SWIFT_FILES):
             (swift / 'TemporaryPreferenceWork.swift').write_text(TEMPORARY_PREFERENCE_STAND_IN)

@@ -106,7 +106,9 @@ public final class OrthogonalReslice: NSObject {
     private let _yReslicedDCMPixList: NSMutableArray
     private let newPixListX: NSMutableArray
     private let newPixListY: NSMutableArray
+    /// The rows the X reformation fuses and the columns the Y one does.
     private var _thickSlab: Int16
+    private var _yThickSlab: Int16 = 1
     private var sign: Float = 0
 
     private var _useYcache: Bool
@@ -120,6 +122,13 @@ public final class OrthogonalReslice: NSObject {
     private unowned(unsafe) var firstPix: DCMPix?
 
     private var yCacheQueue: OperationQueue?
+    /// An instance variable that only older copies of the headers of the
+    /// former Horos and OsiriX plugin SDK declare, kept at the offset the
+    /// application exports for it: the lock a thread held while it filled the
+    /// Y cache. The cache is filled by the operations of yCacheQueue, which
+    /// is asked how many are left; no lock is made, and this stays nil unless
+    /// a plugin stores one, which the reslicer then releases with itself.
+    var yCacheComputation: NSLock?
     private static let resliceQueue = DispatchQueue(label: "org.horos.reslice", attributes: .concurrent)
     private var workerCount = 1
 
@@ -356,24 +365,26 @@ public final class OrthogonalReslice: NSObject {
         var curPix: DCMPix
         var stack = 0
 
-        if _thickSlab <= 1 {
-            _thickSlab = 1
+        // Each axis fuses its own count: rows and columns differ in size.
+        let slab = max(1, axe == 0 ? _thickSlab : _yThickSlab)
+        if axe == 0 { _thickSlab = slab } else { _yThickSlab = slab }
+        if slab <= 1 {
             minI = max(0, min(sliceNumber, newTotal - 1))
             maxI = minI + 1
         } else {
-            _thickSlab = (_thickSlab == 0) ? 1 : _thickSlab
-            minI = Int(Double(sliceNumber) - floor(Double(Float(_thickSlab)) / 2.0))
-            maxI = Int(Double(sliceNumber) + ceil(Double(Float(_thickSlab)) / 2.0))
+            minI = Int(Double(sliceNumber) - floor(Double(Float(slab)) / 2.0))
+            maxI = Int(Double(sliceNumber) + ceil(Double(Float(slab)) / 2.0))
 
-            if maxI > newTotal - 1 {
-                maxI = newTotal - 1
+            // The end is past the last row or column, which the slab takes too.
+            if maxI > newTotal {
+                maxI = newTotal
                 if minI == maxI { minI = maxI - 1 }
             }
         }
 
         // Y - CACHE activated only if thick slab and if enough memory is available
         if axe != 0 {
-            if _thickSlab > 1 && Ycache == nil {
+            if slab > 1 && Ycache == nil {
                 if _useYcache {
                     Ycache = malloc(ResliceCacheLayout.elementCount(width: newTotal, height: newX, slices: newY) * MemoryLayout<Float>.size)?
                         .assumingMemoryBound(to: Float.self)
@@ -525,7 +536,8 @@ public final class OrthogonalReslice: NSObject {
                 curPix.computeSliceLocation()
 
                 curPix.sliceThickness = firstPix.pixelSpacingX
-                curPix.sliceInterval = firstPix.pixelSpacingY
+                // These slices are columns: a column apart.
+                curPix.sliceInterval = firstPix.pixelSpacingX
             }
             i += 1
             stack += 1
@@ -579,9 +591,23 @@ public final class OrthogonalReslice: NSObject {
     }
 
     // thickSlab
+    /// One count for both reformations, and the X one's when they differ.
     @objc public var thickSlab: Int16 {
         get { return _thickSlab }
-        @objc(setThickSlab:) set { _thickSlab = newValue }
+        @objc(setThickSlab:) set {
+            _thickSlab = newValue
+            _yThickSlab = newValue
+        }
+    }
+
+    /// The rows the X reformation fuses and the columns the Y one does.
+    @objc public var xThickSlab: Int16 { _thickSlab }
+    @objc public var yThickSlab: Int16 { _yThickSlab }
+
+    @objc(setXThickSlab:yThickSlab:)
+    public func setXThickSlab(_ rows: Int16, yThickSlab columns: Int16) {
+        _thickSlab = rows
+        _yThickSlab = columns
     }
 
     @objc public func flipVolume() {

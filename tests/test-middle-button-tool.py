@@ -12,6 +12,24 @@
 - Each localized Viewer.xib has a third mouse button radio, tag 2, translated
   from the catalog of its language, and the viewer sends the tool chosen with
   it to DEFAULTMIDDLETOOL.
+- In the planes of the 3D MPR and of the curved MPR the right and middle
+  buttons have the tools chosen in a 2D viewer, as there: getTool: reads the
+  right one through currentToolRight, which a plane answers with
+  DEFAULTRIGHTTOOL, read at each press as DEFAULTMIDDLETOOL is, each mapped
+  to the move tool when the plane lacks it (IsiXImaging's
+  VolumeViewButtons.planeTool). The right button takes the left one's way
+  (mouseDown:, mouseDragged:, mouseUp:) instead of going straight to the
+  hidden VRView, its double-click is two single presses (only the left one
+  fills the window with the plane), its press applies its tool over the cross
+  lines too, without grabbing them as the left and middle ones do, and the
+  curved MPR's plane takes the focus first, which the window gives only for the
+  left press and without which its mouseDown: drops the press. The planes have
+  no contextual menu: the right release opens none. A press the plane does not
+  draw tells the VRView the button's tool (-mouseDown:withButtonTool:), which its
+  rule (VolumeViewButtons.tool) keeps under the modifier keys instead of
+  zooming with the right button and panning with the middle one; the volume
+  rendering window's own presses give no tool. The curved MPR's planes keep
+  the tool of the right or middle press through its drag and release.
 
 Checked in the sources. `<git revision>` as an optional argument reads them
 from that revision, the negative control.
@@ -193,8 +211,74 @@ for language in LANGUAGES:
             if title != expected:
                 failures.append(f'{language}: radio {tag} reads {title!r}, the catalog {expected!r}')
 
+# The planes of the 3D MPR (MPRDCMView) and of the curved MPR (CPRMPRDCMView).
+if 'right = self.currentToolRight.rawValue' not in get_tool or 'else if case .right = button' not in get_tool:
+    failures.append('getTool: does not read the right button\'s tool through currentToolRight')
+
+buttons = without_comments(read('Modules/IsiXImaging/Sources/ViewInput/VolumeViewButtons.swift'))
+plane_rule = body(buttons, 'public static func planeTool(_ tool: Int16, curved: Bool) -> Int16')
+if 'return 1 // translate' not in plane_rule or re.search(r'\b8\b', plane_rule.split('default:')[0]):
+    failures.append('VolumeViewButtons.planeTool does not move a plane with the tools it lacks, the crosshair among them')
+volume_rule = body(buttons, 'public static func tool(button: ViewInput.Button, current: Int16, given: Int16?,')
+if 'tool = given' not in volume_rule or volume_rule.find('tool = given') > volume_rule.find('m & control'):
+    failures.append('VolumeViewButtons.tool does not keep a given tool under the modifier keys')
+
+prefs = without_comments(read('Horos/Sources/ReconstructionPlanePreferences.swift'))
+press = body(prefs, 'func reconstructionPlanePress(_ event: NSEvent) -> NSEvent')
+if 'event.type == .rightMouseDown, event.clickCount > 1' not in press or 'clickCount: 1' not in press:
+    failures.append('a plane does not take a right double-click as single presses')
+for name, path, curved in (('MPRDCMView', 'Horos/Sources/MPRDCMView.swift', 'false'),
+                           ('CPRMPRDCMView', 'Horos/Sources/CPRMPRDCMView.swift', 'true')):
+    source = without_comments(read(path))
+    down = body(source, 'public override dynamic func rightMouseDown(with theEvent: NSEvent)')
+    dragged = body(source, 'public override dynamic func rightMouseDragged(with theEvent: NSEvent)')
+    up = body(source, 'public override dynamic func rightMouseUp(with theEvent: NSEvent)')
+    if 'self.mouseDown(with: reconstructionPlanePress(theEvent))' not in down \
+            or 'self.mouseDragged(with: theEvent)' not in dragged or 'self.mouseUp(with: theEvent)' not in up \
+            or '_vrView' in down + dragged + up:
+        failures.append(f'{name}: the right button does not take the left one\'s way')
+    if 'popUpContextMenu' in up:
+        failures.append(f'{name}: the release of a right click opens a menu the plane does not have')
+    pressed = body(source, 'public override dynamic func mouseDown(with theEvent: NSEvent)')
+    if not re.search(r'let mouseOnLines = theEvent\.type == \.rightMouseDown (?:\|\| marksPath )?\? 0 : self\.mouseOnLines\(', pressed):
+        failures.append(f'{name}: a right press grabs the cross lines instead of applying the right tool')
+    focus = 'if self.window?.firstResponder !== self { self.window?.makeFirstResponder(self) }'
+    if name == 'CPRMPRDCMView' and (focus not in down or down.find(focus) > down.find('self.mouseDown(')):
+        failures.append(f'{name}: a right press on a plane without the focus is dropped by mouseDown:')
+    if not re.search(r'if let tool = self\.volumeButtonTool\(of: theEvent\) \{\s*_vrView\?\.mouseDown\(theEvent, '
+                     r'withButtonTool: tool\)\s*\} else \{\s*_vrView\?\.mouseDown\(with: theEvent\)', pressed):
+        failures.append(f'{name}: a press of the right or middle button does not tell the VRView its tool')
+    extension = body(prefs, f'extension {name} {{')
+    right = body(extension, 'public override var currentToolRight: ToolMode')
+    middle = body(extension, 'public override var currentToolMiddle: ToolMode')
+    if f'planeButtonTool(PreferencesSource.process.preferences[ViewerPreferences.defaultRightTool], curved: {curved})' not in right \
+            or f'planeButtonTool(Int(super.currentToolMiddle.rawValue), curved: {curved})' not in middle:
+        failures.append(f'{name}: the right and middle tools are not DEFAULTRIGHTTOOL and DEFAULTMIDDLETOOL as the plane has them')
+    tools = body(extension, 'func volumeButtonTool(of event: NSEvent) -> ToolMode?')
+    if 'case .rightMouseDown: return self.currentToolRight' not in tools \
+            or 'case .otherMouseDown: return event.buttonNumber == 2 ? self.currentToolMiddle : .tTranslate' not in tools:
+        failures.append(f'{name}: the VRView is not given the right or middle button\'s tool')
+
+cpr = without_comments(read('Horos/Sources/CPRMPRDCMView.swift'))
+if 'pressTool = tool' not in body(cpr, 'public override dynamic func mouseDown(with theEvent: NSEvent)') \
+        or 'let tool = self.dragTool(theEvent)' not in body(cpr, 'public override dynamic func mouseDragged(with theEvent: NSEvent)') \
+        or 'let tool = self.dragTool(theEvent)' not in body(cpr, 'public override dynamic func mouseUp(with theEvent: NSEvent)') \
+        or 'theEvent.type == .leftMouseDragged || theEvent.type == .leftMouseUp ? self.getTool(theEvent) : pressTool' \
+        not in body(cpr, 'private func dragTool(_ theEvent: NSEvent) -> ToolMode'):
+    failures.append('CPRMPRDCMView: the drag or the release of the right or middle button does not keep its press\'s tool')
+
+gestures = without_comments(read('Horos/Sources/VRView+Gestures.swift'))
+vr_mouse = without_comments(read('Horos/Sources/VRView+Mouse.swift'))
+if 'return getTool(event, buttonTool: nil)' not in body(gestures, 'func getTool(_ event: NSEvent?) -> ToolMode') \
+        or 'given: buttonTool?.rawValue' not in body(gestures, 'func getTool(_ event: NSEvent?, buttonTool: ToolMode?) -> ToolMode') \
+        or 'press(theEvent, buttonTool: nil)' not in body(vr_mouse, 'public override func mouseDown(with theEvent: NSEvent)') \
+        or 'press(theEvent, buttonTool: tool)' not in body(vr_mouse, 'func mouseDown(_ theEvent: NSEvent, withButtonTool tool: ToolMode)') \
+        or 'tool = getTool(theEvent, buttonTool: buttonTool)' not in body(vr_mouse, 'private func press(_ theEvent: NSEvent, buttonTool: ToolMode?)') \
+        or '- (void) mouseDown:(NSEvent*) event withButtonTool:(ToolMode) tool;' not in read('Horos/Sources/MPRHostMessages.h'):
+    failures.append('the VRView does not keep the tool a plane gives the press of its right or middle button')
+
 for failure in failures:
     print(f'FAIL: {failure}')
 if failures:
     sys.exit(1)
-print('PASS: the middle mouse button uses its chosen tool through a whole click')
+print('PASS: the middle mouse button uses its chosen tool through a whole click, and the MPR and CPR planes give the right and middle buttons theirs')

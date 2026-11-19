@@ -43,15 +43,15 @@
 
 #import <Cocoa/Cocoa.h>
 
-static NSString* const NSThreadNameKey = @"name";
-static NSString* const NSThreadUniqueIdKey = @"uniqueId";
-static NSString* const NSThreadIsCancelledKey = @"isCancelled";
-static NSString* const NSThreadSupportsCancelKey = @"supportsCancel";
-static NSString* const NSThreadSupportsBackgroundingKey = @"supportsBackgrounding";
-static NSString* const NSThreadStatusKey = @"status";
-static NSString* const NSThreadProgressKey = @"progress";
-static NSString* const NSThreadProgressDetailsKey = @"progressDetails";
-static NSString* const NSThreadSubthreadsAwareProgressKey = @"subthreadsAwareProgress";
+extern NSString* const NSThreadNameKey;
+extern NSString* const NSThreadUniqueIdKey;
+extern NSString* const NSThreadIsCancelledKey;
+extern NSString* const NSThreadSupportsCancelKey;
+extern NSString* const NSThreadSupportsBackgroundingKey;
+extern NSString* const NSThreadStatusKey;
+extern NSString* const NSThreadProgressKey;
+extern NSString* const NSThreadProgressDetailsKey;
+extern NSString* const NSThreadSubthreadsAwareProgressKey;
 
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the extension itself.

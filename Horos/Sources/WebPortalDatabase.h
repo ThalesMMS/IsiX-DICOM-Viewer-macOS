@@ -49,3 +49,10 @@
 #else
 #import "Horos-Swift.h"
 #endif
+
+// Looked up by name by plugins built for Horos or OsiriX, which are not
+// rebuilt: defined once in Objective-C (FormerPluginSDK+CAPI.m), since a Swift
+// constant has no C symbol, and read from there by the Swift code too.
+// The entities of the web portal's database.
+extern NSString * const WebPortalDatabaseUserEntityName;
+extern NSString * const WebPortalDatabaseStudyEntityName;

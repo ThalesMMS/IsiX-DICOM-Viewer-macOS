@@ -42,6 +42,22 @@ import Testing
         }
     }
 
+    @Test func thaiStoredAsAnUndefinedTermBecomesItsDefinedTerm() {
+        let key = NetworkPreferences.queryCharacterSet.name
+        var preferences = store([key: "ISO_IR 1166"])
+        LaunchPreferenceMigrations.correctQueryCharacterSet(in: preferences)
+        #expect(preferences.object(forKey: key) as? String == "ISO_IR 166")
+        // Any other choice, and a value given to the launch, stay as they are.
+        for kept in ["ISO_IR 192", "ISO_IR 166", "ISO 2022 IR 87"] {
+            preferences = store([key: kept])
+            LaunchPreferenceMigrations.correctQueryCharacterSet(in: preferences)
+            #expect(preferences.writes.isEmpty)
+        }
+        preferences = store([key: "ISO_IR 1166"], arguments: [key])
+        LaunchPreferenceMigrations.correctQueryCharacterSet(in: preferences)
+        #expect(preferences.writes.isEmpty)
+    }
+
     @Test func theDefaultDatabaseLocationIsTheOneOpened() {
         let preferences = store(["DEFAULT_DATABASELOCATION": 1, "DEFAULT_DATABASELOCATIONURL": "/Volumes/Data/IsiX Data",
                                  "DATABASELOCATION": 0, "DATABASELOCATIONURL": "/elsewhere"])
@@ -52,6 +68,67 @@ import Testing
         let bare = store(["DATABASELOCATIONURL": "/elsewhere"], registered: [:])
         LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: bare)
         #expect(bare.object(forKey: "DATABASELOCATIONURL") == nil)
+    }
+
+    /// A location given at the launch, as the isolated development application
+    /// and the drivers of the checks give it, is that launch's: nothing of it
+    /// is stored, and the location kept for the launches without arguments
+    /// stays as it was.
+    @Test func aLocationGivenAtTheLaunchIsNotStored() {
+        let given: Set<String> = ["DEFAULT_DATABASELOCATION", "DEFAULT_DATABASELOCATIONURL", "DATABASELOCATION", "DATABASELOCATIONURL"]
+        // MemoryPreferences answers its values whatever was given: here they stand for the arguments.
+        let launch = store(["DEFAULT_DATABASELOCATION": "1", "DEFAULT_DATABASELOCATIONURL": "/tmp/run/db",
+                            "DATABASELOCATION": "1", "DATABASELOCATIONURL": "/tmp/run/db"], arguments: given)
+        #expect(LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: launch).isEmpty)
+        #expect(launch.writes.isEmpty)
+
+        // The default alone given: the launch opens it, given back for this launch only.
+        let defaultOnly = store(["DEFAULT_DATABASELOCATION": "1", "DEFAULT_DATABASELOCATIONURL": "/tmp/run/db",
+                                 "DATABASELOCATION": 0, "DATABASELOCATIONURL": "/Users/me/Kept"],
+                                arguments: ["DEFAULT_DATABASELOCATION", "DEFAULT_DATABASELOCATIONURL"])
+        let forThisLaunch = LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: defaultOnly)
+        #expect(forThisLaunch["DATABASELOCATION"] as? String == "1")
+        #expect(forThisLaunch["DATABASELOCATIONURL"] as? String == "/tmp/run/db")
+        #expect(forThisLaunch.count == 2 && defaultOnly.writes.isEmpty)
+        #expect(defaultOnly.object(forKey: "DATABASELOCATIONURL") as? String == "/Users/me/Kept")
+
+        // Only the location opened given: the user's own default is copied as before,
+        // and the argument hides it for this launch.
+        let openedOnly = store(["DEFAULT_DATABASELOCATION": 1, "DEFAULT_DATABASELOCATIONURL": "/Volumes/Data",
+                                "DATABASELOCATION": "1", "DATABASELOCATIONURL": "/tmp/run/db"],
+                               arguments: ["DATABASELOCATION", "DATABASELOCATIONURL"])
+        #expect(LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: openedOnly).isEmpty)
+        #expect(openedOnly.writes == ["DATABASELOCATION", "DATABASELOCATIONURL"])
+        #expect(openedOnly.object(forKey: "DATABASELOCATIONURL") as? String == "/Volumes/Data")
+    }
+
+    /// A location that cannot be reached gives way to Documents: kept from now
+    /// on for a launch without arguments, as it always was, and for this launch
+    /// only when the location was given at the launch.
+    @Test func documentsReplaceALocationOutOfReachOnlyForALaunchGivenIt() {
+        let stored = store(["DEFAULT_DATABASELOCATION": 1, "DEFAULT_DATABASELOCATIONURL": "/Volumes/Gone",
+                            "DATABASELOCATION": 1, "DATABASELOCATIONURL": "/Volumes/Gone"])
+        #expect(LaunchPreferenceMigrations.fallBackToDocumentsDatabase(in: stored).isEmpty)
+        #expect(stored.writes == ["DATABASELOCATION", "DEFAULT_DATABASELOCATION"])
+        #expect(stored[DatabasePreferences.location].mode == 0 && stored[DatabasePreferences.defaultLocation].mode == 0)
+        // The folders stay, as they always did: mode 0 is Documents whatever they say.
+        #expect(stored.object(forKey: "DEFAULT_DATABASELOCATIONURL") as? String == "/Volumes/Gone")
+
+        // Given at the launch, the location opened, the default one or both:
+        // nothing is stored, and Documents is answered for this launch.
+        for given: Set<String> in [["DATABASELOCATION", "DATABASELOCATIONURL"], ["DATABASELOCATIONURL"],
+                                   ["DEFAULT_DATABASELOCATION", "DEFAULT_DATABASELOCATIONURL"],
+                                   ["DEFAULT_DATABASELOCATION", "DEFAULT_DATABASELOCATIONURL", "DATABASELOCATION", "DATABASELOCATIONURL"]] {
+            let launch = store(["DEFAULT_DATABASELOCATION": "1", "DEFAULT_DATABASELOCATIONURL": "/Volumes/Gone",
+                                "DATABASELOCATION": "1", "DATABASELOCATIONURL": "/Volumes/Gone"], arguments: given)
+            let forThisLaunch = LaunchPreferenceMigrations.fallBackToDocumentsDatabase(in: launch)
+            #expect(launch.writes.isEmpty, "given \(given.sorted())")
+            #expect(forThisLaunch.count == 2 && forThisLaunch["DATABASELOCATION"] as? Int == 0
+                    && forThisLaunch["DEFAULT_DATABASELOCATION"] as? Int == 0, "given \(given.sorted())")
+            // Read as the argument domain would answer it once merged.
+            let merged = store(forThisLaunch)
+            #expect(merged[DatabasePreferences.location].mode == 0 && merged[DatabasePreferences.defaultLocation].mode == 0)
+        }
     }
 
     @Test func sessionValues() {

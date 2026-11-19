@@ -51,6 +51,11 @@ parser.add_argument('--first-size', type=int, default=32)
 parser.add_argument('--instance-delay', type=float, default=0)
 parser.add_argument('--stall-after', type=int, default=-1, help='ignore cancellation and pause 30s after this many objects')
 parser.add_argument('--fail-image-query', action='store_true', help='refuse IMAGE inventory queries while allowing retrieval')
+parser.add_argument('--refuse-listing', action='store_true',
+                    help='refuse the SERIES and IMAGE queries (0xA900), as a node that answers the STUDY level alone, '
+                         'while allowing retrieval')
+parser.add_argument('--empty-listing', action='store_true',
+                    help='answer the SERIES and IMAGE queries in success without a match, while allowing retrieval')
 parser.add_argument('--fail-image-retrieve', action='store_true',
                     help='fail every sub-operation of an IMAGE-level C-GET (0xC000) while serving STUDY and SERIES '
                          'level ones')
@@ -64,10 +69,10 @@ parser.add_argument('--siemens-volume', action='store_true',
                          'requestor that does not offer the class to receive it gets a failed sub-operation')
 parser.add_argument('--non-image', action='store_true',
                     help='also serve 2 Raw Data and 2 Spatial Registration objects without pixel data, in two '
-                         'series of their own, as syngo.via leaves beside a CT')
+                         'series of their own, as some vendor workstations leave beside a CT')
 parser.add_argument('--phantom-series', action='store_true',
                     help='also answer a series that counts 1 instance and lists none at the IMAGE level, and count it '
-                         'in the study, as OsiriX does for an empty OT series')
+                         'in the study, as some peers do for an empty OT series')
 parser.add_argument('--duplicate-instance', type=int, help='send this instance twice')
 parser.add_argument('--mismatch-instance', type=int, help='send a dataset UID different from its C-STORE request UID')
 parser.add_argument('--repair-flag', type=Path, help='when this file exists, disable omit/duplicate/mismatch faults')
@@ -240,6 +245,14 @@ def on_find(event):
     wanted_study = str(getattr(query, 'StudyInstanceUID', '') or '')
     if wanted_study and wanted_study != STUDY:
         print('C-FIND %s for study %r: no match' % (level, wanted_study), flush=True)
+        return
+
+    if level in ('SERIES', 'IMAGE') and arguments.refuse_listing:
+        print('C-FIND %s refused' % level, flush=True)
+        yield 0xA900, None
+        return
+    if level in ('SERIES', 'IMAGE') and arguments.empty_listing:
+        print('C-FIND %s answered without a match' % level, flush=True)
         return
 
     if level == 'IMAGE':

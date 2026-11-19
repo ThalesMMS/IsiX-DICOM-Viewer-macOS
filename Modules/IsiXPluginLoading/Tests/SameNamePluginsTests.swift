@@ -109,6 +109,69 @@ import Testing
         #expect(SameNamePlugins.preferred(among: [unversioned, other]) == unversioned)
     }
 
+    /// A former plugin on disk whose executable has the slice this process
+    /// runs, or only the other architecture's, as the old Intel-only build of
+    /// a plugin left in a plugins folder beside its universal successor.
+    private func formerBundle(in folder: URL, _ name: String, version: String?, loadsHere: Bool) throws -> SameNamePlugins.Candidate {
+        let url = folder.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: url.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
+        var info: [String: Any] = ["CFBundleExecutable": "QA", "NSPrincipalClass": "QAFilter", "pluginType": "imageFilter"]
+        info["CFBundleVersion"] = version
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: url.appendingPathComponent("Contents/Info.plist"))
+        let native = MachOImage.hostArchitecture == "x86_64" ? SyntheticMachO.x86_64() : SyntheticMachO()
+        let foreign = MachOImage.hostArchitecture == "x86_64" ? SyntheticMachO() : SyntheticMachO.x86_64()
+        try (loadsHere ? native : foreign).data().write(to: url.appendingPathComponent("Contents/MacOS/QA"))
+        return SameNamePlugins.Candidate(path: url.path, version: PluginBundleVersion.declared(byBundleAt: url), folderRank: 1)
+    }
+
+    /// A bundle this Mac cannot load does not stand for the plugin in place of
+    /// one it can, whatever version it declares: the loader would set the one
+    /// that loads aside and then refuse the other, and the plugin would leave
+    /// the menus. A build number such as 300, or a date, compares above 3.3.
+    @Test func aBundleThisMacCannotLoadDoesNotStandForOneItCan() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("SameNamePluginsTests-" + UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let current = try formerBundle(in: folder, "QA.osirixplugin", version: "3.3", loadsHere: true)
+        for (index, version) in ["300", "20240115", "3.3"].enumerated() {
+            let other = try formerBundle(in: folder.appendingPathComponent("\(index)"), "QA.horosplugin", version: version, loadsHere: false)
+            #expect(PluginInspector().inspect(bundleAt: URL(fileURLWithPath: other.path)).isLoadable == false)
+            #expect(PluginInspector().inspect(bundleAt: URL(fileURLWithPath: current.path)).isLoadable)
+            #expect(SameNamePlugins.preferred(among: [other, current]) == current, "declared \(version)")
+            #expect(SameNamePlugins.preferred(among: [current, other]) == current, "declared \(version)")
+            #expect(SameNamePlugins.isPreferred(current, to: other), "declared \(version)")
+            #expect(SameNamePlugins.setAside(among: [other, current]) == [.init(bundle: other, preferred: current)], "declared \(version)")
+        }
+        // In the user's folder, against one in the computer's: the folder does not bring it back either.
+        var userFolder = try formerBundle(in: folder.appendingPathComponent("user"), "QA.osirixplugin", version: "3.3", loadsHere: false)
+        userFolder.folderRank = 0
+        #expect(SameNamePlugins.preferred(among: [userFolder, current]) == current)
+        // When none of them loads here, the stated rule still chooses, and the higher version is the one reported.
+        let first = try formerBundle(in: folder.appendingPathComponent("a"), "QB.horosplugin", version: "1.0", loadsHere: false)
+        let second = try formerBundle(in: folder.appendingPathComponent("b"), "QB.osirixplugin", version: "2.0", loadsHere: false)
+        #expect(SameNamePlugins.preferred(among: [first, second]) == second)
+        #expect(SameNamePlugins.setAside(among: [second, first]) == [.init(bundle: first, preferred: second)])
+    }
+
+    /// The caller's `canLoad` decides, as the plugin manager's adds its
+    /// signature check to the inspection: a higher version whose seal no
+    /// longer validates does not stand for the plugin either. Each bundle is
+    /// asked once, and only bundles that share a name are asked.
+    @Test func theCallersCanLoadDecides() {
+        let broken = candidate("/u/Plugins/QA.horosplugin", "300")
+        let intact = candidate("/u/Plugins/QA.osirixplugin", "2.0")
+        let alone = candidate("/u/Plugins/Alone.horosplugin", "1.0")
+        var asked: [String] = []
+        let setAside = SameNamePlugins.setAside(among: [broken, alone, intact]) { path in
+            asked.append(path)
+            return path != broken.path
+        }
+        #expect(setAside == [.init(bundle: broken, preferred: intact)])
+        #expect(asked.sorted() == [broken.path, intact.path].sorted())
+        #expect(SameNamePlugins.preferred(among: [broken, intact], canLoad: { $0 != broken.path }) == intact)
+        #expect(SameNamePlugins.isPreferred(intact, to: broken, canLoad: { $0 != broken.path }))
+    }
+
     @Test func bundlesOfOtherNamesAreNotSetAside() {
         let one = candidate("/u/Plugins/One.horosplugin", "1.0")
         let other = candidate("/u/Plugins/Other.osirixplugin", "9.0")

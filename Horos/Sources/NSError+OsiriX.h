@@ -38,10 +38,23 @@
 // NSError (OsiriX) is implemented in Swift
 // (Horos/Sources/NSError+OsiriX.swift). This header keeps
 // <Horos/NSError+OsiriX.h>: it brings in the generated interface, whose Swift
-// extension declares the same selectors and OsirixErrorDomain.
+// extension declares the same selectors. OsirixErrorDomain is a C constant,
+// declared below.
 
 #import <Cocoa/Cocoa.h>
 
 #ifndef HOROS_BRIDGING_HEADER
 #import "Horos-Swift.h"
 #endif
+
+// Looked up by name by plugins built for Horos or OsiriX, which are not
+// rebuilt: defined once in Objective-C (FormerPluginSDK+CAPI.m), since a Swift
+// constant has no C symbol, and read from there by the Swift code too.
+extern NSString * const OsirixErrorDomain;
+
+// The variadic constructors of the former plugin SDK, which Swift cannot
+// declare: an Objective-C category defines them (NSError+LegacyPluginSDK.m).
+@interface NSError (OsiriX)
++(NSError*)osirixErrorWithCode:(NSInteger)code localizedDescriptionFormat:(NSString*)format, ... NS_FORMAT_FUNCTION(2,3);
++(NSError*)osirixErrorWithCode:(NSInteger)code underlyingError:(NSError*)underlyingError localizedDescriptionFormat:(NSString*)format, ... NS_FORMAT_FUNCTION(3,4);
+@end

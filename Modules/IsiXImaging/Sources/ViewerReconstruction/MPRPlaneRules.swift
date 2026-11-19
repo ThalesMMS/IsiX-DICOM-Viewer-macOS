@@ -52,15 +52,19 @@ public enum MPRPlaneRules {
         return (0..<3).map { i in Double(corner[i]).addingProduct(half, Double(cosines[i] + cosines[i + 3])) }
     }
 
-    /// The thickest slab the cubic display plane covers: the MPR's thinnest,
-    /// the slice interval up to 1 mm, which it opens with. A thicker slab is a
-    /// projection the user asked for, costs many samples per pixel, and stays
-    /// linear.
-    public static let cubicDisplayMaximumSlab: Float = 1.0 + 1e-3
+    /// The thickest slab the cubic display plane covers in a window whose
+    /// thinnest slab is `thinEnd`: 1 mm, which a window opened with for
+    /// slices 1 mm apart or more, or the thin end when that is thicker, and a
+    /// thousandth over for the Float the thickness is kept in. A thicker slab
+    /// is a projection the user asked for, costs many samples per pixel, and
+    /// stays linear.
+    public static func cubicDisplayMaximumSlab(thinEnd: Double) -> Float {
+        return (thinEnd.isFinite ? max(1.0, Float(thinEnd)) : 1.0) + 1e-3
+    }
 
     /// Whether a plane gets the cubic display plane besides its linear one:
     /// the preference on, no series fused over it, a single slice's slab.
-    public static func drawsCubicDisplayPlane(preference: Bool, fused: Bool, thickness: Float) -> Bool {
-        return preference && !fused && thickness <= cubicDisplayMaximumSlab
+    public static func drawsCubicDisplayPlane(preference: Bool, fused: Bool, thickness: Float, thinEnd: Double) -> Bool {
+        return preference && !fused && thickness <= cubicDisplayMaximumSlab(thinEnd: thinEnd)
     }
 }

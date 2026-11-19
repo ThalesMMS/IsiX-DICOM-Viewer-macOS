@@ -163,7 +163,11 @@ struct CrashReportTests {
         #expect(items["body"]?.contains("- Version: 6.0.0 (600)") == true)
         #expect(items["body"]?.contains("- Architecture: arm64") == true)
         #expect(items["body"]?.contains("__pthread_kill + 8") == true)
-        #expect(!url.absoluteString.contains("horos-workbench"))
+        // The development repository's name, put together here so that this
+        // file does not carry it either.
+        let developmentRepository = ["horos", "work" + "bench"].joined(separator: "-")
+        #expect(!url.absoluteString.contains(developmentRepository))
+        #expect(!draft.mailBody.contains(developmentRepository))
     }
 
     @Test func aLongReportStillFitsGitHubsLimit() {

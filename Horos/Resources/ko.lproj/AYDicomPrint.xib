@@ -205,16 +205,16 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="기타보기" id="48">
                                             <items>
-                                                <menuItem title="8 인치 x 10 인치" id="60"/>
-                                                <menuItem title="8.5 인치 x 11 인치" tag="1" id="58"/>
-                                                <menuItem title="10 인치 x 12 인치" tag="2" id="57"/>
-                                                <menuItem title="10 인치 x 14 인치" tag="3" id="56"/>
-                                                <menuItem title="11 인치 x 14 인치" tag="4" id="54"/>
-                                                <menuItem title="11 인치 x 17 인치" tag="5" id="52"/>
-                                                <menuItem title="14 인치 x 14 인치" tag="6" id="50"/>
+                                                <menuItem title="8 x 10 인치" id="60"/>
+                                                <menuItem title="8.5 x 11 인치" tag="1" id="58"/>
+                                                <menuItem title="10 x 12 인치" tag="2" id="57"/>
+                                                <menuItem title="10 x 14 인치" tag="3" id="56"/>
+                                                <menuItem title="11 x 14 인치" tag="4" id="54"/>
+                                                <menuItem title="11 x 17 인치" tag="5" id="52"/>
+                                                <menuItem title="14 x 14 인치" tag="6" id="50"/>
                                                 <menuItem title="14 x 17 인치" tag="7" id="59"/>
-                                                <menuItem title="크기: 24 CM x 24 CM" tag="8" id="49"/>
-                                                <menuItem title="크기: 24 CM x 30 CM" tag="9" id="51"/>
+                                                <menuItem title="24 x 24 센티" tag="8" id="49"/>
+                                                <menuItem title="24 x 30 센티" tag="9" id="51"/>
                                                 <menuItem title="A4" tag="10" id="53"/>
                                                 <menuItem title="A3" state="on" tag="11" id="55"/>
                                             </items>

@@ -7,6 +7,7 @@
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="QuicktimeExport">
             <connections>
+                <outlet property="rateSlider" destination="15" id="41"/>
                 <outlet property="rateValue" destination="16" id="18"/>
                 <outlet property="type" destination="6" id="11"/>
                 <outlet property="view" destination="5" id="12"/>

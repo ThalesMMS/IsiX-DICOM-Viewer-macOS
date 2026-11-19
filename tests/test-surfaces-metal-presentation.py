@@ -66,7 +66,9 @@ FORBIDDEN = ('NSOpenGL', 'openGLContext', 'CGLContextObj', 'OpenGL/', 'vtkCocoa'
 failures = []
 
 scene = code(read('Horos/Sources/SceneView.swift'))
-if not re.search(r'class HorosSceneView\s*:\s*NSView\b', scene):
+# VTKView is the base the plugin SDK of Horos and OsiriX gave the scene views: an NSView that renders nothing.
+if (not re.search(r'class HorosSceneView\s*:\s*VTKView\b', scene)
+        or not re.search(r'@interface VTKView\s*:\s*NSView\b', read('Horos/Sources/VTKView.h'))):
     failures.append('there is no scene view on NSView')
 for path, name in (('Horos/Sources/SRView.swift', 'SRView'), ('Horos/Sources/ROIVolumeView.swift', 'ROIVolumeView')):
     if not re.search(r'class %s\s*:\s*HorosSceneView\b' % name, code(read(path))):

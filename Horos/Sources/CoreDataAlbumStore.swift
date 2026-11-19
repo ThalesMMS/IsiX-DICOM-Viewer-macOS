@@ -185,9 +185,8 @@ struct CoreDataAlbumStore {
     func addDefaultAlbums() {
         let names = Set(fetchAlbums().map { $0.name ?? "" })
         guard let context = database.managedObjectContext else { return }
-        for (key, predicate) in DatabaseAlbumCatalog.defaultAlbums {
+        for (key, predicate) in DatabaseAlbumCatalog.missingDefaultAlbums(among: names, names: AnyLanguage.texts(of:)) {
             let name = Bundle.main.localizedString(forKey: key, value: nil, table: nil)
-            guard !names.contains(name) else { continue }
             N2ManagedObjectContextPerformAndWait(context) {
                 let album = NSEntityDescription.insertNewObject(forEntityName: "Album", into: context) as? DicomAlbum
                 album?.name = name

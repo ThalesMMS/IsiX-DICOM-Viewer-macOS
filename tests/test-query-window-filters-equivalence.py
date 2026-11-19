@@ -162,9 +162,11 @@ final class QueryController: NSObject {
         if shownInstance, let current = AutoQueryInstance(propertyList: preset) {
             ''' + SHOWN_RUN[0] + '''
             ''' + SHOWN_RUN[1].replace('shownAutoQRInstance?.id == current.id', 'true') + '''
-            return addFilters(of: run, to: manager, showError: false)
+            let given = addFilters(of: run, to: manager, showError: false)
+            return (given.asksForSomething, given.nameAlternatives)
         }
-        return addFilters(of: queryRun(QueryWindowFilters(propertyList: preset)), to: manager, showError: false)
+        let given = addFilters(of: queryRun(QueryWindowFilters(propertyList: preset)), to: manager, showError: false)
+        return (given.asksForSomething, given.nameAlternatives)
     }
 }
 '''

@@ -50,7 +50,7 @@ import Foundation
 extension FlyPathAssistant {
 
     /// The input's smallest and largest values, NaN left out.
-    func determineImageRange() {
+    public func determineImageRange() {
         var low = Float.greatestFiniteMagnitude
         var high = -Float.greatestFiniteMagnitude
         let values = UnsafeBufferPointer(start: input, count: max(inputVolumeSize, 0))
@@ -63,7 +63,7 @@ extension FlyPathAssistant {
     }
 
     /// One bin per unit from the smallest value to the largest, by vImage.
-    func computeHistogram() {
+    public func computeHistogram() {
         let size = cUInt32(inputMaxValue - inputMinValue)
         inputHistogram?.deallocate()
         let histogram = UnsafeMutablePointer<vImagePixelCount>.allocate(capacity: max(Int(size), 1))
@@ -82,7 +82,7 @@ extension FlyPathAssistant {
     /// `window` before it, and the bins below `window` keep their counts, as
     /// the former loop did; the margins repeat the first bin, and the last
     /// bins but one at the far end.
-    func smoothHistogram(window: Int) {
+    public func smoothHistogram(window: Int) {
         guard let histogram = inputHistogram else { return }
         let limit = Int(histogramSize)
         let size = limit + 2 * window
@@ -171,6 +171,41 @@ extension FlyPathAssistant {
         thresholdB = Float(upper) + inputMinValue
     }
 
+    /// The thresholds of the lumen whose voxels `values` (those around the
+    /// points given) average `pixValue`: the histogram's interval
+    /// (`computeIntervalThresholds`), widened to hold pixValue give or take
+    /// three median absolute deviations of the values from their median,
+    /// about two standard deviations of the noise, when pixValue lies in the
+    /// interval or that close to it. On the flat top of a lumen's peak the
+    /// histogram's interval can start at pixValue itself (from 350.7, [350,
+    /// 370] on a contrast-filled vessel of 350 HU with 10 HU of noise): the
+    /// former sampling, the brightest of 8 voxels, lifted most of the lumen
+    /// into it, but the values at the resampled voxels' centres, interpolated,
+    /// fall half below it, and the path zig-zagged two or three voxels off the
+    /// axis through what was left. An interval the histogram took from another
+    /// peak, far from pixValue (the mean of voxels on either side of a wall),
+    /// stays as it is. The median and the deviation are the lower middle
+    /// values, a value that is not a number left out.
+    ///
+    /// The margin is at most the interval's own width, the scale of the peak
+    /// the histogram found. Near a wall blurred as a CT blurs it, the values
+    /// around a point spread along the whole ramp from the lumen to the
+    /// tissue beyond, and their deviation measures the ramp, not the noise:
+    /// unbounded, a 300 HU vessel of 2 mm in fat, from points 1.6 mm off its
+    /// axis, got [-102, 414] from the histogram's [146, 166], and its path ran
+    /// through the fat.
+    func computeLumenThresholds(from pixValue: Float, among values: [Float]) {
+        computeIntervalThresholds(from: pixValue)
+        let sorted = values.filter { !$0.isNaN }.sorted()
+        guard !sorted.isEmpty else { return }
+        let median = sorted[(sorted.count - 1) / 2]
+        let deviations = sorted.map { abs($0 - median) }.sorted()
+        let margin = min(3 * deviations[(deviations.count - 1) / 2], thresholdB - thresholdA)
+        guard thresholdA - margin <= pixValue && pixValue <= thresholdB + margin else { return }
+        if pixValue - margin < thresholdA { thresholdA = pixValue - margin }
+        if pixValue + margin > thresholdB { thresholdB = pixValue + margin }
+    }
+
     /// An int passed where the former methods took a vImagePixelCount.
     private func start(_ value: Int32) -> vImagePixelCount {
         vImagePixelCount(bitPattern: Int(value))
@@ -179,7 +214,7 @@ extension FlyPathAssistant {
     /// From `value`, `step` bins at a time while the count goes down by more
     /// than a sixteenth of the bins' number, in unsigned arithmetic: below 0
     /// the position wraps past the histogram's end and the search stops.
-    func localMinimum(step: Int32, from start: vImagePixelCount) -> Int32 {
+    public func localMinimum(step: Int32, from start: vImagePixelCount) -> Int32 {
         let maxi = Int32(truncatingIfNeeded: histogramSize)
         let epsilon = maxi >> 4
         let limit = vImagePixelCount(bitPattern: Int(maxi))
@@ -195,7 +230,7 @@ extension FlyPathAssistant {
     }
 
     /// From `value`, `step` bins at a time while the count does not go down.
-    func localMaximum(step: Int32, from start: vImagePixelCount) -> Int32 {
+    public func localMaximum(step: Int32, from start: vImagePixelCount) -> Int32 {
         let limit = vImagePixelCount(bitPattern: Int(Int32(truncatingIfNeeded: histogramSize)))
         let increment = vImagePixelCount(bitPattern: Int(step))
         var value = start

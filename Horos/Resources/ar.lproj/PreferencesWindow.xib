@@ -50,10 +50,10 @@
                     </toolbarItem>
                     <toolbarItem implicitItemIdentifier="23BBC721-B7F6-47DA-B459-270759FABEDD" label="إظهار الكل" paletteLabel="Show All" id="626">
                         <nil key="toolTip"/>
-                        <size key="minSize" width="80" height="25"/>
+                        <size key="minSize" width="116" height="25"/>
                         <size key="maxSize" width="160" height="25"/>
                         <button key="view" horizontalHuggingPriority="277" verticalHuggingPriority="750" id="623">
-                            <rect key="frame" x="0.0" y="14" width="80" height="25"/>
+                            <rect key="frame" x="0.0" y="14" width="116" height="25"/>
                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                             <buttonCell key="cell" type="roundTextured" title="إظهار الكل" bezelStyle="texturedRounded" alignment="center" borderStyle="border" inset="2" id="624">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>

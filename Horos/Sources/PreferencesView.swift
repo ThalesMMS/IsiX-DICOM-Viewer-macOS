@@ -169,6 +169,7 @@ public final class PreferencesView: NSControl {
         return -1
     }
 
+    /// The narrowest column; a column whose titles need more takes their width.
     private static let colWidth: CGFloat = 80
     private static let colSeparator: CGFloat = 1
     private static let rowHeight: CGFloat = 101
@@ -211,10 +212,23 @@ public final class PreferencesView: NSControl {
         for group in groups {
             colsCount = max(colsCount, group.buttons.count)
         }
+        // Each column is as wide as the widest title in it needs to take at most two lines under its icon, as
+        // System Settings shows them: a title of three lines lost its last one ("Disposición de las anotaciones"
+        // showed "Disposición de" and "las").
+        var colWidths = [CGFloat](repeating: colWidth, count: colsCount)
+        for group in groups {
+            for (i, button) in group.buttons.enumerated() {
+                colWidths[i] = max(colWidths[i], PreferencesViewButtonCell.width(forTitle: button.title, atLeast: colWidth))
+            }
+        }
+        var colX = [CGFloat](repeating: 0, count: colsCount)
+        for i in colWidths.indices.dropFirst() {
+            colX[i] = colX[i - 1] + colWidths[i - 1] + colSeparator
+        }
 
         var frame = self.frame
         frame = NSRect(x: frame.origin.x, y: frame.origin.y,
-                       width: padding[3] + (colWidth + colSeparator) * CGFloat(colsCount) - colSeparator + padding[1],
+                       width: padding[3] + colWidths.reduce(0, +) + colSeparator * CGFloat(max(colsCount - 1, 0)) + padding[1],
                        height: padding[2] + rowHeight * CGFloat(groups.count) + padding[0])
         self.frame = frame
 
@@ -229,8 +243,8 @@ public final class PreferencesView: NSControl {
                                        width: rowRect.size.width - titleMargin[0] * 2, height: titleHeight)
 
             for (i, button) in group.buttons.enumerated() {
-                button.frame = NSRect(x: rowRect.origin.x + (colWidth + colSeparator) * CGFloat(i), y: rowRect.origin.y,
-                                      width: colWidth, height: rowHeight)
+                button.frame = NSRect(x: rowRect.origin.x + colX[i], y: rowRect.origin.y,
+                                      width: colWidths[i], height: rowHeight)
             }
             r -= 1
         }
@@ -264,6 +278,38 @@ final class PreferencesViewGroup: NSObject {
 final class PreferencesViewButtonCell: NSButtonCell {
     private static let labelHeight: CGFloat = 38
     private static let labelSeparator: CGFloat = 3
+    /// The lines a title takes at most under its icon.
+    static let titleLines = 2
+
+    /// How a title is drawn under its icon: centred, in the small label font, wrapped at words.
+    static func titleAttributes() -> [NSAttributedString.Key: Any] {
+        let style = NSMutableParagraphStyle()
+        style.setParagraphStyle(NSParagraphStyle.default)
+        style.alignment = .center
+        return [.paragraphStyle: style, .font: NSFont.labelFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.controlTextColor]
+    }
+
+    /// The narrowest width, `minimum` or more, at which `title` takes at most `titleLines` lines with no word broken.
+    static func width(forTitle title: String, atLeast minimum: CGFloat) -> CGFloat {
+        let attributes = titleAttributes()
+        func size(at width: CGFloat) -> NSSize {
+            (title as NSString).boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin],
+                                             attributes: attributes).size
+        }
+        let oneLine = size(at: .greatestFiniteMagnitude)
+        let lines = oneLine.height * CGFloat(titleLines) + 0.5
+        // A line breaks at a space or after a hyphen, and anywhere in Chinese and Japanese, written without spaces.
+        let unspaced: [ClosedRange<UInt32>] = [0x3040...0x30FF, 0x3400...0x9FFF, 0xF900...0xFAFF]
+        func breaksAnywhere(_ scalar: Unicode.Scalar) -> Bool { unspaced.contains { $0.contains(scalar.value) } }
+        let words = title.replacingOccurrences(of: "-", with: "- ").split(whereSeparator: \.isWhitespace)
+            .filter { !$0.unicodeScalars.contains(where: breaksAnywhere) }
+        let longestWord = words.map { ceil(String($0).size(withAttributes: attributes).width) }.max() ?? 0
+        var width = ceil(max(minimum, longestWord))
+        while width < ceil(oneLine.width), size(at: width).height > lines {
+            width += 1
+        }
+        return width
+    }
 
     override func draw(withFrame frame: NSRect, in controlView: NSView) {
         let labelHeight = PreferencesViewButtonCell.labelHeight
@@ -292,14 +338,6 @@ final class PreferencesViewButtonCell: NSButtonCell {
 
         let labelRect = NSRect(x: frame.origin.x, y: frame.size.height - labelHeight, width: frame.size.width, height: labelHeight)
 
-        let style = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-        style.alignment = .center
-        let font = NSFont.labelFont(ofSize: NSFont.smallSystemFontSize)
-
-        (title as NSString).draw(in: labelRect, withAttributes: [
-            .paragraphStyle: style,
-            .font: font,
-            .foregroundColor: NSColor.controlTextColor,
-        ])
+        (title as NSString).draw(in: labelRect, withAttributes: PreferencesViewButtonCell.titleAttributes())
     }
 }

@@ -10,10 +10,14 @@ the slice imports: `module_flags('IsiXStorage', folder)` compiles it once into
 """
 from pathlib import Path
 import re
+import shutil
 import subprocess
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tests'))
+import harness_cache  # noqa: E402
 LOGGING = 'IsiXLogging'
 
 
@@ -34,9 +38,25 @@ def dependencies(name):
     return found
 
 
+def module_key(name, folder, extra=()):
+    """A digest of all build_module() makes `name` of: its sources and those
+    of the modules it depends on, by their contents, the flags (the folder it
+    is built in aside, which they may name), the compiler, and this file,
+    which says how."""
+    sources = [[each, [[str(path.relative_to(ROOT)), path.read_bytes()] for path in module_sources(each)]]
+               for each in dependencies(name) + [name]]
+    return harness_cache.digest('module', name, [str(flag).replace(str(folder), '<folder>') for flag in extra], sources,
+                                harness_cache.toolchain(), harness_cache.source_digest(__file__))
+
+
 def build_module(name, folder, extra=()):
     """The static library and module of `name`, with its Objective-C header, in
-    `folder`, and those of the internal modules it depends on beside them."""
+    `folder`, and those of the internal modules it depends on beside them.
+
+    A module is compiled once for its sources, its flags and the compiler,
+    and copied into `folder` from then on (harness_cache): every test that
+    links the application's objects needs the same few modules, and compiling
+    them was most of the time of a test that needs little else."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     library = folder / f'lib{name}.a'
@@ -44,20 +64,30 @@ def build_module(name, folder, extra=()):
         imported = dependencies(name)
         for dependency in imported:
             build_module(dependency, folder, extra)
-        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', name,
-                        '-emit-library', '-static', '-emit-module', '-emit-module-path', str(folder / f'{name}.swiftmodule'),
-                        '-emit-objc-header', '-emit-objc-header-path', str(folder / f'{name}-Swift.h'),
-                        '-o', str(library), *extra, *(['-I', str(folder)] if imported else []),
-                        *map(str, module_sources(name))],
-                       check=True, cwd=folder)
-        if LOGGING in imported:
-            # Every module that logs writes through IsiXLogging, as the package
-            # product carries it: its library carries it too, so a harness that
-            # links the library alone still links. IsiXLogging defines no
-            # Objective-C class, so a harness that links two such libraries
-            # takes it from the first one and never loads it twice.
-            subprocess.run(['xcrun', 'libtool', '-static', '-no_warning_for_no_symbols', '-o', str(library),
-                            str(library), str(folder / f'lib{LOGGING}.a')], check=True, capture_output=True)
+
+        def compiled(kept):
+            subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', name,
+                            '-emit-library', '-static', '-emit-module', '-emit-module-path', str(folder / f'{name}.swiftmodule'),
+                            '-emit-objc-header', '-emit-objc-header-path', str(folder / f'{name}-Swift.h'),
+                            '-o', str(library), *extra, *(['-I', str(folder)] if imported else []),
+                            *map(str, module_sources(name))],
+                           check=True, cwd=folder)
+            if LOGGING in imported:
+                # Every module that logs writes through IsiXLogging, as the package
+                # product carries it: its library carries it too, so a harness that
+                # links the library alone still links. IsiXLogging defines no
+                # Objective-C class, so a harness that links two such libraries
+                # takes it from the first one and never loads it twice.
+                subprocess.run(['xcrun', 'libtool', '-static', '-no_warning_for_no_symbols', '-o', str(library),
+                                str(library), str(folder / f'lib{LOGGING}.a')], check=True, capture_output=True)
+            # What the compiler wrote of the module: the library, the header,
+            # the module and what it writes beside it.
+            for made in folder.iterdir():
+                if made.is_file() and (made.name in (library.name, f'{name}-Swift.h') or made.name.startswith(f'{name}.')):
+                    shutil.copy2(made, kept / made.name)
+        for made in harness_cache.built('modules', module_key(name, folder, extra), compiled).iterdir():
+            if not (folder / made.name).exists():
+                shutil.copy2(made, folder / made.name)
         # One module map for every module built in the folder.
         maps = folder / 'module.modulemap'
         entry = f'module {name} {{\n    header "{name}-Swift.h"\n    requires objc\n    export *\n}}\n'
@@ -151,7 +181,7 @@ def object_link_flags(obj, folder):
     """For an object compiled from an app source: swiftc flags that link the
     internal modules it refers to, and the Objective-C classes those define,
     which a probe must not stub."""
-    listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
+    listing = harness_cache.nm(obj, '-u', check=True)
     referenced = set(re.findall(r'_OBJC_CLASS_\$_(\w+)', listing))
     flags, classes = [], set()
     for name in module_names():

@@ -49,8 +49,9 @@ def block(text, signature):
     return ''
 
 
+# The endoscopy writes them through the VR window's -horosShowShadingValues.
 for name, shading in (('MPRController', 'shadingValues?.stringValue'),
-                      ('EndoscopyVRController', 'shadingValues?.stringValue')):
+                      ('EndoscopyVRController', 'horosShowShadingValues(')):
     text = code(read(str(sources.source_path(name).relative_to(root))))
     if shading not in text:
         failures.append(f'{name} no longer writes the three lines of the Shading item')

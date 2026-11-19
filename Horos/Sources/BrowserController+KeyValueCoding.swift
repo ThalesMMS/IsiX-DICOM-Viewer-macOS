@@ -43,50 +43,17 @@ import AppKit
 // the browser's outlets by their names (databaseOutline, _sourcesTableView...),
 // and plugins and scripts read the state by the names of the instance
 // variables. The class answers the keys of its properties itself; a key it
-// does not know, with or without its leading underscore, is the holder's
-// that keeps it now (BrowserState.swift, BrowserOutlets.swift). "_database"
-// is the database shown. Swift's stored properties are not instance
-// variables to look up by key.
+// does not know, with or without its leading underscore, is one of the
+// former instance variables still read by key (BrowserState.swift).
+// "_database" is the database shown. Swift's stored properties are not
+// instance variables to look up by key.
 
 extension BrowserController {
 
-    /// The holders, in the order the keys are looked for.
-    nonisolated private var stateHolders: [NSObject] {
-        return [windowOutlets, sheetOutlets, previewState, studyListState, comparativeState, albumState,
-                selectionCache, transferState, sheetValues, viewerOpeningState, windowState]
-    }
-
-    /// The position of the holder of each key in stateHolders.
-    nonisolated private static let holderIndexForKey: [String: Int] = {
-        let classes: [AnyClass] = [BrowserWindowOutlets.self, BrowserSheetOutlets.self, BrowserPreviewState.self,
-                                   BrowserStudyListState.self, BrowserComparativeState.self, BrowserAlbumState.self,
-                                   BrowserSelectionCache.self, BrowserTransferState.self, BrowserSheetValues.self,
-                                   BrowserViewerOpeningState.self, BrowserWindowState.self]
-        var index: [String: Int] = [:]
-        for position in classes.indices {
-            let holderClass: AnyClass = classes[position]
-            var count: UInt32 = 0
-            guard let properties = class_copyPropertyList(holderClass, &count) else { continue }
-            for property in UnsafeBufferPointer(start: properties, count: Int(count)) {
-                let name = String(cString: property_getName(property))
-                if index[name] == nil { index[name] = position }
-            }
-            free(properties)
-        }
-        return index
-    }()
-
-    /// The holder of a former instance variable's key, and the key there.
-    nonisolated private func holder(forKey key: String) -> (holder: NSObject, key: String)? {
-        let name = key.hasPrefix("_") ? String(key.dropFirst()) : key
-        guard let position = BrowserController.holderIndexForKey[name] else { return nil }
-        return (stateHolders[position], name)
-    }
-
     public override nonisolated func value(forUndefinedKey key: String) -> Any? {
         if key == "_database" { return horos_databaseIvar }
-        if let found = holder(forKey: key) { return found.holder.value(forKey: found.key) }
-        return super.value(forUndefinedKey: key)
+        let found = BrowserFormerInstanceVariables.read(key.hasPrefix("_") ? String(key.dropFirst()) : key, of: self)
+        return found.known ? found.value : super.value(forUndefinedKey: key)
     }
 
     public override nonisolated func setValue(_ value: Any?, forUndefinedKey key: String) {
@@ -96,12 +63,9 @@ extension BrowserController {
             didChangeValue(forKey: key)
             return
         }
-        guard let found = holder(forKey: key) else {
+        let name = key.hasPrefix("_") ? String(key.dropFirst()) : key
+        if !BrowserFormerInstanceVariables.write(value, to: name, notifying: key, of: self) {
             super.setValue(value, forUndefinedKey: key)
-            return
         }
-        willChangeValue(forKey: key)
-        found.holder.setValue(value, forKey: found.key)
-        didChangeValue(forKey: key)
     }
 }

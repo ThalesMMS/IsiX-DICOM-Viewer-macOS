@@ -150,9 +150,22 @@ expect(fracStore.document.segments[0].kind == .binary, "now binary")
 expect(fracStore.document.segments[0].frames[0][1 * 4 + 1] == 1, "threshold kept high")
 expect(fracStore.document.segments[0].frames[0][1 * 4 + 2] == 0, "threshold dropped low")
 expect(fracStore.document.segments[0].provenance.contains("thresholded"), "threshold is traced")
+let thresholded = fracStore.document.segments[0]
 expect(fracStore.undo(), "threshold is reversible")
-expect(fracStore.document.segments[0].kind == .fractional, "kind restored")
-expect(fracStore.document.segments[0].frames[0][1 * 4 + 2] == 40, "low fraction restored")
+expect(fracStore.document.segments[0] == fracDecoded.segments[0], "undo restores the original fractional segment")
+expect(fracStore.redo(), "threshold can be redone")
+expect(fracStore.document.segments[0] == thresholded, "redo restores the thresholded mask, kind and provenance")
+let replacement = [Data(repeating: 1, count: 16), Data(repeating: 0, count: 16)]
+expect(fracStore.setMask(replacement, segment: 1, explicit: false) == nil, "edit the thresholded mask")
+expect(fracStore.undo(), "mask edit is reversible")
+expect(fracStore.document.segments[0] == thresholded, "undo of a mask edit preserves the prior threshold")
+expect(fracStore.redo(), "mask edit can be redone")
+var edited = thresholded
+edited.frames = replacement
+expect(fracStore.document.segments[0] == edited, "redo of a mask edit preserves the threshold metadata")
+expect(fracStore.undo(), "mask edit can be undone again")
+expect(fracStore.undo(), "threshold can be undone again")
+expect(fracStore.document.segments[0] == fracDecoded.segments[0], "second undo restores the original fractional segment")
 
 let oblique = DicomSEGGeometry(
     rows: 4, columns: 4, frames: 2,

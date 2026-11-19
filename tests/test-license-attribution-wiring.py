@@ -93,8 +93,10 @@ for text, label in ((license_text, 'LICENSE'), (notice, 'NOTICE'), (about, 'abou
 for text, label in ((license_text, 'LICENSE'), (notice, 'NOTICE'), (about, 'about.html'),
                     (licenses, 'licenses.html'), (copyright, 'HUMAN_READABLE_COPYRIGHT'),
                     (readme_license, 'README.md license section')):
-    if 'horos-workbench' in text or 'workbench' in text.lower():
-        fail(label + ' still speaks of the workbench')
+    # The word the development repository is named after, put together here
+    # so that this file does not carry it either.
+    if 'work' + 'bench' in text.lower():
+        fail(label + ' still speaks of the development repository')
 for text, label in ((license_text, 'LICENSE'), (notice, 'NOTICE')):
     if 'Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork' not in text or \
             'They were not made or endorsed by the Horos Project.' not in text:

@@ -58,7 +58,7 @@ for workers in [3, 4, ProcessInfo.processInfo.processorCount] {
                     // -[DCMPix computeThickSlab], modes 4 and 5.
                     let fImage = volume + pixPos * frame
                     if direction != 0 {
-                        let stacksize = pixPos - stack < 0 ? pixPos + 1 : stack + 1
+                        let stacksize = min(stack, pixPos + 1)
                         slab.setImageSource(fImage - (stacksize - 1) * frame, stacksize)
                     } else {
                         let stacksize = pixPos + stack < count ? stack : count - pixPos

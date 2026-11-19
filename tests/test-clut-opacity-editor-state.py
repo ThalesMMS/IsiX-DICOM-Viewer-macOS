@@ -39,6 +39,73 @@
    a crash per file. VRController (VRController*.swift), which reads the 3D
    states and presets (16bitClutCurves/16bitClutColors), is checked to go
    through the same validator.
+8. Curves removed with the mouse, by mouse events in passes of the run loop
+   of their own, as the undo manager groups them. The «−» button of the side
+   bar removes one curve per click: the second click of a double-click took
+   the undo of a double-click on the curves, which put the curve back in the
+   editor and not in the volume. With a point selected it removes that
+   point's curve (it removed the point, or nothing), and the Delete key only
+   the point; the next curve is selected after each removal. The curves "+"
+   adds lie 40 HU apart: a click on a curve's square selects that curve, not
+   a point or the square of another curve in the click box. The volume
+   receives what the editor shows, the empty CLUT when no curve is left
+   (nothing was sent, and the volume kept the curves removed). A click on a
+   line adds a point and selects that point, not its curve: the Delete key
+   removes the point (it removed the curve). A click on nothing unselects the
+   curve too: «−» then removes nothing (it removed a curve drawn unselected).
+   The selected curve is drawn by its index: when undo moves it, its square
+   is still drawn selected (it was drawn unselected and «−» removed it).
+   Undo and redo wait for the mouse up of a drag (undo in a drag raised), and
+   after the undo of a double-click the volume receives the curves as the
+   editor has them again.
+9. The undo history acts on curves by their index. Remove All Curves is
+   undone, curves and colours together (undo raised NSRangeException), and
+   a CLUT loaded from the menu, a preset or the saved state, or another kind
+   of CLUT, forgets the history (undo removed a curve of the CLUT loaded, or
+   raised).
+10. «Send to back» and the colour panel act on the selected curve by its
+   index, as «−» and Delete do. They looked for the square at the position
+   the click on it stored: after an undo, a windowing in the VR or a zoom of
+   the editor moved the square, they did nothing until the curve was clicked
+   again. A click on a point gives the colour panel the point's colour; its
+   notification must not colour the curve selected before the click.
+   The curves' order is an edit the volume receives: of two curves' points
+   at one value, the front curve's is the volume's. Send to back, and a curve
+   brought to the front by its index, left the volume with the order before
+   until the next edit, and a click on a line of a curve behind, which adds a
+   point and brings that curve to the front, did not send the point either. A
+   click on the square or on a point of a curve behind still sends the curves
+   once: the point's colour, which the click gives the colour panel, changes
+   nothing, and the mouse up sent the curves again when the panel held another
+   colour.
+11. An open end. The bundled bone presets end their bone curve with a point
+   at 3071 HU, the top of a CT's range, at the height of the point before it,
+   so that the curve holds that height for the densest values. Windowing in
+   the VR, the window the editor gives the volume, the curve's square (a drag,
+   an Option-drag), the Option-drag of its last point and a drag of that point
+   act on the curve as on the curve without that end, which stays at 3071 HU
+   at the height of the point before it. They measured the curve up to 3071
+   HU: a window of 3024 HU, the square off the editor, and a narrower window
+   collapsed the bone ramp. A last point at 3071 HU at another height, or a
+   flat end below it, stays an ordinary point.
+12. The colour of an open end. A colour given to the point before an open end
+   reaches the end too, while the end has that point's colour, as the point's
+   height does: in the editor, in the volume and in the CLUT saved and read
+   back, and undo and redo act on both. The end kept its colour, so the curve's
+   colour faded from the point's to the end's up to 3071 HU. A colour of the
+   end's own stays, as does the colour of a last point at 3071 HU at another
+   height.
+13. An open end kept and drawn. A click near the flat line before an open end
+   added the point at the click's height, a little above the end's, so the
+   end was no longer open: the window and the square went back to 3071 HU,
+   and the end's colour no longer followed. The point now lies on a flat
+   line. The Delete key on the point before an open end that stays open left
+   the end in the removed point's colour, fading from the point now before
+   it; the end now takes that point's colour while it had the removed one's,
+   and undo and redo act on both. On a range above 3071 HU the volume holds
+   an open end's height on to the series' maximum, short of any curve above
+   it; the editor drew the curve dropping to 0 at 3071 HU, and now draws it
+   on to the top of its range, short of a curve above it.
 
 CLUTOpacityView.swift is compiled as it is, with doubles for the VRView and
 its controller (the VRView's -setAdvancedCLUT: reads -redComponent of each
@@ -62,6 +129,9 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as E
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -212,12 +282,15 @@ VR_DOUBLES = r'''
 import AppKit
 
 final class VRController: NSObject {
+    /// How many times the editor named the CLUT in the menu.
+    static var named = 0
+    static let shared = VRController()
     func clutOpacityDrawer() -> HorosCLUTPanel? { nil }
-    func setCurCLUTMenu(_ name: String!) {}
+    func setCurCLUTMenu(_ name: String!) { VRController.named += 1 }
 }
 
 final class VRView: NSView {
-    func controller() -> VRController? { nil }
+    func controller() -> VRController? { VRController.shared }
     func setAdvancedCLUT(_ clut: NSMutableDictionary!, lowResolution: Bool) { HarnessReceiveCLUT(clut as? [AnyHashable: Any]) }
     func getWLWW(_ wl: UnsafeMutablePointer<Float>!, _ ww: UnsafeMutablePointer<Float>!) { HarnessGetWL(wl, ww) }
     func setWLWW(_ wl: Float, _ ww: Float) { HarnessSetWL(wl, ww) }
@@ -285,6 +358,759 @@ func paintedPixels(_ rep: NSBitmapImageRep, of view: CLUTOpacityView) -> Int {
 func firstX(_ view: CLUTOpacityView, _ curve: Int) -> Double {
     let curves = view.convertCurvesForPlist() as! [[[String: NSNumber]]]
     return curves[curve][0]["x"]!.doubleValue
+}
+
+if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "removal" {
+    // 8. and 9. In a process of its own: once an application has run, the
+    // undo manager leaves its grouping by pass of the run loop to it. Here
+    // each event comes in a pass of its own, which the timer keeps turning.
+    _ = NSApplication.shared
+    let runLoopKeeper = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { _ in }
+    func pass() { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01)) }
+
+    func click(_ view: CLUTOpacityView, at position: NSPoint, count: Int = 1) {
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(with: type, location: position, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: count, pressure: 1)!
+            if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+            pass()
+        }
+    }
+
+    /// "+" and «−» of a 200-point-high editor: the second and third 15-point
+    /// buttons of the side bar from the top, 5 points from its left edge.
+    let plusButton = NSPoint(x: 12.5, y: 162.5), minusButton = NSPoint(x: 12.5, y: 142.5)
+
+    func curvePoints(_ view: CLUTOpacityView) -> [[[Float]]] {
+        (view.convertCurvesForPlist() as! [[[String: NSNumber]]]).map { $0.map { [$0["x"]!.floatValue, $0["y"]!.floatValue] } }
+    }
+
+    /// The curves the volume received last, at the precision of the editor's.
+    func volumePoints() -> [[[Float]]] {
+        ((HarnessVR.lastCLUT()?["curves"] as? [[NSValue]]) ?? []).map { $0.map { [Float($0.pointValue.x), Float($0.pointValue.y)] } }
+    }
+
+    func sameInVolume(_ view: CLUTOpacityView, _ when: String) {
+        let shown = curvePoints(view), received = volumePoints()
+        if shown != received {
+            fail("\(when), the editor shows \(shown.count) curves (\(shown.map { $0.count }) points, from \(shown.map { $0.first?.first ?? 0 })) "
+                 + "and the volume received \(received.count) (\(received.map { $0.count }), from \(received.map { $0.first?.first ?? 0 }))")
+        }
+    }
+
+    /// An editor laid out as drawn, with three curves added by clicks on "+".
+    func threeCurves() -> CLUTOpacityView {
+        let view = editor()
+        _ = render(view)
+        for _ in 0..<3 { click(view, at: plusButton) }
+        if curvePoints(view).count != 3 { fail("three clicks on + made \(curvePoints(view).count) curves") }
+        return view
+    }
+
+    func undoOrRedo(_ view: CLUTOpacityView, _ step: String) -> String? {
+        let r = raised(step) { step == "undo" ? view.undo(nil) : view.redo(nil) }
+        pass()
+        return r
+    }
+
+    // 8. Quick clicks on «−»: clickCount 1, 2 and 3, one curve each.
+    do {
+        let view = threeCurves()
+        view.selectCurve(at: 1)
+        pass()
+        for (count, left, selected) in [(1, 2, 1), (2, 1, 0), (3, 0, -1)] {
+            click(view, at: minusButton, count: count)
+            if curvePoints(view).count != left { fail("the «−» click with clickCount \(count) leaves \(curvePoints(view).count) curves, not \(left)") }
+            if view.selectedCurveIndex() != Int32(selected) {
+                fail("after the «−» click with clickCount \(count) the selected curve is \(view.selectedCurveIndex()), not \(selected)")
+            }
+            sameInVolume(view, "after the «−» click with clickCount \(count)")
+        }
+        for (step, left) in [("undo", 1), ("undo", 2), ("redo", 1)] {
+            if let r = undoOrRedo(view, step) { fail("after the «−» clicks, \(r)") }
+            if curvePoints(view).count != left { fail("\(step) after the «−» clicks leaves \(curvePoints(view).count) curves, not \(left)") }
+            sameInVolume(view, "after \(step) of a «−» click")
+        }
+    }
+
+    // 8. «−» with a point selected removes its curve; the Delete key, only a point.
+    do {
+        let view = threeCurves()
+        func position(_ curve: Int, _ point: Int) -> NSPoint {
+            let p = (view.convertCurvesForPlist() as! [[[String: NSNumber]]])[curve][point]
+            return view.transform().transform(NSPoint(x: p["x"]!.doubleValue, y: p["y"]!.doubleValue))
+        }
+        click(view, at: position(0, 2))
+        if view.selectedCurveIndex() != -1 { fail("a click on a point selected the curve \(view.selectedCurveIndex())") }
+        let removed = firstX(view, 0)
+        click(view, at: minusButton)
+        let firsts = (0..<curvePoints(view).count).map { firstX(view, $0) }
+        if firsts.count != 2 || firsts.contains(removed) {
+            fail("the «−» click with a point selected leaves the curves from \(firsts) with \(curvePoints(view).map { $0.count }) points, not the two others whole")
+        }
+        if view.selectedCurveIndex() != 0 { fail("after the «−» click with a point selected the selected curve is \(view.selectedCurveIndex()), not 0") }
+        sameInVolume(view, "after the «−» click with a point selected")
+
+        // The second point of the curve from 12, 40 HU from the next curve's.
+        click(view, at: position(1, 1))
+        let delete = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
+                                      context: nil, characters: "\u{7F}", charactersIgnoringModifiers: "\u{7F}", isARepeat: false, keyCode: 51)!
+        view.keyDown(with: delete)
+        pass()
+        let counts = Dictionary(uniqueKeysWithValues: (0..<curvePoints(view).count).map { (firstX(view, $0), curvePoints(view)[$0].count) })
+        if counts != [12: 3, 52: 4] { fail("the Delete key on the second point of the curve from 12 leaves points \(counts), not [12: 3, 52: 4]") }
+        sameInVolume(view, "after the Delete key on a point")
+    }
+
+    // 8. A click on a curve's square selects that curve; «−» then removes it.
+    do {
+        let view = threeCurves()
+        // The oldest first: its square lies within the click box of the newest curve's second point.
+        for first in [12.0, 52.0, 92.0] {
+            guard let index = (0..<3).first(where: { firstX(view, $0) == first }) else { continue }
+            click(view, at: view.controlPointForCurve(at: Int32(index)))
+            if view.selectedCurveIndex() != 0 || firstX(view, 0) != first {
+                fail("a click on the square of the curve from \(first) selected the curve \(view.selectedCurveIndex()), the one from \(firstX(view, 0)) in front")
+            }
+        }
+        if let index = (0..<3).first(where: { firstX(view, $0) == 52 }) {
+            click(view, at: view.controlPointForCurve(at: Int32(index)))
+            click(view, at: minusButton)
+            let firsts = (0..<curvePoints(view).count).map { firstX(view, $0) }
+            if firsts.sorted() != [12, 92] { fail("«−» after a click on the square of the curve from 52 leaves the curves from \(firsts)") }
+            sameInVolume(view, "after «−» on a curve selected by its square")
+        }
+    }
+
+    /// An editor laid out as drawn with curves of four points 1,600 HU apart,
+    /// the first from 0 to 1,200 HU, flat at 0.6 from 400 to 800: their
+    /// squares and lines lie far from any other point.
+    func separateCurves(_ count: Int) -> CLUTOpacityView {
+        let view = editor()
+        _ = render(view)
+        let curves = (0..<count).map { k in [0.0, 400, 800, 1200].enumerated().map { NSValue(point: NSPoint(x: $1 + 1600.0 * Double(k), y: $0 == 0 || $0 == 3 ? 0 : 0.6)) } }
+        view.setCurves(NSMutableArray(array: curves.map { NSMutableArray(array: $0) }))
+        view.setPointColors(NSMutableArray(array: curves.map { c in NSMutableArray(array: c.map { _ in NSColor.white.usingColorSpace(.genericRGB)! }) }))
+        view.setCLUTtoVRView(false)
+        pass()
+        return view
+    }
+
+    let deleteKey = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
+                                     context: nil, characters: "\u{7F}", charactersIgnoringModifiers: "\u{7F}", isARepeat: false, keyCode: 51)!
+
+    // 8. A click on a line adds a point and selects it, not its curve: the
+    // Delete key removes that point.
+    do {
+        let view = separateCurves(1)
+        click(view, at: view.transform().transform(NSPoint(x: 600, y: 0.6)))
+        if curvePoints(view).map(\.count) != [5] { fail("a click on a line between two points leaves points \(curvePoints(view).map(\.count)), not [5]") }
+        if view.selectedCurveIndex() != -1 { fail("a click on a line selected the curve \(view.selectedCurveIndex()), not only the point it added") }
+        view.keyDown(with: deleteKey)
+        pass()
+        if curvePoints(view).map(\.count) != [4] { fail("the Delete key on the point a click on a line added leaves points \(curvePoints(view).map(\.count)), not [4]") }
+        sameInVolume(view, "after the Delete key on the point a click on a line added")
+    }
+
+    // 8. A click on nothing unselects the curve too: «−» then removes nothing.
+    do {
+        let view = separateCurves(1)
+        click(view, at: view.controlPointForCurve(at: 0))
+        click(view, at: view.transform().transform(NSPoint(x: 2500, y: 0.9)))
+        if view.selectedCurveIndex() != -1 { fail("a click on nothing left the curve \(view.selectedCurveIndex()) selected") }
+        click(view, at: minusButton)
+        if curvePoints(view).count != 1 { fail("«−» after a click on nothing removed the curve the click unselected") }
+        sameInVolume(view, "after «−» with nothing selected")
+    }
+
+    // 8. A curve's square dragged: undo and redo wait for the mouse up. The
+    // drag undone, the curve is still drawn selected, as «−» sees it.
+    do {
+        let view = separateCurves(1)
+        let before = curvePoints(view), square = view.controlPointForCurve(at: 0)
+        func mouse(_ type: NSEvent.EventType) -> String? {
+            let event = NSEvent.mouseEvent(with: type, location: square, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            defer { pass() }
+            return raised("the mouse \(type == .leftMouseDown ? "down" : "up")") { type == .leftMouseDown ? view.mouseDown(with: event) : view.mouseUp(with: event) }
+        }
+        var problems = [mouse(.leftMouseDown)]
+        let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: .zero, mouseButton: .left)!
+        drag.setIntegerValueField(.mouseEventDeltaX, value: 30)
+        view.mouseDragged(with: NSEvent(cgEvent: drag)!)
+        pass()
+        let dragged = curvePoints(view)
+        if dragged == before { fail("a drag of a curve's square did not move the curve") }
+        problems += [undoOrRedo(view, "undo"), undoOrRedo(view, "redo")]
+        if curvePoints(view) != dragged { fail("undo and redo in a drag of a curve's square left the curve at \(curvePoints(view)), not at \(dragged)") }
+        problems.append(mouse(.leftMouseUp))
+        for problem in problems.compactMap({ $0 }) { fail("in a drag of a curve's square, \(problem)") }
+        for (step, expected) in [("undo", before), ("redo", dragged), ("undo", before)] {
+            if let r = undoOrRedo(view, step) { fail("after a drag of a curve's square, \(r)") }
+            if curvePoints(view) != expected { fail("\(step) after a drag of a curve's square leaves the curve at \(curvePoints(view)), not at \(expected)") }
+            sameInVolume(view, "after \(step) of a drag of a curve's square")
+        }
+        if view.selectedCurveIndex() != 0 {
+            fail("the undo of a drag of a curve's square left the curve \(view.selectedCurveIndex()) selected, not 0")
+        } else {
+            func pixels(_ rep: NSBitmapImageRep) -> Data { Data(bytes: rep.bitmapData!, count: rep.bytesPerRow * rep.pixelsHigh) }
+            let drawn = pixels(render(view))
+            view.selectCurve(at: 0)
+            if drawn != pixels(render(view)) { fail("after the undo of a drag of its square, the selected curve, the one «−» removes, is drawn unselected") }
+        }
+    }
+
+    // 8. A drag whose mouse up comes after another kind of CLUT was chosen:
+    // the mouse up sends nothing, so the volume keeps the CLUT chosen.
+    do {
+        let view = separateCurves(1)
+        let square = view.controlPointForCurve(at: 0)
+        func mouse(_ type: NSEvent.EventType) {
+            let event = NSEvent.mouseEvent(with: type, location: square, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            if let r = raised("the mouse \(type == .leftMouseDown ? "down" : "up")", { type == .leftMouseDown ? view.mouseDown(with: event) : view.mouseUp(with: event) }) {
+                fail("in a drag ended after another kind of CLUT was chosen, \(r)")
+            }
+            pass()
+        }
+        mouse(.leftMouseDown)
+        let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: .zero, mouseButton: .left)!
+        drag.setIntegerValueField(.mouseEventDeltaX, value: 30)
+        view.mouseDragged(with: NSEvent(cgEvent: drag)!)
+        pass()
+        view.cleanup()
+        let sent = HarnessVR.clutCount()
+        mouse(.leftMouseUp)
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))
+        if HarnessVR.clutCount() != sent { fail("the mouse up of a drag ended after another kind of CLUT was chosen sent the empty editor's CLUT to the volume") }
+    }
+
+    // 8. A double-click on the square of the curve behind: the undo of the
+    // double-click puts it back behind, in the editor and in the volume.
+    do {
+        let view = separateCurves(2)
+        click(view, at: view.controlPointForCurve(at: 1), count: 2)
+        NSColorPanel.shared.orderOut(nil)
+        sameInVolume(view, "after a double-click on the square of the curve behind")
+    }
+
+    // 10. «Send to back» and the colour panel act on the curve drawn selected
+    // after an undo, a windowing in the VR or a zoom of the editor moved its
+    // square from where the click on it was.
+    for change in ["the undo of a drag", "a windowing in the VR", "a zoom of the editor"] {
+        let view = separateCurves(2), square = view.controlPointForCurve(at: 0)
+        func mouse(_ type: NSEvent.EventType) {
+            let event = NSEvent.mouseEvent(with: type, location: square, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+            pass()
+        }
+        mouse(.leftMouseDown)
+        if change == "the undo of a drag" {
+            let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: .zero, mouseButton: .left)!
+            drag.setIntegerValueField(.mouseEventDeltaX, value: 30)
+            view.mouseDragged(with: NSEvent(cgEvent: drag)!)
+            pass()
+        }
+        mouse(.leftMouseUp)
+        switch change {
+        case "the undo of a drag": if let r = undoOrRedo(view, "undo") { fail("after a drag of a curve's square, \(r)") }
+        case "a windowing in the VR": view.setWL(700, ww: 1200)  // the curve from 0 to 1,200 HU, 100 HU up
+        default: view.setZoomFator(NSNumber(value: 2))
+        }
+        pass()
+        let selected = curvePoints(view)[0], other = curvePoints(view)[1]
+        if view.selectedCurveIndex() != 0 { fail("after \(change) the curve selected by a click on its square is \(view.selectedCurveIndex()), not 0") }
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [1, 0, 0, 1], count: 4)
+        view.openColourPanel(); view.changePointColor(Notification(name: NSColorPanel.colorDidChangeNotification, object: NSColorPanel.shared))
+        pass()
+        let reds = (view.convertPointColorsForPlist() as! [[[String: NSNumber]]]).map { $0.map { $0["red"]!.doubleValue > 0.99 && $0["green"]!.doubleValue < 0.01 } }
+        if reds != [[true, true, true, true], [false, false, false, false]] { fail("after \(change), the colour panel coloured the points \(reds), not the selected curve's") }
+        view.sendToBack(nil)
+        pass()
+        if curvePoints(view) != [other, selected] || view.selectedCurveIndex() != 1 {
+            fail("after \(change), Send to back left the curves from \(curvePoints(view).map { $0[0][0] }), not \([other[0][0], selected[0][0]]), with \(view.selectedCurveIndex()) selected")
+        }
+    }
+
+    // 10. A click on a point while a curve is selected colours nothing: the
+    // click gives the colour panel the point's colour, and the panel's
+    // notification comes while the curve clicked before is still selected.
+    for (target, label) in [(0, "the selected curve"), (1, "the other curve")] {
+        let view = separateCurves(2)
+        let shades = [NSColor.black, .red, .yellow, .white].map { $0.usingColorSpace(.genericRGB)! }
+        view.setPointColors(NSMutableArray(array: (0..<2).map { _ in NSMutableArray(array: shades) }))
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [0, 0, 1, 1], count: 4)
+        pass()
+        /// Each curve's colours, by its first point: a click sends the curve clicked to the front.
+        func colours() -> [Float: [[String: NSNumber]]] {
+            Dictionary(uniqueKeysWithValues: zip(curvePoints(view).map { $0[0][0] }, view.convertPointColorsForPlist() as! [[[String: NSNumber]]]))
+        }
+        let before = colours()
+        click(view, at: view.controlPointForCurve(at: 0))
+        let p = curvePoints(view)[target][1]  // red, between black and yellow
+        click(view, at: view.transform().transform(NSPoint(x: Double(p[0]), y: Double(p[1]))))
+        if view.selectedCurveIndex() != -1 { fail("a click on a point of \(label) left the curve \(view.selectedCurveIndex()) selected") }
+        if colours() != before { fail("a click on a point of \(label), with a curve selected, changed the colours from \(before) to \(colours())") }
+        sameInVolume(view, "after a click on a point of \(label), with a curve selected")
+    }
+
+    // 11. An open end: Dark Bone's bone curve, as the bundled preset ends it,
+    // goes on to 3071 HU at its last height. Windowing, its square, the
+    // scaling by its ends and a drag of its last point act on it as on the
+    // curve without that end, which stays at 3071 HU at the height of the
+    // point before it.
+    do {
+        let bone = [NSPoint(x: 46.7, y: 0), NSPoint(x: 135, y: 0.26), NSPoint(x: 244.7, y: 0.53)]
+        let skin = [NSPoint(x: -812, y: 0), NSPoint(x: -622, y: 0.164), NSPoint(x: -420, y: 0.365), NSPoint(x: -262.8, y: 0)]
+        /// The bone curve in front, as the preset has it, with its end or without, selected as a 3D preset selects its first curve.
+        func boneEditor(_ end: NSPoint?) -> CLUTOpacityView {
+            let view = editor()
+            _ = render(view)
+            let curves = [bone + (end.map { [$0] } ?? []), skin]
+            view.setCurves(NSMutableArray(array: curves.map { NSMutableArray(array: $0.map { NSValue(point: $0) }) }))
+            view.setPointColors(NSMutableArray(array: curves.map { c in NSMutableArray(array: c.map { _ in NSColor.white.usingColorSpace(.genericRGB)! }) }))
+            view.selectCurve(at: 0)
+            pass()
+            return view
+        }
+        /// The window level and width the editor gives the volume.
+        func window(_ view: CLUTOpacityView) -> [Float] {
+            view.setCLUTtoVRView(false)
+            var wl: Float = 0, ww: Float = 0
+            HarnessGetWL(&wl, &ww)
+            return [wl, ww]
+        }
+        func mouse(_ view: CLUTOpacityView, _ type: NSEvent.EventType, at position: NSPoint) {
+            let event = NSEvent.mouseEvent(with: type, location: position, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+            switch type {
+            case .leftMouseDown: view.mouseDown(with: event)
+            case .leftMouseUp: view.mouseUp(with: event)
+            default: view.mouseDragged(with: event)
+            }
+            pass()
+        }
+        /// A drag by deltas, as the square and the scaling by an end read it.
+        func shift(_ view: CLUTOpacityView, _ dx: Int64, _ dy: Int64, option: Bool) {
+            let drag = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: .zero, mouseButton: .left)!
+            drag.setIntegerValueField(.mouseEventDeltaX, value: dx)
+            drag.setIntegerValueField(.mouseEventDeltaY, value: dy)
+            drag.flags = option ? .maskAlternate : []
+            view.mouseDragged(with: NSEvent(cgEvent: drag)!)
+            pass()
+        }
+        func position(_ view: CLUTOpacityView, _ p: NSPoint) -> NSPoint { view.transform().transform(p) }
+        let steps: [(String, (CLUTOpacityView) -> Void)] = [
+            ("the 3D preset applied", { _ in }),
+            ("a windowing in the VR, 100 HU up", { $0.setWL(245.7, ww: 198) }),
+            ("a windowing in the VR, 48 HU narrower", { $0.setWL(145.7, ww: 150) }),
+            ("a windowing in the VR, 300 HU wider", { $0.setWL(145.7, ww: 498) }),
+            ("a drag of the curve's square", { v in
+                let square = v.controlPointForCurve(at: 0)
+                mouse(v, .leftMouseDown, at: square); shift(v, 30, 10, option: false); mouse(v, .leftMouseUp, at: square) }),
+            ("an Option-drag of the curve's square", { v in
+                let square = v.controlPointForCurve(at: 0)
+                mouse(v, .leftMouseDown, at: square); shift(v, 20, 0, option: true); mouse(v, .leftMouseUp, at: square) }),
+            ("an Option-drag of the last point", { v in
+                let last = position(v, bone[2])
+                mouse(v, .leftMouseDown, at: last); shift(v, 20, 0, option: true); mouse(v, .leftMouseUp, at: last) }),
+            ("a drag of the last point", { v in
+                let last = position(v, bone[2]), target = position(v, NSPoint(x: 400, y: 0.7))
+                mouse(v, .leftMouseDown, at: last); mouse(v, .leftMouseDragged, at: target); mouse(v, .leftMouseUp, at: target) }),
+        ]
+        let preset = curvePoints(boneEditor(NSPoint(x: 3071, y: 0.53)))[0]
+        for (step, act) in steps {
+            let open = boneEditor(NSPoint(x: 3071, y: 0.53)), closed = boneEditor(nil)
+            act(open)
+            let openWindow = window(open)
+            sameInVolume(open, "after \(step) on the curve with an open end")
+            act(closed)
+            let closedWindow = window(closed)
+            let o = curvePoints(open), c = curvePoints(closed)
+            if o.count != 2 || c.count != 2 || o[0].count != 4 || c[0].count != 3 {
+                fail("after \(step), the curves have \(o.map(\.count)) and \(c.map(\.count)) points, not [4, 4] and [3, 4]")
+                continue
+            }
+            if Array(o[0].prefix(3)) != c[0] || o[1] != c[1] {
+                fail("after \(step), the curve with an open end is at \(o), not as the curve without it, at \(c)")
+            }
+            if o[0][3] != [3071, o[0][2][1]] { fail("after \(step), the open end is at \(o[0][3]), not at 3071 at the height of the point before it, \(o[0][2][1])") }
+            if openWindow != closedWindow { fail("after \(step), the curve with an open end gives the volume the window \(openWindow), not \(closedWindow)") }
+            if open.controlPointForCurve(at: 0) != closed.controlPointForCurve(at: 0) {
+                fail("after \(step), the square of the curve with an open end is at \(open.controlPointForCurve(at: 0)), not at \(closed.controlPointForCurve(at: 0))")
+            }
+            if step == "a drag of the last point" {
+                if let r = undoOrRedo(open, "undo") { fail("after \(step), \(r)") }
+                if curvePoints(open)[0] != preset { fail("the undo of \(step) leaves the curve with an open end at \(curvePoints(open)[0]), not at \(preset)") }
+            }
+        }
+        // A last point at 3071 HU at another height, and a flat end below it, are ordinary points: the window spans them.
+        for end in [NSPoint(x: 3071, y: 0.3), NSPoint(x: 300, y: 0.53)] {
+            let found = window(boneEditor(end)), first = Double(bone[0].x), last = Double(end.x)
+            let expected = [Float((last + first) / 2.0), Float(last - first)]
+            if found != expected { fail("the curve ending at \(end) gives the volume the window \(found), not \(expected)") }
+        }
+
+        // 12. The colour the panel gives the point before an open end reaches
+        // the end too while the end has that point's colour, as the point's
+        // height does: in the editor, in the volume and in the CLUT saved and
+        // read back. Undo and redo act on both. A colour of the end's own stays,
+        // and so does the colour of a last point at 3071 HU at another height.
+        // The colour panel is shared: its colour reaches every editor with a
+        // point or a curve selected. The editors above go first, and each one
+        // here is unselected before the next one takes a colour.
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))
+        do {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("horos-open-end-\(UUID().uuidString)").path
+            try! FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            HarnessSetCLUTsPath(folder)
+            defer {
+                HarnessSetCLUTsPath(nil)
+                try? FileManager.default.removeItem(atPath: folder)
+            }
+            let white: [Float] = [1, 1, 1], red: [Float] = [1, 0, 0], green: [Float] = [0, 1, 0], blue: [Float] = [0, 0, 1]
+            func panelColour(_ rgb: [Float]) -> NSColor { NSColor(colorSpace: .genericRGB, components: rgb.map { CGFloat($0) } + [1], count: 4) }
+            /// The bone curve's colours, as the editor holds and saves them.
+            func colours(_ view: CLUTOpacityView) -> [[Float]] {
+                (view.convertPointColorsForPlist() as! [[[String: NSNumber]]])[0].map { [$0["red"]!.floatValue, $0["green"]!.floatValue, $0["blue"]!.floatValue] }
+            }
+            /// The bone curve's colours as the volume received them last.
+            func received() -> [[Float]] {
+                ((HarnessVR.lastCLUT()?["colors"] as? [[NSColor]]) ?? [[]])[0].map { c in
+                    let c = c.usingColorSpace(.genericRGB)!
+                    return [Float(c.redComponent), Float(c.greenComponent), Float(c.blueComponent)]
+                }
+            }
+            /// A click on the point before the end, at 244.7 HU, and a colour chosen in the panel.
+            func colourPointBefore(_ view: CLUTOpacityView, _ rgb: [Float]) {
+                let p = position(view, bone[2])
+                mouse(view, .leftMouseDown, at: p)
+                mouse(view, .leftMouseUp, at: p)
+                NSColorPanel.shared.color = panelColour(rgb)
+                view.openColourPanel(); view.changePointColor(Notification(name: NSColorPanel.colorDidChangeNotification, object: NSColorPanel.shared))
+                pass()
+            }
+            func expect(_ view: CLUTOpacityView, _ expected: [[Float]], _ when: String) {
+                if colours(view) != expected { fail("\(when), the bone curve's colours are \(colours(view)), not \(expected)") }
+            }
+            let view = boneEditor(NSPoint(x: 3071, y: 0.53))
+            colourPointBefore(view, red)
+            expect(view, [white, white, red, red], "after the colour panel on the point before an open end")
+            if received() != colours(view) { fail("after the colour panel on the point before an open end, the volume received the colours \(received()), not \(colours(view))") }
+            view.saveWithName("Open end")
+            for (step, expected) in [("undo", [white, white, white, white]), ("redo", [white, white, red, red])] {
+                if let r = undoOrRedo(view, step) { fail("after the colour panel on the point before an open end, \(r)") }
+                expect(view, expected, "after \(step) of the colour panel on the point before an open end")
+            }
+            view.setColor(panelColour(blue), forPointAt: 3, inCurveAt: 0)
+            pass()
+            colourPointBefore(view, green)
+            expect(view, [white, white, green, blue], "after the colour panel on the point before an open end of a colour of its own")
+            view.unselectPoints()
+
+            let reopened = editor()
+            _ = render(reopened)
+            reopened.loadFromFile(withName: "Open end")
+            expect(reopened, [white, white, red, red], "in the CLUT saved after the colour panel on the point before an open end")
+            colourPointBefore(reopened, blue)
+            expect(reopened, [white, white, blue, blue], "after the colour panel on the point before the open end of the CLUT read back")
+            reopened.unselectPoints()
+
+            let ordinary = boneEditor(NSPoint(x: 3071, y: 0.3))
+            colourPointBefore(ordinary, red)
+            expect(ordinary, [white, white, red, white], "after the colour panel on the point before a last point at 3071 HU at another height")
+            ordinary.unselectPoints()
+        }
+
+        // 13. A point added by a click near the line before an open end lies
+        // on that flat line, and the end stays open. The Delete key on the
+        // point before an open end that stays open gives the end the colour
+        // of the point now before it, when the end had the removed point's;
+        // undo and redo act on both. On a range above 3071 HU the editor
+        // draws an open end's height on to the top of its range, short of a
+        // curve above it, as the volume holds it.
+        do {
+            let view = boneEditor(NSPoint(x: 3071, y: 0.53))
+            var near = position(view, NSPoint(x: 1500, y: 0.53))
+            near.y += 5
+            mouse(view, .leftMouseDown, at: near)
+            mouse(view, .leftMouseUp, at: near)
+            let added = curvePoints(view)[0]
+            if added.count != 5 || added[3][1] != added[2][1] || added[4] != [3071, added[2][1]] {
+                fail("a click 5 points above the line before an open end leaves the curve at \(added), not with a point on the line and the end open")
+            } else {
+                let found = window(view), expected = added[3][0] - added[0][0]
+                if abs(found[1] - expected) > 0.01 { fail("after a click on the line before an open end, the window is \(found), not \(expected) wide up to the point added") }
+            }
+            sameInVolume(view, "after a click on the line before an open end")
+            view.unselectPoints()
+        }
+        func rgbColour(_ rgb: [CGFloat]) -> NSColor { NSColor(colorSpace: .genericRGB, components: rgb + [1], count: 4) }
+        do {
+            let white = rgbColour([1, 1, 1]), yellow = rgbColour([1, 1, 0]), blue = rgbColour([0, 0, 1])
+            /// The bone curve with a second point on its plateau, at 600 HU, and the end's colour.
+            func plateauEditor(_ end: NSColor) -> CLUTOpacityView {
+                let view = boneEditor(NSPoint(x: 3071, y: 0.53))
+                view.setCurves(NSMutableArray(array: [NSMutableArray(array: (bone + [NSPoint(x: 600, y: 0.53), NSPoint(x: 3071, y: 0.53)]).map { NSValue(point: $0) }),
+                                                      NSMutableArray(array: skin.map { NSValue(point: $0) })]))
+                view.setPointColors(NSMutableArray(array: [NSMutableArray(array: [white, white, yellow, white, end]), NSMutableArray(array: skin.map { _ in white })]))
+                view.selectCurve(at: 0)
+                pass()
+                return view
+            }
+            func ends(_ view: CLUTOpacityView) -> [[Float]] {
+                (view.convertPointColorsForPlist() as! [[[String: NSNumber]]])[0].suffix(2).map { [$0["red"]!.floatValue, $0["green"]!.floatValue, $0["blue"]!.floatValue] }
+            }
+            func delete(_ view: CLUTOpacityView, at p: NSPoint) {
+                let at = position(view, p)
+                mouse(view, .leftMouseDown, at: at)
+                mouse(view, .leftMouseUp, at: at)
+                view.keyDown(with: deleteKey)
+                pass()
+            }
+            let y: [Float] = [1, 1, 0], w: [Float] = [1, 1, 1], b: [Float] = [0, 0, 1]
+            let view = plateauEditor(white)
+            delete(view, at: NSPoint(x: 600, y: 0.53))
+            if curvePoints(view)[0].count != 4 || ends(view) != [y, y] { fail("the Delete key on the point before an open end leaves \(curvePoints(view)[0].count) points coloured \(ends(view)) at the end, not 4 and [yellow, yellow]") }
+            sameInVolume(view, "after the Delete key on the point before an open end")
+            for (step, count, expected) in [("undo", 5, [w, w]), ("redo", 4, [y, y])] {
+                if let r = undoOrRedo(view, step) { fail("after the Delete key on the point before an open end, \(r)") }
+                if curvePoints(view)[0].count != count || ends(view) != expected {
+                    fail("\(step) of the Delete key on the point before an open end leaves \(curvePoints(view)[0].count) points ending \(ends(view)), not \(count) and \(expected)")
+                }
+            }
+            view.unselectPoints()
+            let own = plateauEditor(blue)
+            delete(own, at: NSPoint(x: 600, y: 0.53))
+            if ends(own) != [y, b] { fail("the Delete key on the point before an open end of a colour of its own leaves the end \(ends(own)), not \([y, b])") }
+            own.unselectPoints()
+            // Without the point before it, Dark Bone's end at 3071 HU is an ordinary point: it keeps its colour.
+            let closing = boneEditor(NSPoint(x: 3071, y: 0.53))
+            closing.setPointColors(NSMutableArray(array: [NSMutableArray(array: [white, yellow, white, white]), NSMutableArray(array: skin.map { _ in white })]))
+            delete(closing, at: bone[2])
+            if curvePoints(closing)[0].count != 3 || ends(closing) != [y, w] {
+                fail("the Delete key on the only point before an open end leaves \(curvePoints(closing)[0]) ending \(ends(closing)), not 3 points ending [yellow, white]")
+            }
+            closing.unselectPoints()
+        }
+        do {
+            /// Whether the editor paints its curve area at a value and a height: not the black background.
+            func painted(_ view: CLUTOpacityView, _ rep: NSBitmapImageRep, _ value: Double, _ height: Double) -> NSColor? {
+                let scale = CGFloat(rep.pixelsWide) / view.bounds.width, p = position(view, NSPoint(x: value, y: height))
+                guard let c = rep.colorAt(x: Int(p.x * scale), y: Int((view.bounds.height - p.y) * scale))?.usingColorSpace(.deviceRGB) else { return nil }
+                return max(c.redComponent, c.greenComponent, c.blueComponent) > 8.0 / 255.0 ? c : nil
+            }
+            let red = rgbColour([1, 0, 0]), green = rgbColour([0, 1, 0])
+            let band = [NSPoint(x: 12000, y: 0), NSPoint(x: 13000, y: 0.8), NSPoint(x: 15000, y: 0.8), NSPoint(x: 16000, y: 0)]
+            for (end, others, expected) in [(NSPoint(x: 3071, y: 0.53), [] as [[NSPoint]], [(1000.0, true), (10000, true), (18000, true)]),
+                                            (NSPoint(x: 3071, y: 0.53), [band], [(1000, true), (10000, true), (18000, false)]),
+                                            (NSPoint(x: 3071, y: 0.3), [], [(1000, true), (10000, false), (18000, false)])] {
+                let view = editor()
+                view.setHUmin(-1000, HUmax: 20000)
+                _ = render(view)
+                let curves = [bone + [end]] + others
+                view.setCurves(NSMutableArray(array: curves.map { NSMutableArray(array: $0.map { NSValue(point: $0) }) }))
+                view.setPointColors(NSMutableArray(array: curves.enumerated().map { k, c in NSMutableArray(array: c.map { _ in k == 0 ? red : green }) }))
+                let rep = render(view)
+                for (value, filled) in expected {
+                    let colour = painted(view, rep, value, 0.2)
+                    if (colour != nil) != filled || (colour.map { $0.redComponent < 0.5 || $0.greenComponent > 0.35 } ?? false) {
+                        fail("on a range to 20000 HU with \(others.count) curves above, the curve ending at \(end) paints \(value) HU \(colour.map { "\($0)" } ?? "not at all"), not \(filled ? "red" : "nothing")")
+                    }
+                }
+            }
+        }
+    }
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))  // the high-resolution sends left pending, before the cases that count sends
+
+    // 10. The curves' order reaches the volume, where of two curves' points at
+    // one value the front curve's is the volume's: Send to back, a curve
+    // brought to the front by its index and a click on a line of the curve
+    // behind (it adds a point and brings that curve to the front) send the
+    // curves. A click on the square or on a point of the curve behind sends
+    // them once, as before.
+    do {
+        let view = separateCurves(2)
+        // Blue, a colour no point has: a click on a point gives the panel the
+        // point's white, which changes nothing and sends nothing more.
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [0, 0, 1, 1], count: 4)
+        pass()
+        /// How many times an action sends the curves to the volume.
+        func sends(_ action: () -> Void) -> Int {
+            let before = HarnessVR.clutCount()
+            action()
+            return HarnessVR.clutCount() - before
+        }
+        func position(_ curve: Int, _ point: Int) -> NSPoint {
+            let p = curvePoints(view)[curve][point]
+            return view.transform().transform(NSPoint(x: Double(p[0]), y: Double(p[1])))
+        }
+        let squareClick = sends { click(view, at: view.controlPointForCurve(at: 1)) }
+        if squareClick != 1 { fail("a click on the square of the curve behind sent the curves \(squareClick) times, not once") }
+        sameInVolume(view, "after a click on the square of the curve behind")
+        view.sendToBack(nil)
+        pass()
+        sameInVolume(view, "after Send to back of the curve selected by its square")
+        let pointClick = sends { click(view, at: position(1, 1)) }
+        if pointClick != 1 { fail("a click on a point of the curve behind sent the curves \(pointClick) times, not once") }
+        sameInVolume(view, "after a click on a point of the curve behind")
+        view.sendToFrontCurve(at: 1)
+        view.updateView()
+        pass()
+        sameInVolume(view, "after the curve behind was brought to the front by its index")
+        let line = curvePoints(view)[1]  // flat at 0.6 between its second and third points
+        click(view, at: view.transform().transform(NSPoint(x: Double(line[1][0] + line[2][0]) / 2, y: Double(line[1][1]))))
+        if curvePoints(view).map(\.count) != [5, 4] { fail("a click on a line of the curve behind leaves points \(curvePoints(view).map(\.count)), not [5, 4]") }
+        sameInVolume(view, "after a click on a line of the curve behind")
+    }
+
+    // 11. Send to back names the CLUT «16-bit CLUT» in the menu only when the
+    // order gives the volume another CLUT: where a curve behind has a point
+    // at a value of the curve sent back. A click on the square or on a point
+    // of the front curve, which changes nothing, sends the curves once (the
+    // mouse up sent them again).
+    do {
+        func counted(_ action: () -> Void) -> (sends: Int, names: Int) {
+            let sends = HarnessVR.clutCount(), names = VRController.named
+            action()
+            return (HarnessVR.clutCount() - sends, VRController.named - names)
+        }
+        let apart = separateCurves(2)
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [0, 0, 1, 1], count: 4)
+        pass()
+        let frontSquare = counted { click(apart, at: apart.controlPointForCurve(at: 0)) }
+        if frontSquare.sends != 1 { fail("a click on the square of the front curve sent the curves \(frontSquare.sends) times, not once") }
+        let frontPoint = counted {
+            let p = curvePoints(apart)[0][1]
+            click(apart, at: apart.transform().transform(NSPoint(x: Double(p[0]), y: Double(p[1]))))
+        }
+        if frontPoint.sends != 1 { fail("a click on a point of the front curve sent the curves \(frontPoint.sends) times, not once") }
+        click(apart, at: apart.controlPointForCurve(at: 0))
+        let unshared = counted { apart.sendToBack(nil); pass() }
+        if unshared.names != 0 { fail("Send to back of a curve that shares no value with another named the CLUT in the menu \(unshared.names) times") }
+        if apart.selectedCurveIndex() != 1 { fail("Send to back of a curve that shares no value left the selection on \(apart.selectedCurveIndex()), not 1") }
+        sameInVolume(apart, "after Send to back of a curve that shares no value with another")
+
+        // Two curves with a point at 800 HU each, of other heights.
+        let sharing = editor()
+        _ = render(sharing)
+        let shapes: [[(Double, Double)]] = [[(0, 0), (400, 0.6), (800, 0.6), (1200, 0)], [(800, 0), (1000, 0.9), (1400, 0.9), (1800, 0)]]
+        sharing.setCurves(NSMutableArray(array: shapes.map { c in NSMutableArray(array: c.map { NSValue(point: NSPoint(x: $0.0, y: $0.1)) }) }))
+        sharing.setPointColors(NSMutableArray(array: shapes.map { c in NSMutableArray(array: c.map { _ in NSColor.white.usingColorSpace(.genericRGB)! }) }))
+        sharing.setCLUTtoVRView(false)
+        pass()
+        sharing.selectCurve(at: 0)
+        pass()
+        let shared = counted { sharing.sendToBack(nil); pass() }
+        if shared.names != 1 || shared.sends < 1 {
+            fail("Send to back of a curve with a point at a value of the curve behind named the CLUT \(shared.names) times and sent it \(shared.sends) times")
+        }
+        sameInVolume(sharing, "after Send to back of a curve that shares a value with another")
+    }
+
+    // 12. The colour panel is the application's: it colours the curve of the
+    // editor whose double click opened it, and no other editor's (a colour
+    // well of any window, or a click in another 3D window's editor, coloured
+    // the curve selected here), until the panel closes.
+    do {
+        func reds(_ view: CLUTOpacityView) -> [Bool] {
+            (view.convertPointColorsForPlist() as! [[[String: NSNumber]]]).map { $0.allSatisfy { $0["red"]!.doubleValue > 0.99 && $0["green"]!.doubleValue < 0.01 } }
+        }
+        let red = Notification(name: NSColorPanel.colorDidChangeNotification, object: NSColorPanel.shared)
+        let one = separateCurves(2), other = separateCurves(2)
+        one.selectCurve(at: 0)
+        other.selectCurve(at: 1)
+        pass()
+        // A double click on the first editor's square: the panel is its own.
+        click(one, at: one.controlPointForCurve(at: 0), count: 2)
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [1, 0, 0, 1], count: 4)
+        one.changePointColor(red)
+        other.changePointColor(red)
+        pass()
+        if reds(one) != [true, false] { fail("the colour panel a double click opened did not colour the curve of its editor: \(reds(one))") }
+        if reds(other) != [false, false] { fail("the colour panel opened by one editor coloured the selected curve of another: \(reds(other))") }
+        // The panel closed: a colour it tells of later is no editor's.
+        NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: NSColorPanel.shared)
+        one.selectCurve(at: 1)
+        NSColorPanel.shared.color = NSColor(colorSpace: .genericRGB, components: [1, 0, 0, 1], count: 4)
+        one.changePointColor(red)
+        pass()
+        if reds(one) != [true, false] { fail("after the colour panel closed, a colour chosen elsewhere coloured the selected curve: \(reds(one))") }
+        NSColorPanel.shared.orderOut(nil)
+    }
+
+    // 9. Remove All Curves, undone with its colours, redone, undone again.
+    do {
+        let view = threeCurves()
+        view.setColor(NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.9, alpha: 1), forCurveAt: 1)
+        pass()
+        let before = (view.convertCurvesForPlist(), view.convertPointColorsForPlist())
+        view.removeAllCurves(nil)
+        pass()
+        sameInVolume(view, "after Remove All Curves")
+        for (step, empty) in [("undo", false), ("redo", true), ("undo", false)] {
+            if let r = undoOrRedo(view, step) { fail("after Remove All Curves, \(r)") }
+            let now = (view.convertCurvesForPlist(), view.convertPointColorsForPlist())
+            if empty ? (now.0.count != 0 || now.1.count != 0) : (!now.0.isEqual(before.0) || !now.1.isEqual(before.1)) {
+                fail("\(step) after Remove All Curves leaves \(now.0.count) curves and \(now.1.count) colour sets, not \(empty ? "none" : "the three as they were")")
+            }
+            sameInVolume(view, "after \(step) of Remove All Curves")
+        }
+    }
+
+    // 9. A preset's or the saved state's CLUT, then another kind of CLUT: undo
+    // and redo have nothing to act on, and the empty editor sends nothing.
+    do {
+        let view = threeCurves()
+        let curve = NSMutableArray(array: [NSPoint(x: 100, y: 0), NSPoint(x: 300, y: 0.5), NSPoint(x: 500, y: 0.9)].map { NSValue(point: $0) })
+        let colors = NSMutableArray(array: [NSColor.red, NSColor.green, NSColor.blue].map { $0.usingColorSpace(.genericRGB)! })
+        view.setCurves(NSMutableArray(array: [curve]))
+        view.setPointColors(NSMutableArray(array: [colors]))
+        view.setCLUTtoVRView(false)
+        pass()
+        let loaded = curvePoints(view)
+        for step in ["undo", "redo"] {
+            if let r = undoOrRedo(view, step) { fail("after a preset's CLUT, \(r)") }
+            if curvePoints(view) != loaded { fail("\(step) after a preset's CLUT leaves \(curvePoints(view).count) curves, not its one") }
+            sameInVolume(view, "after \(step) following a preset's CLUT")
+        }
+        view.setWL(400, ww: 800)  // leaves a high-resolution send pending
+        let sent = HarnessVR.clutCount()
+        view.cleanup()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.6))
+        if HarnessVR.clutCount() != sent { fail("switching to another kind of CLUT sent the empty editor's CLUT to the volume") }
+        if let r = undoOrRedo(view, "undo") { fail("after switching to another kind of CLUT, \(r)") }
+        if curvePoints(view).count != 0 { fail("undo after switching to another kind of CLUT brought \(curvePoints(view).count) curves back") }
+    }
+
+    // 9. A saved CLUT chosen in the menu over curves with an undo history.
+    do {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("horos-menu-cluts-\(UUID().uuidString)").path
+        try! FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        HarnessSetCLUTsPath(folder)
+        defer {
+            HarnessSetCLUTsPath(nil)
+            try? FileManager.default.removeItem(atPath: folder)
+        }
+        let saved = editor()
+        saved.newCurve()
+        saved.saveWithName("Chosen")
+        let view = threeCurves()
+        view.loadFromFile(withName: "Chosen")
+        view.setCLUTtoVRView(false)
+        pass()
+        let loaded = curvePoints(view)
+        if loaded != curvePoints(saved) { fail("the saved CLUT chosen in the menu reads back as \(loaded)") }
+        for step in ["undo", "redo"] {
+            if let r = undoOrRedo(view, step) { fail("after a CLUT chosen in the menu, \(r)") }
+            if curvePoints(view) != loaded { fail("\(step) after a CLUT chosen in the menu leaves \(curvePoints(view).count) curves, not its one") }
+            sameInVolume(view, "after \(step) following a CLUT chosen in the menu")
+        }
+    }
+    _ = runLoopKeeper
+    print("removal done")
+    exit(0)
 }
 
 if CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "overlap" {
@@ -927,10 +1753,11 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
     # The save sheet ends through NSWindow's -orderOutAndEndSheet.
     (p / 'NSWindow+N2.swift').write_bytes(read('Nitrogen/Sources/NSWindow+N2.swift'))
     swift_sources.append(str(p / 'NSWindow+N2.swift'))
-    historical = root / 'Horos/Sources/HistoricalArchive.swift'
-    if not revision and historical.is_file():
-        (p / 'HistoricalArchive.swift').write_bytes(historical.read_bytes())
+    try:
+        (p / 'HistoricalArchive.swift').write_bytes(read('Horos/Sources/HistoricalArchive.swift'))
         swift_sources.append(str(p / 'HistoricalArchive.swift'))
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass   # a revision before it
 
     if not revision:
         # Decode the real drawer adapter/editor/save-window trees; only the VR
@@ -964,8 +1791,13 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
         for i in range(0, len(values), 2):
             if values[i].text in ('com.apple.ibtool.document.warnings', 'com.apple.ibtool.document.errors'):
                 assert len(values[i + 1]) == 0, compiled.stdout
-        (p / 'HorosModernControls.swift').write_bytes((root / 'Horos/Sources/HorosModernControls.swift').read_bytes())
+
+    # The VRController double hands out the drawer, a HorosCLUTPanel.
+    try:
+        (p / 'HorosModernControls.swift').write_bytes(read('Horos/Sources/HorosModernControls.swift'))
         swift_sources.append(str(p / 'HorosModernControls.swift'))
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass   # a revision before it
 
     try:
         (p / 'RestrictedUnarchiver.swift').write_bytes(read('Horos/Sources/RestrictedUnarchiver.swift'))
@@ -987,7 +1819,10 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
         warning_flags = ['-suppress-warnings'] if revision else [
             '-warnings-as-errors', '-swift-version', '6', '-default-isolation', 'MainActor',
             '-strict-concurrency=complete']
-        build = subprocess.run(['xcrun', 'swiftc', *warning_flags, '-import-objc-header', str(p / 'Bridge.h'),
+        # The editor takes the rule of a curve's open end from IsiXVolumeRendering; a revision before that imports nothing.
+        module_flags = isix_modules.module_flags('IsiXVolumeRendering', p / 'modules') \
+            if b'import IsiXVolumeRendering' in read('Horos/Sources/CLUTOpacityView.swift') else []
+        build = subprocess.run(['xcrun', 'swiftc', *warning_flags, *module_flags, '-import-objc-header', str(p / 'Bridge.h'),
                                 '-I', str(p), *swift_sources,
                                 str(p / 'Doubles.o'), str(p / 'HorosObjCException.o'), '-o', str(p / 'test')],
                                capture_output=True, text=True)
@@ -1040,6 +1875,13 @@ with tempfile.TemporaryDirectory(prefix='horos-clut-editor-') as tmp:
                 failures.append(f'resolving overlapping curves failed (status {overlap.returncode})')
         except subprocess.TimeoutExpired:
             failures.append('-resolveOverlappingCurves did not return within 10 s on two overlapping curves')
+        try:
+            removal = subprocess.run([str(p / 'test'), 'removal'], capture_output=True, text=True, timeout=120)
+            failures += [line[6:] for line in removal.stdout.splitlines() if line.startswith('FAIL: ')]
+            if removal.returncode or 'removal done' not in removal.stdout.splitlines():
+                failures.append(f'the curve removal and undo cases stopped with status {removal.returncode}: {removal.stderr[-500:]}')
+        except subprocess.TimeoutExpired:
+            failures.append('the curve removal and undo cases did not finish within 120 s')
         failures += check_plist_cluts(p / 'test', plist_folder, plist_cases)
     failures += source_problems()
 
@@ -1050,4 +1892,14 @@ if failures:
 print('PASS: removing curves clears the selected curve and the colors, the selection follows moved curves, '
       'no histogram is drawn without a volume, nothing loops on overlapping curves, colors enter as RGB, '
       'legacy CLUT files read back or are refused without changing the editor or the file, '
-      'and property list CLUTs read back or are refused whole without a crash')
+      'property list CLUTs read back or are refused whole without a crash, «−» removes one curve per click '
+      'and a click on a square selects its curve, the Delete key after a click on a line removes only the point, '
+      'a click on nothing leaves nothing for «−», the selected curve stays drawn selected after undo, '
+      'Send to back and the colour panel act on it after an undo, a windowing or a zoom, '
+      'a click on a point colours no curve, the curves\' order reaches the volume after Send to back, a bring-to-front '
+      'by index and a click on a line, a click on the square or on a point of a curve behind sends the curves once, '
+      'a curve\'s open end at 3071 HU stays out of its windowing and its square, '
+      'and takes the colour given to the point before it, '
+      'stays open after a click on its line or the Delete key on the point before it, and is drawn on as the volume holds it, '
+      'the volume receives what the editor shows, Remove All Curves '
+      'is undone and a CLUT loaded forgets the undo history')

@@ -96,9 +96,10 @@ observe = (body(sources, 'nonisolated func _observeVolumeNotification(_ notifica
            + body(source_list, 'private func volumeDidChange(_ name: Notification.Name, path: String?, oldPath: String?)'))
 orientation = body(root / 'Horos/Sources/ViewerController.m',
                    '- (BOOL) setOrientation: (int) newOrientationTool')
-# -setOrientation: is Swift, in ViewerController+Orientation.swift.
+# -setOrientation: is Swift, in ViewerController+Orientation.swift: the façade of
+# ViewerPlaneChange, whose change(to:) does the work.
 if not orientation:
-    orientation = body(source_path('ViewerController+Orientation'), 'func setOrientation(_ newOrientationTool: Int32) -> Bool')
+    orientation = body(source_path('ViewerController+Orientation'), 'func change(to newOrientationTool: Int32) -> Bool')
 # -checkEverythingLoaded is Swift, a façade in ViewerController+StudyNavigation.swift
 # of the viewer's ViewerLoadingWait.waitUntilLoaded() there, which waits.
 study_navigation = source_path('ViewerController+StudyNavigation')

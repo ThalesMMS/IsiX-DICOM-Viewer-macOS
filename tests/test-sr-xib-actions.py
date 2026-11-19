@@ -14,7 +14,9 @@ in the app's sources and in AppKit, as tests/xib_actions.py explains.
 
 The same lookup over the English SR.xib of the revision before the sheet was
 taken out must find -endQuicktimeVRSettings: missing, so the check sees the
-defect it guards against.
+defect it guards against. The view answers that selector to a plugin of the
+former SDK with a facade that does nothing; the lookup of the former nib
+leaves that facade out, since it would not have closed the sheet either.
 
 -[SRController setDefaultTool:] and -setOrientation: read what their sender
 chose through chosenTag(of:), compiled here from SRController.swift: the
@@ -28,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_reference  # noqa: E402
+import xib_actions  # noqa: E402
 from xib_actions import block, missing_actions, nib_actions  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,7 +71,16 @@ with tempfile.TemporaryDirectory(prefix='isix-sr-xib-actions-') as name:
     if reference is None:
         print('note: the history does not reach the SR.xib with the QuickTime VR sheet; not compared')
     else:
+        # The view answers that selector again, for a plugin of the former SDK,
+        # with a facade that does nothing: it closes no sheet, and is left out
+        # of this lookup, which asks what an action of the nib would reach.
+        facade = SOURCES / 'SRView+LegacyPluginSDK.swift'
+        kept = xib_actions.SWIFT_FILES.pop(facade, None)
+        xib_actions._resolved.clear()
         former = missing_actions(nib_actions(history_reference.show(reference, path).decode('utf-8')), folder)
+        if kept is not None:
+            xib_actions.SWIFT_FILES[facade] = kept
+        xib_actions._resolved.clear()
         check(former == [('endQuicktimeVRSettings:', 'SRView')],
               'the English SR.xib of %s sends -endQuicktimeVRSettings:, which nothing implements (%s)'
               % (reference[:9], former))

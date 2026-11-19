@@ -278,6 +278,9 @@ public enum ViewerPreferences {
     /// The print sheets pick the layout whose page holds every image printed (the check of the 2D viewer's
     /// and of the DICOM print's sheets).
     public static let autoAdjustPrintingFormat = PreferenceKey<Bool>("autoAdjustPrintingFormat")
+    /// On, PDF pages and rendered structured reports are shown inverted while the application is in Dark Mode;
+    /// only the screen, never an export, a print or a copy.
+    public static let invertsDocumentPagesInDarkMode = PreferenceKey<Bool>("InvertsDocumentPagesInDarkMode", registered: "1")
 
     /// The checks of the Custom annotation level, in the order of HorosAnnotationElement.
     public static let annotationsCustomHide: [PreferenceKey<Bool>] = [
@@ -379,7 +382,7 @@ public enum ViewerPreferences {
         planarPerformanceTrace, roiComputesSkewnessAndKurtosis, roiManagerScope, roiTextIfMouseIsOver,
         rtStructConvertsToBrush, suvAcquisitionTimeField, tilingArea,
         restoresLeftMouseTool, petCLUTForNM, automatic12BitTotoku, keepsListPODComparativesChoice,
-        autoAdjustPrintingFormat,
+        autoAdjustPrintingFormat, invertsDocumentPagesInDarkMode,
     ]
 }
 

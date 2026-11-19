@@ -48,6 +48,11 @@ import IsiXPreferences
 /// active appearance are unchanged.
 @objc(ToolBarNSWindow)
 public final class ToolBarNSWindow: NSPanel {
+    /// An instance variable of the former Horos and OsiriX plugin SDK, in an
+    /// older copy of its header, exported at its offset: the panel is being
+    /// closed. Its controller writes it as it closes the panel; nothing reads
+    /// it, the panel is taken out of the screen by the controller itself.
+    final var willClose = false
 
     public override func resignMain() {
     }

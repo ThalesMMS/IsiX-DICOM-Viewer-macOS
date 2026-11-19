@@ -32,8 +32,12 @@ if query_controller.count('localCount: RetrieveViewing.uniqueInstanceCount(ofStu
 database_refresh = sources / 'ProgressiveRetrieveState.swift'
 swift_refresh = database_refresh.read_text() if database_refresh.exists() else ''
 if 'localCount: [HorosRetrieveViewing uniqueInstanceCountOfImages: fileList[curMovieIndex]]' not in viewer_controller \
-        and 'localCount: RetrieveViewing.uniqueInstanceCount(ofImages: (viewer.horos_fileList(at: movieIndex)' not in swift_refresh:
+        and 'localCount: RetrieveViewing.uniqueInstanceCount(ofImages: times.flatMap { $0 })' not in swift_refresh:
     failures.append('the viewer reload must count the unique instances it shows, not its frames')
+# A series held in several multi-frame files comes back with a time a file:
+# the instances of one time are one, and the item would be called incomplete.
+if swift_refresh and 'let times = (0..<max(Int(viewer.horos_maxMovieIndex), 1)).map' not in swift_refresh:
+    failures.append('the viewer reload counts the instances of one time of the series, not of all of them')
 if 'RetrieveViewing.swift in Sources' not in (root / 'Horos.xcodeproj/project.pbxproj').read_text():
     failures.append('RetrieveViewing.swift is not in the Horos target')
 

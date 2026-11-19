@@ -201,7 +201,10 @@ extension DCMPix {
     ///
     /// A PDF page is drawn on white paper. The page itself is only its ink:
     /// where nothing was drawn AppKit gives no pixel at all, and those came
-    /// out black, under text that is black too.
+    /// out black, under text that is black too. Such a page - an encapsulated
+    /// PDF, a PDF file, a structured report's rendering - is a document page,
+    /// which a view in Dark Mode shows inverted; a picture, as a scan wrapped
+    /// in a Secondary Capture, is not. The pixels are the page's either way.
     @objc(getDataFromNSImage:)
     public dynamic func getData(from otherImage: NSImage?) {
         autoreleasepool {
@@ -235,6 +238,7 @@ extension DCMPix {
                 }
                 horos_fImage = argb.assumingMemoryBound(to: Float.self)
                 horos_isRGB = true
+                horos_isDocumentPage = paper != nil
             }
         }
     }

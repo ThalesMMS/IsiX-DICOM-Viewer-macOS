@@ -94,6 +94,12 @@ public final class ObserverPlugin: IsiXPlugin, CustomStringConvertible {
         } catch {
             errors.append("\(error)")
         }
+        // The Report menu is a capability of its own.
+        do {
+            try context.register(IsiXCommand(id: "report", title: "Report", placement: .report)) { _ in }
+        } catch {
+            errors.append("\(error)")
+        }
         refresh()
     }
 

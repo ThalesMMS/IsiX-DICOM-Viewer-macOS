@@ -108,7 +108,7 @@ def main():
         "baseline_revision": arguments.baseline,
         "baseline_file": str(arguments.baseline_file) if arguments.baseline_file else None,
         "candidate_revision": arguments.candidate,
-        "workbench_head": head,
+        "checkout_head": head,
         "configuration": arguments.configuration,
         "compile_command": command,
         "build_root": str(arguments.build_root.resolve()),

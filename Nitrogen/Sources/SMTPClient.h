@@ -55,3 +55,18 @@ typedef NSInteger SMTPClientTLSMode;
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #endif
+
+// The keys of the parameters of a message, each the name without "Key".
+// Defined in Nitrogen+CAPI.m: plugins built for Horos or OsiriX look them up
+// by name, and a Swift constant has no C symbol.
+extern NSString* const SMTPServerAddressKey;
+extern NSString* const SMTPServerPortsKey;
+extern NSString* const SMTPServerTLSModeKey;
+extern NSString* const SMTPFromKey;
+extern NSString* const SMTPServerAuthFlagKey;
+extern NSString* const SMTPServerAuthUsernameKey;
+extern NSString* const SMTPServerAuthPasswordKey;
+extern NSString* const SMTPToKey;
+extern NSString* const SMTPHeadersKey;
+extern NSString* const SMTPSubjectKey;
+extern NSString* const SMTPMessageKey;

@@ -10,36 +10,23 @@
 
 import AppKit
 
-/// The image views: the series view of the study view and its current image view, whether the tiling views are to be updated, and the fit to the window asked at opening.
+/// The image views: whether the tiling views are to be updated, and the fit to the window asked at opening. The current image view and its series view are fields of the viewer, where plugins of the former SDK read them.
 final class ViewerImageViews: @unchecked Sendable {
-    var imageView: DCMView?
-    var seriesView: SeriesView?
-    var updateTilingViews: Bool = false
-    var openingScaleToFitRequested: Bool = false
     /// The fit asked at opening, waiting for the layout to settle.
     let openingScaleToFit = DeferredCalls()
-    var openingContentBoundsByPixels: [AnyHashable: Any]?
 }
 
 extension ViewerController {
-    nonisolated var horos_imageView: DCMView? {
-        get { imageViewsState.imageView }
-        set { imageViewsState.imageView = newValue }
-    }
-    nonisolated var horos_seriesView: SeriesView? {
-        get { imageViewsState.seriesView }
-        set { imageViewsState.seriesView = newValue }
-    }
     var horos_updateTilingViews: Bool {
-        get { imageViewsState.updateTilingViews }
-        set { imageViewsState.updateTilingViews = newValue }
+        get { _updateTilingViews }
+        set { _updateTilingViews = newValue }
     }
     var horos_openingScaleToFitRequested: Bool {
-        get { imageViewsState.openingScaleToFitRequested }
-        set { imageViewsState.openingScaleToFitRequested = newValue }
+        get { _openingScaleToFitRequested }
+        set { _openingScaleToFitRequested = newValue }
     }
     var horos_openingContentBoundsByPixels: [AnyHashable: Any]? {
-        get { imageViewsState.openingContentBoundsByPixels }
-        set { imageViewsState.openingContentBoundsByPixels = newValue }
+        get { _openingContentBoundsByPixels as? [AnyHashable: Any] }
+        set { _openingContentBoundsByPixels = newValue as NSDictionary? }
     }
 }

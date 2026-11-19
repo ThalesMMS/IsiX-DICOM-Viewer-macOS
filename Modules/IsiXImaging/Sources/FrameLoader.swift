@@ -96,8 +96,11 @@ public struct FrameLoader {
     /// present, or the preference says they always are.
     public var thirtyTwoBitWordsAreIntegers = false
     /// The VOI LUT step, given the 16-bit samples of a frame that carries all
-    /// of them, before the modality LUT.
-    public var voiLUT: ((UnsafeMutablePointer<UInt16>) -> Void)?
+    /// of them, before the modality LUT. It answers whether it put the
+    /// table's output in their place: unsigned values, which the modality LUT
+    /// has nothing more to say about, as the step went through it to find
+    /// each entry.
+    public var voiLUT: ((UnsafeMutablePointer<UInt16>) -> Bool)?
 
     public private(set) var shortFrame: ShortFrame?
     public private(set) var ranOutOfMemory = false
@@ -199,13 +202,14 @@ public struct FrameLoader {
 
         if bitsAllocated == 32 { return loadThirtyTwoBits(frame) }
 
+        var holdsTableOutput = false
         if let voiLUT, frame.count >= count &* 2 {
             if samples == nil {
                 guard let copy = scratch.uninitialized(count &* 2) else { return outOfMemory() }
                 frame.copy(count &* 2, into: copy)
                 samples = copy
             }
-            voiLUT(samples!.assumingMemoryBound(to: UInt16.self))
+            holdsTableOutput = voiLUT(samples!.assumingMemoryBound(to: UInt16.self))
         }
 
         guard let image = allocateImage() else { return outOfMemory() }
@@ -227,8 +231,8 @@ public struct FrameLoader {
                 guard let aligned = frame.prefix(count &* 2, alignment: 2, scratch: scratch) else { return outOfMemory() }
                 source = aligned
             }
-            FrameConversion.floats(from16: source, signed: layout.isSigned, width: layout.width, height: layout.height,
-                                   slope: layout.slope, offset: layout.offset, into: image)
+            FrameConversion.floats(from16: source, signed: layout.isSigned && !holdsTableOutput, width: layout.width, height: layout.height,
+                                   slope: holdsTableOutput ? 1 : layout.slope, offset: holdsTableOutput ? 0 : layout.offset, into: image)
         }
 
         burnGreyOverlays(into: image)

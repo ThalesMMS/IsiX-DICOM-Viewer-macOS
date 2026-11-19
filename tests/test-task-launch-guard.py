@@ -73,7 +73,7 @@ def launches(text):
 
 
 SWIFT_LAUNCH = re.compile(r'\.launch\(\)')
-SWIFT_GUARD = re.compile(r'(HorosObjCException\.(?:perform|caught|logged|synchronized|caughtWithoutAllocation)|\bobjcTry|\.attempt)\s*\(?\s*$')
+SWIFT_GUARD = re.compile(r'(HorosObjCException\.(?:perform|caught|logged|synchronized)|\bobjcTry|\.attempt)\s*\(?\s*$')
 SWIFT_FUNCTION = re.compile(r'\bfunc\s+(\w+)')
 
 
@@ -176,9 +176,10 @@ for path in sources():
                             'closure that catches Objective-C exceptions' if path.suffix == '.swift' else '@try'))
 
 # A scan that finds nothing proves nothing. The launches leave as their code
-# moves to Process.run(), which throws a Swift error instead of raising, so
+# moves to Process.run(), which throws a Swift error instead of raising, or to
+# the bounded wait of HorosBoundedTask.h, which launches for its caller, so
 # the floor is on where the scan looks: Objective-C and Swift sources both.
-if total < 5 or languages != {False, True}:
+if total < 3 or languages != {False, True}:
     failures.append('the scan found only %d launch sites, in %s; it is not looking where it should'
                     % (total, ' and '.join(sorted({False: 'Objective-C', True: 'Swift'}[x] for x in languages)) or 'no source'))
 

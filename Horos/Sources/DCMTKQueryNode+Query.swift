@@ -79,6 +79,7 @@ extension DCMTKQueryNode {
     func query(withValues values: [Any]?, identifier given: DICOMQueryIdentifier?) {
         lastQuerySucceededValue = false
         lastQueryNotImplementedValue = false
+        lastQueryStatus = nil
         synchronized {
             endedNormally(HorosObjCException.caught {
                 purgeChildren()
@@ -330,6 +331,7 @@ extension DCMTKQueryNode {
         imageInventoryConfirmedValue = false
         listingNotImplemented = false
         listingFailedOtherwise = false
+        listingRefusalStatus = nil
         seriesInstanceCountsStorage = NSMutableDictionary()
         seriesNumbersStorage = NSMutableDictionary()
         seriesDescriptionsStorage = NSMutableDictionary()
@@ -349,9 +351,10 @@ extension DCMTKQueryNode {
             // own: a retrieve's listing says nothing, and decides what to make
             // of them once the retrieve has ended.
             subQuery.setShowErrorMessage(showErrorMessageValue)
+            subQuery.listsForRetrieve = listsForRetrieve
             subQuery.query(withValues: nil, identifier: QueryIdentifiers.seriesListing(study: studyInstanceUID))
             confirmed = subQuery.lastQuerySucceeded
-            if !confirmed { noteFailedListing(notImplemented: subQuery.lastQueryNotImplemented) }
+            if !confirmed { noteFailedListing(notImplemented: subQuery.lastQueryNotImplemented, status: subQuery.lastQueryStatus) }
             for case let series as DCMTKQueryNode in subQuery.children() ?? [] {
                 let uid = series.uid() ?? ""
                 guard !uid.isEmpty else { continue }
@@ -411,7 +414,9 @@ extension DCMTKQueryNode {
             let ok = endedNormally(HorosObjCException.caught {
                 subQuery.query(withValues: nil, identifier: QueryIdentifiers.instanceListing(series: seriesInstanceUID, study: studyInstanceUID))
                 confirmed = confirmed && subQuery.lastQuerySucceeded
-                if !subQuery.lastQuerySucceeded { noteFailedListing(notImplemented: subQuery.lastQueryNotImplemented) }
+                if !subQuery.lastQuerySucceeded {
+                    noteFailedListing(notImplemented: subQuery.lastQueryNotImplemented, status: subQuery.lastQueryStatus)
+                }
                 found = subQuery.children() ?? []
             })
             if !ok {

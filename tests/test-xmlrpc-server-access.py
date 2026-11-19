@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""The XML-RPC interface answers this computer by default and authenticates other computers."""
+"""The XML-RPC interface answers this computer, and other computers as the Listener settings say:
+within the scope chosen (any address by default) and, when a password is required, with it."""
 import private_tmpdir  # noqa: F401  - its TMPDIR holds the harness preference domains
 import harness_defaults
 from pathlib import Path
@@ -24,7 +25,7 @@ assert(!XMLRPCServerAccess.isLoopbackAddress(nil))
 
 // This computer is loopback or any address its interfaces hold, however the
 // accept wrote it: a RIS on the same Mac often calls the machine's own network
-// address, which Horos and OsiriX answer.
+// address, and it must be answered.
 let interfaces: Set<[UInt8]> = Set(["192.168.1.20", "fe80::1", "2001:db8::20"].map { XMLRPCServerAccess.addressBytes($0)! })
 for address in ["127.0.0.1", "::1", "192.168.1.20", "::ffff:192.168.1.20", "fe80::1%en0",
                 "2001:db8::20", "2001:0db8:0:0:0:0:0:20"] {
@@ -43,8 +44,8 @@ for bytes in current where bytes.count == 4 {
     assert(XMLRPCServerAccess.isLocalAddress(text), "expected this Mac: \(text)")
 }
 
-// The local network is what cannot be routed from the internet, the intranet
-// option of OsiriX, plus the block VPNs such as Tailscale hand out.
+// The local network is what cannot be routed from the internet (private and
+// link-local addresses), plus the block VPNs such as Tailscale hand out.
 for address in ["10.0.0.4", "172.16.0.1", "172.31.255.255", "192.168.1.21", "169.254.3.4",
                 "100.64.0.1", "100.89.33.90", "100.127.255.255", "::ffff:192.168.1.21",
                 "fd12:3456::1", "fc00::1", "fe80::2%en0", "febf::1"] {
@@ -101,7 +102,7 @@ assert(decide("192.168.1.21", credential, "", scope: .anyAddress) == .refuseNoPa
 assert(decide("8.8.8.8", nil, credential, scope: .anyAddress) == .challenge)
 assert(decide("8.8.8.8", credential, credential, scope: .anyAddress) == .allow)
 assert(decide("8.8.8.8", nil, nil, scope: .anyAddress, requirePassword: false) == .allow)
-// Without the password, as Horos and OsiriX, within the scope only.
+// Without the password, within the scope only.
 assert(decide("192.168.1.21", nil, nil, scope: .localNetwork, requirePassword: false) == .allow)
 assert(decide("8.8.8.8", nil, nil, scope: .localNetwork, requirePassword: false) == .refuseOutsideLocalNetwork)
 // A listed address needs nothing, even with this Mac only and outside the

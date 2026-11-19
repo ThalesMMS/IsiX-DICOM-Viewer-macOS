@@ -92,6 +92,25 @@ else:
     for key in ('instanceNumber', 'sliceLocation'):
         if key not in descriptors:
             failures.append('%s is no longer one of the criteria' % key)
+    # Images that share an instance number are told apart by their location. The
+    # location descriptor ascends only when the preference is positive, so the
+    # default order (0) takes the twins downwards, as Horos has always done, and
+    # a chosen ascending or descending location order is followed as chosen.
+    location = re.search(r'NSSortDescriptor\(\s*key:\s*"sliceLocation"\s*,\s*ascending:\s*([^\n]*)\)\s*\n',
+                         descriptors)
+    if not location:
+        failures.append('the location descriptor is no longer built in -sortDescriptorsForImages')
+    else:
+        ascending = re.sub(r'\s+', '', location.group(1))
+        if ascending not in ('(sortSeriesBySliceLocation>0)?true:false',
+                             '(sortSeriesBySliceLocation>0)',
+                             'sortSeriesBySliceLocation>0'):
+            failures.append('images that share an instance number no longer follow their '
+                            'location downwards in the default order: ascending is %s'
+                            % location.group(1).strip())
+    if not re.search(r'if\s+sortSeriesBySliceLocation\s*==\s*0\s*\{\s*'
+                     r'sortDescriptors\s*=\s*\[sortInstance,\s*sortLocation\]', descriptors):
+        failures.append('the default order is no longer the instance number, then the location')
 
 for failure in failures:
     print('FAIL: %s' % failure)

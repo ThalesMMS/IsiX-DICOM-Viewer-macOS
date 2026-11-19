@@ -111,6 +111,9 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
 
     private var _tlos: NSArray?
 
+    /// The mail server rows of the Emails box, made in code.
+    private var mailServerSettings: WebPortalMailServerSettings?
+
     /// Bound by the xib (the certificate button's title). Atomic and retained
     /// in the former header.
     @objc(TLSAuthenticationCertificate)
@@ -144,8 +147,7 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIWebSharingPreferencePanePref", bundle: nil)
-        nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
+        instantiatePaneNib(named: "OSIWebSharingPreferencePanePref", topLevelObjects: &_tlos)
 
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView
@@ -267,6 +269,10 @@ public final class OSIWebSharingPreferencePanePref: NSPreferencePane {
         studiesArrayController?.addObserver(self, forKeyPath: "selection", options: [.new], context: nil)
 
         self.getTLSCertificate()
+
+        if mailServerSettings == nil {
+            mailServerSettings = WebPortalMailServerSettings.install(in: mainView)
+        }
     }
 
     public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {

@@ -42,8 +42,6 @@ import IsiXPreferences
 import Synchronization
 
 /// The entities of the portal's model.
-let WebPortalDatabaseUserEntityName = "User"
-let WebPortalDatabaseStudyEntityName = "Study"
 
 /// The database of the web portal's users and of the studies they are given.
 ///

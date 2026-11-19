@@ -40,6 +40,7 @@
 import Cocoa
 import IsiXImaging
 import IsiXPreferences
+import IsiXVolumeRendering
 import UniformTypeIdentifiers
 
 /// The former static NSString *MPRPlaneObservationContext: the KVO context of
@@ -144,6 +145,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     // To be able to use Cocoa bindings with toolbar...
     @IBOutlet private var tbLOD: NSView?
     @IBOutlet private var tbThickSlab: NSView?
+    @IBOutlet var thickSlabSlider: HorosMPRThickSlabSlider?
     @IBOutlet private var tbWLWW: NSView?
     @IBOutlet private var tbTools: NSView?
     @IBOutlet private var tbMovie: NSView?
@@ -186,6 +188,19 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     // MARK: - The former instance variables
 
+    // Declared only by older copies of the headers of the former Horos and
+    // OsiriX plugin SDK, and kept at the offsets the application exports for
+    // them. Those headers gave the curved MPR window the shading of the 3D MPR
+    // (its toolbar view, its panel, the list of its presets, its switch, its
+    // text and whether it can be edited) and a number for the DICOM export;
+    // the window has no shading, CPR.xib has none of the five objects, and the
+    // export keeps no such number. They stay nil, NO and 0 unless a plugin
+    // writes them, and the outlets are never released.
+    unowned(unsafe) var tbShading: NSView?, shadingPanel: NSPanel?, shadingsPresetsController: ShadingArrayController?
+    unowned(unsafe) var shadingCheck: NSButton?, shadingValues: NSTextField?
+    var shadingEditable = false
+    var dcmmN: Int32 = 0
+
     private var toolbar: NSToolbar?
 
     private var _straightenedCPRAngle: Double = 0 // this is in degrees, the CPRView uses radians
@@ -197,13 +212,16 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     /// The Stenosis tool of the toolbar (StenosisTool), made with the toolbar.
     @objc public private(set) var stenosisTool: StenosisTool?
+    @objc public private(set) lazy var pathLibrary = CurvedPathLibrary(controller: self)
     private var _displayInfo: CPRDisplayInfo?
     private var baseNormal = N3Vector() // this value will depend on which view gets clicked first, it will be used as the basis for deciding what normal to use for what angle
     private var _curvedPathColor: NSColor?
     private var _curvedPathCreationMode = false
 
-    // Fly Assistant and CurvedPath simplification
-    private var assistant: FlyAssistant?
+    // Path Assistant and CurvedPath simplification
+    private lazy var vesselTrace = CurvedMPRVesselTrace()
+    /// Vessel Analysis: when the path assistant runs on its own; nil in the Curved MPR as it always opened.
+    private var vesselAnalysis: VesselAnalysisTrigger?
     private var centerline: NSMutableArray?
     private var nodeRemovalCost: NSMutableArray?
     private var delHistory: NSMutableArray?
@@ -220,6 +238,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     private var undoQueue: NSMutableArray?
     private var redoQueue: NSMutableArray?
+    private var pressInPlane: (cameras: Any?, pathEntry: AnyObject?)? // A press in a plane under way: see planePressBegan().
+    private weak var queueTopAtPress: AnyObject? // The last undo entry as the press began: another one at its end is something new to undo.
+    private var wheelRun: (plane: CPRMPRDCMView, entry: AnyObject?)? // The run of wheel steps under way and its undo entry: see planeWheelStep(in:).
 
     /// viewer2D and fusedViewer2D: assigned, not retained.
     private unowned(unsafe) var viewer2D: ViewerController? = nil
@@ -273,7 +294,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     private var _exportTransverseSliceInterval: CGFloat = 0
 
     // Clipping Range
-    private var _dcmIntervalMin: Float = 0, _dcmIntervalMax: Float = 0
     private var _clippingRangeThickness: Float = 0
     private var _clippingRangeMode: Int32 = 0
 
@@ -318,15 +338,12 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         set { self.setClippingRangeThicknessValue(newValue) }
     }
 
-    @objc public dynamic var dcmIntervalMin: Float {
-        get { return _dcmIntervalMin }
-        set { _dcmIntervalMin = newValue }
-    }
-
-    @objc public dynamic var dcmIntervalMax: Float {
-        get { return _dcmIntervalMax }
-        set { _dcmIntervalMax = newValue }
-    }
+    /// The ends of the slab in millimeters, the slider's ruler: the exact thin one and the thick one.
+    /// dcmIntervalMin is the thin end with the slack of an interval field (ThickSlabSliderHost).
+    var thickSlabThinEnd = 1.0 { didSet { refreshThickSlabSliderPosition() } }
+    @objc public dynamic var dcmIntervalMin: Float = 0 { didSet { refreshThickSlabSliderPosition() } }
+    @objc public dynamic var dcmIntervalMax: Float = 0 { didSet { refreshThickSlabSliderPosition() } }
+    private lazy var slabScaleObserver = ThickSlabSliderScaleObserver(host: self)
 
     @objc public dynamic var blendingPercentage: Float {
         get { return _blendingPercentage }
@@ -607,11 +624,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     public static func angleBetweenVector(_ a: UnsafeMutablePointer<Float>!, andPlane orientation: UnsafeMutablePointer<Float>!) -> Double {
         var sc = [Double](repeating: 0, count: 2)
 
-//	double la = sqrt( a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-//	double lo = sqrt( orientation[0]*orientation[0] + orientation[1]*orientation[1] + orientation[2]*orientation[2]);
 //
-//	sc[ 0 ] = a[ 0]/la * orientation[ 0 ]/lo + a[ 1]/la * orientation[ 1 ]/lo + a[ 2]/la * orientation[ 2 ]/lo;
-//	sc[ 1 ] = a[ 0]/la * orientation[ 3 ]/lo + a[ 1]/la * orientation[ 4 ]/lo + a[ 2]/la * orientation[ 5 ]/lo;
 
         sc[0] = Double(a[0] * orientation[0] + a[1] * orientation[1] + a[2] * orientation[2])
         sc[1] = Double(a[0] * orientation[3] + a[1] * orientation[4] + a[2] * orientation[5])
@@ -662,7 +675,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
                 if succeed == false {
                     HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""),
-                                        message: NSLocalizedString("Cannot compute the high resolution data.\r\rClose other studies, or increase the resample voxel size in the settings. Nothing was reduced silently.", comment: ""),
+                                        message: NSLocalizedString("Cannot compute the high resolution data.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", comment: ""),
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
 
                     HR_PixList = nil
@@ -811,31 +824,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             i += 1
         }
 
-        var dim = [Int32](repeating: 0, count: 3)
-        let firstObject = pix?.object(at: 0) as? DCMPix
-        dim[0] = Int32(truncatingIfNeeded: firstObject?.pwidth ?? 0)
-        dim[1] = Int32(truncatingIfNeeded: firstObject?.pheight ?? 0)
-        dim[2] = Int32(truncatingIfNeeded: pix?.count ?? 0)
-        var spacing = [Float](repeating: 0, count: 3)
-        spacing[0] = Float(firstObject?.pixelSpacingX ?? 0)
-        spacing[1] = Float(firstObject?.pixelSpacingY ?? 0)
-        var sliceThickness = Float(firstObject?.sliceInterval ?? 0)
-        if sliceThickness == 0 {
-            NSLog("Slice interval = slice thickness!")
-            sliceThickness = Float(firstObject?.sliceThickness ?? 0)
-        }
-        spacing[2] = sliceThickness
-        var resamplesize = spacing[0]
-        if dim[0] > 256 || dim[1] > 256 {
-            if spacing[0] * Float(dim[0]) > spacing[1] * Float(dim[1]) {
-                resamplesize = Float(Double(spacing[0] * Float(dim[0])) / 256.0)
-            } else {
-                resamplesize = Float(Double(spacing[1] * Float(dim[1])) / 256.0)
-            }
-        }
-        let volumeBytes = volume.map { UnsafeMutablePointer(mutating: $0.bytes.assumingMemoryBound(to: Float.self)) }
-        assistant = FlyAssistant(volume: volumeBytes, widthDimension: &dim, spacing: &spacing, resampleVoxelSize: resamplesize)
-        assistant?.centerlineResampleStepLength = 3.0
+        // The Path Assistant reads the volume when it runs (CurvedMPRVesselTrace): no
+        // distance map of the former assistant, about 120 MB, from the window's opening.
         centerline = NSMutableArray()
         nodeRemovalCost = NSMutableArray()
         delHistory = NSMutableArray()
@@ -890,9 +880,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         mprView3?.setDCMPixList(mutableArrayWithObject(emptyPix), filesList: arrayWithObject(files?.lastObject), roiList: nil, firstImage: 0, type: CChar(UInt8(ascii: "i")), reset: true)
         mprView3?.flippedData = viewer?.imageView()?.flippedData ?? false
 
-//		emptyPix = [self emptyPix: originalPix width: 100 height: 100];
-//		[cprView setDCMPixList: [NSMutableArray arrayWithObject: emptyPix] filesList: [NSArray arrayWithObject: [files lastObject]] roiList: nil firstImage:0 type:'i' reset:YES];
-//		[cprView setFlippedData: [[viewer imageView] flippedData]];
 //
         if let fusedViewer2D = fusedViewer2D {
             blendedMprView1 = DCMView(frame: mprView1?.frame ?? NSZeroRect)
@@ -995,13 +982,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         nc.addObserver(self, selector: #selector(updateCurvedPathCost), name: NSNotification.Name.OsirixUpdateCurvedPathCost, object: nil)
         nc.addObserver(self, selector: #selector(resetSlider), name: NSNotification.Name.OsirixDeletedCurvedPath, object: nil)
 
-//        [shadingCheck setAction:@selector(switchShading:)];
-//        [shadingCheck setTarget:self];
-
-//		self.dcmNumberOfFrames = 50;
-//		self.dcmRotationDirection = 0;
-//		self.dcmRotation = 360;
-//		self.dcmSeriesName = @"CPR";
 
         self.exportSeriesName = "CPR"
         self.exportSequenceType = CPRExportSequenceType(CPRCurrentOnlyExportSequenceType.rawValue)
@@ -1062,6 +1042,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(delayedFullLODRendering:)
     public dynamic func delayedFullLODRendering(_ sender: Any!) {
+        wheelRun = nil // The run of wheel steps ends at a redraw in full detail.
         if self.horos_windowWillClose { return }
 
         if (hiddenVRView?.lowResLODFactor ?? 0) > 1 || sender != nil {
@@ -1125,22 +1106,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             // Default Init
             self.clippingRangeMode = 1 // MIP
 
-            if (_originalPix?.sliceInterval ?? 0) > 1.0 {
-                self.setClippingRangeThicknessInMm(1.0)
-            } else {
-                self.setClippingRangeThicknessInMm(Float(_originalPix?.sliceInterval ?? 0))
-            }
-
-            //self.clippingRangeThickness = 0.5;
-
-            let min = cInt32(Double(self.getClippingRangeThicknessInMm()) * 100.0)
-            self.dcmIntervalMin = Float(Double(Float(min)) / 100.0)
-            self.dcmIntervalMin = Float(Double(self.dcmIntervalMin) - 0.001)
-            if Double(self.dcmIntervalMin) < 0.01 {
-                self.dcmIntervalMin = Float(0.01)
-            }
-
-            self.dcmIntervalMax = 100
+            self.openSlab(of: pixListStorage[0].object as? [DCMPix] ?? [])
+            _ = slabScaleObserver // The slider follows its curve from now on.
 
             self.window?.makeFirstResponder(mprView1)
             mprView1?.vrView?.resetImage(self)
@@ -1178,26 +1145,38 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         self.viewsPosition = ViewsPosition(NormalPosition.rawValue)
 
-        //
-
-        self.cprViewWillEditCurvedPath(mprView1)
-        while (mprView1?.curvedPath?.nodes.count ?? 0) > 0 {
-            mprView1?.curvedPath?.removeNode(at: 0)
-        }
-        self.cprViewDidUpdateCurvedPath(mprView1)
-        self.cprViewDidEditCurvedPath(mprView1)
-
-        // Restore previous path, if it exists
-
-        if let path = savedCurvedPathFile() {
-            self.loadBezierPathFromFile(path)
-        }
+        // While isInitializing still says that this is the opening.
+        self.restoreCurvedPath(savedIn: savedCurvedPathFile())
 
         // Enable VTK Render
 
         self.isInitializing = false
 
         hiddenVRController?.window?.orderOut(self)
+    }
+
+    /// The path the window opens with, and that Reset brings back: none, or the
+    /// one saved as the window last closed. The opening is no edit, and the
+    /// launcher shows a new window three times, each call bringing back the
+    /// path just shown: the undo queue keeps the path replaced only when a later
+    /// call (Reset) changed its nodes or its sections. The slab is the window's,
+    /// which an undo leaves as it is.
+    private func restoreCurvedPath(savedIn file: String?) {
+        let undoBefore = undoQueue?.copy() as? [Any] ?? [], shownBefore = _curvedPath?.copy() as? CPRCurvedPath
+        self.cprViewWillEditCurvedPath(mprView1)
+        while (mprView1?.curvedPath?.nodes.count ?? 0) > 0 {
+            mprView1?.curvedPath?.removeNode(at: 0)
+        }
+        self.cprViewDidUpdateCurvedPath(mprView1)
+        self.cprViewDidEditCurvedPath(mprView1)
+        if let file {
+            self.loadBezierPathFromFile(file)
+        }
+
+        let unchanged = shownBefore.map { CPRController.sameNodes($0.nodes, _curvedPath?.nodes) && _curvedPath?.hasSameTransverseSections(as: $0) == true }
+        if isInitializing || unchanged == true {
+            undoQueue?.setArray(undoBefore)
+        }
     }
 
     /// [[[viewer2D fileList: 0] objectAtIndex:0] valueForKey:@"uniqueFilename"],
@@ -1279,9 +1258,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     //    [shadingsPresetsController setWindowController: self];
     //    [shadingsPresetsController addObserver:self forKeyPath:@"selectedObjects" options:0 context:CPRController.class];
-
-    //    [shadingCheck setAction:@selector(switchShading:)];
-    //    [shadingCheck setTarget:self];
+            _ = zoomSync // It observes the Sync Zoom setting from now on.
         }
     }
 
@@ -1290,6 +1267,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         // The whole window redraws while the split view resizes its panes.
         self.window?.contentView?.needsDisplay = true
     }
+
+    /// Sync Zoom turned on brings the planes to one zoom.
+    private(set) lazy var zoomSync = MPRZoomSynchronizer(window: self)
 
     /// Set once the initializer has added the "plane" observers that deinit
     /// removes: an initializer that fails before leaves none to remove.
@@ -1311,7 +1291,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         // The retained ivars (cprVolumeData, mousePosition, wlwwMenuItems,
         // toolbar, the axis colours, the undo queues, movieTimer, the blended
         // views, curvedPath, curvedPathColor, displayInfo, startingOpacityMenu,
-        // exportSeriesName, the delegate debugging arrays, the fly assistant and
+        // exportSeriesName, the delegate debugging arrays, the path assistant and
         // its arrays, the high resolution data) are released with the Swift
         // properties.
 
@@ -1454,11 +1434,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         if sender != nil {
             if MPRController.planesLayoutZoomSync.value(in: self.preferenceStore) {
-                let selectedView = self.selectedView()
-
-                if selectedView !== mprView1 { mprView1?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
-                if selectedView !== mprView2 { mprView2?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
-                if selectedView !== mprView3 { mprView3?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
+                MPRZoomSynchronizer.carryZoom(of: self.selectedView(), to: [mprView1, mprView2, mprView3])
             }
         }
 
@@ -1694,105 +1670,33 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         }
     }
 
+    /// The Path Assistant through the nodes of the path (2 to 5), off the main
+    /// thread (CurvedMPRVesselTrace), in the curved views' volume: the high
+    /// resolution one in that mode, the first time point in 4D. Its path replaces
+    /// the one traced once no edit of it is open, unless that one was edited
+    /// meanwhile; a segment it could not trace keeps the user's node.
     private func assistedCurvedPath(_ note: Notification!) {
-        let nodeCount = UInt32(truncatingIfNeeded: _curvedPath?.nodes.count ?? 0)
-        if nodeCount > 1 {
-            var waiting = WaitRendering(NSLocalizedString("Finding Path...", comment: ""))
-            waiting?.showWindow(self)
-            let patient2VolumeDataTransform = cprVolumeData?.volumeTransform ?? N3AffineTransform()
-            let volumeData2PatientTransform = N3AffineTransformInvert(patient2VolumeDataTransform)
-
-            let newCP = CPRCurvedPath()
-            var userNodes: [N3Vector] = []
-            for case let value as NSValue in _curvedPath?.nodes ?? NSArray() {
-                userNodes.append(value.n3VectorValue())
-            }
-            // The points of each segment's centerline, in patient space; nil
-            // for a segment the assistant could not trace.
-            var segments: [[N3Vector]?] = []
-
-            var i: UInt32 = 0
-            while i < nodeCount - 1 {
-                let na = N3VectorApplyTransform(userNodes[Int(i)], patient2VolumeDataTransform)
-                let nb = N3VectorApplyTransform(userNodes[Int(i + 1)], patient2VolumeDataTransform)
-
-                let pta = Point3D(x: Float(na.x), y: Float(na.y), z: Float(na.z))
-                let ptb = Point3D(x: Float(nb.x), y: Float(nb.y), z: Float(nb.z))
-
-                centerline?.removeAllObjects()
-
-                var err = assistant?.createCenterline(centerline, fromPointA: pta, toPointB: ptb, withSmoothing: false) ?? 0
-                if err == ERROR_NOENOUGHMEM {
-                    HorosAlertPanel.run(title: NSLocalizedString("Not enough memory", comment: ""),
-                                        message: NSLocalizedString("Path Assistant can not allocate enough memory, try to increase the resample voxel size in the settings.", comment: ""),
-                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                } else if err == ERROR_CANNOTFINDPATH {
-                    HorosAlertPanel.run(title: NSLocalizedString("Can't find path", comment: ""),
-                                        message: NSLocalizedString("Path Assistant can not find a path from A to B.", comment: ""),
-                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                } else if err == ERROR_DISTTRANSNOTFINISH {
-                    waiting?.close()
-                    waiting = WaitRendering(NSLocalizedString("Distance Transform...", comment: ""))
-                    waiting?.showWindow(self)
-
-                    // The centerline of an unfinished transform is not kept:
-                    // it went into the path, and the one found after it did not.
-                    var k: UInt32 = 0
-                    while k < 5 {
-                        centerline?.removeAllObjects()
-                        err = assistant?.createCenterline(centerline, fromPointA: pta, toPointB: ptb, withSmoothing: false) ?? 0
-                        if err != ERROR_DISTTRANSNOTFINISH {
-                            break
-                        }
-                        k += 1
-                    }
-                    if err == ERROR_CANNOTFINDPATH {
-                        HorosAlertPanel.run(title: NSLocalizedString("Can't find path", comment: ""),
-                                            message: NSLocalizedString("Path Assistant can not find a path from current location.", comment: ""),
-                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                        waiting?.close()
-                        return
-                    } else if err == ERROR_DISTTRANSNOTFINISH {
-                        HorosAlertPanel.run(title: NSLocalizedString("Unexpected error", comment: ""),
-                                            message: NSLocalizedString("Path Assistant failed to initialize!", comment: ""),
-                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                        waiting?.close()
-                        return
-                    }
-                }
-
-                if err == 0 {
-                    var points: [N3Vector] = []
-                    for case let pt as OSIVoxel in centerline ?? NSMutableArray() {
-                        let node = N3VectorMake(CGFloat(pt.x), CGFloat(pt.y), CGFloat(pt.z))
-                        points.append(N3VectorApplyTransform(node, volumeData2PatientTransform))
-                    }
-                    segments.append(points)
-                } else {
-                    segments.append(nil)
-                }
-                i += 1
-            }
-            for node in CurvedMPRPathAssistant.assembledPath(segments: segments, userNodes: userNodes) {
-                newCP.addPatientNode(node)
-            }
-
-            self.curvedPath = newCP
-
-            self.updateCurvedPathCost()
-            pathSimplificationSlider?.doubleValue = pathSimplificationSlider?.maxValue ?? 0
-
-            mprView1?.curvedPath = _curvedPath
-            mprView2?.curvedPath = _curvedPath
-            mprView3?.curvedPath = _curvedPath
-            cprView?.curvedPath = _curvedPath
-            topTransverseView?.curvedPath = _curvedPath
-            middleTransverseView?.curvedPath = _curvedPath
-            bottomTransverseView?.curvedPath = _curvedPath
-
-            waiting?.close()
-        } else {
+        let userNodes = (_curvedPath?.nodes as? [NSValue] ?? []).map { $0.n3VectorValue() }
+        let data = _highResolutionMode && HR_PixList != nil ? HR_Data : volumeDataStorage[0].object
+        guard userNodes.count > 1, let cprVolumeData, let data, let volume = CurvedMPRVesselTrace.volume(of: data, shapedAs: cprVolumeData) else {
             NSLog("Not enough points to launch assistant")
+            return
+        }
+        let tracedPath = _curvedPath?.copy() as? CPRCurvedPath
+        let delivery = CurvedMPRVesselTrace.Delivery(isCurrent: { [weak self] in CPRController.sameNodes(self?._curvedPath?.nodes, tracedPath?.nodes) },
+                                                     isEditing: { [weak self] in (self?.delegateCurveViewDebugging().count ?? 0) > 0 },
+                                                     givenUp: { [weak self] in self?.traceIfVesselAnalysisAsks() })
+        vesselTrace.start(nodes: userNodes, in: volume, patientToVolume: cprVolumeData.volumeTransform, window: self.window, delivery: delivery) { [weak self] outcome in
+            guard let self else { return }
+            let newCP = CPRCurvedPath()
+            CurvedMPRPathAssistant.assembledPath(segments: outcome.segments, userNodes: userNodes).forEach(newCP.addPatientNode)
+            // The simplification slider is enabled by the last segment's centerline, as before.
+            self.centerline?.setArray(outcome.lastSegment.map { OSIVoxel(x: $0.x, y: $0.y, z: $0.z, value: nil) })
+            self.curvedPath = newCP
+            self.updateCurvedPathCost()
+            self.pathSimplificationSlider?.doubleValue = self.pathSimplificationSlider?.maxValue ?? 0
+            self.showCurvedPathInViews()
+            self.stenosisTool?.curvedPathDidChange()
         }
     }
 
@@ -1926,24 +1830,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(prepareObjectForUndo:)
     public dynamic func prepareObject(forUndo string: String!) -> Any! {
-//	if( [string isEqualToString: @"roi"])
-//	{
-//		... (the ROI undo stays disabled, as before)
-//	}
-
-        if string == "mprCamera" && mprView1?.camera != nil && mprView2?.camera != nil && mprView3?.camera != nil {
-            let cameras = NSMutableArray()
-
-            addObject(cameras, mprView1?.camera?.copy())
-            addObject(cameras, mprView2?.camera?.copy())
-            addObject(cameras, mprView3?.camera?.copy())
-
-            let angleMPRs = NSMutableArray()
-
-            angleMPRs.add(NSNumber(value: mprView1?.angleMPR ?? 0))
-            angleMPRs.add(NSNumber(value: mprView2?.angleMPR ?? 0))
-            angleMPRs.add(NSNumber(value: mprView3?.angleMPR ?? 0))
-
+        // The ROI undo stays disabled, as before.
+        let planes = [mprView1, mprView2, mprView3].compactMap { $0 }
+        if string == "mprCamera" && planes.count == 3 && planes.allSatisfy({ $0.camera != nil }) {
+            let cameras = planes.compactMap { $0.camera?.copy() }, angleMPRs = planes.map { NSNumber(value: $0.angleMPR) }
             return NSDictionary(objects: [string as Any, cameras, angleMPRs], forKeys: ["type" as NSString, "cameras" as NSString, "angleMPRs" as NSString])
         } else if string == "curvedPath" {
             return NSDictionary(objects: [string as Any, _curvedPath?.copy() ?? NSNull()], forKeys: ["type" as NSString, "curvedPath" as NSString])
@@ -1955,67 +1845,39 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(executeUndo:)
     private dynamic func executeUndo(_ u: NSMutableArray!) {
         if (u?.count ?? 0) > 0 {
-            let last = u.lastObject as? NSDictionary
-            if (last?.object(forKey: "type") as? String) == "mprCamera" {
-                let cameras = last?.object(forKey: "cameras") as? NSArray
-
-                mprView1?.camera = cameras?.object(at: 0) as? Camera
-                mprView2?.camera = cameras?.object(at: 1) as? Camera
-                mprView3?.camera = cameras?.object(at: 2) as? Camera
-
-                let angleMPRs = last?.object(forKey: "angleMPRs") as? NSArray
-
-                mprView1?.angleMPR = (angleMPRs?.object(at: 0) as AnyObject?)?.floatValue ?? 0
-                mprView2?.angleMPR = (angleMPRs?.object(at: 1) as AnyObject?)?.floatValue ?? 0
-                mprView3?.angleMPR = (angleMPRs?.object(at: 2) as AnyObject?)?.floatValue ?? 0
+            let last = u.lastObject as? [String: Any]
+            if (last?["type"] as? String) == "mprCamera" {
+                let cameras = last?["cameras"] as? [Camera], angleMPRs = last?["angleMPRs"] as? [NSNumber]
+                for (index, plane) in [mprView1, mprView2, mprView3].enumerated() {
+                    plane?.camera = cameras?[index]
+                    plane?.angleMPR = angleMPRs?[index].floatValue ?? 0
+                }
 
                 self.updateViewsAccordingToFrame(nil)
-            } else if (last?.object(forKey: "type") as? String) == "curvedPath" {
-                self.curvedPath = (last?.object(forKey: "curvedPath") as? CPRCurvedPath)?.copy() as? CPRCurvedPath
-                mprView1?.curvedPath = _curvedPath
-                mprView2?.curvedPath = _curvedPath
-                mprView3?.curvedPath = _curvedPath
-                cprView?.curvedPath = _curvedPath
-                topTransverseView?.curvedPath = _curvedPath
-                middleTransverseView?.curvedPath = _curvedPath
-                bottomTransverseView?.curvedPath = _curvedPath
+            } else if (last?["type"] as? String) == "curvedPath" {
+                self.curvedPath = (last?["curvedPath"] as? CPRCurvedPath)?.copy() as? CPRCurvedPath
+                self.showChangedCurvedPath()
             }
-
-//		if( [[[u lastObject] objectForKey: @"type"] isEqualToString:@"roi"])
-//		{
-//			... (the ROI undo stays disabled, as before)
-//		}
 
             u.removeLastObject()
         }
     }
 
     @IBAction public override dynamic func redo(_ sender: Any!) {
-        if (redoQueue?.count ?? 0) > 0 {
-            let obj = self.prepareObject(forUndo: (redoQueue?.lastObject as? NSDictionary)?.object(forKey: "type") as? String)
-
-            if let obj = obj {
-                undoQueue?.add(obj)
-            }
-
-            self.executeUndo(redoQueue)
-        } else {
-            NSSound.beep()
-        }
+        self.apply(lastEntryOf: redoQueue, keepingWhatItReplacesIn: undoQueue)
     }
 
     @IBAction public override dynamic func undo(_ sender: Any!) {
-        if (undoQueue?.count ?? 0) > 0 {
-            let obj = self.prepareObject(forUndo: (undoQueue?.lastObject as? NSDictionary)?.object(forKey: "type") as? String)
+        self.apply(lastEntryOf: undoQueue, keepingWhatItReplacesIn: redoQueue)
+    }
 
-            if let obj = obj {
-                redoQueue?.add(obj)
-            }
-
-            self.executeUndo(undoQueue)
-        } else {
-            NSSound.beep()
-        }
+    /// What -undo: and -redo: do: the last entry of `queue` is applied, and the
+    /// state it replaces goes on `other`; an empty queue beeps.
+    private func apply(lastEntryOf queue: NSMutableArray?, keepingWhatItReplacesIn other: NSMutableArray?) {
+        self.planePressEnded() // A press whose release never came (an image drag) goes on the queue first.
+        guard (queue?.count ?? 0) > 0 else { return NSSound.beep() }
+        if let replaced = self.prepareObject(forUndo: (queue?.lastObject as? [String: Any])?["type"] as? String) { other?.add(replaced) }
+        self.executeUndo(queue)
     }
 
     /// OSIWindowController's -removeLastItemFromUndoQueue, which only its .m
@@ -2028,18 +1890,88 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     public override dynamic func add(toUndoQueue string: String!) {
-        if self.preferenceStore[ReconstructionPreferences.undoQueueSize] <= 0 {
-            return
+        // A wheel step during a press in a plane is the press's, whose entry has the cameras as it began.
+        if string == "mprCamera" && pressInPlane != nil { return }
+        self.pushUndoEntry(self.prepareObject(forUndo: string))
+    }
+
+    /// An entry on the undo queue, which keeps the last UndoQueueSize (none at 0).
+    private func pushUndoEntry(_ entry: Any?) {
+        let size = self.preferenceStore[ReconstructionPreferences.undoQueueSize]
+        if size <= 0 { return }
+        if let entry { undoQueue?.add(entry) }
+        // Something new to undo: what was undone before it is no longer what a redo would bring back. A press settles it at its end.
+        if entry != nil && pressInPlane == nil { redoQueue?.removeAllObjects() }
+        if (undoQueue?.count ?? 0) > size { undoQueue?.removeObject(at: 0) }
+    }
+
+    /// A plane's mouse down: the cameras as it began are the press's undo entry, which its mouse up puts
+    /// on the queue only if the press moved them as the planes show (rotated, moved or zoomed a plane,
+    /// scrolled it, windowed it in VR) and left no edit of the path to undo: a click that adds, inserts or
+    /// moves a node of the curved path has the path's entry alone, though it moves the cross to the node;
+    /// a click on a node that leaves it where it was, or a node the plane refuses, leaves the path as it
+    /// was, and its entry goes. A press whose release never came ends at the next one or at Cmd-Z, and
+    /// the wheel steps until then are its own.
+    func planePressBegan() {
+        self.planePressEnded()
+        self.planeWheelSettle()
+        pressInPlane = (self.prepareObject(forUndo: "mprCamera"), nil)
+        queueTopAtPress = undoQueue?.lastObject as AnyObject?
+    }
+
+    /// A wheel step in a plane. A run of steps in one plane lasts until its redraw in full detail, 0.2 s after the last step, with
+    /// nothing else put on the queue meanwhile, and leaves one entry, the cameras as its first step found them: an entry per event
+    /// filled the queue with the depths a trackpad's scroll went through.
+    func planeWheelStep(in plane: CPRMPRDCMView) {
+        if pressInPlane != nil { return self.add(toUndoQueue: "mprCamera") } // The press's own.
+        if let run = wheelRun, run.plane === plane, undoQueue?.lastObject as AnyObject? === run.entry { return }
+        self.planeWheelSettle()
+        self.add(toUndoQueue: "mprCamera")
+        wheelRun = (plane, undoQueue?.lastObject as AnyObject?)
+    }
+
+    /// The redraw in full detail a run of wheel steps waits for, now. It is the one that centres the other planes on the plane
+    /// scrolled: a press that came before it took their older cross and put the plane back where the run began.
+    func planeWheelSettle() {
+        guard let plane = wheelRun?.plane else { return }
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(delayedFullLODRendering(_:)), object: plane)
+        self.delayedFullLODRendering(plane)
+    }
+
+    /// A plane's mouse up: the press's path entry goes if the path is as it was, and its cameras go on the queue if it moved them and edited no path.
+    func planePressEnded() {
+        guard let press = pressInPlane else { return }
+        pressInPlane = nil
+        defer { if undoQueue?.lastObject as AnyObject? !== queueTopAtPress { redoQueue?.removeAllObjects() } }
+        if let pathEntry = press.pathEntry {
+            let before = (pathEntry as? [String: Any])?["curvedPath"] as? CPRCurvedPath
+            guard undoQueue?.lastObject as AnyObject? === pathEntry, let before, CPRController.sameNodes(before.nodes, _curvedPath?.nodes),
+                  _curvedPath?.hasSameTransverseSections(as: before) == true else { return }
+            undoQueue?.removeLastObject()
         }
+        if self.camerasDiffer(press.cameras, self.prepareObject(forUndo: "mprCamera")) { self.pushUndoEntry(press.cameras) }
+    }
 
-        let obj = self.prepareObject(forUndo: string)
-
-        if let obj = obj {
-            undoQueue?.add(obj)
-        }
-
-        if (undoQueue?.count ?? 0) > self.preferenceStore[ReconstructionPreferences.undoQueueSize] {
-            undoQueue?.removeObject(at: 0)
+    /// Whether two entries of the cameras show the three planes differently: a camera's place or slab moved by more than half a
+    /// screen point (parallelScale / height world units, in the plane that shows them largest), a zoom that moved its plane's corners
+    /// as much, its aim or a plane's lines turned by more than 0.05°, an angle read 360° away being the same, and in VR the window: the
+    /// MIP, MinIP and Mean planes show their own. A still click at the cross's centre moves it a fraction of a point.
+    private func camerasDiffer(_ entry: Any?, _ otherEntry: Any?) -> Bool {
+        let entries = [entry, otherEntry].map { $0 as? [String: Any] }, planes = [mprView1, mprView2, mprView3], windowShown = _clippingRangeMode == 0 // VR
+        let cameras = entries.map { $0?["cameras"] as? [Camera] ?? [] }, angles = entries.map { ($0?["angleMPRs"] as? [NSNumber] ?? []).map(\.floatValue) }
+        let halfPoint = zip(cameras[0] + cameras[1], planes + planes).map { $0.parallelScale / Float($1?.bounds.height ?? 0) }.filter(\.isFinite).min() ?? 0
+        func point(_ p: Point3D?) -> SIMD3<Float> { SIMD3(p?.x ?? 0, p?.y ?? 0, p?.z ?? 0) }
+        func length(_ v: SIMD3<Float>) -> Float { (v * v).sum().squareRoot() }
+        func turned(_ a: Float, _ b: Float) -> Bool { abs((a - b).remainder(dividingBy: 360)) > 0.05 }
+        guard cameras[0].count == cameras[1].count, angles[0].count == angles[1].count else { return true }
+        return zip(angles[0], angles[1]).contains { turned($0, $1) } || zip(zip(cameras[0], cameras[1]), planes).contains { pair, plane in
+            let (c, d) = pair, cornerMove = abs(c.parallelScale - d.parallelScale) / d.parallelScale * Float(hypot(plane?.bounds.width ?? 0, plane?.bounds.height ?? 0)) / 2
+            let moves: [Float] = [length(point(c.position) - point(d.position)), length(point(c.focalPoint) - point(d.focalPoint)),
+                                  abs(c.clippingRangeNear - d.clippingRangeNear), abs(c.clippingRangeFar - d.clippingRangeFar)]
+            let aims = [(point(c.focalPoint) - point(c.position), point(d.focalPoint) - point(d.position)), (point(c.viewUp), point(d.viewUp))]
+            return moves.contains { $0 > halfPoint } || cornerMove > 0.5
+                || aims.contains { length($0 / length($0) - $1 / length($1)) > 0.05 * .pi / 180 } || turned(c.viewAngle, d.viewAngle) || turned(c.eyeAngle, d.eyeAngle)
+                || windowShown && zip([c.wl, c.ww], [d.wl, d.ww]).contains { abs($0 - $1) > 1e-4 * max(1, abs($0), abs($1)) }
         }
     }
 
@@ -2100,13 +2032,12 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             tmp.add(NSMenuItem(title: title, action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
         }
 
-//    [tmp addObject:[NSMenuItem separatorItem]];
-//	[tmp addObject:[[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Add Current WL/WW", nil) action:@selector(AddCurrentWLWW:) keyEquivalent:@""] autorelease]];
-//	[tmp addObject:[[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Set WL/WW Manually", nil) action:@selector(SetWLWW:) keyEquivalent:@""] autorelease]];
-
         self.wlwwMenuItems = tmp
     }
 
+    /// The presets changed or a window announced its window level: the menu is
+    /// built again, under the name this window keeps. The name notified is
+    /// that of whichever window announced, so it is not read.
     @objc(UpdateWLWWMenu:)
     public dynamic func UpdateWLWWMenu(_ note: Notification!) {
         self.wlwwPopup()?.menu?.removeAllItems()
@@ -2117,10 +2048,14 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             self.wlwwPopup()?.menu?.addItem(item)
         }
 
-        if note?.object != nil {
-            curWLWWMenu = note?.object as? String
-            self.wlwwPopup()?.setTitle(curWLWWMenu ?? "")
-        }
+        self.wlwwPopup()?.setTitle(curWLWWMenu ?? "")
+    }
+
+    /// The name of the window level of this window's views: a view of the
+    /// window tells it when a press or a preset's hot key ends in it.
+    @objc(setCurWLWWMenu:)
+    public dynamic func setCurWLWWMenu(_ name: String!) {
+        curWLWWMenu = name
     }
 
     @objc(ApplyWLWW:)
@@ -2140,7 +2075,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(applyWLWWForString:)
     public dynamic func applyWLWW(for menuString: String!) {
         if menuString == NSLocalizedString("Other", comment: "") {
-            //[imageView setWLWW:0 :0];
         } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
             let first = { self.pixListStorage[0].object?.object(at: 0) as? DCMPix }
             mprView1?.setWLWW(first()?.savedWL ?? 0, first()?.savedWW ?? 0)
@@ -2353,8 +2287,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         for name in names {
             self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
         }
-//    [[OpacityPopup menu] addItem: [NSMenuItem separatorItem]];
-//    [[OpacityPopup menu] addItemWithTitle:NSLocalizedString(@"Add an Opacity Table", nil) action:@selector (AddOpacity:) keyEquivalent:@""];
 
         self.opacityPopup()?.menu?.item(at: 0)?.title = curOpacityMenu ?? ""
     }
@@ -2392,7 +2324,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             curOpacityMenu = str
         }
 
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             mprView1?.vrView?.setOpacity([])
             NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: curOpacityMenu, userInfo: nil)
 
@@ -2421,7 +2353,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     @objc(Apply2DOpacityString:)
     public dynamic func Apply2DOpacityString(_ str: String!) {
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             //[thickSlab setOpacity:[NSArray array]];
 
             if curOpacityMenu as NSString? !== str as NSString? {
@@ -2495,7 +2427,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     /// The setter of the clippingRangeThicknessInMm key CPR.xib binds.
     @objc(setClippingRangeThicknessInMm:)
-    private dynamic func setClippingRangeThicknessInMm(_ c: Float) {
+    dynamic func setClippingRangeThicknessInMm(_ c: Float) {
         mprView1?.vrView?.setClippingRangeThicknessInMm(Double(c))
 
         self.clippingRangeThickness = Float(mprView1?.vrView?.getClippingRangeThickness() ?? 0)
@@ -2553,25 +2485,16 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         mprView3?.vrView?.clippingRangeThickness = Double(f)
         mprView3?.updateViewMPR(onLoading: isInitializing)
 
-        if self.getClippingRangeThicknessInMm() > 2.0 {
-            _curvedPath?.thickness = CGFloat(self.getClippingRangeThicknessInMm())
-        } else {
-            _curvedPath?.thickness = 0
-        }
+        _curvedPath?.thickness = curvedPathSlabThickness()
 
         cprView?.orangeSlabThickness = _curvedPath?.thickness ?? 0
         cprView?.purpleSlabThickness = _curvedPath?.thickness ?? 0
         cprView?.blueSlabThickness = _curvedPath?.thickness ?? 0
-        mprView1?.curvedPath = _curvedPath
-        mprView2?.curvedPath = _curvedPath
-        mprView3?.curvedPath = _curvedPath
-        cprView?.curvedPath = _curvedPath
-        topTransverseView?.curvedPath = _curvedPath
-        middleTransverseView?.curvedPath = _curvedPath
-        bottomTransverseView?.curvedPath = _curvedPath
+        self.showCurvedPathInViews()
 
         self.willChangeValue(forKey: "clippingRangeThicknessInMm")
         self.didChangeValue(forKey: "clippingRangeThicknessInMm")
+        refreshThickSlabSliderPosition()
     }
 
     /// -setClippingRangeMode:
@@ -2614,8 +2537,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             blendedMprView2?.setWLWW(128, 256)
             blendedMprView3?.setWLWW(128, 256)
 
-            // switch log inverse table
-            curOpacityMenu = NSLocalizedString("Logarithmic Inverse Table", comment: "")
+            // The presets are stored under their English names.
+            curOpacityMenu = "Logarithmic Inverse Table"
 
             self.setTool(toolsMatrix)
         }
@@ -2686,9 +2609,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                     sliceInterval = abs(_exportSliceInterval)
                 }
 
-                // MAX(1, ceil(slabWidth / sliceInterval)), a double returned as NSInteger.
-                let frames = ceil(Double(slabWidth / sliceInterval))
-                return cInt(1 > frames ? 1 : frames)
+                // The frames are the planes the generator makes at that interval.
+                return CurvedSlabSampling.planes(width: Double(slabWidth), step: Double(sliceInterval))
             } else if self.exportSeriesType == CPRExportSeriesType(CPRTransverseViewsExportSeriesType.rawValue) {
                 let flattenedPath = _curvedPath?.bezierPath?.mutableCopy() as? N3MutableBezierPath
                 flattenedPath?.subdivide(N3BezierDefaultSubdivideSegmentLength)
@@ -2917,6 +2839,17 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             return imageRep?.unsignedInt16Data().map { UnsafeMutableRawPointer($0).assumingMemoryBound(to: UInt8.self) }
         }
 
+        /// The slab and the projection the curved view shows, for the 16-bit image that
+        /// stands for it: without them the export was the curve's one plane at any thickness.
+        func setShownSlab(straightened: CPRStraightenedGeneratorRequest? = nil, stretched: CPRStretchedGeneratorRequest? = nil) {
+            for request in [straightened, stretched] as [CPRGeneratorRequest?] {
+                request?.slabWidth = self._curvedPath?.thickness ?? 0
+                request?.slabSampleDistance = 0
+            }
+            straightened?.projectionMode = CPRProjectionMode(self._clippingRangeMode)
+            stretched?.projectionMode = CPRProjectionMode(self._clippingRangeMode)
+        }
+
         /// The projection of a stretched request, as the former code set it.
         func setStretchedProjection(_ request: CPRStretchedGeneratorRequest?, angle: CGFloat) {
             let curveDirection = N3VectorSubtract(self._curvedPath?.bezierPath?.vectorAtEnd() ?? N3Vector(), self._curvedPath?.bezierPath?.vectorAtStart() ?? N3Vector())
@@ -3030,6 +2963,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                         requestStraightened?.pixelsHigh = exportHeight
                         requestStraightened?.bezierPath = _curvedPath?.bezierPath
                         requestStraightened?.initialNormal = _curvedPath?.initialNormal ?? N3Vector()
+                        setShownSlab(straightened: requestStraightened)
 
                         curvedVolumeData = CPRGenerator.synchronousRequestVolume(requestStraightened, volumeData: cprView?.volumeData)
                     } else {
@@ -3037,6 +2971,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                         requestStretched?.pixelsWide = exportWidth
                         requestStretched?.pixelsHigh = exportHeight
                         requestStretched?.bezierPath = _curvedPath?.bezierPath
+                        setShownSlab(stretched: requestStretched)
 
                         setStretchedProjection(requestStretched, angle: _curvedPath?.angle ?? 0)
 
@@ -3095,11 +3030,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                         requestStraightened?.pixelsHigh = exportHeight
                         requestStraightened?.bezierPath = _curvedPath?.bezierPath
                         requestStraightened?.initialNormal = _curvedPath?.initialNormal ?? N3Vector()
+                        setShownSlab(straightened: requestStraightened)
                     } else {
                         requestStretched = CPRStretchedGeneratorRequest()
                         requestStretched?.pixelsWide = exportWidth
                         requestStretched?.pixelsHigh = exportHeight
                         requestStretched?.bezierPath = _curvedPath?.bezierPath
+                        setShownSlab(stretched: requestStretched)
 
                         setStretchedProjection(requestStretched, angle: _curvedPath?.angle ?? 0)
                     }
@@ -3385,16 +3322,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             self.displayMousePosition = copyDisplayMousePosition
             cprView?.displayTransverseLines = true
         }
-//		else
-//		{
-//			QuicktimeExport *mov = [[QuicktimeExport alloc] initWithSelector: self : @selector(imageForFrame: maxFrame:) :[qtFileArray count]];
-//			[mov createMovieQTKit: YES  :NO :[[filesList[0] objectAtIndex:0] valueForKeyPath:@"series.study.name"]];
-//			[mov release];
-//		}
-
-//		if( self.dcmFormat)
-//			[curExportView.vrView restoreViewSizeAfterMatrix3DExport];
-
 //		[self setLOD: savedLOD];
 
 //		[[NSUserDefaults standardUserDefaults] setInteger: dcmMode forKey: @"lastMPRdcmExportMode"];
@@ -3555,7 +3482,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
         ifoto = Photos()
-        ifoto.importInPhotos([path])
+        ifoto.importShowingFailure([path])
     }
 
     @objc(exportTIFF:)
@@ -3666,54 +3593,26 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         }
     }
 
+    /// The window's paths, the one shown as it is now (see `CurvedPathLibrary`).
     @objc(saveBezierPathToFile:)
     public dynamic func saveBezierPathToFile(_ path: String!) {
-        guard let path, let curvedPath = _curvedPath else { return }
-        do {
-            let data = try NSKeyedArchiver.archivedData(withRootObject: curvedPath, requiringSecureCoding: true)
-            // Verify the same restricted reader used to reopen path files before replacing one.
-            var reopened: CPRCurvedPath?
-            try HorosObjCException.perform {
-                reopened = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CPRCurvedPath.self, from: data)
-            }
-            guard reopened != nil else { return }
-            try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-        } catch {
-            NSLog("Unable to save curved path: %@", (error as NSError).localizedDescription)
-        }
+        pathLibrary.save(toFile: path)
     }
 
+    /// The paths of a path file, or the points of a text file as one path.
     @objc(loadBezierPathFromFile:)
     public dynamic func loadBezierPathFromFile(_ path: String!) {
-        let data = NSData(contentsOfFile: path)
-        if let data = data {
-            var newCurvedPath: CPRCurvedPath? = nil
-            do {
-                try HorosObjCException.perform {
-                    // Secure coding: a file names its classes, and only a curved path's
-                    // are decoded, not whatever the file names before it is checked.
-                    newCurvedPath = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CPRCurvedPath.self, from: data as Data)
-                }
-            } catch {
-                newCurvedPath = nil
-            }
+        if !pathLibrary.load(fromFile: path) { _ = self.importPatientSpaceCenterline(fromFile: path) }
+    }
 
-            if let newCurvedPath = newCurvedPath {
-                self.curvedPath = newCurvedPath
+    /// Shows a path read from a file or chosen among the window's, with its slab.
+    func showLoadedPath(_ newCurvedPath: CPRCurvedPath) {
+        self.curvedPath = newCurvedPath
+        self.showChangedCurvedPath()
 
-                mprView1?.curvedPath = _curvedPath
-                mprView2?.curvedPath = _curvedPath
-                mprView3?.curvedPath = _curvedPath
-                cprView?.curvedPath = _curvedPath
-                topTransverseView?.curvedPath = _curvedPath
-                middleTransverseView?.curvedPath = _curvedPath
-                bottomTransverseView?.curvedPath = _curvedPath
-
-                self.setClippingRangeThicknessInMm(Float(_curvedPath?.thickness ?? 0))
-                return
-            }
-        }
-        _ = self.importPatientSpaceCenterline(fromFile: path)
+        // The file's slab, within the slider's ends. A file of a version that kept no slab at 2 mm or less
+        // has 0, which VRView takes for none and -setClippingRangeThickness: replaces with 0.5 of its own units.
+        self.setClippingRangeThicknessInMm(slabWithinEnds(Double(newCurvedPath.thickness)))
     }
 
     @objc(importPatientSpaceCenterlineFromFile:)
@@ -3747,16 +3646,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             return false
         }
 
-        self.curvedPath = newCP
+        self.curvedPath = newCP // With the window's slab, which stays.
         self.curvedPathCreationMode = false
-        mprView1?.curvedPath = _curvedPath
-        mprView2?.curvedPath = _curvedPath
-        mprView3?.curvedPath = _curvedPath
-        cprView?.curvedPath = _curvedPath
-        topTransverseView?.curvedPath = _curvedPath
-        middleTransverseView?.curvedPath = _curvedPath
-        bottomTransverseView?.curvedPath = _curvedPath
-        self.setClippingRangeThicknessInMm(Float(_curvedPath?.thickness ?? 0))
+        self.showChangedCurvedPath()
         return true
     }
 
@@ -3768,14 +3660,15 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     public override dynamic func windowWillClose(_ notification: Notification) {
         if (notification.object as AnyObject?) === self.window {
-            // Save current path for next time
-            if let path = savedCurvedPathFile() {
+            // Save current path for next time; Vessel Analysis, which opens with none, keeps the saved one until one is marked.
+            if let path = savedCurvedPathFile(), vesselAnalysis == nil || (_curvedPath?.nodes.count ?? 0) > 0 {
                 self.saveBezierPathToFile(path)
             }
 
             // *******
 
             stenosisTool?.setActive(false)
+            vesselTrace.cancel()
             cprView?.rotation = 0
 
             self.window?.acceptsMouseMovedEvents = false
@@ -3805,6 +3698,10 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             if let controller = hiddenVRController {
                 Unmanaged.passUnretained(controller).release()
             }
+            hiddenVRController = nil
+            hiddenVRView = nil
+            // The window can outlive this controller and still draw its planes: they let go of both now.
+            for view in [mprView1, mprView2, mprView3] { view?.detachFromWindowController() }
 
             ob?.content = nil // To allow the dealloc of CPRController ! otherwise memory leak
             _ = self.renderLifecycle?.markClosed()
@@ -3842,16 +3739,8 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.window?.toolbar?.isVisible = true
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
 
-        // A toolbar saved before the Stenosis tool existed gets it once, beside
-        // the Path Assistant; removed afterwards, it stays removed.
-        let insertedKey = ReconstructionPreferences.cprToolbarStenosisInserted
-        if let toolbar, !self.preferenceStore[insertedKey] {
-            self.preferenceStore.set(true, for: insertedKey)
-            if !toolbar.items.contains(where: { $0.itemIdentifier.rawValue == "tbStenosis" }) {
-                let index = toolbar.items.firstIndex { $0.itemIdentifier.rawValue == "tbPathAssistant" }.map { $0 + 1 } ?? toolbar.items.count
-                toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier("tbStenosis"), at: index)
-            }
-        }
+        // A toolbar saved before an item existed gets it once; removed afterwards, it stays removed.
+        CPRToolbarAdditions.insertOnce(into: toolbar, store: self.preferenceStore)
     }
 
     /// The volume the curved MPR samples, in patient space, for the Stenosis tool.
@@ -3864,13 +3753,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         guard let path = _curvedPath?.copy() as? CPRCurvedPath else { return }
         path.transverseSectionPosition = min(max(relativePosition, 0), 1)
         self.curvedPath = path
-        mprView1?.curvedPath = _curvedPath
-        mprView2?.curvedPath = _curvedPath
-        mprView3?.curvedPath = _curvedPath
-        cprView?.curvedPath = _curvedPath
-        topTransverseView?.curvedPath = _curvedPath
-        middleTransverseView?.curvedPath = _curvedPath
-        bottomTransverseView?.curvedPath = _curvedPath
+        self.showCurvedPathInViews()
     }
 
     @IBAction @objc(customizeViewerToolBar:)
@@ -3948,6 +3831,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
             toolbarItem?.toolTip = stenosisTool?.toolbarButton.toolTip
             toolbarItem?.view = stenosisTool?.toolbarButton
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: stenosisTool?.toolbarButton), maximum: .zero)
+        } else if pathLibrary.configure(toolbarItem, as: itemIdent.rawValue) {
         } else if itemIdent.rawValue == "tbHighRes" {
             viewItem("Resolution", tbHighResolution)
         } else if itemIdent.rawValue == "tbInterpolationMode" {
@@ -4021,13 +3905,13 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     }
 
     public dynamic func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        return [NSToolbarItem.Identifier("tbTools"), NSToolbarItem.Identifier("tbWLWW"), NSToolbarItem.Identifier("tbLOD"), NSToolbarItem.Identifier("tbStraightenedCPRAngle"), NSToolbarItem.Identifier("tbCPRType"), NSToolbarItem.Identifier("tbHighRes"), NSToolbarItem.Identifier("tbPathAssistant"), NSToolbarItem.Identifier("tbStenosis"), NSToolbarItem.Identifier("testDelNode"), NSToolbarItem.Identifier("tbCPRPathMode"), NSToolbarItem.Identifier("tbViewsPosition"), NSToolbarItem.Identifier("tbThickSlab"), .flexibleSpace, NSToolbarItem.Identifier("Reset.pdf"), NSToolbarItem.Identifier("Export.icns"), NSToolbarItem.Identifier("curvedPath.icns"), NSToolbarItem.Identifier("BestRendering.pdf"), NSToolbarItem.Identifier("AxisShowHide"), NSToolbarItem.Identifier("CPRAxisShowHide"), NSToolbarItem.Identifier("MousePositionShowHide"), NSToolbarItem.Identifier("syncZoomLevel")]
+        return [NSToolbarItem.Identifier("tbTools"), NSToolbarItem.Identifier("tbWLWW"), NSToolbarItem.Identifier("tbLOD"), NSToolbarItem.Identifier("tbStraightenedCPRAngle"), NSToolbarItem.Identifier("tbCPRType"), NSToolbarItem.Identifier("tbHighRes"), NSToolbarItem.Identifier("tbPathAssistant"), NSToolbarItem.Identifier("tbStenosis"), NSToolbarItem.Identifier(CurvedPathLibrary.pathsItem), NSToolbarItem.Identifier(CurvedPathLibrary.coronaryMIPItem), NSToolbarItem.Identifier("testDelNode"), NSToolbarItem.Identifier("tbCPRPathMode"), NSToolbarItem.Identifier("tbViewsPosition"), NSToolbarItem.Identifier("tbThickSlab"), .flexibleSpace, NSToolbarItem.Identifier("Reset.pdf"), NSToolbarItem.Identifier("Export.icns"), NSToolbarItem.Identifier("curvedPath.icns"), NSToolbarItem.Identifier("BestRendering.pdf"), NSToolbarItem.Identifier("AxisShowHide"), NSToolbarItem.Identifier("CPRAxisShowHide"), NSToolbarItem.Identifier("MousePositionShowHide"), NSToolbarItem.Identifier("syncZoomLevel")]
     }
 
     public dynamic func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         let array = NSMutableArray(array: [NSToolbarItem.Identifier.flexibleSpace.rawValue,
                                            ToolbarPolicy.spaceItemIdentifier,
-                                           "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbStenosis", "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
+                                           "tbTools", "tbWLWW", "tbLOD", "tbStraightenedCPRAngle", "tbCPRType", "tbHighRes", "tbPathAssistant", "tbStenosis", CurvedPathLibrary.pathsItem, CurvedPathLibrary.coronaryMIPItem, "tbCPRPathMode", "tbViewsPosition", "tbThickSlab", "Reset.pdf", "Export.icns", "curvedPath.icns", "BestRendering.pdf", "AxisColors", "AxisShowHide", "CPRAxisShowHide", "MousePositionShowHide", "syncZoomLevel", "tbInterpolationMode"])
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
             if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {
@@ -4353,39 +4237,31 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     /// -setCurvedPath:
     private func setCurvedPathValue(_ newCurvedPath: CPRCurvedPath?) {
-//	N3Vector initialNormal;
-//    N3Vector tangentAtStart;
-//    N3Vector previousInitialNormal;
         var previousAngle: CGFloat
 
         if newCurvedPath !== _curvedPath {
             previousAngle = _curvedPath?.angle ?? 0
             let previousNodes = _curvedPath?.nodes
             _curvedPath = newCurvedPath?.copy() as? CPRCurvedPath
+            // The window's slab, whatever the path brings (none, from the Path
+            // Assistant; that of its time, undone); a loaded file's is reapplied.
+            _curvedPath?.thickness = curvedPathSlabThickness()
             self.restartSimplificationIfNodesChanged(since: previousNodes)
 
             if N3VectorEqualToVector(_curvedPath?.baseDirection ?? N3Vector(), N3VectorZero) {
                 _curvedPath?.baseDirection = baseNormal
                 _curvedPath?.angle = CGFloat(_straightenedCPRAngle * (Double.pi / 180.0))
-
-//			tangentAtStart = [curvedPath.bezierPath tangentAtStart];
-//			initialNormal = N3VectorNormalize(N3VectorCrossProduct(baseNormal, tangentAtStart));
-//			initialNormal = N3VectorApplyTransform(initialNormal, N3AffineTransformMakeRotationAroundVector(straightenedCPRAngle * (M_PI / 180.0), tangentAtStart));
-
-//			curvedPath.initialNormal = initialNormal;
             } else {
                 if previousAngle != (_curvedPath?.angle ?? 0) {
                     self.willChangeValue(forKey: "straightenedCPRAngle")
                     _straightenedCPRAngle = Double(_curvedPath?.angle ?? 0) * (180.0 / Double.pi)
                     self.didChangeValue(forKey: "straightenedCPRAngle")
-//                (the former angle computed from the initial normal stays disabled)
                 }
             }
 
             self.willChangeValue(forKey: "onSliderEnabled")
             self.didChangeValue(forKey: "onSliderEnabled")
 
-//        (the former initial normal update stays disabled)
         }
     }
 
@@ -4422,7 +4298,6 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
     /// -setViewsPosition:
     private func setViewsPositionValue(_ newViewsPosition: ViewsPosition) {
-
         _viewsPosition = newViewsPosition
 
         switch _viewsPosition {
@@ -4586,7 +4461,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(removeNode)
     public dynamic func removeNode() {
         if self.removeCheapestNode() {
-            self.showCurvedPathInViews()
+            self.showChangedCurvedPath()
         }
     }
 
@@ -4632,7 +4507,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
     @objc(undoLastNodeRemoval)
     public dynamic func undoLastNodeRemoval() {
         if self.restoreLastRemovedNode() {
-            self.showCurvedPathInViews()
+            self.showChangedCurvedPath()
         }
     }
 
@@ -4688,15 +4563,19 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         return false
     }
 
-    /// The curved path, as it is now, in the seven views.
-    private func showCurvedPathInViews() {
-        mprView1?.curvedPath = _curvedPath
-        mprView2?.curvedPath = _curvedPath
-        mprView3?.curvedPath = _curvedPath
-        cprView?.curvedPath = _curvedPath
-        topTransverseView?.curvedPath = _curvedPath
-        middleTransverseView?.curvedPath = _curvedPath
-        bottomTransverseView?.curvedPath = _curvedPath
+    /// The curved path, as it is now, in the seven views, but `sender`, which has it.
+    private func showCurvedPathInViews(except sender: AnyObject? = nil) {
+        for plane in [mprView1, mprView2, mprView3] where plane !== sender { plane?.curvedPath = _curvedPath }
+        if cprView !== sender { cprView?.curvedPath = _curvedPath }
+        for section in [topTransverseView, middleTransverseView, bottomTransverseView] where section !== sender { section?.curvedPath = _curvedPath }
+    }
+
+    /// A path changed outside the views' own edits (an undo or a redo, a file
+    /// loaded or imported, a node the simplification removed or brought
+    /// back), shown in every view; the Stenosis tool measures it again.
+    private func showChangedCurvedPath() {
+        showCurvedPathInViews()
+        stenosisTool?.curvedPathDidChange()
     }
 
     @objc(updateCurvedPathCost)
@@ -4780,7 +4659,9 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
 
         self.delegateCurveViewDebugging().add(valueWithPointer(CPRMPRDCMView))
 
-        self.add(toUndoQueue: "curvedPath")
+        let pathEntry = self.prepareObject(forUndo: "curvedPath") as AnyObject?
+        self.pushUndoEntry(pathEntry)
+        pressInPlane?.pathEntry = pathEntry // A press in a plane that edits the path is undone by this entry.
         if (_curvedPath?.nodes.count ?? 0) == 0 {
             if mprView1 !== (CPRMPRDCMView as AnyObject?) {
                 baseNormal = N3VectorMake(-1, 0, 0)
@@ -4802,40 +4683,12 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.forgetCenterlineIfNodesChange(to: curvedPathOf(CPRMPRDCMView))
         self.curvedPath = curvedPathOf(CPRMPRDCMView)
 
-        // this is a bit of a hack, but the -[self setCurvedPath] will change the initial angle if it was N3VectortZero
-        if N3VectorEqualToVector(curvedPathOf(CPRMPRDCMView)?.initialNormal ?? N3Vector(), N3VectorZero) {
+        // this is a bit of a hack, but the -[self setCurvedPath] will change the initial angle if it was N3VectortZero (and the slab to the window's)
+        if N3VectorEqualToVector(curvedPathOf(CPRMPRDCMView)?.initialNormal ?? N3Vector(), N3VectorZero) || curvedPathOf(CPRMPRDCMView)?.thickness != _curvedPath?.thickness {
             setCurvedPathOf(CPRMPRDCMView, self.curvedPath)
         }
 
-        let sender = CPRMPRDCMView as AnyObject?
-
-        if mprView1 !== sender {
-            mprView1?.curvedPath = _curvedPath
-        }
-
-        if mprView2 !== sender {
-            mprView2?.curvedPath = _curvedPath
-        }
-
-        if mprView3 !== sender {
-            mprView3?.curvedPath = _curvedPath
-        }
-
-        if cprView !== sender {
-            cprView?.curvedPath = _curvedPath
-        }
-
-        if topTransverseView !== sender {
-            topTransverseView?.curvedPath = _curvedPath
-        }
-
-        if middleTransverseView !== sender {
-            middleTransverseView?.curvedPath = _curvedPath
-        }
-
-        if bottomTransverseView !== sender {
-            bottomTransverseView?.curvedPath = _curvedPath
-        }
+        self.showCurvedPathInViews(except: CPRMPRDCMView as AnyObject?)
     }
 
     @objc(CPRViewDidEditCurvedPath:)
@@ -4848,37 +4701,15 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.forgetCenterlineIfNodesChange(to: curvedPathOf(CPRMPRDCMView))
         self.curvedPath = curvedPathOf(CPRMPRDCMView)
 
-        // this is a bit of a hack, but the -[self setCurvedPath] will change the initial angle if it was N3VectortZero
-        if N3VectorEqualToVector(curvedPathOf(CPRMPRDCMView)?.initialNormal ?? N3Vector(), N3VectorZero) {
+        // this is a bit of a hack, but the -[self setCurvedPath] will change the initial angle if it was N3VectortZero (and the slab to the window's)
+        if N3VectorEqualToVector(curvedPathOf(CPRMPRDCMView)?.initialNormal ?? N3Vector(), N3VectorZero) || curvedPathOf(CPRMPRDCMView)?.thickness != _curvedPath?.thickness {
             setCurvedPathOf(CPRMPRDCMView, self.curvedPath)
         }
 
-        let sender = CPRMPRDCMView as AnyObject?
-
-        if mprView1 !== sender {
-            mprView1?.curvedPath = _curvedPath
-        }
-        if mprView2 !== sender {
-            mprView2?.curvedPath = _curvedPath
-        }
-        if mprView3 !== sender {
-            mprView3?.curvedPath = _curvedPath
-        }
-        if cprView !== sender {
-            cprView?.curvedPath = _curvedPath
-        }
-
-        if topTransverseView !== sender {
-            topTransverseView?.curvedPath = _curvedPath
-        }
-        if middleTransverseView !== sender {
-            middleTransverseView?.curvedPath = _curvedPath
-        }
-        if bottomTransverseView !== sender {
-            bottomTransverseView?.curvedPath = _curvedPath
-        }
+        self.showCurvedPathInViews(except: CPRMPRDCMView as AnyObject?)
 
         stenosisTool?.curvedPathDidChange()
+        self.traceIfVesselAnalysisAsks()
     }
 
     @objc(CPRViewWillEditDisplayInfo:)
@@ -4969,6 +4800,32 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         self.didChangeValue(forKey: "onSliderEnabled")
     }
 
+    /// Vessel Analysis, the 2D viewer's 8th reconstruction, in a window that shows
+    /// the path saved for the series or the window's: the Curved Path tool from two
+    /// new points, the path shown one Cmd-Z away, and the Path Assistant on the second.
+    @objc(beginVesselAnalysis)
+    public dynamic func beginVesselAnalysis() {
+        vesselAnalysis = VesselAnalysisTrigger()
+        if (_curvedPath?.nodes.count ?? 0) > 0, self.delegateCurveViewDebugging().count == 0, let plane = mprView1 {
+            self.cprViewWillEditCurvedPath(plane)
+            plane.curvedPath?.clearPath()
+            self.cprViewDidUpdateCurvedPath(plane)
+            self.cprViewDidEditCurvedPath(plane)
+        }
+        self.curvedPathCreationMode = true // With the Curved Path tool.
+    }
+
+    /// Back to the Curved MPR as it always opened (the 2D viewer's 3D Curved-MPR), the path kept.
+    func endVesselAnalysis() { vesselAnalysis = nil }
+    var isInVesselAnalysis: Bool { vesselAnalysis != nil }
+
+    /// After an edit of the path: the Path Assistant's path held for the edit's end, or in Vessel
+    /// Analysis a trace of the two points just marked; a trace under way that is given up for them traces them.
+    private func traceIfVesselAnalysisAsks() {
+        let nodes = (_curvedPath?.nodes as? [NSValue] ?? []).map { $0.n3VectorValue() }.map { SIMD3(Double($0.x), Double($0.y), Double($0.z)) }
+        if !vesselTrace.editEnded(), !vesselTrace.isRunning, vesselAnalysis?.shouldTrace(nodes: nodes) == true { self.assistedCurvedPath(nil) }
+    }
+
     @objc(onSliderEnabled)
     private dynamic func onSliderEnabled() -> Bool {
         if (centerline?.count ?? 0) > 0 && (_curvedPath?.nodes.count ?? 0) > 2 {
@@ -5000,7 +4857,7 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
                                             restoreNode: { if self.restoreLastRemovedNode() { changed = true } })
             path?.holdsPathRebuild = false
             if changed {
-                self.showCurvedPathInViews()
+                self.showChangedCurvedPath()
             }
         }
         self.willChangeValue(forKey: "onSliderEnabled")

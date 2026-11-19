@@ -73,6 +73,16 @@ typedef NS_ENUM(NSInteger, IsiXVTKSceneFormat) {
 /// around (an ROI volume's actor in the volume rendering view).
 @property (nonatomic, readonly) void *vtkActor NS_RETURNS_INNER_POINTER;
 
+/// A new reference to the actor's vtkMapper *, brought up to date, for a
+/// caller that takes a mapper of its own and calls Delete() on it; NULL
+/// without a mapper.
+- (nullable void *)newMapperReference;
+
+/// The ids of the points of every cell of the vtkPolyData at `polyData` (a
+/// vtkPolyData *) that uses its point `pointId`, the point itself included;
+/// empty for NULL or a point the data does not have.
++ (NSSet<NSNumber *> *)pointsConnectedToPoint:(long long)pointId inPolyDataAtAddress:(nullable void *)polyData;
+
 @property (nonatomic) BOOL visible;
 @property (nonatomic) BOOL pickable;
 @property (nonatomic) BOOL dragable;

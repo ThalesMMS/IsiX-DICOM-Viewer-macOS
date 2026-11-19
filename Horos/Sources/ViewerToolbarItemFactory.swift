@@ -293,6 +293,14 @@ private let maxScreens = 10
             control(NSLocalizedString("Propagate", comment: ""), toolTip: NSLocalizedString("Propagate settings (WL/WW, zoom, ...)", comment: ""), view: viewer.horos_propagateSettingsView)
         case Catalog.reconstruction:
             control(NSLocalizedString("2D/3D", comment: ""), toolTip: NSLocalizedString("2D/3D Reconstruction Tools", comment: ""), view: viewer.horos_ReconstructionView)
+            // The pull-down's entries come from the nib, in English where the
+            // language has no nib of its own or left them so.
+            // The pop-up lies inside the view, not always as its own subview.
+            var inside = viewer.horos_ReconstructionView.map { [$0] } ?? []
+            while let view = inside.popLast() {
+                if let menu = (view as? NSPopUpButton)?.menu { MenuShortcutCatalog.localizeReconstructionTitles(in: menu) }
+                inside += view.subviews
+            }
         case Catalog.keyImages:
             control(NSLocalizedString("Key Images", comment: ""), toolTip: nil, view: viewer.horos_keyImages)
         case Catalog.tools:
@@ -332,7 +340,7 @@ private let maxScreens = 10
         case Catalog.studyNote:
             newItem.label = NSLocalizedString("Note", comment: "the note of a study")
             newItem.paletteLabel = NSLocalizedString("Note", comment: "the note of a study")
-            newItem.toolTip = NSLocalizedString("Display the Note Editor", comment: "")
+            newItem.toolTip = NSLocalizedString("Edit the notes of this study", comment: "")
             newItem.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: NSLocalizedString("Note", comment: "the note of a study"))
             newItem.target = nil
             newItem.action = #selector(ViewerController.showStudyNoteEditor(_:))
@@ -517,8 +525,10 @@ private let maxScreens = 10
 
         let floatingLists = preferences[ViewerPreferences.useFloatingThumbnailsList]
         if floatingLists {
-            for i in 0..<min(maxScreens, NSScreen.screens.count) {
-                if AppControllerCAPIThumbnailsListPanel(i)?.thumbnailsView === viewer.horos_previewMatrixScrollView && window?.screen !== NSScreen.screens[i] {
+            // Every panel, the one beyond the screens too: a screen that went
+            // away leaves its panel there, with the list it had.
+            for i in 0..<maxScreens {
+                if AppControllerCAPIThumbnailsListPanel(i)?.thumbnailsView === viewer.horos_previewMatrixScrollView && (i >= NSScreen.screens.count || window?.screen !== NSScreen.screens[i]) {
                     AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
                 }
             }
@@ -549,7 +559,7 @@ private let maxScreens = 10
         }
 
         if !floatingLists || !preferences[ViewerPreferences.seriesListVisible] {
-            for i in 0..<min(maxScreens, NSScreen.screens.count) {
+            for i in 0..<maxScreens {
                 AppControllerCAPIThumbnailsListPanel(i)?.window?.orderOut(viewer)
             }
         }

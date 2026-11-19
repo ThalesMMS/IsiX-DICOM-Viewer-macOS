@@ -30,6 +30,10 @@ final class DatabaseRouting: Sendable {
     /// Whether the timer of the drains was made: databases open on several
     /// threads, and each asks for it.
     private let drainsStarted = Atomic<Bool>(false)
+    /// The timer of the drains, once made, for the database window, which
+    /// copies it into an instance variable an older header of the former
+    /// plugin SDK declared; written once, by the call that makes it.
+    nonisolated(unsafe) private(set) var drainsTimer: Timer?
 
     init(processGraph: ProcessGraph) {
         self.processGraph = processGraph
@@ -46,6 +50,7 @@ final class DatabaseRouting: Sendable {
         }
         RunLoop.main.add(timer, forMode: .modalPanel)
         RunLoop.main.add(timer, forMode: .default)
+        drainsTimer = timer
     }
 
     /// Sends what is queued, unless a drain is running already.

@@ -44,9 +44,6 @@ import Foundation
 // ...Format:... methods, which took a variable argument list and which
 // nothing sent any more.
 
-/// The error domain of the errors made here.
-public let OsirixErrorDomain = "OsiriXDomain"
-
 public extension NSError {
 
     @objc(osirixErrorWithCode:underlyingError:localizedDescription:)

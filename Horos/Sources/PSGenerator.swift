@@ -54,6 +54,7 @@ private func psSetString(_ string: NSMutableString, _ value: NSMutableString?) {
 /// of day, so the web portal's generated passwords could be found again from when
 /// they were made; and random() / RAND_MAX could give high itself, one past the
 /// end of the string it chose a character from.
+@_cdecl("randomNumberBetween") @implementation @usableFromInline
 func randomNumberBetween(_ low: Int32, _ high: Int32) -> Int32 {
     if high <= low { return low }
     return low &+ Int32(bitPattern: arc4random_uniform(UInt32(bitPattern: high &- low)))

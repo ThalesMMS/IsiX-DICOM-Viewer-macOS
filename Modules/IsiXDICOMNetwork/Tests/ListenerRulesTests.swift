@@ -66,6 +66,28 @@ struct ListenerRulesTests {
         #expect(ListenerCommand.get.name == "C-GET" && ListenerCommand.store.name == "C-STORE")
     }
 
+    @Test func onlyAFailureTheUserCanActOnOpensANotice() {
+        let commands: [ListenerCommand?] = [nil, .echo, .store, .find, .move, .get]
+        // A peer that aborts, and one that stops sending in the middle of a
+        // message, end their association in the log alone, whatever was served.
+        for command in commands {
+            #expect(!ListenerAssociationEndRules.showsNotice(.peerAbort, command: command))
+            #expect(!ListenerAssociationEndRules.showsNotice(.noDataAvailable, command: command))
+            #expect(ListenerAssociationEndRules.showsNotice(.other, command: command))
+        }
+        #expect(ListenerAssociationEndRules.commandsWhoseCutIsShown.isEmpty)
+    }
+
+    @Test func theCutOfAMessageFollowsTheTableOfCommands() {
+        // The table is the whole decision for a cut message: a command in it
+        // is shown, any other is not, and no command at all never is.
+        for command in [ListenerCommand.echo, .store, .find, .move, .get] {
+            #expect(ListenerAssociationEndRules.showsNotice(.noDataAvailable, command: command)
+                    == ListenerAssociationEndRules.commandsWhoseCutIsShown.contains(command))
+        }
+        #expect(!ListenerAssociationEndRules.showsNotice(.noDataAvailable, command: nil))
+    }
+
     @Test func aMoveDestinationIsAnAETitleThenAName() {
         let titles: [Any?] = ["PACS", NSNull(), "WORKSTATION"]
         let names: [Any?] = ["Main", "WORKSTATION", "Other"]

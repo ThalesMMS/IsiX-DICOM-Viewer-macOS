@@ -157,8 +157,7 @@ public extension ViewerController {
         viewer.horos_maxMovieIndex += 1
         let count = Int(viewer.horos_maxMovieIndex)
 
-        viewer.horos_moviePosSlider?.maxValue = Double(count - 1)
-        viewer.horos_moviePosSlider?.numberOfTickMarks = count
+        fitTimeSlider()
 
         viewer.horos_movieRateSlider?.isEnabled = true
         viewer.horos_moviePosSlider?.isEnabled = true
@@ -172,6 +171,14 @@ public extension ViewerController {
                 pix.transferTable = transferFunction
             }
         }
+    }
+
+    /// The range of the time slider: a position and a tick mark for each
+    /// movie frame there is, one of each for a series of one time.
+    func fitTimeSlider() {
+        let count = Int(viewer.horos_maxMovieIndex)
+        viewer.horos_moviePosSlider?.maxValue = Double(count - 1)
+        viewer.horos_moviePosSlider?.numberOfTickMarks = count
     }
 
     /// Shows movie frame `index` (wrapped into the frames there are), at the

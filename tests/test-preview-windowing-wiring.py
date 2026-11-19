@@ -263,7 +263,7 @@ if show.count('let drawn = browser.horos_imageView?.curDCM') != 1:
 # The generation is incremented by the class's accessor.
 init = swift_method(pane, 'func matrixInit(_ count: Int)')
 increment = swift_method(ivars, 'func horos_incrementPreviewPixGeneration()')
-if 'browser.horos_incrementPreviewPixGeneration()' not in init or 'previewState.previewPixGeneration &+= 1' not in increment:
+if 'browser.horos_incrementPreviewPixGeneration()' not in init or '_previewPixGeneration &+= 1' not in increment:
     failures.append('replacing the preview list does not move the generation')
 publish = swift_method(pane, 'private func publish(_ batch: ThumbnailBatch)')
 if 'browser.horos_previewPix === batch.list && browser.horos_previewPixGeneration == batch.generation' not in publish:

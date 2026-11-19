@@ -56,7 +56,7 @@ work = Path(tempfile.mkdtemp(prefix='release-packaging-')).resolve()
 checkout = work / 'checkout'
 checkout.mkdir()
 subprocess.run(['/usr/bin/git', 'init', '-q', str(checkout)], check=True)
-for relative in ('script/build_release.sh', 'script/release-metadata.py', 'tools/audit-release-bundle.py',
+for relative in ('script/build_release.sh', 'script/release-metadata.py', 'script/release_archive.py', 'tools/audit-release-bundle.py',
                  'Horos/Horos.entitlements', 'Decompress/Decompress.entitlements',
                  'Horos/Configuration/GitHub.xcconfig', 'Horos/Horos.xcconfig', 'FinderPreview/FinderPreview.entitlements',
                  'Horos/Scripts/DCMTK/PREPARATION.json', 'Horos/Scripts/external-sources.json'):

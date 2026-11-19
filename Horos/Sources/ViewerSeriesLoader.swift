@@ -308,8 +308,13 @@ final class ViewerSeriesLoader {
                     var flipped = false
                     if !multiFrame && tryToFlipData && list.count > 2 {
                         if let exception = HorosObjCException.caught({
+                            // The direction of the whole stack, from slice 1 to
+                            // the last: the step from slice 1 to 2 rises in a
+                            // stack whose first slices share an acquisition
+                            // time and were sorted by location. Slice 0 is left
+                            // out, as it always was: it can be a scout.
                             let p1 = self.singleImagePix(list[1])
-                            let p2 = self.singleImagePix(list[2])
+                            let p2 = self.singleImagePix(list[list.count - 1])
                             if let p1, let p2, ViewerController.computeInterval(for: p1, and: p2) < 0 {
                                 // Inverse the array
                                 list.reverse()

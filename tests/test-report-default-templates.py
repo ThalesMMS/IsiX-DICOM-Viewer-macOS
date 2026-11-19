@@ -5,8 +5,10 @@ The defaults the app installs are a .docx for Word and a Pages document in the
 current format. A new database gets them; a database that already has templates
 - the Pages '09 "Horos Basic Report.pages", the "Basic Report Template.doc" -
 keeps every one of them and gets the new ones beside, never over a file of the
-same name. And a template Pages saved with "Save as Template" (.template) is
-listed and found like a .pages.
+same name. While the first-use question about the database is still to answer,
+nothing is installed, moved or copied: the location the launch would open may
+be a Horos or OsiriX database the question leaves as it is. And a template
+Pages saved with "Save as Template" (.template) is listed and found like a .pages.
 
 The production methods are compiled with stand-ins for the database and the
 browser; the shipped templates are the resources they copy. The resources
@@ -55,7 +57,7 @@ def between(start, end):
     return reports[first:reports.index(end, first)]
 
 methods = '\n'.join([
-    between('    @objc public class func checkForWordTemplates() {', '    @objc public class func databaseWordTemplatesDirPath()'),
+    between('    /// The database folder the templates folders are in', '    @objc public class func databaseWordTemplatesDirPath()'),
     between('    @objc public class func checkForPagesTemplate() {', '    @objc(Pages5orHigher)'),
     between('    @objc(pathForPagesTemplate:)', '    @objc(copyPages4templatesToPages5:)'),
     between('    /// A document or a template Pages saved', '    @objc public func templateName()'),
@@ -76,16 +78,22 @@ struct BrowserDatabaseSource {
     var browserDatabase: Database? { nil }
 }
 enum DicomDatabase { static func defaultBaseDirPath() -> String { base } }
+// Whether the first-use question about the database is still to answer.
+enum DatabaseFirstUse { static var hasPendingChoice = false }
+var copiedPages4Templates: [String] = []
 func _N2LogExceptionImpl(_ exception: NSException, _ fatal: Bool, _ context: String) {}
 PRELUDE
 final class Reports: NSObject {
-    private static let pagesTemplatesFirstTime = Atomic<Bool>(false)
-    class func databaseWordTemplatesDirPath() -> String! { folder("WORD TEMPLATES") }
-    class func databasePagesTemplatesDirPath() -> String! { folder("PAGES TEMPLATES") }
+    private static let pagesTemplatesFirstTime = Atomic<Bool>(true)
+    // Like the app's, the templates folders hang on the database folder and
+    // there is none while first use is still to answer.
+    class func databaseWordTemplatesDirPath() -> String! { templatesDatabaseDirPath().map { folder("WORD TEMPLATES", in: $0) } }
+    class func databasePagesTemplatesDirPath() -> String! { templatesDatabaseDirPath().map { folder("PAGES TEMPLATES", in: $0) } }
     class func pages5orHigher() -> Int32 { 1 }
-    class func copyPages4templatesToPages5(_ directory: String!) {}
-    class func folder(_ name: String) -> String {
-        let path = (base as NSString).appendingPathComponent(name)
+    class func copyPages4templatesToPages5(_ directory: String!) { copiedPages4Templates.append(directory) }
+    class func folder(_ name: String) -> String { folder(name, in: base) }
+    class func folder(_ name: String, in database: String) -> String {
+        let path = (database as NSString).appendingPathComponent(name)
         try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
         return path
     }
@@ -105,6 +113,22 @@ let shippedDocx = FileManager.default.contents(atPath: (resources as NSString).a
 let shippedPages = FileManager.default.contents(atPath: (resources as NSString).appendingPathComponent("ReportTemplate.pages"))
 check(shippedDocx != nil && shippedPages != nil, "resources beside the test")
 
+// First use still to answer: the location the launch would open may be a Horos
+// or OsiriX database the question leaves as it is. Nothing goes in it, its
+// former template stays where it is, and the Pages '09 copy waits.
+DatabaseFirstUse.hasPendingChoice = true
+base = CommandLine.arguments[1] + "/pending"
+try? FileManager.default.createDirectory(atPath: base, withIntermediateDirectories: true)
+check(FileManager.default.createFile(atPath: base + "/ReportTemplate.doc", contents: Data("former".utf8)), "former")
+Reports.checkForWordTemplates()
+Reports.checkForPagesTemplate()
+check((Reports.pagesTemplatesList() as! [String]).isEmpty, "nothing listed while first use is to answer")
+check(((try? FileManager.default.contentsOfDirectory(atPath: base)) ?? []) == ["ReportTemplate.doc"],
+      "nothing installed while first use is to answer: \((try? FileManager.default.contentsOfDirectory(atPath: base)) ?? [])")
+check(FileManager.default.contents(atPath: base + "/ReportTemplate.doc") == Data("former".utf8), "former template untouched")
+check(copiedPages4Templates.isEmpty, "no Pages '09 copy before the answer")
+DatabaseFirstUse.hasPendingChoice = false
+
 // A new database: the two new defaults, and nothing else.
 base = CommandLine.arguments[1] + "/new"
 Reports.checkForWordTemplates()
@@ -114,6 +138,7 @@ check(contents("PAGES TEMPLATES") == ["IsiX Basic Report.pages"], "new Pages def
 check(bytes("WORD TEMPLATES", "Basic Report Template.docx") == shippedDocx, "Word default copied")
 check(bytes("PAGES TEMPLATES", "IsiX Basic Report.pages") == shippedPages, "Pages default copied")
 check(Reports.pagesTemplatesList() as! [String] == ["IsiX Basic Report.pages"], "listed")
+check(copiedPages4Templates == [base + "/PAGES TEMPLATES"], "the Pages '09 copy after the answer: \(copiedPages4Templates)")
 
 // A database that already has templates, the former defaults among them and a
 // file that already carries the new default's name.
@@ -165,7 +190,7 @@ check(found("B.pages") == "B.template", "same stem")
 check(found("C.TEMPLATE") == "C.TEMPLATE", "any case")
 check(found("notes") == nil && found("D") == nil, "not a Pages file")
 check(found("") == "A.pages", "no name: the first listed")
-print("PASS: new databases get the .docx and current-format Pages defaults; existing templates are kept and the new ones go beside; .template files are listed and found")
+print("PASS: nothing is installed before first use is answered; new databases get the .docx and current-format Pages defaults; existing templates are kept and the new ones go beside; .template files are listed and found")
 '''.replace('METHODS', methods).replace('PRELUDE', prelude)
 # The template methods guard through the module's own members of HorosObjCException.
 program += objc_exception_guards.source(log=False).replace('import Foundation\n', '', 1)

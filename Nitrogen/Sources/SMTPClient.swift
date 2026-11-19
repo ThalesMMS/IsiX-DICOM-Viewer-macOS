@@ -45,18 +45,8 @@ import IsiXMail
 // IsiXMail's SMTPSession; the connection, over Network.framework, is
 // SMTPConnection.
 
-/// The keys of +send:'s dictionary.
-let SMTPServerAddressKey = "SMTPServerAddress"
-let SMTPServerPortsKey = "SMTPServerPorts"
-let SMTPServerTLSModeKey = "SMTPServerTLSMode"
-let SMTPFromKey = "SMTPFrom"
-let SMTPServerAuthFlagKey = "SMTPServerAuthFlag"
-let SMTPServerAuthUsernameKey = "SMTPServerAuthUsername"
-let SMTPServerAuthPasswordKey = "SMTPServerAuthPassword"
-let SMTPToKey = "SMTPTo"
-let SMTPHeadersKey = "SMTPHeaders"
-let SMTPSubjectKey = "SMTPSubject"
-let SMTPMessageKey = "SMTPMessage"
+// The keys of +send:'s dictionary (SMTPServerAddressKey and the others) are C
+// constants, which SMTPClient.h declares.
 
 extension SMTPError {
     /// Raises the NSException the former class raised for it, to the caller
@@ -182,11 +172,23 @@ public final class SMTPClient: NSObject {
     }
 }
 
+/// How a delivery ended, once a port took the message or every port was tried.
+enum SMTPDeliveryResult: Equatable, Sendable {
+    /// A server took the message.
+    case delivered
+    /// No port took it: the last error of a conversation, when one got that
+    /// far, and the last error of a connection that did not open or was cut.
+    case failed(SMTPError?, streamError: String?)
+}
+
 /// One message on its way: the ports are tried in order, each on a
 /// connection of its own, until one takes it. A failed conversation is logged
 /// and the next port tried; the last failure is logged again at the end when
-/// no port took the message.
+/// no port took the message. Whoever asks is told how it ended, on the queue
+/// of the last connection, or on the caller's when there was no port to try.
 final class SMTPDelivery: Sendable {
+    typealias Completion = @Sendable (SMTPDeliveryResult) -> Void
+
     private let host: String
     private let ports: [Result<Int, SMTPError>]
     private let session: SMTPSession
@@ -197,31 +199,32 @@ final class SMTPDelivery: Sendable {
         self.session = session
     }
 
-    func start() {
-        attempt(0, lastFailure: nil)
+    func start(completion: Completion? = nil) {
+        attempt(0, lastFailure: nil, streamError: nil, completion: completion)
     }
 
-    private func attempt(_ index: Int, lastFailure: SMTPError?) {
+    private func attempt(_ index: Int, lastFailure: SMTPError?, streamError: String?, completion: Completion?) {
         guard index < ports.count else {
             if let lastFailure {
                 NSLog("******* SMTPClient exception: %@", lastFailure.reason)
             }
+            completion?(.failed(lastFailure, streamError: streamError))
             return
         }
         switch ports[index] {
         case let .failure(error):
             NSLog("SMTP Exception: %@", error.reason)
-            attempt(index + 1, lastFailure: error)
+            attempt(index + 1, lastFailure: error, streamError: streamError, completion: completion)
         case let .success(port):
             SMTPConnection(host: host, port: port, session: session).start { outcome in
                 switch outcome {
                 case .delivered:
-                    break
+                    completion?(.delivered)
                 case let .failed(error):
                     NSLog("SMTP Exception: %@", error.reason)
-                    self.attempt(index + 1, lastFailure: error)
-                case .closed:
-                    self.attempt(index + 1, lastFailure: lastFailure)
+                    self.attempt(index + 1, lastFailure: error, streamError: streamError, completion: completion)
+                case let .closed(cut):
+                    self.attempt(index + 1, lastFailure: lastFailure, streamError: cut ?? streamError, completion: completion)
                 }
             }
         }

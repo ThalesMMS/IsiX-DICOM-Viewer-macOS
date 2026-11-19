@@ -1,7 +1,7 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.3/IsiX-DICOM-Viewer-6.0.3-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.3/IsiX-DICOM-Viewer-6.0.3-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiX-DICOM-Viewer-6.0.4-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiX-DICOM-Viewer-6.0.4-Intel-Macs.zip)
 [![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
 <p align="center"><b>macOS</b></p>
@@ -28,7 +28,7 @@
   <sub>This repository holds the macOS version.</sub>
 </p>
 
-**6.0.3 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.3) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.3/IsiXPluginKit-SDK-6.0.3.zip).
+**6.0.4 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.4) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiXPluginKit-SDK-6.0.4.zip).
 This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
@@ -97,7 +97,10 @@ Documents or where the Horos settings place it: the two database formats
 differ, and once upgraded by IsiX DICOM Viewer a Horos database may no longer
 open in Horos. On the first start the application says where it found one and
 leaves it unchanged. The Horos settings themselves (DICOM nodes, listener,
-presets and the rest) are carried over, except the database location.
+presets and the rest) are carried over, except the database location. A
+Horos whose URL support and XML-RPC server were on arrives with them on,
+answering any address without a password: see "Who the XML-RPC server
+answers" under RIS integration.
 
 To bring the studies over, choose **File > Import > Import Files...** and
 select the `DATABASE.noindex` folder inside `Horos Data`. Depending on
@@ -241,44 +244,91 @@ windows have been removed.
 A RIS opens or retrieves studies through `horos://` (or `osirix://`) links,
 or through XML-RPC calls on the port set in **Settings > Listener**. Both are
 off until **Activate the URL support and HTTP XML-RPC Server on port** is
-checked there; the port is 8080 by default.
+checked there; the port is 8080 by default. The one box turns on both: the
+links, and a server that by default answers **any address without a
+password** (see "Who the XML-RPC server answers" below).
 
 - `horos://?methodName=retrieve&serverName=Main%20PACS&filterKey=PatientID&filterValue=12345`
   queries a node and retrieves what it finds in the background; up to nine
   filters are given as `filterKey`/`filterValue`, then `filterKey2`/`filterValue2`
   and so on. XML-RPC `CMove` takes `server` and `accessionNumber`.
+- A retrieve with `then=open` (or `then=display`) opens the first study found
+  once its first images are here, and `then=select` selects it in the database
+  window; any other value only retrieves. It waits up to 30 seconds (the
+  hidden setting `XMLRPCRetrieveOpenWaitSeconds`), without holding the links
+  that follow. `retrieveOnlyIfNeeded=yes` leaves a study where it is when
+  every instance the node counts is already here. Links that use `ServerName`,
+  `then=Open` and `retrieveOnlyIfNeeded`, as some PACS write them, work as
+  they are:
+  `osirix://?methodName=Retrieve&retrieveOnlyIfNeeded=yes&ServerName=Main%20PACS&filterKey=StudyInstanceUID&filterValue=1.2.3&then=Open`
+- The parameters of a method are read whatever the case of their names
+  (`ServerName`, `servername`). `methodName` is written exactly so: it is the
+  link itself that names the method, not a parameter of it. The attributes
+  the filter keys name (`PatientID`,
+  `StudyInstanceUID`, `AccessionNumber`, ...) are written as shown. A
+  retrieve whose filters have
+  no value, or name no attribute a node can be asked for, is not sent: it
+  would ask the node for every study it has.
 - `serverName` (and the `server` of `CMove`) is the node's description in
   **Settings > Locations** or, for a DICOM node, its AE title. DICOMweb nodes
   are found by their name and need Q&R turned on. `DisplayStudy` and the
   `Open` of `FindObject` also ask the PACS On-Demand nodes, DICOMweb ones
   included, when **Also search on PACS-On-Demand servers** is checked in the
   Listener settings and nodes are chosen in the PACS On-Demand settings.
-- When a request fails, an alert gives the reason and what was asked for, and
-  the XML-RPC answer carries the code: `-2` (Retrieve) or `-1` (CMove) for a
-  node that is not in Locations, `-3` when the node finds nothing or cannot be
-  queried, `-1` when `DisplayStudy` finds no study. A link that arrives while
-  URL support is off says that the request was not carried out.
+- When a request fails, the XML-RPC answer carries the code: `-2` (Retrieve)
+  or `-1` (CMove) for a node that is not in Locations, `-3` when the node
+  finds nothing or cannot be queried, `-1` when `DisplayStudy` finds no study.
+  With **Show an alert when an XML-RPC or URL order fails** checked in the
+  Listener settings (off by default), an alert also gives the reason and what
+  was asked for. A link that arrives while URL support is off says that the
+  request was not carried out, and that activating the support also turns on
+  the XML-RPC server.
+- A link runs unasked only what a RIS puts in its links: showing, finding,
+  retrieving and closing. Any other method (quitting the application, opening
+  another database, downloading a URL, a method a plugin added) and a search
+  told to delete what it finds ask first, with **Cancel** as the default.
 - A link that launches the application does not reopen the Query/Retrieve
   window left open at the last quit; a retrieve never uses that window.
 
+**Who the XML-RPC server answers.** The server listens on every network
+interface. **Answer messages from** in the Listener settings chooses who is
+answered: **This Mac only**, **Computers on the local network** (private and
+link-local addresses) or **Any address**, the default. With **Require a user
+name and password from other computers** checked, other computers send HTTP
+Basic authentication with the user name and password of **Set Password…**
+(kept in the Keychain), and are refused until a password is set. Without
+**HTTPS**, the password crosses the network in clear.
+
+- Requests made on this Mac, through any of its addresses, and requests from
+  the addresses listed under **Accept without a password from** are never
+  asked for a password.
+- A change of who is answered applies to the next request, without a restart;
+  only the port and **HTTPS** need one.
+- For links alone, choose **This Mac only**: a link reaches the application
+  as an Apple Event and runs inside it, without going through the server.
+- A request a web page sends (it carries `Origin`, `Sec-Fetch-…` or a page's
+  `Referer`), a request that is not a POST, and a request made on this Mac to
+  a host name that is not this Mac's are refused, whoever is answered.
+- `FindObject` with `execute = Delete` asks at this Mac before it deletes.
+- A request's body is at most 1 MB.
+
 **A RIS on another computer.** A `horos://` link opens the viewer on the
 computer where it is clicked, so a RIS that runs elsewhere has to call
-XML-RPC. By default the XML-RPC server answers this Mac only. To let other
-computers in:
+XML-RPC:
 
-1. In **Settings > Listener**, click **Network Access…** beside the port.
-2. Check **Answer other network interfaces, not only this machine**, enter a
-   user name (without a colon) and a password, and click **Save**. The
-   password is kept in the Keychain.
-3. Restart the application when asked.
-4. Configure the RIS to send HTTP Basic authentication with that user name and
+1. In **Settings > Listener**, choose **Computers on the local network** or
+   **Any address** under **Answer messages from**.
+2. Check **Require a user name and password from other computers**, click
+   **Set Password…** and enter a user name (without a colon) and a password.
+3. Configure the RIS to send HTTP Basic authentication with that user name and
    password to `http://<this Mac's address>:8080/`, and allow incoming
    connections to the application in the macOS firewall if it is on.
 
-While remote access is on, every XML-RPC request is authenticated, local ones
-included, and any host that knows the password can list the database and
-retrieve studies. A request refused for a missing or wrong password is shown
-in an alert naming the computer it came from.
+Any computer that is answered can list the database, retrieve studies and
+run the other methods of the interface. A request refused for where it comes
+from, or for a missing or wrong password, is logged with the computer it came
+from, and shown in an alert when **Show an alert when an XML-RPC or URL order
+fails** is on.
 
 ### Reliability, performance, and macOS integration
 
@@ -495,7 +545,7 @@ xcodebuild -project Horos.xcodeproj -scheme Horos \
 
 `Horos.xcodeproj` requires the public
 [DICOM-Swift package](https://github.com/ThalesMMS/DICOM-Swift) at exact version
-`3.3.0` (revision `cf9b5bf403dd6b002f827f51aa9d9e3266f41d31`). The app
+`4.0.0` (revision `1fc34e5a20ad9bc09cdbe2a4e6ba5da09b95567b`). The app
 links `DicomWebClient`, `DicomWebOIDC` and their `DicomData` dependency. Optional codecs, server,
 UI and ZIP products are not linked. Resolver downloads of optional dependencies
 do not imply that their code is part of the app.

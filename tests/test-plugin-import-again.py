@@ -20,7 +20,15 @@ The rules themselves are tested with their modules (`SameNamePluginsTests`,
   loads plugins only;
 - the three buttons of that row fit beside the Uninstall button in every
   language, measured by AppKit;
-- the command's texts are translated in the eleven catalogs.
+- a launch after the single offer was answered offers what those folders have
+  gained since, with rules of its own that ask of no bundle whether it loads,
+  not in Protected Mode, and only in the build that loads plugins;
+- the loader reads its folders through the scan that passes over a link or
+  an alias to nothing and offers a bundle once, and says of such an entry why
+  nothing loaded; Loading Details says where a plugin's bundle is;
+- the command's texts, those of the launch's offer, the reason of an entry
+  that leads nowhere and the line of Loading Details are translated in the
+  eleven catalogs.
 """
 from pathlib import Path
 import json
@@ -50,6 +58,20 @@ if 'PluginBundleVersion.declared(byBundleAt:' not in discovery:
     failures.append('discoverPlugins does not read the versions the choice is made by')
 if 'pathsOfPluginsToLoad.remove(duplicate.bundle.path)' not in discovery:
     failures.append('a bundle set aside is still handed to the loader, where the order of the folder decides')
+# Each entry goes through the scan, which answers one that leads nowhere
+# instead of handing the loader's list a nil, and a bundle reached twice once.
+if 'PluginFolderScan(isPlugin: PluginAdmission.isManaged)' not in discovery or 'scan.judge(entryAt: entry)' not in discovery \
+        or 'ObjC.add(pathsOfPluginsToLoad' in discovery:
+    failures.append('discoverPlugins does not read the entries of its folders through PluginFolderScan')
+for answer in ('case .load(', 'case .sameBundle(', 'case .leadsNowhere(', 'case .notAPlugin('):
+    if answer not in discovery:
+        failures.append(f'discoverPlugins does not answer {answer}')
+nowhere = manager[manager.index('private class func reportEntryThatLeadsNowhere('):manager.index('private class func folderRank(')]
+if 'PluginManagerCAPIRecordLoad((entry as NSString).resolvingAlias(), NSLocalizedString("Load failed"' not in nowhere:
+    failures.append('an entry that leads nowhere is not recorded as Load failed under the path its row is listed with')
+listing = manager[manager.index('@objc public class func pluginsList()'):]
+if '.resolvingAlias() as String' not in listing[:listing.index('pluginDescription.setObject(pluginPath, forKey: "path"')]:
+    failures.append('the plugins list no longer keeps a row by its path with the alias resolved, which the record above relies on')
 
 # --- the command ------------------------------------------------------------------
 store, direct = controller.split('#else', 1)
@@ -73,11 +95,44 @@ if 'offerIfNeeded(rules: pluginRules)' not in prompt:
 if 'beginSheetModal(for: window)' not in again or 'runModal()' in again:
     failures.append('the import command does not report in sheets of the plugin manager\'s window')
 
+# --- the offer of a later launch ------------------------------------------------------
+offer = prompt[prompt.index('static func offerPluginsIfNeeded()'):prompt.index('// MARK: plugins, asked for again')]
+if 'offerNewerPluginsIfNeeded(migration)' not in offer or not (offer.index('#if !MACAPPSTORE') < offer.index('offerNewerPluginsIfNeeded(migration)')
+                                                              < offer.index('#endif')):
+    failures.append('a launch does not offer what the Horos and OsiriX folders gained, or offers it in the App Store build')
+if 'private static func offerNewerPluginsIfNeeded(' not in again or 'static var launchPluginRules' not in again:
+    failures.append('the offer of a later launch, or its rules, is compiled into the App Store build')
+else:
+    later = again[again.index('private static func offerNewerPluginsIfNeeded('):again.index('static func lines(of survey')]
+    if 'offerNewerIfNeeded(rules: launchPluginRules' not in later or 'pluginRules)' in later.replace('launchPluginRules', ''):
+        failures.append('the offer of a later launch does not use the rules that validate no signature')
+    if 'guard !DCMPix.isRunOsiriXInProtectedModeActivated() else { return }' not in later:
+        failures.append('the offer of a later launch also comes up in Protected Mode')
+    if 'PluginManager.replaceInstalledPlugin(at: installed, with: source)' not in later:
+        failures.append('a newer version offered at launch does not go through the installer')
+    launch = again[again.index('static var launchPluginRules'):again.index('private static func rules(canLoad')]
+    if 'rules(canLoad: { _ in true })' not in launch or 'refusalBeforeOpening' in launch:
+        failures.append('the rules of a launch ask whether a bundle loads, which validates its signature')
+if '(first.target ?? first.url).path' not in again or '(second.target ?? second.url).path' not in again:
+    failures.append('a link or an alias in a folder of IsiX is not judged by the bundle it leads to')
+
+# --- Loading Details --------------------------------------------------------------------
+details = direct[direct.index('static func loadDetails(reason'):direct.index('public override func awakeFromNib()')]
+if 'PluginFolderScan.destination(ofEntryAt: path)' not in details or 'NSLocalizedString("Bundle location: %@"' not in details \
+        or 'Self.loadDetails(reason:' not in details:
+    failures.append('Loading Details does not say where the bundle of a plugin is')
+
 # --- the catalogs -------------------------------------------------------------------
-keys = sorted(set(json.loads('"' + found + '"') for found in re.findall(r'NSLocalizedString\("((?:\\.|[^"\\])*)"', again)))
+keys = sorted(set(json.loads('"' + found + '"') for found in re.findall(r'NSLocalizedString\("((?:\\.|[^"\\])*)"', again + nowhere + details)))
 new = [key for key in keys if key not in ('OK', 'Import', 'Cancel', '%@: %@', 'Some plugins were not copied')]
 if len(new) < 10:
     failures.append(f'expected the texts of the import command, found {new}')
+for expected in ('%@: the link leads to an item that no longer exists.', 'Bundle location: %@', 'Not Now',
+                 'New or newer plugins were found in the Horos or OsiriX plugins folders.',
+                 'This plugin is a link or an alias to an item that no longer exists (%@). Reinstall the plugin or remove the link in Plugin Manager.',
+                 'This plugin is a link or an alias to an item that no longer exists. Reinstall the plugin or remove the link in Plugin Manager.'):
+    if expected not in new:
+        failures.append(f'the text {expected!r} is no longer where this test reads the texts to translate')
 catalogs = {}
 for language in LANGUAGES + ('en',):
     catalog = root / f'Horos/Resources/{language}.lproj/Localizable.strings'

@@ -20,7 +20,6 @@
                 <outlet property="blendingSlider" destination="388" id="391"/>
                 <outlet property="checkFirst" destination="457" id="502"/>
                 <outlet property="checkSecond" destination="458" id="503"/>
-                <outlet property="decimate" destination="702" id="710"/>
                 <outlet property="distanceValue" destination="1042" id="1067"/>
                 <outlet property="export3DView" destination="604" id="616"/>
                 <outlet property="eyeDistance" destination="1035" id="1066"/>
@@ -34,7 +33,6 @@
                 <outlet property="secondPopup" destination="484" id="499"/>
                 <outlet property="secondTrans" destination="486" id="505"/>
                 <outlet property="secondValue" destination="487" id="496"/>
-                <outlet property="smooth" destination="701" id="711"/>
                 <outlet property="stereoIconView" destination="1013" id="1068"/>
                 <outlet property="toolsView" destination="239" id="265"/>
                 <outlet property="view" destination="146" id="157"/>
@@ -92,7 +90,7 @@
             <rect key="frame" x="0.0" y="0.0" width="189" height="35"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243" customClass="IsiXTipMatrix">
                     <rect key="frame" x="0.0" y="0.0" width="189" height="35"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="35"/>
@@ -1218,7 +1216,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="NO" translatesAutoresizingMaskIntoConstraints="NO" id="766">
                         <rect key="frame" x="8" y="231" width="84" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم المسلسل:" id="987">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم السلسلة:" id="987">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

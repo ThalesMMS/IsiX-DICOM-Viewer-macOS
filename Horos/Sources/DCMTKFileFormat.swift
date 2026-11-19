@@ -47,9 +47,16 @@ import Foundation
 
     final var horos_file: IsiXDCMTKFile?
 
+    // The instance variable of the former plugin SDK, which a plugin reads and
+    // writes at the offset the application exports for it: the DcmFileFormat
+    // the adapter holds. A pointer a plugin wrote there directly is taken over
+    // when the object goes, as the former class deleted what it found.
+    final var horos_dcmtkDcmFileFormat: UnsafeMutableRawPointer?
+
     var dcmtkDcmFileFormat: UnsafeMutableRawPointer? {
-        get { horos_file?.handle }
+        get { horos_dcmtkDcmFileFormat }
         set {
+            horos_dcmtkDcmFileFormat = newValue
             // As the instance variable it was: the object deletes the file it
             // holds when it goes, and a file it is no longer given is left to
             // whoever replaced it.
@@ -62,7 +69,16 @@ import Foundation
     init!(file: String!) {
         // The file read whole, as DcmFileFormat::loadFile reads it; one DCMTK
         // cannot read leaves the object empty, as it always did.
-        horos_file = (try? IsiXDCMTKFile.file(atPath: file)) ?? IsiXDCMTKFile()
+        let parsed = (try? IsiXDCMTKFile.file(atPath: file)) ?? IsiXDCMTKFile()
+        horos_file = parsed
+        horos_dcmtkDcmFileFormat = parsed.handle
         super.init()
+    }
+
+    deinit {
+        if horos_dcmtkDcmFileFormat != horos_file?.handle {
+            horos_file?.relinquishOwnership()
+            horos_file = horos_dcmtkDcmFileFormat.map { IsiXDCMTKFile(takingOwnershipOfHandle: $0) }
+        }
     }
 }

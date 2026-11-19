@@ -62,6 +62,50 @@ public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegat
     private var _bonjour: NetService?
     private var _advertisement: BonjourAdvertisement?
 
+    // MARK: Instance variables of older headers of the former plugin SDK
+
+    // The headers of older Horos and OsiriX plugin SDKs declared these, and a
+    // plugin built with one binds each name when it loads: each is a stored
+    // field of this class with the type the C declaration has in memory, never
+    // private. None is read here: the publisher reads its listener, its
+    // service and the preferences, and writes these copies where they change.
+    //
+    // The service, under the name it had then, whether there is one and the
+    // name it is published under: written with _bonjour (-updateBonjour and
+    // where the service is dropped).
+    var horos_netService: NetService?
+    var dbPublished = false
+    var serviceName: NSString?
+    /// The port the listener is on, 0 while it is not ready: written by
+    /// -updateBonjour, which every change of the listener runs.
+    var horos_OsiriXDBCurrentPort: Int32 = 0
+    /// The database window, which that class was made with: not retained, as
+    /// it was not. Written when the publisher is made and when the window
+    /// makes its list of sources.
+    unowned(unsafe) var interfaceOsiriX: BrowserController?
+    /// The connections being served. Each runs on one of the listener's
+    /// workers, which count themselves in and out under the lock.
+    nonisolated(unsafe) var numberOfConnectedUsers: Int32 = 0
+    private nonisolated let connectedUsersLock = NSLock()
+    // The socket that class listened on, as a descriptor and as a file handle,
+    // and the lock it took around each connection. The listener is
+    // Network.framework's, which has neither a descriptor nor a file handle to
+    // give, and a connection reads the index on a context of its own, with no
+    // lock of the publisher: 0 and nil.
+    var fdForListening: Int32 = 0
+    var listeningSocket: FileHandle?
+    var connectionLock: NSLock?
+
+    private nonisolated func countConnection(_ change: Int32) {
+        connectedUsersLock.withLock { numberOfConnectedUsers &+= change }
+    }
+
+    /// Keeps the copies of the service the older headers named.
+    private func noteService() {
+        horos_netService = _bonjour
+        dbPublished = _bonjour != nil
+    }
+
     @available(*, deprecated, message: "use -[[AppController sharedAppController] bonjourPublisher]")
     @objc(currentPublisher)
     public nonisolated class func currentPublisher() -> BonjourPublisher? {
@@ -77,6 +121,10 @@ public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegat
         self.processGraph = processGraph
         sender = SharedDatabaseDICOMSender(processGraph: processGraph)
         super.init()
+        // The window's list of sources, when it was made first, is told of
+        // the publisher; when it is made later, it tells the publisher.
+        interfaceOsiriX = processGraph.currentBrowser
+        BonjourBrowser.currentBrowser()?.publisher = self
         let controller = NSUserDefaultsController.shared
         controller.addObserver(self, forValuesKey: OsirixBonjourSharingIsActiveDefaultsKey, options: .initial, context: nil)
         controller.addObserver(self, forValuesKey: OsirixBonjourSharingNameDefaultsKey, options: .initial, context: nil)
@@ -145,7 +193,9 @@ public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegat
                 // The listener reports ready or failed on the main queue; the advertisement is published
                 // only once it is ready (-databaseServerDidStart:), never for a port nothing listens on.
                 let serving = SharedDatabaseServing(processGraph: self.processGraph, sender: self.sender)
-                let listener = HorosDatabaseServer(port: SharedDatabaseAnnouncement.port) { peer in
+                let listener = HorosDatabaseServer(port: SharedDatabaseAnnouncement.port) { [weak self] peer in
+                    self?.countConnection(1)
+                    defer { self?.countConnection(-1) }
                     O2DatabaseConnection.serve(peer, serving: serving)
                 }
                 self._listener = listener
@@ -194,6 +244,9 @@ public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegat
         // under the name the preferences hold now.
         let listenerPort = _listener?.port ?? 0
         let name = UserDefaults.bonjourSharingName()
+        horos_OsiriXDBCurrentPort = Int32(truncatingIfNeeded: listenerPort)
+        serviceName = name as NSString?
+        defer { noteService() }
         if SharedDatabaseAnnouncement.mustWithdraw(advertisedPort: _bonjour?.port, advertisedName: _bonjour?.name,
                                                    listenerPort: listenerPort, name: name) {
             _bonjour?.delegate = nil
@@ -270,6 +323,7 @@ public final class BonjourPublisher: NSObject, @preconcurrency NetServiceDelegat
         _bonjour?.delegate = nil
         _bonjour?.stop()
         _bonjour = nil
+        noteService()
     }
 
     public func netServiceDidStop(_ sender: NetService) {
@@ -846,7 +900,9 @@ public final class O2DatabaseConnection: NSObject {
     private func VERSI() throws {
         let idatabase = try _requestIndexDatabase()
 
-        let val = idatabase.timeOfLastModification
+        // The time of the last import is kept by the main database: the one
+        // of this request was made for it and has seen no import.
+        let val = ((idatabase.isMainDatabase() ? idatabase : idatabase.mainDatabase as? DicomDatabase) ?? idatabase).timeOfLastModification
 
         writeData(SharedDatabaseReply.modificationTime(val))
     }

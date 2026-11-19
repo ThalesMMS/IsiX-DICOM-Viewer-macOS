@@ -68,6 +68,9 @@ import Testing
         expected = PreferenceChange()
         expected.viewerRedraw = true
         #expect(try marks("ShowPreviousExamLabel", true, false) == expected)
+        // Registered on: document pages are inverted in Dark Mode until it is turned off.
+        #expect(try marks("InvertsDocumentPagesInDarkMode", "1", false) == expected)
+        #expect(try marks("InvertsDocumentPagesInDarkMode", 0, true) == expected)
 
         expected = PreferenceChange()
         expected.viewerRefresh = true

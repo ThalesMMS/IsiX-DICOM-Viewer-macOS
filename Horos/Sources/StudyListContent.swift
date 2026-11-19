@@ -526,19 +526,10 @@ final class AlbumCountsAccess: Sendable {
         outline?.sortDescriptors = RestrictedUnarchiver.sortDescriptors(with: layout.sortDescriptors)
             ?? [NSSortDescriptor(key: "name", ascending: true, selector: #selector(NSString.caseInsensitiveCompare(_:)))]
 
-        let tableColumns = outline?.tableColumns ?? []
-        let placement = layout.placement(of: tableColumns.map(\.identifier.rawValue))
-        for (index, shown) in placement.shown.enumerated() {
-            guard let column = tableColumns.first(where: { $0.identifier.rawValue == shown.identifier }) else { continue }
-            if outline?.column(withIdentifier: column.identifier) == -1 {
-                outline?.addTableColumn(column)
-            }
-            column.isHidden = false
-            column.width = CGFloat(shown.width)
-            outline?.moveColumn(outline?.column(withIdentifier: column.identifier) ?? 0, toColumn: index)
-        }
-        for identifier in placement.hidden {
-            tableColumns.first { $0.identifier.rawValue == identifier }?.isHidden = true
+        // The columns shown and placed first and their widths last: the list
+        // shares width among its columns whenever one is shown or hidden.
+        if let outline {
+            StudyListColumnArranger.apply(layout.steps(for: outline.tableColumns.map(\.identifier.rawValue)), to: outline)
         }
     }
 

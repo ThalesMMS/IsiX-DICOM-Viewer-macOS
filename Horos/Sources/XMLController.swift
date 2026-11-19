@@ -49,7 +49,6 @@ private let ExportTextToolbarItemIdentifier = "ExportText"
 private let ExpandAllItemsToolbarItemIdentifier = "add-large"
 private let CollapseAllItemsToolbarItemIdentifier = "minus-large"
 private let SearchToolbarItemIdentifier = "Search"
-private let EditingToolbarItemIdentifier = "Editing"
 private let SortSeriesToolbarItemIdentifier = "SortSeries"
 private let VerifyToolbarItemIdentifier = "Validator"
 
@@ -147,12 +146,12 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     @IBOutlet private var tableScrollView: NSScrollView?
     @IBOutlet private var search: NSSearchField?
     @IBOutlet private var searchView: NSView?
-    @IBOutlet private var dicomEditingView: NSView?
 
     private var xmlDcmData: NSMutableArray? = nil
     private var tree: NSMutableArray? = nil
     private var xmlData: NSData? = nil
     private var toolbar: NSToolbar? = nil
+    private var acceptsLegacyEditingItem = true
     private var srcFile: String? = nil
     private var xmlDocument: XMLDocument? = nil
     private var dcmDocument: DCMObject? = nil
@@ -167,8 +166,9 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
     private var _editingActivated = false
     private var allowSelectionChange = false
 
-    /// The level the edits apply to, which XMLViewer.xib binds by key.
-    @objc private dynamic var editingLevel: Int32 = 0
+    /// The level the edits apply to, which the toolbar's Level pop-up sets
+    /// (XMLEditingToolbarItem).
+    @objc dynamic var editingLevel: Int32 = 0
 
     @IBOutlet private var addWindow: NSWindow?
     @IBOutlet private var dicomFieldsCombo: NSComboBox?
@@ -781,7 +781,16 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         return true
     }
 
+    /// Whether the window is closing, which the tiling of the magnetic windows
+    /// asks: the controller outlives its window's close until the autorelease
+    /// pool drains, and a close outside an event (a timer, a script, a plugin)
+    /// let the tiling scheduled by the close show the closed window again, as
+    /// the key window, with no controller.
+    @objc(windowWillClose) public func windowWillClose() -> Bool { closing }
+    private var closing = false
+
     public func windowWillClose(_ notification: Notification) {
+        closing = true
         table?.dataSource = nil
         table?.delegate = nil
 
@@ -1407,7 +1416,9 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 _ = Unmanaged.passUnretained(self).autorelease()
             }
 
+            self.willChangeValue(forKey: "modificationsToApply")
             modificationsToApplyArray?.removeAllObjects()
+            self.didChangeValue(forKey: "modificationsToApply")
             modifiedFields?.removeAllObjects()
             modifiedValues?.removeAllObjects()
         }
@@ -1683,6 +1694,8 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
         self.window?.showsToolbarButton = false
         self.window?.toolbar?.isVisible = true
         ToolbarPolicy.adopt(toolbar: toolbar, in: self.window)
+        XMLEditingToolbarItem.replaceLegacyItem(in: toolbar)
+        acceptsLegacyEditingItem = false
 
     }
 
@@ -1703,20 +1716,19 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
             toolbarItem?.image = NSImage(named: "Export")
             toolbarItem?.target = self
             toolbarItem?.action = #selector(exportXML(_:))
-        } else if isEqualToString(itemIdent, EditingToolbarItemIdentifier) {
-            toolbarItem?.label = NSLocalizedString("DICOM Editing", comment: "")
-            toolbarItem?.paletteLabel = NSLocalizedString("DICOM Editing", comment: "")
-            toolbarItem?.toolTip = NSLocalizedString("DICOM Editing", comment: "")
-
-            toolbarItem?.view = dicomEditingView
-            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: dicomEditingView), maximum: ToolbarPolicy.designedSize(of: dicomEditingView))
+        } else if let editing = XMLEditingToolbarItem.item(itemIdent, for: self) {
+            toolbarItem = editing
         } else if isEqualToString(itemIdent, SearchToolbarItemIdentifier) {
             toolbarItem?.label = NSLocalizedString("Search", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Search", comment: "")
             toolbarItem?.toolTip = NSLocalizedString("Search", comment: "")
 
+            // As high as the search field: a toolbar gives a labelled item
+            // the height of a control, and draws the label over a higher view.
+            var size = ToolbarPolicy.designedSize(of: searchView)
+            size.height = max(size.height, (search?.intrinsicContentSize.height ?? 0).rounded(.up))
             toolbarItem?.view = searchView
-            ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: searchView), maximum: ToolbarPolicy.designedSize(of: searchView))
+            ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)
         } else if isEqualToString(itemIdent, ExportTextToolbarItemIdentifier) {
             toolbarItem?.label = NSLocalizedString("Export Text", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Export Text", comment: "")
@@ -1781,8 +1793,7 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                 NSToolbarItem.Identifier(ExportTextToolbarItemIdentifier),
                 NSToolbarItem.Identifier(ExpandAllItemsToolbarItemIdentifier),
                 NSToolbarItem.Identifier(CollapseAllItemsToolbarItemIdentifier),
-                .flexibleSpace,
-                NSToolbarItem.Identifier(EditingToolbarItemIdentifier),
+                .flexibleSpace] + XMLEditingToolbarItem.identifiers.map { NSToolbarItem.Identifier($0) } + [
                 NSToolbarItem.Identifier(SortSeriesToolbarItemIdentifier),
                 NSToolbarItem.Identifier(VerifyToolbarItemIdentifier),
                 .flexibleSpace,
@@ -1799,10 +1810,13 @@ public final class XMLController: OSIWindowController, NSToolbarDelegate, NSWind
                                            ExportTextToolbarItemIdentifier,
                                            ExpandAllItemsToolbarItemIdentifier,
                                            CollapseAllItemsToolbarItemIdentifier,
-                                           EditingToolbarItemIdentifier,
                                            SortSeriesToolbarItemIdentifier,
                                            VerifyToolbarItemIdentifier,
                                            SearchToolbarItemIdentifier])
+        array.addObjects(from: XMLEditingToolbarItem.identifiers)
+        // The single item a toolbar saved before the four names, until
+        // setupToolbar has put the four in its place.
+        if acceptsLegacyEditingItem { array.add(XMLEditingToolbarItem.legacyIdentifier) }
 
         for (_, plugin) in (PluginManager.plugins() as NSDictionary?) ?? NSDictionary() {
             if (plugin as AnyObject).responds(to: #selector(HorosPluginFilterMessages.toolbarAllowedIdentifiers(forViewer:))) {

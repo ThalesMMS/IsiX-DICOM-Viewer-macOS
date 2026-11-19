@@ -44,9 +44,14 @@
 
 @class N2Step; //, N2StepsView;
 
-static NSNotificationName const __deprecated N2StepsDidAddStepNotification = @"N2StepsDidAddStepNotification";
-static NSNotificationName const __deprecated N2StepsWillRemoveStepNotification = @"N2StepsWillRemoveStepNotification";
-static NSString * const __deprecated N2StepsNotificationStep = @"N2StepsNotificationStep";
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m, and not const, as the Horos and OsiriX plugin
+// SDK declared them: plugins built for it look these names up. Nothing writes them.
+extern NSNotificationName __deprecated N2StepsDidAddStepNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName __deprecated N2StepsWillRemoveStepNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSString * __deprecated N2StepsNotificationStep NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

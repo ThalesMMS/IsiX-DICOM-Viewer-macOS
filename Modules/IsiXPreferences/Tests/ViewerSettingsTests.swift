@@ -149,4 +149,15 @@ private func registeredPreferences() -> MemoryPreferences {
         let store = MemoryPreferences(["KFSplitView Position MPR": ["a": 1]])
         #expect(store[ViewerPreferences.splitViewPosition(named: "MPR")] == .dictionary(["a": .integer(1)]))
     }
+
+    @Test func documentPagesAreInvertedInDarkModeUnlessTurnedOff() {
+        // Registered on: document pages are inverted in Dark Mode unless turned off.
+        let key = ViewerPreferences.invertsDocumentPagesInDarkMode
+        #expect(key.name == "InvertsDocumentPagesInDarkMode" && key.registration?.value(in: testEnvironment) as? String == "1")
+        #expect(DefaultPreferences.catalog.contains { $0.name == key.name })
+        let store = registeredPreferences()
+        #expect(store.object(forKey: key.name) as? String == "1" && store[key])
+        store.set(false, for: key)
+        #expect(!store[key])
+    }
 }

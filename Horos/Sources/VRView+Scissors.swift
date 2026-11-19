@@ -357,7 +357,9 @@ extension VRView {
         vtk.setRendererDraws(false)
 
         var m = 0
-        while m < Int(controller.viewer2D()?.maxMovieIndex() ?? 0) {
+        // Every time of the window's own volume: the 2D viewer's count is none in a window without one (a plugin's),
+        // and another after the viewer loads a series of other times, which cut some times twice and others not at all.
+        while m < Int(controller.maxMovieIndex) {
             controller.setMovieFrame(m)
 
             if let first = controller.curPixList()?.object(at: 0) { _ = unsafeDowncast(first as AnyObject, to: DCMPix.self).prepareRestore() }

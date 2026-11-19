@@ -41,7 +41,6 @@ import Cocoa
 import IsiXKeychain
 import IsiXPreferences
 import IsiXStorage
-import NIOCore
 import Synchronization
 
 /// What a caught NSException (or another error) prints as with %@.
@@ -49,73 +48,32 @@ fileprivate func webPortalCaught(_ error: Error) -> NSObject {
     return ((error as NSError).userInfo[HorosObjCExceptionKey] as? NSObject) ?? (error as NSError)
 }
 
-/// The HTTP server of a portal: a SwiftNIO listener, in HTTP or HTTPS, that
-/// hands each new connection to the run loop of the portal's thread pool that
-/// has the fewest, and publishes the portal with Bonjour.
+/// The HTTP server of a portal: the SDK's HTTPServer, which listens through
+/// SwiftNIO, in HTTP or HTTPS, and publishes the portal with Bonjour. It makes
+/// WebPortalConnections and hands each new one to the run loop of the
+/// portal's thread pool that has the fewest.
 ///
-/// Implemented in Swift: the Objective-C name is that of the former class.
+/// Implemented in Swift: the Objective-C name is that of the former class,
+/// and its superclass is again the one the SDK gave it.
 @objc(WebPortalServer)
-public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sendable {
+public final class WebPortalServer: HTTPServer, @unchecked Sendable {
     /// `assign` in the former header: the portal owns the server and outlives
     /// it. Weak here, so a reference never dangles.
     @objc public internal(set) weak var portal: WebPortal!
 
-    /// The port to listen on; once started, the port listened on.
-    @objc public var port: UInt16 = 0
-    /// The Bonjour type, domain, name and TXT record the server is published with.
-    @objc public var type: String?
-    @objc public var domain: String = "local."
-    @objc public var name: String = ""
-    @objc public var txtRecord: [String: String] = [:]
-    /// The identity HTTPS presents; nil serves plain HTTP.
-    var tlsIdentity: HTTPServerTLSIdentity?
-
-    private var listener: HTTPServerListener?
-    private var netService: NetService?
-    /// The connections open, until they close.
-    private let connectionsLock = NSLock()
-    private var connections: [ObjectIdentifier: HTTPConnectionEngine] = [:]
-
     public override init() {
         super.init()
+        setConnectionClass(WebPortalConnection.self)
+        // The portal's connections outlive a stop and its listener outlives
+        // the server, as they have since the portal listens through SwiftNIO.
+        endsWhatItStarted = false
     }
 
-    /// Opens the port and publishes the service. Throws
-    /// HTTPServerListener.BindFailure when the port cannot be opened.
-    @objc(start:)
-    public func start() throws {
-        let listener = HTTPServerListener(port: Int(port), tls: tlsIdentity) { [weak self] channel in
-            channel.eventLoop.makeCompletedFuture {
-                let handler = HTTPConnectionChannelHandler { channel, handler in
-                    self?.makeConnection(channel: channel, handler: handler)
-                }
-                try channel.pipeline.syncOperations.addHandlers(HTTPConnectionChannelHandler.decoders() + [handler])
-            }
-        }
-        port = UInt16(truncatingIfNeeded: try listener.start())
-        self.listener = listener
-        NSLog("Started HTTP server on port %hu", port)
-        if let type {
-            let service = NetService(domain: domain, type: type, name: name, port: Int32(port))
-            service.delegate = self
-            service.publish()
-            service.setTXTRecord(NetService.data(fromTXTRecord: txtRecord.mapValues { Data($0.utf8) }))
-            netService = service
-        }
-    }
-
-    @objc @discardableResult
-    public func stop() -> Bool {
-        netService?.stop()
-        netService = nil
-        listener?.stop()
-        listener = nil
-        return true
-    }
-
-    /// A new connection: a WebPortalConnection on the run loop of the pool
-    /// that has the fewest connections.
-    private func makeConnection(channel: Channel, handler: HTTPConnectionChannelHandler) -> HTTPConnectionEngine? {
+    /// The run loop of a new connection, which the server is asked for as the
+    /// delegate of the SDK's listening socket was: the one of the portal's
+    /// thread pool with the fewest connections. Nil refuses the connection.
+    @objc(onSocket:wantsRunLoopForNewSocket:)
+    public func onSocket(_ sock: AsyncSocket?, wantsRunLoopForNewSocket newSocket: AsyncSocket?) -> RunLoop? {
         // The pool's threads start with the listener; a connection that comes
         // in the first instants waits for their run loops, up to two seconds.
         var waited = 0
@@ -125,17 +83,7 @@ public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sen
             waited += 1
             candidate = runLoopForNewConnection()
         }
-        guard let runLoop = candidate else { return nil }
-        let worker = HTTPServerWorker(runLoop: runLoop.getCFRunLoop())
-        let connection = WebPortalConnection(server: self)
-        let box = UncheckedSendableBox(runLoop)
-        let engine = HTTPConnectionEngine(channel: channel, handler: handler, worker: worker, delegate: connection) { [weak self] engine in
-            self?.connectionDidDie(engine, runLoop: box.value)
-        }
-        connection.engine = engine
-        connectionsLock.withLock { connections[ObjectIdentifier(engine)] = engine }
-        worker.perform { connection.connectionDidOpen() }
-        return engine
+        return candidate
     }
 
     /// The run loop a new connection runs on: the one of the portal's thread
@@ -168,32 +116,21 @@ public final class WebPortalServer: NSObject, NetServiceDelegate, @unchecked Sen
         return mLoop
     }
 
-    /// A connection closed: the number of connections of its thread goes
-    /// down. Called on that thread.
-    private func connectionDidDie(_ engine: HTTPConnectionEngine, runLoop: RunLoop) {
-        HorosObjCException.synchronized(portal?.runLoops) {
-            let runLoopIndex = self.portal?.runLoops?.index(of: runLoop) ?? NSNotFound
+    /// A connection closed: if it is one of this server's, the number of
+    /// connections of its thread goes down. Called on that thread.
+    public override func connectionDidDie(_ notification: Notification!) {
+        if let connection = notification?.object as? HTTPConnection, holds(connection),
+           let runLoop = connection.socket?.runLoop {
+            HorosObjCException.synchronized(portal?.runLoops) {
+                let runLoopIndex = self.portal?.runLoops?.index(of: runLoop) ?? NSNotFound
 
-            if runLoopIndex != NSNotFound && runLoopIndex < (self.portal?.runLoopsLoad?.count ?? 0) {
-                let runLoopLoad = (self.portal?.runLoopsLoad?.object(at: runLoopIndex) as? NSNumber)?.uint32Value ?? 0
-                self.portal?.runLoopsLoad?.replaceObject(at: runLoopIndex, with: NSNumber(value: runLoopLoad &- 1))
+                if runLoopIndex != NSNotFound && runLoopIndex < (self.portal?.runLoopsLoad?.count ?? 0) {
+                    let runLoopLoad = (self.portal?.runLoopsLoad?.object(at: runLoopIndex) as? NSNumber)?.uint32Value ?? 0
+                    self.portal?.runLoopsLoad?.replaceObject(at: runLoopIndex, with: NSNumber(value: runLoopLoad &- 1))
+                }
             }
         }
-        _ = connectionsLock.withLock { connections.removeValue(forKey: ObjectIdentifier(engine)) }
-    }
-
-    /// The number of connections open.
-    @objc public var numberOfHTTPConnections: Int {
-        connectionsLock.withLock { connections.count }
-    }
-
-    public func netServiceDidPublish(_ sender: NetService) {
-        NSLog("Bonjour Service Published: domain(%@) type(%@) name(%@)", sender.domain, sender.type, sender.name)
-    }
-
-    public func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
-        NSLog("Failed to Publish Service: domain(%@) type(%@) name(%@)", sender.domain, sender.type, sender.name)
-        NSLog("Error Dict: %@", errorDict as NSDictionary)
+        super.connectionDidDie(notification)
     }
 }
 
@@ -267,10 +204,6 @@ public final class WebPortal: NSObject {
 
         defaults.addObserver(observer, forValuesKey: OsirixWebPortalNotificationsIntervalDefaultsKey, options: .initial, context: observationContext(self.default()))
         defaults.addObserver(observer, forValuesKey: OsirixWebPortalNotificationsEnabledDefaultsKey, options: .initial, context: observationContext(self.default()))
-
-        if UserDefaults.webPortalEnabled() {
-            _ = CSMailMailClient.mailClient() //If authentication is required to read email password: ask it now !
-        }
 
         let preferences = PreferencesSource.process.preferences
         if preferences[WebPortalPreferences.wadoOnlyServer] && ProtectedMode.isActive {
@@ -396,6 +329,15 @@ public final class WebPortal: NSObject {
 
     // MARK: Instance
 
+    // The header of an older Horos and OsiriX plugin SDK declared the portal's
+    // instance variables, which a plugin built with it binds by name when it
+    // loads: each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant or observed. The
+    // properties below that are stored are those fields under the same names;
+    // usesSSL, portNumber, notificationsEnabled and notificationsInterval are
+    // the fields their setters write (_usesSSL and the like); address and
+    // dirsToScanForFiles, which answer Swift values, have theirs under another
+    // name. A direct write by a plugin calls no setter.
     @objc public private(set) var database: WebPortalDatabase!
     @objc public private(set) var dicomDatabase: DicomDatabase!
     @objc public private(set) var cache: NSMutableDictionary!
@@ -435,7 +377,7 @@ public final class WebPortal: NSObject {
     @objc public private(set) var runLoops: NSMutableArray!
     @objc public private(set) var runLoopsLoad: NSMutableArray!
 
-    private var _usesSSL: Bool = false
+    var _usesSSL: Bool = false
     @objc public dynamic var usesSSL: Bool {
         get { return _usesSSL }
         set {
@@ -446,7 +388,7 @@ public final class WebPortal: NSObject {
         }
     }
 
-    private var _portNumber: Int = 0
+    var _portNumber: Int = 0
     @objc public dynamic var portNumber: Int {
         get { return _portNumber }
         set {
@@ -459,10 +401,18 @@ public final class WebPortal: NSObject {
 
     /// Atomic and retained in the former header; an object reference is read
     /// and written as one word.
-    @objc public dynamic var address: String!
+    @objc public dynamic var address: String! {
+        get { horos_address as String? }
+        set { horos_address = newValue as NSString? }
+    }
+    var horos_address: NSString?
 
     /// Atomic and retained in the former header, as address.
-    @objc public dynamic var dirsToScanForFiles: [Any]!
+    @objc public dynamic var dirsToScanForFiles: [Any]! {
+        get { horos_dirsToScanForFiles as? [Any] }
+        set { horos_dirsToScanForFiles = newValue as NSArray? }
+    }
+    var horos_dirsToScanForFiles: NSArray?
 
     // Atomic in the former header, as isAcceptingConnections.
     @objc public dynamic var authenticationRequired: Bool = false
@@ -472,26 +422,32 @@ public final class WebPortal: NSObject {
     @objc public dynamic var weasisEnabled: Bool = false
     @objc public dynamic var flashEnabled: Bool = false
 
-    private var _notificationsEnabled: Bool = false
+    var _notificationsEnabled: Bool = false
     @objc public dynamic var notificationsEnabled: Bool {
         get { return _notificationsEnabled }
         set { setNotificationsEnabledValue(newValue) }
     }
 
-    private var _notificationsInterval: Int = 0
+    var _notificationsInterval: Int = 0
     @objc public dynamic var notificationsInterval: Int {
         get { return _notificationsInterval }
         set { setNotificationsIntervalValue(newValue) }
     }
 
-    private let sessionsArrayLock: NSLock
-    private let sessionCreateLock: NSLock
-    private var notificationsTimer: Timer? = nil
-    private var temporaryUsersTimer: Timer? = nil
-    private var preferredLocalizations: NSArray? = nil
-    private var httpThreads: NSMutableArray? = nil
-    private var server: WebPortalServer? = nil
-    private var serverThread: Thread? = nil
+    /// Never nil unless a plugin made them so, which leaves the sessions
+    /// unguarded, as a message to nil did.
+    var sessionsArrayLock: NSLock?
+    var sessionCreateLock: NSLock?
+    var notificationsTimer: Timer? = nil
+    var temporaryUsersTimer: Timer? = nil
+    var preferredLocalizations: NSArray? = nil
+    var httpThreads: NSMutableArray? = nil
+    var server: WebPortalServer? = nil
+    var serverThread: Thread? = nil
+    /// seriesForUsersCache of that header: a cache of series by user, which
+    /// the header that followed no longer declared and the portal does not
+    /// keep. Nil.
+    var seriesForUsersCache: NSMutableDictionary?
     /// Guards the start of a server: a server is being started and none of
     /// its connection threads has yet marked the portal as accepting.
     private let startLock = NSLock()
@@ -684,13 +640,13 @@ public final class WebPortal: NSObject {
                     server.portal = self
 
                     if self.usesSSL {
-                        server.type = "_https._tcp."
+                        server.setType("_https._tcp.")
                     } else {
-                        server.type = "_http._tcp."
+                        server.setType("_http._tcp.")
                     }
 
-                    server.txtRecord = ["ServerType": "OsiriX"]
-                    server.port = UInt16(truncatingIfNeeded: self.portNumber)
+                    server.setTXTRecord(["ServerType": "OsiriX"])
+                    server.setPort(UInt16(truncatingIfNeeded: self.portNumber))
 
                     // The server's run loop serves its listener: a thread of its own.
                     let portal = SharedPortal(portal: self)
@@ -897,7 +853,7 @@ public final class WebPortal: NSObject {
 
     @objc(sessionForId:)
     public func session(forId sid: String!) -> WebPortalSession! {
-        sessionsArrayLock.lock()
+        sessionsArrayLock?.lock()
         var session: WebPortalSession? = nil
 
         for isession in sessions {
@@ -908,7 +864,7 @@ public final class WebPortal: NSObject {
             }
         }
 
-        sessionsArrayLock.unlock()
+        sessionsArrayLock?.unlock()
         return session
     }
 
@@ -919,7 +875,7 @@ public final class WebPortal: NSObject {
 
     @objc(sessionForUsername:token:doConsume:)
     public func session(forUsername username: String!, token: String!, doConsume: Bool) -> Any! {
-        sessionsArrayLock.lock()
+        sessionsArrayLock?.lock()
         var session: WebPortalSession? = nil
 
         for isession in sessions {
@@ -937,7 +893,7 @@ public final class WebPortal: NSObject {
                 }
             }
         }
-        sessionsArrayLock.unlock()
+        sessionsArrayLock?.unlock()
         return session
     }
 
@@ -945,9 +901,9 @@ public final class WebPortal: NSObject {
     public func addSession(_ sid: String!) -> WebPortalSession! {
         let session: WebPortalSession = WebPortalSession(id: sid)
 
-        sessionsArrayLock.lock()
+        sessionsArrayLock?.lock()
         sessions.add(session)
-        sessionsArrayLock.unlock()
+        sessionsArrayLock?.unlock()
 
         return session
     }
@@ -956,7 +912,7 @@ public final class WebPortal: NSObject {
     /// the former implementation returned it autoreleased.
     @objc(newSession)
     public func newSession() -> WebPortalSession! {
-        sessionCreateLock.lock()
+        sessionCreateLock?.lock()
 
         // The sid is the session: whoever presents it is the person who logged in. It
         // used to be the MD5 of random(), whose generator this application seeds once
@@ -969,7 +925,7 @@ public final class WebPortal: NSObject {
 
         let session = self.addSession(sid)
 
-        sessionCreateLock.unlock()
+        sessionCreateLock?.unlock()
 
         return session
     }

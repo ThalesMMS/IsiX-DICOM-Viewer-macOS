@@ -6,7 +6,7 @@ fallback — never a silent black film, and never a forced reduction.
 
 Every allocation guard in front of the 3D engine, the reslicing, the resampling,
 the ITK operations and the Path Assistant used to fail with a dialogue titled
-**"32-bit"** telling the operator to *upgrade to OsiriX 64-bit or OsiriX MD*, with
+**"32-bit"** telling the operator to upgrade to a 64-bit edition of another name, with
 a second button that opened a page about a 64-bit build. On this arm64-only,
 64-bit-only product that is false, unactionable, names another
 application, and says nothing about what was actually too large.
@@ -77,6 +77,9 @@ for tree in trees:
                 offenders['title'].append(where)
             if re.search(r'Upgrade to (OsiriX|Horos) 64-bit', line):
                 offenders['upgrade'].append(where)
+            # The selector of the former plugin SDK stays, inert, in its one file: nothing may send it or open the page.
+            if path.name == 'AppController+LegacyPluginSDK.swift' and ('@objc(osirix64bit:)' in line or 'FormerSDKFacade.inert("AppController", "-osirix64bit:"' in line):
+                continue
             if 'osirix64bit:' in line or 'Horos-64bit.html' in line:
                 offenders['page'].append(where)
 

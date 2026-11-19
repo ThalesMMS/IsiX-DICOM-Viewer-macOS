@@ -370,7 +370,7 @@ viewer = (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 
 # it: +loadImageData: in ViewerController.m before, SeriesImageLoader.swift now.
 loading = root/'Horos/Sources/SeriesImageLoader.swift'
 assert ('[DicomFile isDICOMFile: [firstPix srcFile] compressed: &compressed];' in viewer
-        or (loading.is_file() and 'DicomFile.isDICOMFile(firstPix?.srcFile, compressed: &compressed)' in loading.read_text()))
+        or (loading.is_file() and 'DicomFile.isDICOMFile(file, compressed: &compressed)' in loading.read_text()))
 # The scan hands the probe's verdict to IsiXDatabase's rule, which decompresses
 # a compressed file when the listener is set to decompress.
 assert 'isCompressed: isJPEGCompressed.boolValue' in database

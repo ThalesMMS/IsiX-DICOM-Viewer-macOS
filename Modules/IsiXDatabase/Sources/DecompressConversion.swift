@@ -98,6 +98,7 @@ public enum DecompressConversion {
     /// after a conversion the service did not survive.
     public static func run(_ files: [String], mode: Mode, destination: String?, settings: NSDictionary,
                            moveIfUnreadable: Bool, converter: DecompressConverting,
+                           archiveBudget: ArchiveExpansionBudget = .imported,
                            cancelled: () -> Bool = { false }) -> Summary {
         var summary = Summary()
         for file in files {
@@ -107,7 +108,7 @@ public enum DecompressConversion {
 
             let fileExtension = (file as NSString).pathExtension.lowercased()
             if fileExtension == "zip" || fileExtension == "osirixzip" {
-                let outcome = extractDICOMArchive(file, to: target)
+                let outcome = extractDICOMArchive(file, to: target, budget: archiveBudget)
                 if outcome != .extracted {
                     summary.succeeded = false
                     if outcome == .notExpanded {
@@ -310,8 +311,14 @@ public enum DecompressConversion {
         case expandedNotCleared
     }
 
-    static func extractDICOMArchive(_ source: String, to destination: String) -> ArchiveExtraction {
+    /// Expands `source` into the folder `destination`, within the budget of
+    /// the import it belongs to (ArchiveExpansionRegistry): an archive inside
+    /// too many others, or that holds more than the import has left, is not
+    /// expanded, and what was written of it is removed with the staging.
+    static func extractDICOMArchive(_ source: String, to destination: String, budget: ArchiveExpansionBudget = .imported,
+                                    registry: ArchiveExpansionRegistry = .shared) -> ArchiveExtraction {
         let manager = FileManager.default
+        let share = registry.share(ofArchive: source, budget: budget)
         let staging = ((destination as NSString).deletingLastPathComponent as NSString)
             .appendingPathComponent(".horos-extract-" + UUID().uuidString)
         do {
@@ -326,18 +333,20 @@ public enum DecompressConversion {
         defer { try? manager.removeItem(atPath: staging) }
 
         let output = (staging as NSString).appendingPathComponent("contents")
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        task.arguments = ["-o", "-d", output, source]
-        task.standardInput = FileHandle.nullDevice
+        let status: Int32
         do {
-            try task.run()
+            try manager.createDirectory(atPath: output, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+            switch try ProtectedZipArchiver.extract(source, to: output, password: nil, in: nil, share: share, continuing: { true }) {
+            case .success(let ended):
+                status = ended
+            case .failure(let refusal):
+                NSLog("---- decompress: %@ was not expanded: it %@", (source as NSString).lastPathComponent, refusal.logText)
+                return .notExpanded
+            }
         } catch {
             NSLog("Archive extraction failed: %@", error.localizedDescription)
             return .notExpanded
         }
-        while task.isRunning { Thread.sleep(forTimeInterval: 0.1) }
-        let status = task.terminationStatus
         // 1 means unzip finished and warned about something, so the contents
         // are there and throwing them away would be the loss this is meant to
         // avoid. 50 is "the disk is (or was) full": the archive is fine and the
@@ -364,6 +373,7 @@ public enum DecompressConversion {
             return .notExpandedForNow
         }
         reportRenamedDestination(placed, destination)
+        registry.record(share, expandedInto: placed)
         if inPlace { return .extracted }
         if (try? manager.removeItem(atPath: source)) != nil { return .extracted }
         NSLog("---- decompress: %@ was expanded but the archive itself could not be removed", (source as NSString).lastPathComponent)
@@ -457,19 +467,22 @@ public final class DecompressConversionTask: CompressionHelperProcess, @unchecke
     private let destination: String?
     private let settings: NSDictionary
     private let moveIfUnreadable: Bool
+    private let archiveBudget: ArchiveExpansionBudget
     private let service: DecompressService?
     private let lock = NSCondition()
     private var running = false
     private var cancelled = false
     private var summary = DecompressConversion.Summary()
 
-    public init(arguments: [String], settings: NSDictionary, moveIfUnreadable: Bool, service: DecompressService?) {
+    public init(arguments: [String], settings: NSDictionary, moveIfUnreadable: Bool,
+                archiveBudget: ArchiveExpansionBudget = .imported, service: DecompressService?) {
         let destination = arguments.first ?? "sameAsDestination"
         self.destination = destination == "sameAsDestination" ? nil : destination
         mode = DecompressConversion.Mode(rawValue: arguments.count > 1 ? arguments[1] : "") ?? .decompressList
         files = Array(arguments.dropFirst(2))
         self.settings = settings.copy() as? NSDictionary ?? [:]
         self.moveIfUnreadable = moveIfUnreadable
+        self.archiveBudget = archiveBudget
         self.service = service
     }
 
@@ -481,7 +494,7 @@ public final class DecompressConversionTask: CompressionHelperProcess, @unchecke
         Thread.detachNewThread { [self] in
             let result = autoreleasepool {
                 DecompressConversion.run(files, mode: mode, destination: destination, settings: settings,
-                                         moveIfUnreadable: moveIfUnreadable, converter: service,
+                                         moveIfUnreadable: moveIfUnreadable, converter: service, archiveBudget: archiveBudget,
                                          cancelled: { [self] in lock.lock(); defer { lock.unlock() }; return cancelled })
             }
             lock.lock()

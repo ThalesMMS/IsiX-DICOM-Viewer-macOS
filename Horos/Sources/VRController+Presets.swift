@@ -402,10 +402,13 @@ extension VRController {
         // convolution filter
         if (appliedConvolutionFilters?.count ?? 0) == 0,
            let filters = preset.object(forKey: "convolutionFilters") as? NSArray, filters.count > 0, horosKeepVolumeBeforeFilter() {
+            // The copy -undo: puts back, as a filter chosen in the menu takes it: without it a Cmd-Z after
+            // the preset put back an older copy, not the volume the preset found.
+            horosApplyingFilter = true
+            prepareUndo()
+            horosApplyingFilter = false
             for case let filter as String in filters {
-                viewer2DStorage?.applyConvString(filter)
-                viewer2DStorage?.applyConvolutionOnSource(self)
-                appliedConvolutionFilters?.add(filter)
+                horosApplyFilter(named: filter)
             }
             displayPresetsForSelectedGroup()
         }
@@ -524,9 +527,9 @@ extension VRController {
         // shadings
         if flag(preset, "useShading") {
             let shadingName = preset.object(forKey: "shading") as? String
-            // The last preset of that name, as the list was read through.
+            // The first preset of that name, the one the window selects, within the panel's ranges.
             let presets: [ShadingPreset] = ImagePresetPreferences.shadingPresets.elements(in: processGraph.preferences)
-            if let shading = presets.last(where: { $0.name == shadingName }) {
+            if let shading = presets.first(where: { $0.name == shadingName })?.withinRanges {
                 let ambient = shading.ambient
                 let diffuse = shading.diffuse
                 let specular = shading.specular

@@ -117,7 +117,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     private(set) var browserWindow: BrowserWindowGraph?
 
     @IBOutlet @objc public private(set) var filtersMenu: NSMenu!
-    @IBOutlet @objc private var roisMenu: NSMenu?
+    @IBOutlet @objc var roisMenu: NSMenu?   // not private: plugins of the former SDK read it and filtersMenu at the fields' exported offsets
     @IBOutlet @objc private var othersMenu: NSMenu?
     @IBOutlet @objc private var dbMenu: NSMenu?
     @IBOutlet @objc private var dbWindow: NSWindow? {
@@ -136,7 +136,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     var windowArranger: ViewerWindowArranger { processGraph.windowArranger }
 
     /// The answer to a change of the preferences, started as the launch finishes.
-    private lazy var preferenceChanges = PreferenceChangeResponder(listener: dicomListener, windowArranger: windowArranger)
+    lazy var preferenceChanges = PreferenceChangeResponder(listener: dicomListener, windowArranger: windowArranger)
 
     /// Starts the answer to the changes of the preferences, as the launch finishes.
     func startPreferenceChanges() {
@@ -150,6 +150,21 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     nonisolated let updateCheckScheduler = UpdateCheckScheduler()
 
     private var splashController: SplashScreen? = nil
+
+    // Instance variables of older headers of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with such a header. The first two are copies, written and never read:
+    // the delegate of the DICOM services is the one of its class, and the
+    // current hanging protocol is the window layout manager's, copied here
+    // whenever it changes (HangingProtocolOfOlderSDK). The others have
+    // nothing behind them and stay NO and nil, never retained: the DICOM
+    // listener runs in the process, with no task; the web server is of a
+    // class the application no longer has; a flip is each view's own.
+    final var dicomNetServiceDelegate = DCMNetServiceDelegate.sharedNetServiceDelegate() as? DCMNetServiceDelegate
+    final var currentHangingProtocol: NSMutableDictionary?
+    private let hangingProtocolOfOlderSDK = HangingProtocolOfOlderSDK()
+    final unowned(unsafe) var theTask: Process?, webServer: AnyObject?
+    final var xFlipped = false, yFlipped = false
 
     @objc(XMLRPCServer) public internal(set) var xmlrpcServer: XMLRPCInterface! = nil
 
@@ -192,6 +207,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     /// The publisher of the shared database, made once while launching.
     func adoptBonjourPublisher(_ publisher: BonjourPublisher) {
         _bonjourPublisher.withLockUnchecked { $0 = publisher }
+        BrowserOlderInstanceVariables.adopted(publisher)
     }
 
     @objc nonisolated class func operatingSystemVersion() -> OperatingSystemVersion {
@@ -281,30 +297,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     }
 
     @objc nonisolated class func cleanOsiriXSubProcesses() {
-        let kPIDArrayLength: Int32 = 100
-
-        var MyArray = [pid_t](repeating: 0, count: Int(kPIDArrayLength))
-        var NumberOfMatches: UInt32 = 0
-        let Error: Int32
-
-        // Every candidate below is matched on its BSD process name, which is shared
-        // by anything else of that name this user is running. Only a process
-        // launched from inside our own bundle may be signalled.
-        let bundlePath = (Bundle.main.bundlePath as NSString).fileSystemRepresentation
-
-        // The listener no longer forks a process per association: there
-        // are no children of ours to end here.
-
-        Error = GetAllPIDsForProcessName("CrashReporter", &MyArray, UInt32(kPIDArrayLength), &NumberOfMatches, nil)
-
-        if Error == 0 {
-            for Counter in 0..<Int(NumberOfMatches) {
-                if MyArray[Counter] != getpid() && AppControllerCAPIProcessIsOurs(MyArray[Counter], bundlePath) {
-                    NSLog("Child Process to kill (CrashReporter): %d (PID)", MyArray[Counter])
-                    kill(MyArray[Counter], 15)
-                }
-            }
-        }
+        StrayChildProcesses.endOurs()
     }
 
     @objc(UID) nonisolated public class func uid() -> String! {
@@ -537,13 +530,13 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
         lifecycle.willTerminate()
     }
 
-    @IBAction @objc(terminate:) public func terminate(_ sender: Any!) {
-        lifecycle.terminate(sender)
+    /// AppKit asks before every orderly end, whoever asked for it.
+    @objc(applicationShouldTerminate:) func applicationShouldTerminate(_ sender: NSApplication!) -> NSApplication.TerminateReply {
+        lifecycle.shouldTerminate()
     }
 
-    /// The rest of quitting, once the browser has agreed to it.
-    func finishTermination(_ sender: Any!) {
-        lifecycle.finishTermination(sender)
+    @IBAction @objc(terminate:) public func terminate(_ sender: Any!) {
+        lifecycle.terminate(sender)
     }
 
     public override init() {
@@ -632,10 +625,10 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
 
     /// The Check for Updates item of the menu (`checkForUpdates:` is also its
     /// selector as text); this object as the sender asks for an automatic
-    /// check, "crash" for the one after a crash. Any thread: `UpdateCheck`.
+    /// check, and so does "crash", for a crash nothing ever marked: both
+    /// follow the preference. Any thread: `UpdateCheck`.
     @IBAction @objc(checkForUpdates:) nonisolated public func checkForUpdates(_ sender: Any!) {
-        let kind: UpdateCheck.Kind = (sender as AnyObject?) === self ? .automatic
-            : ((sender as? String) == "crash" ? .afterCrash : .manual)
+        let kind: UpdateCheck.Kind = (sender as AnyObject?) === self || (sender as? String) == "crash" ? .automatic : .manual
         updateCheckScheduler.checkNow(kind)
     }
 
@@ -643,7 +636,7 @@ public final class AppController: NSObject, NetServiceBrowserDelegate, NetServic
     // MARK: -
 
     @IBAction @objc(about:) public func about(_ sender: Any!) {
-        splashController = SplashScreen()
+        if splashController == nil { splashController = SplashScreen() }
         splashController?.showWindow(self)
         splashController?.affiche()
     }

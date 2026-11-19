@@ -80,9 +80,8 @@ public final class OSIHotKeysPref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIHotKeysPref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSIHotKeysPref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let contentView = mainWindow?.contentView {

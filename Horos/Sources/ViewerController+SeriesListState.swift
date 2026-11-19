@@ -12,51 +12,42 @@ import AppKit
 
 /// The series list and the series menu: whether they are to be built again, whether the list was built while shown, the split view made when the nib had none, the contextual menu of the series, and the highlight of the viewer with its timer.
 final class ViewerSeriesListState: @unchecked Sendable {
-    var matrixPreviewBuilt: Bool = false
-    var needsToBuildSeriesPopupMenu: Bool = false
-    var needsToBuildSeriesMatrix: Bool = false
-    var splitViewAllocated: Bool = false
-    var flagListPODComparatives: NSNumber?
-    var seriesPopupContextualMenu: NSMenuItem?
-    var highLighted: Float = 0
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var highLightedTimer: Timer?
     /// The pending scroll of the other viewers' lists after this one's scrolled.
     var scrollSyncTimer: Timer?
 }
 
 extension ViewerController {
     var horos_matrixPreviewBuilt: Bool {
-        get { seriesListState.matrixPreviewBuilt }
-        set { seriesListState.matrixPreviewBuilt = newValue }
+        get { _matrixPreviewBuilt }
+        set { _matrixPreviewBuilt = newValue }
     }
     var horos_needsToBuildSeriesPopupMenu: Bool {
-        get { seriesListState.needsToBuildSeriesPopupMenu }
-        set { seriesListState.needsToBuildSeriesPopupMenu = newValue }
+        get { _needsToBuildSeriesPopupMenu }
+        set { _needsToBuildSeriesPopupMenu = newValue }
     }
     var horos_needsToBuildSeriesMatrix: Bool {
-        get { seriesListState.needsToBuildSeriesMatrix }
-        set { seriesListState.needsToBuildSeriesMatrix = newValue }
+        get { _needsToBuildSeriesMatrix }
+        set { _needsToBuildSeriesMatrix = newValue }
     }
     var horos_splitViewAllocated: Bool {
-        get { seriesListState.splitViewAllocated }
-        set { seriesListState.splitViewAllocated = newValue }
+        get { _splitViewAllocated }
+        set { _splitViewAllocated = newValue }
     }
     var horos_flagListPODComparatives: NSNumber? {
-        get { seriesListState.flagListPODComparatives }
-        set { seriesListState.flagListPODComparatives = newValue }
+        get { _flagListPODComparatives }
+        set { _flagListPODComparatives = newValue }
     }
     var horos_seriesPopupContextualMenu: NSMenuItem? {
-        get { seriesListState.seriesPopupContextualMenu }
-        set { seriesListState.seriesPopupContextualMenu = newValue }
+        get { _seriesPopupContextualMenu }
+        set { _seriesPopupContextualMenu = newValue }
     }
     var horos_highLighted: Float {
-        get { seriesListState.highLighted }
-        set { seriesListState.highLighted = newValue }
+        get { _highLighted }
+        set { _highLighted = newValue }
     }
     var horos_highLightedTimer: Timer? {
-        get { seriesListState.highLightedTimer }
-        set { seriesListState.highLightedTimer = newValue }
+        get { _highLightedTimer.wrappedValue }
+        set { _highLightedTimer.wrappedValue = newValue }
     }
     var horos_scrollSyncTimer: Timer? {
         get { seriesListState.scrollSyncTimer }

@@ -88,11 +88,11 @@ public enum MediaScanRules {
 
     /// The listed path a DICOMDIR reference that does not exist means: the
     /// first of `paths` equal to it, ignoring case and the extension of both.
-    public static func listedPath(matching path: String, in paths: [String]) -> String? {
+    public static func listedPath(matching path: String, in paths: [String], fileSet: FileSetDirectory? = nil) -> String? {
         let cut = (path as NSString).deletingPathExtension
         for listed in paths
         where ((listed as NSString).deletingPathExtension as NSString).compare(cut, options: .caseInsensitive) == .orderedSame {
-            return listed
+            if fileSet?.contains(listed) ?? true { return listed }
         }
         return nil
     }
@@ -157,15 +157,41 @@ public enum MediaScanRules {
     /// The longest path a referenced file may have (MAXPATHLEN).
     public static let maximumPathLength = 1024
 
-    /// The file a Referenced File ID (0004,1500) names, its components
-    /// separated by backslashes, under the folder of the DICOMDIR.
-    public static func referencedFilePath(_ fileID: String, basePath: String) -> String {
-        (basePath as NSString).appendingPathComponent(fileID.replacingOccurrences(of: "\\", with: "/"))
+    /// A Referenced File ID names a relative path under the DICOMDIR folder.
+    /// Some media use slashes in place of the DICOM component delimiter.
+    public static func referencedFilePath(_ fileID: String, basePath: String) -> String? {
+        let components = fileID.split(omittingEmptySubsequences: false) { $0 == "\\" || $0 == "/" }
+        guard !components.isEmpty, !fileID.utf8.contains(0),
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else { return nil }
+        return (basePath as NSString).appendingPathComponent(components.joined(separator: "/"))
     }
 
     /// Whether a referenced file's path is short enough to be imported.
     public static func acceptsReferencedFilePath(_ path: String) -> Bool {
         (path as NSString).length < maximumPathLength
+    }
+
+    /// Resolve both the root and each existing candidate so a symbolic link
+    /// inside a DICOM file-set cannot refer to a file outside it.
+    public struct FileSetDirectory {
+        private let rootPrefix: String
+
+        public init?(_ directory: String) {
+            guard let root = Self.canonicalPath(directory) else { return nil }
+            rootPrefix = root.hasSuffix("/") ? root : root + "/"
+        }
+
+        public func contains(_ path: String) -> Bool {
+            guard let resolved = Self.canonicalPath(path) else { return false }
+            return resolved != "/" && resolved.utf8.starts(with: rootPrefix.utf8)
+        }
+
+        private static func canonicalPath(_ path: String) -> String? {
+            guard !path.utf8.contains(0), let resolved = realpath((path as NSString).fileSystemRepresentation, nil)
+            else { return nil }
+            defer { free(resolved) }
+            return FileManager.default.string(withFileSystemRepresentation: resolved, length: strlen(resolved))
+        }
     }
 
     /// "DICOMMPEG2" for both MPEG-2 syntaxes, Main Level and High Level, which
@@ -176,20 +202,23 @@ public enum MediaScanRules {
             ? "DICOMMPEG2" : "DICOM"
     }
 
-    /// The series of an entry. A multi-frame file is a series of its own,
-    /// "<series UID>-<SOP instance UID>", so that its frames do not merge with
-    /// another file's; a missing UID reads "(null)", as Foundation formats nil.
-    public static func seriesDICOMUID(seriesInstanceUID: String?, sopInstanceUID: String?,
-                                      numberOfFrames: Int) -> String? {
-        guard numberOfFrames > 1 else { return seriesInstanceUID }
-        return "\(seriesInstanceUID ?? "(null)")-\(sopInstanceUID ?? "(null)")"
-    }
-
-    /// The series ID: the series number, zero-padded to eight digits, a space
-    /// and the series UID ("(null)" when there is none); the series UID alone
-    /// when there is no series number.
-    public static func seriesID(seriesNumber: String?, seriesDICOMUID: String?) -> String? {
-        guard let seriesNumber else { return seriesDICOMUID }
-        return String(format: "%8.8d %@", (seriesNumber as NSString).intValue, seriesDICOMUID ?? "(null)")
+    /// The series ID of an entry, the key the index groups the entries of a
+    /// series by: the series number, zero-padded to eight digits, a space and
+    /// the series UID ("(null)" when there is none); the series UID alone when
+    /// there is no series number.
+    ///
+    /// A multi-frame file is a series of its own, so that its frames do not
+    /// merge with another file's: "<series UID>-<SOP instance UID>" takes the
+    /// place of the series UID in its key, a missing UID reading "(null)", as
+    /// Foundation formats nil. The split lives in the key alone. The DICOM
+    /// identifier stored beside it is the record's Series Instance UID as it
+    /// is: it is what a query about the series is answered with, and a UI
+    /// value holds 64 characters of digits and dots, not two UIDs and a hyphen.
+    public static func seriesID(seriesNumber: String?, seriesInstanceUID: String?, sopInstanceUID: String?,
+                                numberOfFrames: Int) -> String? {
+        let grouped = numberOfFrames > 1 ? "\(seriesInstanceUID ?? "(null)")-\(sopInstanceUID ?? "(null)")"
+                                         : seriesInstanceUID
+        guard let seriesNumber else { return grouped }
+        return String(format: "%8.8d %@", (seriesNumber as NSString).intValue, grouped ?? "(null)")
     }
 }

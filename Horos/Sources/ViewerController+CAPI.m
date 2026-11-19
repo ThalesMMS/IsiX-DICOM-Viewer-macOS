@@ -45,6 +45,12 @@
 #import "ViewerController+CAPI.h"
 #import "MyPoint.h"
 
+// Whether the "Sync" button works between studies. A C global, because the
+// Horos and OsiriX plugin SDK published it by this name: it is the state
+// itself, which ViewerSyncState reads and writes, so a plugin that sets it
+// changes what the viewers do, as before.
+__attribute__((used)) BOOL SyncButtonBehaviorIsBetweenStudies = NO;
+
 @implementation ViewerController (CAPI)
 
 // The body of -newROI: is -horosMakeROI: (ViewerController+ROITools.swift).

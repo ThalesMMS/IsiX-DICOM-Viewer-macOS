@@ -38,10 +38,10 @@ accessors = (sources / 'BrowserController+StateAccess.swift').read_text(encoding
 for table in ('horos_sourcesTableView', 'horos_activityTableView'):
     if not re.search(r'var %s: NSTableView\? ' % table, accessors):
         failures.append(f'BrowserController+StateAccess.swift does not declare {table} optional')
-outlets = (sources / 'BrowserOutlets.swift').read_text(encoding='utf-8')
-for table in ('sourcesTableView', 'activityTableView'):
-    if not re.search(r'@objc var %s: NSTableView\?' % table, outlets):
-        failures.append(f'BrowserOutlets.swift does not keep {table} optional')
+outlets = (sources / 'BrowserController.swift').read_text(encoding='utf-8')
+for table in ('_sourcesTableView', 'activityTableViewOutlet'):
+    if not re.search(r'\b%s: NSTableView\?' % table, outlets):
+        failures.append(f'BrowserController.swift does not keep {table} optional')
 
 for failure in failures:
     print('FAIL: ' + failure)

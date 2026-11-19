@@ -37,55 +37,71 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import IsiXImaging
 import Cocoa
 import Synchronization
 
 private let FILL_HEIGHT = 40
-private let fillOperationsContext = IdentityToken()
 
-/// A double converted to NSUInteger as arm64 does it (fcvtzu): NaN and negative
-/// values give 0, values past the top give the largest value.
-private func unsignedTruncating(_ value: CGFloat) -> UInt {
-    if value.isNaN || value < 1 {
-        return 0
-    }
-    if value >= 18446744073709551616.0 {
-        return UInt.max
-    }
-    return UInt(value)
-}
+/// One plane at a time of the slab of an oblique slice: a plane is `z` sample
+/// distances from the slice, and its rows are sampled FILL_HEIGHT at a time,
+/// each row a down step from the one above it.
+private struct ObliqueSlab: Sendable {
+    /// The top row of the slice, one point per column.
+    let vectors: [N3Vector]
+    /// The down step of every column.
+    let downVectors: [N3Vector]
+    let downDirection: N3Vector
+    /// From one plane to the next, the slab sample distance long.
+    let inSlabNormal: N3Vector
+    let pixelsHigh: Int
+    let pixelsDeep: Int
 
-/// assert() of the Objective-C: checked in Debug only.
-@inline(__always)
-private func debugAssert(_ condition: @autoclosure () -> Bool) {
-    #if DEBUG
-    precondition(condition())
-    #endif
+    /// The fill operations that sample plane `z` into `floatBytes`.
+    func fills(ofPlane z: Int, into floatBytes: UnsafeMutablePointer<Float>, volumeData: CPRVolumeData?,
+               interpolationMode: CPRInterpolationMode, queuePriority: Operation.QueuePriority) -> [Operation] {
+        let pixelsWide = vectors.count
+        var fillVectors = [N3Vector](repeating: N3VectorZero, count: pixelsWide)
+        var fills: [Operation] = []
+        downVectors.withUnsafeBufferPointer { downVectors in
+            let slabOffset = N3VectorScalarMultiply(inSlabNormal, CGFloat(z) - CGFloat(pixelsDeep - 1) / 2.0)
+            var y = 0
+            while y < pixelsHigh {
+                let heightOffset = N3VectorScalarMultiply(downDirection, CGFloat(y))
+                for i in 0..<pixelsWide {
+                    fillVectors[i] = N3VectorAdd(N3VectorAdd(vectors[i], heightOffset), slabOffset)
+                }
+
+                let horizontalFillOperation = CPRHorizontalFillOperation(volumeData: volumeData, interpolationMode: interpolationMode,
+                                                                         floatBytes: floatBytes + (y &* pixelsWide),
+                                                                         width: UInt(bitPattern: pixelsWide), height: UInt(min(FILL_HEIGHT, pixelsHigh - y)),
+                                                                         vectors: &fillVectors, normals: UnsafeMutablePointer(mutating: downVectors.baseAddress))
+                horizontalFillOperation.queuePriority = queuePriority
+                fills.append(horizontalFillOperation)
+                y += FILL_HEIGHT
+            }
+        }
+        return fills
+    }
 }
 
 /// Generates the oblique slice of a CPRObliqueSliceGeneratorRequest (the
 /// transverse sections of the CPR): CPRHorizontalFillOperations sample the
-/// volume on the plane, then a CPRProjectionOperation projects the slab.
+/// volume on the plane, and a CPRSlabProjector projects the slab while its
+/// planes are sampled, so that only a few planes of a thick slab are in memory
+/// at once.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRObliqueSliceOperation.h> are those of the former class.
 ///
 /// @unchecked Sendable, restated from Operation: the generator's queue runs it,
-/// the fill operations report to it from their threads and `cancel()` may come
-/// from any. The three state flags are atomics; the fill set and
-/// `projectionOperation` are touched only under objc_sync on `fillOperations`;
-/// `floatBytes` are written by `fill()` before any fill operation is queued
-/// and read by the one that finishes last, which the sequentially consistent
-/// countdown of `outstandingFillOperationCount` orders after them.
+/// the projector reports to it from the thread of the fill that finished last,
+/// and `cancel()` may come from any thread. The three state flags are atomics
+/// and the projector is kept under a mutex.
 @objc(CPRObliqueSliceOperation)
 public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked Sendable {
-    private let outstandingFillOperationCount = Atomic<Int32>(0)
-
-    private var floatBytes: UnsafeMutablePointer<Float>?
-    /// Also the lock of the former @synchronized (_fillOperations), which
-    /// guards the projection operation too.
-    private let fillOperations = NSMutableSet()
-    private var projectionOperation: Operation?
+    /// The projector of the slab, once `fill()` has made it, for `cancel()`.
+    private let slabProjector = Mutex<CPRSlabProjector?>(nil)
     private let operationExecuting = Atomic<Bool>(false)
     private let operationFinished = Atomic<Bool>(false)
     private let operationFailed = Atomic<Bool>(false)
@@ -122,16 +138,10 @@ public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked S
     }
 
     public override func cancel() {
-        let projectionOperation: Operation?
-        objc_sync_enter(fillOperations)
-        for case let operation as Operation in fillOperations {
-            operation.cancel()
-        }
-        projectionOperation = self.projectionOperation
-        objc_sync_exit(fillOperations)
-        projectionOperation?.cancel()
-
+        // The flag before the projector: `fill()` publishes the projector
+        // before it reads the flag, so one of the two cancels it.
         super.cancel()
+        slabProjector.withLock { $0 }?.cancel()
     }
 
     public override func start() {
@@ -163,6 +173,18 @@ public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked S
         didChangeValue(forKey: CPROperationKeyPath.isFinished)
     }
 
+    private func fail() {
+        willChangeValue(forKey: CPROperationKeyPath.didFail)
+        willChangeValue(forKey: CPROperationKeyPath.isFinished)
+        willChangeValue(forKey: CPROperationKeyPath.isExecuting)
+        operationExecuting.store(false, ordering: .releasing)
+        operationFinished.store(true, ordering: .releasing)
+        operationFailed.store(true, ordering: .releasing)
+        didChangeValue(forKey: CPROperationKeyPath.isExecuting)
+        didChangeValue(forKey: CPROperationKeyPath.isFinished)
+        didChangeValue(forKey: CPROperationKeyPath.didFail)
+    }
+
     private func fill() {
         // A request of another class is what the former unchecked @dynamic
         // property would have messaged into an exception: the operation ends.
@@ -179,164 +201,45 @@ public final class CPRObliqueSliceOperation: CPRGeneratorOperation, @unchecked S
         let downDirection = N3VectorScalarMultiply(N3VectorNormalize(request.directionY), request.pixelSpacingY)
         let inSlabNormal = N3VectorScalarMultiply(N3VectorNormalize(N3VectorCrossProduct(leftDirection, downDirection)), _slabSampleDistance())
 
-        let vectorBytes = MemoryLayout<N3Vector>.size &* pixelsWide
-        let newFloatBytes = malloc(Int(bitPattern: UInt(MemoryLayout<Float>.size) &* UInt(bitPattern: pixelsWide) &* UInt(bitPattern: pixelsHigh) &* UInt(bitPattern: pixelsDeep)))?
-            .assumingMemoryBound(to: Float.self)
-        floatBytes = newFloatBytes
-        let vectors = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
-        let fillVectors = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
-        let downVectors = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
-
-        guard let floatBytes = newFloatBytes, let vectors, let fillVectors, let downVectors else {
-            free(newFloatBytes)
-            free(vectors)
-            free(fillVectors)
-            free(downVectors)
-
-            self.floatBytes = nil
-
-            willChangeValue(forKey: CPROperationKeyPath.didFail)
-            willChangeValue(forKey: CPROperationKeyPath.isFinished)
-            willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting.store(false, ordering: .releasing)
-            operationFinished.store(true, ordering: .releasing)
-            operationFailed.store(true, ordering: .releasing)
-            didChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            didChangeValue(forKey: CPROperationKeyPath.isFinished)
-            didChangeValue(forKey: CPROperationKeyPath.didFail)
-
+        guard let projector = CPRSlabProjector(projectionMode: request.projectionMode, pixelsWide: pixelsWide, pixelsHigh: pixelsHigh,
+                                               pixelsDeep: pixelsDeep, fillHeight: FILL_HEIGHT, volumeTransform: _generatedVolumeTransform(),
+                                               outOfBoundsValue: volumeData?.outOfBoundsValue ?? 0) else {
+            fail()
             return
         }
 
-        // Unchecked pointer access: the arrays hold pixelsWide vectors.
-        for i in 0..<max(pixelsWide, 0) {
-            vectors[i] = N3VectorAdd(origin, N3VectorScalarMultiply(leftDirection, CGFloat(i)))
-            downVectors[i] = downDirection
-        }
+        let slab = ObliqueSlab(vectors: (0..<max(pixelsWide, 0)).map { N3VectorAdd(origin, N3VectorScalarMultiply(leftDirection, CGFloat($0))) },
+                               downVectors: [N3Vector](repeating: downDirection, count: max(pixelsWide, 0)),
+                               downDirection: downDirection, inSlabNormal: inSlabNormal, pixelsHigh: pixelsHigh, pixelsDeep: pixelsDeep)
 
-        let fillOperations = NSMutableSet()
-
-        var z = 0
-        while z < pixelsDeep {
-            let slabOffset = N3VectorScalarMultiply(inSlabNormal, CGFloat(z) - CGFloat(pixelsDeep - 1) / 2.0)
-            var y = 0
-            while y < pixelsHigh {
-                let heightOffset = N3VectorScalarMultiply(downDirection, CGFloat(y))
-                for i in 0..<max(pixelsWide, 0) {
-                    fillVectors[i] = N3VectorAdd(N3VectorAdd(vectors[i], heightOffset), slabOffset)
-                }
-
-                let horizontalFillOperation = CPRHorizontalFillOperation(volumeData: volumeData, interpolationMode: request.interpolationMode,
-                                                                         floatBytes: floatBytes + (y &* pixelsWide) + (z &* pixelsWide &* pixelsHigh),
-                                                                         width: UInt(bitPattern: pixelsWide), height: UInt(min(FILL_HEIGHT, pixelsHigh - y)),
-                                                                         vectors: fillVectors, normals: downVectors)
-                horizontalFillOperation.queuePriority = queuePriority
-                fillOperations.add(horizontalFillOperation)
-                horizontalFillOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
-                _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
-                y += FILL_HEIGHT
-            }
-            z += 1
-        }
-
-        objc_sync_enter(self.fillOperations)
-        // -setSet: without bridging to a Swift Set and back, which hashed every
-        // operation through AnyHashable twice.
-        self.fillOperations.removeAllObjects()
-        for operation in fillOperations {
-            self.fillOperations.add(operation)
-        }
-        objc_sync_exit(self.fillOperations)
-
+        slabProjector.withLock { $0 = projector }
+        let interpolationMode = request.interpolationMode
+        let queuePriority = self.queuePriority
+        projector.start(on: CPRObliqueSliceOperation.fillQueue, planeFills: { [self] plane, floatBytes in
+            slab.fills(ofPlane: plane, into: floatBytes, volumeData: volumeData, interpolationMode: interpolationMode, queuePriority: queuePriority)
+        }, completion: { [self] volume in
+            generatedVolume = volume
+            finish()
+        })
         if isCancelled {
-            for case let horizontalFillOperation as Operation in fillOperations {
-                horizontalFillOperation.cancel()
-            }
+            projector.cancel()
         }
-
-        outstandingFillOperationCount.store(Int32(truncatingIfNeeded: fillOperations.count), ordering: .sequentiallyConsistent)
-
-        let fillQueue = CPRObliqueSliceOperation.fillQueue
-        for case let horizontalFillOperation as Operation in fillOperations {
-            fillQueue.addOperation(horizontalFillOperation)
-        }
-
-        free(vectors)
-        free(fillVectors)
-        free(downVectors)
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard context == fillOperationsContext.pointer else {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
-            return
-        }
-        debugAssert(object is Operation)
-        let operation = object as! Operation
-
-        guard keyPath == CPROperationKeyPath.isFinished, operation.isFinished else {
-            return
-        }
-        operation.removeObserver(self, forKeyPath: CPROperationKeyPath.isFinished)
-        _ = Unmanaged.passUnretained(self).autorelease() // to balance the retain when we observe operations
-        let oustandingFillOperationCount = outstandingFillOperationCount.wrappingSubtract(1, ordering: .sequentiallyConsistent).newValue
-        if oustandingFillOperationCount == 0 { // done with the fill operations, now do the projection
-            let request = self.request
-            let volumeTransform = _generatedVolumeTransform()
-            let generatedVolume = CPRVolumeData(floatBytesNoCopy: floatBytes, pixelsWide: numericCast(request?.pixelsWide ?? 0), pixelsHigh: numericCast(request?.pixelsHigh ?? 0),
-                                                pixelsDeep: numericCast(_pixelsDeep()), volumeTransform: volumeTransform,
-                                                outOfBoundsValue: volumeData?.outOfBoundsValue ?? 0, freeWhenDone: true)
-            floatBytes = nil
-            let projectionOperation = CPRProjectionOperation()
-            projectionOperation.queuePriority = queuePriority
-
-            projectionOperation.volumeData = generatedVolume
-            projectionOperation.projectionMode = request?.projectionMode ?? 0
-            if isCancelled {
-                projectionOperation.cancel()
-            }
-
-            projectionOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
-            _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
-            objc_sync_enter(fillOperations)
-            self.projectionOperation = projectionOperation
-            objc_sync_exit(fillOperations)
-            CPRObliqueSliceOperation.fillQueue.addOperation(projectionOperation)
-        } else if oustandingFillOperationCount == -1 {
-            debugAssert(operation is CPRProjectionOperation)
-            let projectionOperation = operation as? CPRProjectionOperation
-            generatedVolume = projectionOperation?.generatedVolume
-
-            willChangeValue(forKey: CPROperationKeyPath.isFinished)
-            willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting.store(false, ordering: .releasing)
-            operationFinished.store(true, ordering: .releasing)
-
-            didChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            didChangeValue(forKey: CPROperationKeyPath.isFinished)
-        }
+    /// The planes of the slab and the distance between them (CurvedSlabSampling):
+    /// the request's own distance, or what divides the slab's width evenly at
+    /// the volume's finest spacing or less.
+    private func slabPlanes() -> (count: Int, distance: Double) {
+        CurvedSlabSampling.planes(width: Double(request?.slabWidth ?? 0), spacing: Double(volumeData?.minPixelSpacing ?? 0),
+                                  fixedDistance: Double(request?.slabSampleDistance ?? 0))
     }
 
     private func _slabSampleDistance() -> CGFloat {
-        let request = self.request
-        if (request?.slabSampleDistance ?? 0) != 0.0 {
-            return request!.slabSampleDistance
-        } else {
-            return volumeData?.minPixelSpacing ?? 0
-        }
+        CGFloat(slabPlanes().distance)
     }
 
     private func _pixelsDeep() -> UInt {
-        // MAX(slabWidth / slabSampleDistance, 0) + 1, converted to NSUInteger.
-        let slabs = (request?.slabWidth ?? 0) / _slabSampleDistance()
-        // A zero sample distance (none in the request and a volume whose
-        // minPixelSpacing is 0) gave 0/0 = NaN, hence no plane and an operation
-        // that never finished, or width/0 = inf and a wrapped allocation size.
-        // A slab that cannot be sampled is the one plane of the slice.
-        guard slabs.isFinite else {
-            return 1
-        }
-        return unsignedTruncating((slabs < 0 ? 0 : slabs) + 1)
+        UInt(slabPlanes().count)
     }
 
     private func _generatedVolumeTransform() -> N3AffineTransform {

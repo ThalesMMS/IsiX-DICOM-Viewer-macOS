@@ -335,3 +335,4 @@ fi
 echo "Build local $CHANNEL $ARCH pronto, assinado ad hoc:"
 echo "$OUTPUT_APP"
 echo "Identificação: $OUTPUT_DIR/BUILD-INFO.txt; somas: (cd \"$OUTPUT_DIR\" && shasum -a 256 -c SHA256SUMS.txt)"
+echo "ZIP de publicação, depois de assinar e notarizar: python3 script/release_archive.py \"$OUTPUT_APP\" --require-notarized"

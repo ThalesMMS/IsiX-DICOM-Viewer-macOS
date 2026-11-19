@@ -301,8 +301,7 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIPACSOnDemand", bundle: nil)
-        nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
+        instantiatePaneNib(named: "OSIPACSOnDemand", topLevelObjects: &_tlos)
 
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView
@@ -405,39 +404,39 @@ public final class OSIPACSOnDemandPreferencePane: NSPreferencePane {
                     if containsObject(self.smartAlbumsArray?.value(forKey: "name"), album.name) == false {
                         // Is it a 'known' album : pre-fill it
 
-                        if isEqualString(album.name, NSLocalizedString("Just Acquired (last hour)", comment: "")) {
+                        if AnyLanguage.says(album.name, "Just Acquired (last hour)") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("101", "date"), (NSArray(), "modality")]))
                         }
 
-                        else if isEqualString(album.name, NSLocalizedString("Today MR", comment: "")) {
+                        else if AnyLanguage.says(album.name, "Today MR") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "MR"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today CT", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today CT") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "CT"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today US", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today US") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "US"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today MG", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today MG") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "MG"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today CR", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today CR") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "CR"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today XA", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today XA") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "XA"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Today RF", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Today RF") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("1", "date"), (NSArray(object: "RF"), "modality")]))
                         }
 
-                        else if isEqualString(album.name, NSLocalizedString("Yesterday MR", comment: "")) {
+                        else if AnyLanguage.says(album.name, "Yesterday MR") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "MR"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday CT", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday CT") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "CT"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday US", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday US") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "US"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday MG", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday MG") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "MG"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday CR", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday CR") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "CR"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday XA", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday XA") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "XA"), "modality")]))
-                        } else if isEqualString(album.name, NSLocalizedString("Yesterday RF", comment: "")) {
+                        } else if AnyLanguage.says(album.name, "Yesterday RF") {
                             self.smartAlbumsArray?.add(dictionaryWithObjectsAndKeys([(NSNumber(value: true), "activated"), (album.name, "name"), ("2", "date"), (NSArray(object: "RF"), "modality")]))
                         }
 

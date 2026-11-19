@@ -179,7 +179,10 @@ enum MenuShortcutCatalog { static func applyStoredAssignments(to menus: [NSMenu]
     @objc(startProtectForCrashWithPath:) class func startProtectForCrash(withPath path: String!) {}
     @objc class func endProtectForCrash() {}
     // The commands of plugins of the API version 1 are tested apart.
-    class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {}
+    class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?,
+                                      _ reportMenu: NSMenu?) {}
+    // The Report menu belongs to the application's own Plugins menu, which this host does not build.
+    class func reportMenu(beside menu: NSMenu?) -> NSMenu? { nil }
     private class func databaseWindow() -> AnyObject? { nil }
 
 FORMERMENUS

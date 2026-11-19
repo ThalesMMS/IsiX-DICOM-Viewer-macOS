@@ -42,7 +42,6 @@ import Cocoa
 private let _CPRCurvedPathNodeSpacingThreshold: CGFloat = 1e-10
 
 /// The token of no control point, as an int32_t.
-let CPRCurvedPathControlTokenNone: Int32 = -1
 private let CPRCurvedPathControlTokenTransverseSection: CPRCurvedPathControlToken = 1
 private let CPRCurvedPathControlTokenTransverseSpacing: CPRCurvedPathControlToken = 2
 
@@ -110,6 +109,19 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
     private var _transverseSectionSpacing: CGFloat = 0
     private var _transverseSectionPosition: CGFloat = 0
 
+    /// An instance variable that only older copies of the headers of the
+    /// former Horos and OsiriX plugin SDK declare, which a plugin built with
+    /// one reads at the offset the application exports for it: the normal at
+    /// the start of the path. The path keeps a base direction and an angle
+    /// and computes that normal from them and from the tangent at its start;
+    /// this is the copy of what -initialNormal answers, written again when
+    /// the path, the base direction or the angle changes, and never read.
+    var _initialNormal = N3Vector()
+
+    private func copyInitialNormal() {
+        _initialNormal = initialNormal
+    }
+
     @objc(controlTokenIsNode:)
     public static func controlTokenIsNode(_ token: CPRCurvedPathControlToken) -> Bool {
         return _isElementControlToken(token)
@@ -132,6 +144,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         _transverseSectionPosition = 0.5
         _transverseSectionSpacing = 2
         super.init()
+        copyInitialNormal()
     }
 
     /// A path file comes from anywhere (the CPR's Load Path), so it is read
@@ -181,6 +194,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         _thickness = CGFloat(decoder.decodeDouble(forKey: "thickness"))
         _transverseSectionSpacing = CGFloat(decoder.decodeDouble(forKey: "transverseSectionSpacing"))
         _transverseSectionPosition = CGFloat(decoder.decodeDouble(forKey: "transverseSectionPosition"))
+        copyInitialNormal()
     }
 
     private init(curvedPath: CPRCurvedPath) {
@@ -192,6 +206,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         _thickness = curvedPath._thickness
         _transverseSectionSpacing = curvedPath._transverseSectionSpacing
         _transverseSectionPosition = curvedPath._transverseSectionPosition
+        _initialNormal = curvedPath._initialNormal
         super.init()
     }
 
@@ -209,6 +224,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
             if _bezierPath?.isEqual(to: newValue) ?? false == false {
                 _bezierPath = newValue
                 _resetNodeRelativePositions()
+                copyInitialNormal()
             }
         }
     }
@@ -243,12 +259,18 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
 
     @objc public dynamic var baseDirection: N3Vector { // a base direction from which to define things such as the initial normal
         get { return _baseDirection }
-        set { _baseDirection = newValue }
+        set {
+            _baseDirection = newValue
+            copyInitialNormal()
+        }
     }
 
     @objc public dynamic var angle: CGFloat {
         get { return _angle }
-        set { _angle = newValue }
+        set {
+            _angle = newValue
+            copyInitialNormal()
+        }
     }
 
     @objc public dynamic var initialNormal: N3Vector {
@@ -273,6 +295,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         let tangentAtStart = _bezierPath?.tangentAtStart() ?? N3Vector()
         let baseNormal = N3VectorNormalize(N3VectorCrossProduct(_baseDirection, tangentAtStart))
         _angle = N3VectorAngleBetweenVectorsAroundVector(baseNormal, initialNormal, tangentAtStart)
+        copyInitialNormal()
     }
 
     @objc public dynamic var transverseSectionSpacing: CGFloat { // in mm
@@ -439,6 +462,7 @@ public final class CPRCurvedPath: NSObject, NSCopying, NSSecureCoding {
         _nodeRelativePositions = NSMutableArray()
         _transverseSectionPosition = 0.5
         _transverseSectionSpacing = 2
+        copyInitialNormal()
     }
 
     /// Resets Z by default.

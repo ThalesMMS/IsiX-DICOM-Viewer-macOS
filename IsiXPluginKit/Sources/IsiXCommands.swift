@@ -21,6 +21,12 @@ public struct IsiXCommand: Hashable, Sendable {
         /// The database window's plugins.
         case database
         case other
+        /// The plugins of reporting: structured reports, scores and the
+        /// forms a reading is written with. Registering a command here needs
+        /// the `report` capability, which an application older than the menu
+        /// does not know: it refuses the plugin before loading it and says
+        /// so, in place of a load that fails on the missing case.
+        case report
     }
 
     /// When the command can run; the menu item is disabled otherwise.

@@ -4,12 +4,6 @@ on run argv
 	set inFilePath to POSIX file inFilePathUnix
 	set outFilePath to POSIX file outFilePathUnix
 	
-	tell application "Finder"
-		if exists outFilePath then
-			delete outFilePath
-		end if
-	end tell
-	
 	tell application "Microsoft Word"
 		run
 		

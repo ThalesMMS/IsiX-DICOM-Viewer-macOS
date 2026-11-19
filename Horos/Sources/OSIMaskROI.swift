@@ -54,16 +54,26 @@ import Cocoa
 /// <Horos/OSIMaskROI.h> are those of the former class.
 @objc(OSIMaskROI)
 public final class OSIMaskROI: OSIROI {
-    private var _mask: OSIROIMask?
-    private var _name: String?
-    private var _fillColor: NSColor?
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    var _mask: OSIROIMask?
+    var _name: NSString?
+    var _fillColor: NSColor?
+    // Without state here: the former class kept the mask's rows of the last
+    // slab drawn, and this one keeps none. Kept at zero and nil.
+    var _cachedSlab = OSISlab()
+    var _cachedDicomToPixTransform = N3AffineTransform()
+    var _cachedMinCorner = N3VectorZero
+    var _cachedMaskRunsData: NSData?
 
     @objc(initWithROIMask:homeFloatVolumeData:name:)
     public init(roiMask mask: OSIROIMask!, homeFloatVolumeData floatVolumeData: OSIFloatVolumeData!, name: String!) {
         super.init()
         setHomeFloatVolumeData(floatVolumeData)
         _mask = mask
-        _name = name
+        _name = name as NSString?
     }
 
     /// The voxels of the ROI in its home volume.
@@ -74,7 +84,7 @@ public final class OSIMaskROI: OSIROI {
 
     @objc(name)
     public override func name() -> String! {
-        return _name
+        return _name as String?
     }
 
     @objc(fillColor)

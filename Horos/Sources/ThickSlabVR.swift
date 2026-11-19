@@ -39,6 +39,7 @@
 
 
 import Cocoa
+import Accelerate
 import IsiXVolumeRendering
 
 /// View for Thick Slab Volume Rendering: the view of ThickSlab.xib, whose
@@ -50,6 +51,62 @@ import IsiXVolumeRendering
 public final class ThickSlabVR: NSView {
     private let composer = ThickSlabComposer()
     private let opacityFunction = IsiXVTKPiecewiseFunction()
+
+    // MARK: - Instance variables of the former plugin SDK
+
+    // Plugins built for the former Horos or OsiriX SDK read and write these at
+    // the offset the application exports for each, so each is a stored field
+    // of this class with the C declaration's type, never private, lazy, weak
+    // or observed. The slab is the composer's: the view writes here, when a
+    // message changes them, the copies of what the composer answers (the
+    // size, the spacing, the window, the two sources, the flags, the colour
+    // and opacity tables) and reads none of them back; a plugin's write
+    // changes nothing of the composite.
+    var _imageBlendingPtr: UnsafeMutablePointer<Float>?, _imagePtr: UnsafeMutablePointer<Float>?
+    var _width = 0, _height = 0, _count = 0
+    var _spaceX: Float = 0, _spaceY: Float = 0, _thickness: Float = 0, _ww: Float = 0, _wl: Float = 0
+    var _flipData = false, _lowQuality = false, _isRGB = false
+    var _tableFloatR = IsiXThickSlabTable(), _tableFloatG = IsiXThickSlabTable(), _tableFloatB = IsiXThickSlabTable()
+    var _opacityTable = IsiXThickSlabTable()
+    // Without state in this view: the fused series' tables and the conversion
+    // buffers are inside the composer, the composite's planes and bounds are
+    // locals of its threads, and the VTK objects of the former ray caster
+    // (pointers to C++ objects, never retained) are gone. Kept at zero and nil.
+    var _tableBlendingFloatR = IsiXThickSlabTable(), _tableBlendingFloatG = IsiXThickSlabTable(), _tableBlendingFloatB = IsiXThickSlabTable()
+    unowned(unsafe) var _volume: AnyObject?, _volumeProperty: AnyObject?, _colorTransferFunction: AnyObject?, _reader: AnyObject?
+    unowned(unsafe) var _opacityTransferFunction: AnyObject?, _flipReader: AnyObject?, _aRenderer: AnyObject?, _aCamera: AnyObject?
+    // Declared only by older copies of the SDK's headers: the composite
+    // function and the mapper of the former ray caster, C++ objects of a
+    // library the slab is no longer drawn with.
+    unowned(unsafe) var _compositeFunction: AnyObject?, _volumeMapper: AnyObject?
+    var _srcf = vImage_Buffer(), _dst8 = vImage_Buffer(), _srcfBlending = vImage_Buffer(), _dst8Blending = vImage_Buffer()
+    var _dstFloatR: UnsafeMutablePointer<Float>?, _dstFloatG: UnsafeMutablePointer<Float>?, _dstFloatB: UnsafeMutablePointer<Float>?
+    var _ifrom = 0, _ito = 0, _isize = 0
+    var _processorsLock: NSLock?, _numberOfThreadsForCompute: Int32 = 0
+
+    /// Writes the copies of the composer's numbers and flags.
+    private func copyComposerState() {
+        _width = composer.width
+        _height = composer.height
+        _count = composer.count
+        _spaceX = composer.spaceX
+        _spaceY = composer.spaceY
+        _thickness = composer.thickness
+        _wl = composer.windowLevel
+        _ww = composer.windowWidth
+        _flipData = composer.flipData
+        _lowQuality = composer.lowQuality
+        _isRGB = composer.isRGB
+    }
+
+    /// A table of the composer as the SDK's float[256].
+    private static func table(_ values: [Float]) -> IsiXThickSlabTable {
+        var table = IsiXThickSlabTable()
+        withUnsafeMutableBytes(of: &table) { bytes in
+            values.withUnsafeBytes { bytes.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(bytes.count))) }
+        }
+        return table
+    }
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -68,21 +125,28 @@ public final class ThickSlabVR: NSView {
     @objc(setImageData:::::::)
     public func setImageData(_ w: Int, _ h: Int, _ c: Int, _ sX: Float, _ sY: Float, _ t: Float, _ flip: Bool) {
         composer.setImageData(w, h, c, sX, sY, t, flip)
+        copyComposerState()
     }
 
     @objc(setWLWW::)
     public func setWLWW(_ l: Float, _ w: Float) {
         composer.setWLWW(l, w)
+        copyComposerState()
     }
 
     @objc(setBlendingWLWW::)
     public func setBlendingWLWW(_ l: Float, _ w: Float) {
         composer.setBlendingWLWW(l, w)
+        copyComposerState()
     }
 
     @objc(setCLUT:::)
     public func setCLUT(_ r: UnsafeMutablePointer<UInt8>?, _ g: UnsafeMutablePointer<UInt8>?, _ b: UnsafeMutablePointer<UInt8>?) {
         composer.setCLUT(r, g, b)
+        _tableFloatR = Self.table(composer.red)
+        _tableFloatG = Self.table(composer.green)
+        _tableFloatB = Self.table(composer.blue)
+        copyComposerState()
     }
 
     @objc(setBlendingCLUT:::)
@@ -98,16 +162,20 @@ public final class ThickSlabVR: NSView {
     @objc(setImageSource::)
     public func setImageSource(_ i: UnsafeMutablePointer<Float>?, _ c: Int) {
         composer.setImageSource(i, c)
+        _imagePtr = i
+        copyComposerState()
     }
 
     @objc(setFlip:)
     public func setFlip(_ f: Bool) {
         composer.flipData = f
+        _flipData = f
     }
 
     @objc(setLowQuality:)
     public func setLowQuality(_ q: Bool) {
         composer.lowQuality = q
+        _lowQuality = q
     }
 
     /// The opacity table from the points of an opacity preset ("{x, y}"
@@ -145,6 +213,7 @@ public final class ThickSlabVR: NSView {
             var table = [Float](repeating: 0, count: 256)
             try opacityFunction.getValues(&table, count: 256)
             composer.setOpacityTable(table)
+            _opacityTable = Self.table(composer.opacityTable)
         } catch {
             NSLog("ThickSlabVR: %@", error.localizedDescription)
         }
@@ -153,6 +222,7 @@ public final class ThickSlabVR: NSView {
     @objc(setImageBlendingSource:)
     public func setImageBlendingSource(_ i: UnsafeMutablePointer<Float>?) {
         composer.setImageBlendingSource(i)
+        _imageBlendingPtr = i
     }
 
     /// What renderSlab composes with, for the 2D viewer's Metal path: the

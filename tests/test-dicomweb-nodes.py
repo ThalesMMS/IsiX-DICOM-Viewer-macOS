@@ -441,6 +441,7 @@ def structural(node):
 
 
 trees = {}
+area_ids = {}  # the boxes of the two areas in the English xib, by id: the Japanese copy titles them in Japanese
 for language, path in XIBS.items():
     content = text(path)
     if content is None:
@@ -453,9 +454,14 @@ for language, path in XIBS.items():
     check(titles == ['C-MOVE', 'C-GET', 'WADO'], f'{language}: the DIMSE Retrieve pop-up is C-MOVE, C-GET, WADO: {titles}')
     check('editDICOMweb:' not in content and 'NotDICOMwebValueTransformer' not in content,
           f'{language}: no DICOMweb editor or Send switch left on the DIMSE rows')
-    boxes = {box.get('title'): box for box in tree.iter('box')}
-    area = boxes.get(AREA)
-    dimse = boxes.get('DICOM Nodes for DICOM Query/Retrieve and DICOM Send')
+    if language == 'en':
+        boxes = {box.get('title'): box for box in tree.iter('box')}
+        area = boxes.get(AREA)
+        dimse = boxes.get('DICOM Nodes for DICOM Query/Retrieve and DICOM Send')
+        area_ids = {'area': area.get('id') if area is not None else None, 'dimse': dimse.get('id') if dimse is not None else None}
+    else:
+        boxes = {box.get('id'): box for box in tree.iter('box')}
+        area, dimse = boxes.get(area_ids.get('area')), boxes.get(area_ids.get('dimse'))
     check(area is not None, f'{language}: the "{AREA}" area exists')
     if area is None or dimse is None:
         continue
@@ -466,7 +472,9 @@ for language, path in XIBS.items():
     columns = [column.get('identifier') for column in table.iter('tableColumn')] if table is not None else []
     headers = [column.find('tableHeaderCell').get('title') for column in table.iter('tableColumn')] if table is not None else []
     check(columns == COLUMNS, f'{language}: the nine columns, in order: {columns}')
-    check(headers == HEADERS, f'{language}: the column titles: {headers}')
+    # The Japanese copy titles the columns in Japanese.
+    check(headers == HEADERS if language == 'en' else len(headers) == len(HEADERS) and all(headers),
+          f'{language}: the column titles: {headers}')
     controller = next((o for o in tree.iter('customObject') if o.get('customClass') == 'HorosDICOMwebNodesController'), None)
     check(controller is not None, f'{language}: the area has its controller')
     if controller is None or table is None:

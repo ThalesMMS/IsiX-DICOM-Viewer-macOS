@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXHTTPServer
 import IsiXKeychain
 import NIOCore
 import Synchronization
@@ -104,6 +105,8 @@ final class XMLRPCListener: NSObject, @unchecked Sendable {
         let factory = UncheckedSendableBox(makeConnection)
         let listener = HTTPServerListener(port: port, tls: tls) { channel in
             channel.eventLoop.makeCompletedFuture {
+                // The header is held to the web portal's limits before anything keeps it.
+                try channel.pipeline.syncOperations.addHandler(HTTPRequestHeadLimiter())
                 try channel.pipeline.syncOperations.addHandler(XMLRPCChannelHandler(makeConnection: factory.value))
             }
         }
@@ -137,12 +140,33 @@ private final class XMLRPCChannelHandler: ChannelInboundHandler {
     private var worker: HTTPServerWorker?
     private var transport: XMLRPCTransport?
     private let received = UncheckedSendableBox(NSMutableData())
+    /// The bytes received, counted on the event loop: a connection that sends
+    /// more than a header and a body within the limits is closed there,
+    /// whatever its own thread is busy with.
+    private var receivedCount = 0
+    /// Whether this connection counts among the open ones.
+    private var counted = false
+
+    /// The connections open now, over every listener.
+    private static let open = Atomic<Int>(0)
+    /// The most bytes a connection may send: a header at the portal's limits
+    /// and a body at the interface's.
+    private static let mostBytes = HTTPServerLimits.headerLineLength * HTTPServerLimits.headerLines + XMLRPCRequestLimits.body
 
     init(makeConnection: @escaping (XMLRPCTransport) -> XMLRPCServerConnection?) {
         self.makeConnection = makeConnection
     }
 
     func channelActive(context: ChannelHandlerContext) {
+        // Each connection has a thread of its own: past the limit, one more is
+        // closed before it gets one.
+        counted = true
+        if Self.open.add(1, ordering: .sequentiallyConsistent).newValue > XMLRPCRequestLimits.connections {
+            NSLog("--- XML-RPC connection from %@ closed: %ld connections are open already",
+                  (context.channel.remoteAddress?.ipAddress ?? "(null)") as NSString, XMLRPCRequestLimits.connections)
+            context.close(promise: nil)
+            return
+        }
         let worker = HTTPServerWorker.detached(name: "XML-RPC connection")
         let transport = XMLRPCTransport(channel: context.channel, worker: worker)
         self.worker = worker
@@ -165,6 +189,11 @@ private final class XMLRPCChannelHandler: ChannelInboundHandler {
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         var buffer = unwrapInboundIn(data)
         guard let worker, let transport, let bytes = buffer.readBytes(length: buffer.readableBytes) else { return }
+        receivedCount += bytes.count
+        guard receivedCount <= Self.mostBytes else {
+            context.close(promise: nil)
+            return
+        }
         let received = self.received
         let box = UncheckedSendableBox(transport)
         worker.perform {
@@ -179,6 +208,10 @@ private final class XMLRPCChannelHandler: ChannelInboundHandler {
     }
 
     func channelInactive(context: ChannelHandlerContext) {
+        if counted {
+            counted = false
+            Self.open.subtract(1, ordering: .sequentiallyConsistent)
+        }
         if let worker, let transport {
             let box = UncheckedSendableBox(transport)
             worker.perform {

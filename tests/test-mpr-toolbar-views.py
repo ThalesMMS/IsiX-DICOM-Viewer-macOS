@@ -3,17 +3,25 @@
 
 Shadings: the Shading check box started 1 pt left of its view and the
 Edit button 2 pt from it, so the rounded capsule of the Customize Toolbar
-panel cut them; the three-line text was 81 pt wide, narrower than the
-"Specular :0.30, 15.00" line MPRController writes, and 36 pt tall in a 35 pt
-view. The controls now sit 6 pt and more inside the view and the text has the
-room of its three lines. The item takes its view's frame as its maximum size,
-so it does not grow into empty room on the bar.
+panel cut them; the three-line text was 81 pt wide, narrower than the lines
+MPRController writes, and 36 pt tall in a 35 pt view. The controls now sit
+6 pt and more inside the view and the text has the room of its three lines,
+written as the VR window writes them ("Specular: 0.44/44.44", the widest the
+shading panel's ranges give). The item takes its view's frame as its maximum
+size, so it does not grow into empty room on the bar.
+
+The check box's title was cut at the 65 pt of its frame in the languages that
+write «Shading» longer (pt-BR, de, ru). MPRShadingItemLayout replaces the
+frames by constraints and the item takes the width the running language asks
+(ToolbarPolicy.localizedSize): in every localization the check box is as wide
+as its title, the button as its own, and neither reaches the values. The check
+box shows whether the hidden view renders with shading when the window opens.
 
 Thick Slab: the mode popup showed "MIP - Max Intensity Pr..." cut in
 its 132 pt. HorosMPRThickSlabModePopUpButtonCell draws the name before " - "
 ("MIP") and keeps the full names in the menu, which the overflow menu copies.
 
-The views of both MPR.xib localizations are copied into a nib of their own,
+The views of every MPR.xib localization are copied into a nib of their own,
 compiled with ibtool and loaded in AppKit; the palette is opened on a toolbar
 that holds none of them, so each goes through the snapshot window, and the
 items are then put on an Expanded bar, as MPRController does, next to a
@@ -26,6 +34,7 @@ import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -41,7 +50,7 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 VIEWS = {'tbShading': '731', 'tbThickSlab': '659'}
 KEEP_CLASSES = {'HorosMPRThickSlabModePopUpButtonCell'}
 SWIFT = [root / 'Horos/Sources/MPRToolbarItemViews.swift', root / 'Horos/Sources/ToolbarMenuBridge.swift']
-LOCALES = ('en', 'ja-JP')
+LOCALES = tuple(sorted(p.parent.name[:-6] for p in (root / 'Horos/Resources').glob('*.lproj/MPR.xib')))
 
 
 def read(relative):
@@ -69,6 +78,13 @@ mpr = read(str(sources.source_path('MPRController').relative_to(root))).decode('
 view_item = body(mpr, 'func viewItem(_ label: String, _ view: NSView?)')
 if 'ToolbarPolicy.constrainView(of: toolbarItem, minimum: size, maximum: size)' not in view_item:
     failures.append('MPR view items do not use the fixed view contract exercised below')
+if not re.search(r'itemIdent\.rawValue == "tbShading" \{\s*let widest = ShadingValuesText\.localized\(.*?\)\)\s*'
+                 r'MPRShadingItemLayout\.fill\(toolbarItem, view: tbShading, check: shadingCheck, values: shadingValues, '
+                 r'widestText: widest\)\s*\}', mpr):
+    failures.append('the Shadings item is not laid out on constraints and sized for the running language')
+if not re.search(r'horosShowShadingValues\(\)\s*shadingCheck\?\.state = \(hiddenVRView\?\.shading\(\) \?\? 0\) != 0 '
+                 r'\? \.on : \.off\s*let nc = NotificationCenter', mpr):
+    failures.append('the Shading check box is not given the state the hidden view renders with when the window is made')
 
 code = r'''
 import AppKit
@@ -85,9 +101,17 @@ final class Host: NSObject, NSToolbarDelegate {
                  willBeInsertedIntoToolbar: Bool) -> NSToolbarItem? {
         guard let view = views[id.rawValue] else { return nil }
         let item = NSToolbarItem(itemIdentifier: id)
-        item.label = id.rawValue == "tbShading" ? "Shadings" : "Thick Slab"
+        item.label = "Thick Slab"
         item.paletteLabel = item.label
         item.view = view
+        if id.rawValue == "tbShading" {
+            let buttons = descendants(NSButton.self, in: view)
+            MPRShadingItemLayout.fill(item, view: view, check: buttons.first { $0.imagePosition == .imageLeft },
+                                      values: descendants(NSTextField.self, in: view).first { $0.stringValue.contains("\n") },
+                                      widestText: widestValues)
+            item.isBordered = false
+            return item
+        }
         let size = ToolbarPolicy.designedSize(of: view)
         ToolbarPolicy.constrainView(of: item, minimum: size, maximum: size)
         item.isBordered = false
@@ -95,6 +119,7 @@ final class Host: NSObject, NSToolbarDelegate {
     }
 }
 
+let widestValues = "Ambient: 0.44\nDiffuse: 0.44\nSpecular: 0.44/44.44"
 var failures: [String] = []
 func check(_ condition: Bool, _ message: @autoclosure () -> String) {
     if !condition { failures.append(message()) }
@@ -104,11 +129,19 @@ func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
 }
 
 /// Every control of the Shading view whole inside it, off the capsule's edge.
-func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
+@MainActor func checkShading(_ view: NSView, _ context: String) {
+    let design = ToolbarPolicy.localizedSize(of: view)
     check(abs(view.frame.width - design.width) <= 0.5 && abs(view.frame.height - design.height) <= 0.5,
-          "\(context): view \(view.frame.size), designed \(design)")
+          "\(context): view \(view.frame.size), asked \(design)")
     let buttons = descendants(NSButton.self, in: view)
-    let texts = descendants(NSTextField.self, in: view).filter { !$0.stringValue.isEmpty && $0.stringValue.contains("Ambient") }
+    let texts = descendants(NSTextField.self, in: view).filter { $0.stringValue.contains("\n") }
+    for button in buttons {
+        check(button.intrinsicContentSize.width <= button.frame.width + 0.5,
+              "\(context) \(button.title): the title needs \(button.intrinsicContentSize.width) pt, the button has \(button.frame.width)")
+        if let text = texts.first {
+            check(button.frame.maxX <= text.frame.minX, "\(context) \(button.title): \(button.frame) reaches the values \(text.frame)")
+        }
+    }
     check(buttons.count == 2, "\(context): \(buttons.count) buttons")
     check(texts.count == 1, "\(context): \(texts.count) shading texts")
     for control in buttons as [NSView] + texts as [NSView] {
@@ -127,6 +160,8 @@ func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
 /// The mode popup shows the short name of every mode, whole, with the full
 /// names in its menu and in the overflow menu.
 @MainActor func checkThickSlab(_ view: NSView, _ item: NSToolbarItem?, _ context: String) {
+    // The names of the nibs that keep the modes in English.
+    guard context.hasPrefix("en ") || context.hasPrefix("ja-JP ") else { return }
     let popups = descendants(NSPopUpButton.self, in: view)
     check(popups.count == 1, "\(context) Thick Slab: \(popups.count) popups")
     guard let popup = popups.first, let cell = popup.cell as? NSPopUpButtonCell else { return }
@@ -163,11 +198,10 @@ func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
             let host = Host()
             for case let view as NSView in objects! { host.views[view.identifier!.rawValue] = view }
             let shading = host.views["tbShading"]!
-            let design = shading.frame.size
-            // What MPRController writes once the hidden VR view gives its values.
-            for text in descendants(NSTextField.self, in: shading) where text.stringValue.contains("Ambient") {
-                text.stringValue = String(format: "Ambient: %2.2f\nDiffuse: %2.2f\nSpecular :%2.2f, %2.2f", 0.15, 0.90, 0.30, 15.00)
-            }
+            let designed = shading.frame.size
+            // What MPRController writes from the hidden VR view's values, at
+            // the widest the shading panel's ranges give (4 is the widest digit).
+            for text in descendants(NSTextField.self, in: shading) where text.stringValue.contains("\n") { text.stringValue = widestValues }
 
             let window = NSWindow(contentRect: NSRect(x: 40, y: 80, width: 1400, height: 300),
                                   styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
@@ -183,7 +217,7 @@ func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
             RunLoop.current.run(until: Date(timeIntervalSinceNow: 1.0))
             let sheet = window.attachedSheet
             check(sheet != nil, "\(locale): the customization palette did not open")
-            checkShading(shading, design, "\(locale) palette")
+            checkShading(shading, "\(locale) palette")
             checkThickSlab(host.views["tbThickSlab"]!, nil, "\(locale) palette")
             if let sheet { window.endSheet(sheet) }
             RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.3))
@@ -194,7 +228,9 @@ func checkShading(_ view: NSView, _ design: NSSize, _ context: String) {
             toolbar.insertItem(withItemIdentifier: NSToolbarItem.Identifier("tbThickSlab"), at: 0)
             RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
             check(shading.window === window, "\(locale): Shadings is not on the bar")
-            checkShading(shading, design, "\(locale) bar")
+            checkShading(shading, "\(locale) bar")
+            let design = shading.frame.size
+            check(design.height == designed.height, "\(locale): the Shadings view is \(design.height) pt tall, designed \(designed.height)")
             checkThickSlab(host.views["tbThickSlab"]!,
                            toolbar.items.first { $0.itemIdentifier.rawValue == "tbThickSlab" }, "\(locale) bar")
             if let holder = shading.superview {
@@ -256,8 +292,10 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-toolbar-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift']), '-parse-as-library', str(swift), *map(str, SWIFT), '-o', str(binary)],
-                   check=True, capture_output=True)
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift']), '-parse-as-library', str(swift), *map(str, SWIFT), '-o', str(binary)],
+                   capture_output=True, text=True)
+    if built.returncode:
+        sys.exit('FAIL: the toolbar views do not compile with the test\n' + built.stderr[-4000:])
     result = subprocess.run([str(binary), *map(str, nibs)], capture_output=True, text=True)
     sys.stdout.write(result.stdout)
     sys.stderr.write(''.join(line + '\n' for line in result.stderr.splitlines()

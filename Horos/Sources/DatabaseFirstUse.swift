@@ -74,12 +74,15 @@ public final class DatabaseFirstUse: NSObject {
         }
     }
 
-    /// The first-use explanation, with what became of a Horos database.
+    /// The first-use explanation, with what became of a Horos database. Its
+    /// studies come through the import of Horos and OsiriX databases, which
+    /// leaves out the files the database no longer lists: importing its image
+    /// folder as files would bring back the studies deleted in Horos.
     @objc(explanationForDocuments:horosDatabase:)
     static func explanation(documents: URL, horosDatabase: String?) -> String {
         var text = String(format: NSLocalizedString("IsiX DICOM Viewer stores its index and imported images in an IsiX Data folder. This folder grows as you import studies.\n\nDocuments: %@\n\nYou can choose another folder or drive. Choosing a location does not move or duplicate existing data. Change it later in Settings > Database.", comment: "First use storage explanation"), documents.path)
         if let horosDatabase {
-            text += "\n\n" + String(format: NSLocalizedString("A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Files... once this step is done, and select the DATABASE.noindex folder inside it. Depending on Settings > Database, the import asks whether to copy the files or only link to them.", comment: "First use, Horos database left alone"), horosDatabase)
+            text += "\n\n" + String(format: NSLocalizedString("A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\nTo bring its studies over, choose File > Import > Import Studies from Horos or OsiriX… once this step is done. The import takes the studies the Horos database lists, with their albums, comments and states, leaves out the files of studies deleted in Horos, and asks whether to copy the files or only link to them.", comment: "First use, Horos database left alone"), horosDatabase)
         }
         return text
     }

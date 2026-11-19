@@ -22,7 +22,7 @@ after every file's Pixel Data, which DCMTK refuses to parse: the import must kee
 each file without those bytes and the same checks must pass.
 
 --wrapped-tiff adds a Secondary Capture whose Pixel Data is one CCITT Group 4
-TIFF under the private transfer syntax VTServer writes scanned documents with:
+TIFF under the private transfer syntax some PACS write scanned documents with:
 it must be imported and DCMPix must draw it at its size. Its pixels are
 drawn as ARGB, so no sampled values are checked for it.
 
@@ -75,7 +75,7 @@ def encapsulate_frames(ds, frames, compression: str):
     ds["PixelData"].is_undefined_length = True
 
 
-# What an OsiriX database held after the Pixel Data of two damaged files.
+# What a server's archive held after the Pixel Data of two damaged files.
 TRAILING_GARBAGE = b"\0" * 64 + struct.pack("<HHI", 0x6D00, 0x6800, 1711302656) + "mhxx".encode("utf-16-le")
 
 # A 1-bit CCITT Group 4 TIFF - a black rectangle on white - written by ImageIO.
@@ -98,7 +98,7 @@ precondition(CGImageDestinationFinalize(destination))
 
 
 def wrapped_tiff(folder: Path, study: str):
-    """A Secondary Capture carrying a G4 TIFF under VTServer's private transfer syntax."""
+    """A Secondary Capture carrying a G4 TIFF under the private transfer syntax some PACS write scanned documents with."""
     from pydicom.dataset import Dataset, FileMetaDataset
     from pydicom.encaps import encapsulate
     from pydicom.uid import SecondaryCaptureImageStorage, generate_uid

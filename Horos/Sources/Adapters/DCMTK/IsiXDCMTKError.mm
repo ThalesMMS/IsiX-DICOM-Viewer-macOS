@@ -34,6 +34,7 @@ static IsiXDCMTKConditionKind IsiXDCMTKKindOfCondition(const OFCondition &condit
     if (condition == EC_IllegalParameter) return IsiXDCMTKConditionKindIllegalParameter;
     if (condition == DIMSE_NOVALIDPRESENTATIONCONTEXTID) return IsiXDCMTKConditionKindNoPresentationContext;
     if (condition == DIMSE_BADMESSAGE) return IsiXDCMTKConditionKindBadMessage;
+    if (condition == DIMSE_NODATAAVAILABLE) return IsiXDCMTKConditionKindNoDataAvailable;
     return IsiXDCMTKConditionKindOther;
 }
 
@@ -108,6 +109,7 @@ const char *IsiXDCMTKFileSystemPath(NSString *path)
         case IsiXDCMTKConditionKindNoPresentationContext: return IsiXDCMTKErrorFromCondition(DIMSE_NOVALIDPRESENTATIONCONTEXTID);
         case IsiXDCMTKConditionKindException: return IsiXDCMTKErrorFromException("exception", "IsiXDCMTKError");
         case IsiXDCMTKConditionKindBadMessage: return IsiXDCMTKErrorFromCondition(DIMSE_BADMESSAGE);
+        case IsiXDCMTKConditionKindNoDataAvailable: return IsiXDCMTKErrorFromCondition(DIMSE_NODATAAVAILABLE);
         case IsiXDCMTKConditionKindOther: break;
     }
     return IsiXDCMTKFailure(@"DCMTK failure");

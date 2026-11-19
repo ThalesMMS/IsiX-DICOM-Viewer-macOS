@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Foundation
+import IsiXDatabase
 import Synchronization
 
 // DicomDirParser and the NSString (NumberStuff) category are implemented in
@@ -204,7 +205,8 @@ public final class DicomDirParser: NSObject {
 
     //————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
-    private func testForValidFilePath(_ dicomdirFileList: NSMutableArray, path startDirectory: NSString?, files: NSMutableArray?) {
+    private func testForValidFilePath(_ dicomdirFileList: NSMutableArray, path startDirectory: NSString?, files: NSMutableArray?,
+                                      fileSet: MediaScanRules.FileSetDirectory) {
         guard let startDirectory = startDirectory, let files = files else { return }
         if startDirectory.isEqual(to: "") || startDirectory.isEqual(to: "/") { return }
         validFilePathDepth += 1
@@ -214,7 +216,7 @@ public final class DicomDirParser: NSObject {
         for filePathComponent in (try? FileManager.default.contentsOfDirectory(atPath: startDirectory as String)) ?? [] {
             autoreleasepool {
                 testItem(filePathComponent as NSString, in: startDirectory,
-                         dicomdirFileList: dicomdirFileList, files: files)
+                         dicomdirFileList: dicomdirFileList, files: files, fileSet: fileSet)
             }
         }
 
@@ -223,13 +225,15 @@ public final class DicomDirParser: NSObject {
 
     /// One entry of `startDirectory`: a file named by the DICOMDIR is added to
     /// `files`, a folder is searched in turn, down to 8 levels.
-    private func testItem(_ name: NSString, in startDirectory: NSString, dicomdirFileList: NSMutableArray, files: NSMutableArray) {
+    private func testItem(_ name: NSString, in startDirectory: NSString, dicomdirFileList: NSMutableArray, files: NSMutableArray,
+                          fileSet: MediaScanRules.FileSetDirectory) {
         let filePath = startDirectory.appendingPathComponent(name as String) as NSString
 
         let uppercaseFilePath = filePath.uppercased as NSString
 
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: filePath as String, isDirectory: &isDirectory) else { return }
+        guard fileSet.contains(filePath as String),
+              FileManager.default.fileExists(atPath: filePath as String, isDirectory: &isDirectory) else { return }
 
         if !isDirectory.boolValue {
             let ext = uppercaseFilePath.pathExtension as NSString
@@ -271,7 +275,7 @@ public final class DicomDirParser: NSObject {
             }
         } else if validFilePathDepth < 8 {
             autoreleasepool {
-                testForValidFilePath(dicomdirFileList, path: filePath, files: files)
+                testForValidFilePath(dicomdirFileList, path: filePath, files: files, fileSet: fileSet)
             }
         }
     }
@@ -280,6 +284,7 @@ public final class DicomDirParser: NSObject {
 
     @objc(parseArray:)
     public func parseArray(_ files: NSMutableArray!) {
+        guard dirpath.length != 0, let fileSet = MediaScanRules.FileSetDirectory(dirpath as String) else { return }
         let result = NSMutableArray()
 
         // Each [...] value of the output, with '\' turned into '/'. The former
@@ -299,15 +304,15 @@ public final class DicomDirParser: NSObject {
                 }
 
                 if end - i - 1 > 0 {
-                    let piece = text.substring(with: NSMakeRange(i + 1, end - i - 1)).replacingOccurrences(of: "\\", with: "/")
-                    let file = dirpath.appending(piece) as NSString
-
-                    let ext = file.pathExtension as NSString
-
-                    if ext.length <= 4 && ext.length >= 3 && !ext.holdsIntegerValue() {
-                        result.add((file.uppercased as NSString).deletingPathExtension)
-                    } else {
-                        result.add(file.uppercased)
+                    let piece = text.substring(with: NSMakeRange(i + 1, end - i - 1))
+                    if let path = MediaScanRules.referencedFilePath(piece, basePath: dirpath as String) {
+                        let file = path as NSString
+                        let ext = file.pathExtension as NSString
+                        if ext.length <= 4 && ext.length >= 3 && !ext.holdsIntegerValue() {
+                            result.add((file.uppercased as NSString).deletingPathExtension)
+                        } else {
+                            result.add(file.uppercased)
+                        }
                     }
                 }
                 i = end
@@ -317,7 +322,7 @@ public final class DicomDirParser: NSObject {
         }
 
         validFilePathDepth = 0
-        testForValidFilePath(result, path: dirpath, files: files)
+        testForValidFilePath(result, path: dirpath, files: files, fileSet: fileSet)
     }
 }
 

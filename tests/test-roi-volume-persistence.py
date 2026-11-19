@@ -278,6 +278,8 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
 @property(assign) id curView;
 @property(retain) DCMPix *pix;
 @property(readonly) NSData *data;
+// What the undo queue compares to tell an edit: here, what the double holds.
+@property(readonly) NSInteger editSignature;
 @end
 
 @interface HorosVolumeLengthROI : ROI
@@ -433,6 +435,7 @@ void N2ManagedObjectContextPerformAndWait(ProbeContext *context, void (NS_NOESCA
     return self;
 }
 - (NSData *)data { return [NSArchiver archivedDataWithRootObject:self]; }
+- (NSInteger)editSignature { return (NSInteger)(self.name.hash ^ (NSUInteger)self.isAliased); }
 - (void)dealloc { [_name release]; [_pix release]; [super dealloc]; }
 @end
 

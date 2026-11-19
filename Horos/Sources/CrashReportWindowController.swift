@@ -104,7 +104,7 @@ import IsiXCrashReporting
         let summary = NSTextView()
         summary.isEditable = false
         summary.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
-        summary.string = (draft.summary.lines + [""] + draft.summary.frames).joined(separator: "\n")
+        summary.string = draft.summary.text
         summary.textContainerInset = NSSize(width: 4, height: 4)
         let scroll = NSScrollView()
         scroll.documentView = summary

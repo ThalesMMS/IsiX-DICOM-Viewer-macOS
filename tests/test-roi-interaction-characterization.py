@@ -26,6 +26,9 @@ pixels, and `--dump DIR` writes them as PPM files for a difference to be seen.
 One answer changed on purpose since: a click on a patient-space length's label
 is no longer refused. Its label is the base class's text box, so the click hits
 like any other ROI's (see LABEL_RULE_CASE below).
+Another did too: a length or an area inside a 2D region of an ultrasound image
+is measured with that region's physical deltas, not with the image's pixel
+spacing, which is that of one region only (see US_REGION_CASES below).
 
 `<git revision>` compares with that revision instead. Needs a Debug build of
 this checkout (HOROS_TEST_CONFIGURATION=Release for a Release one) and a
@@ -877,6 +880,57 @@ def with_label_rule(cases):
     return cases
 
 
+# Changed on purpose after the reference revision: what is drawn inside a 2D
+# region of an ultrasound image is measured with that region's own physical
+# deltas, a length and an area alike. The reference measured it with the
+# image's pixel spacing, which on an image of several such regions is that of
+# one of them, and told an area of nothing where the ROI itself had no spacing.
+# The probe's region is 0.0125 cm a pixel across and 1.5 cm down, its image
+# 0.5 mm by 0.625 mm:
+# - the line, 20 pixels by 30, was 2.125 cm and is sqrt(0.25^2 + 45^2) = 45.001 cm;
+# - the rectangle, 20 pixels by 25, was 1.562 cm2 and is 0.25 cm by 37.5 cm, 9.375 cm2;
+# - the oval, of radii 6 and 8 pixels, is 0.15 cm by 24 cm across, pi x 0.075 x 12 = 2.827 cm2.
+# The polygons and the brush follow the same scale. A label's text changes, and
+# with it its box and the picture that shows it.
+US_REGION_CASES = ('US length in 2D', 'US rectangle in 2D', 'US oval in 2D', 'US polygon in 2D', 'US open polygon in 2D', 'US brush in 2D')
+US_REGION_EXPECTED = {'US length in 2D': 'Length: 45.001 cm',
+                      'US rectangle in 2D': 'Area: 9.375 cm\u00b2 (W: 0.250 cm H: 37.500 cm)',
+                      'US oval in 2D': 'Area: 2.827 cm\u00b2 (W: 0.150 cm H: 24.000 cm)'}
+MEASURES = ('Area:', 'Length:')
+LABEL_PICTURE_FIELDS = ('labelRects', 'lit', 'hash', 'bounds', 'overlayItems')
+
+
+def with_region_scale(cases, current, seen):
+    """The reference's records with the lengths and areas of the ultrasound 2D
+    cases as the current run tells them, where both tell the same measure and
+    only its value differs; the picture of a step whose label changed is the
+    current one's where it shows the label. Nothing else is touched. `seen`
+    collects the lines the current run told for the cases worked out by hand."""
+    for name in US_REGION_CASES:
+        now = current.get(name, [])
+        for index, record in enumerate(cases.get(name, [])):
+            if index >= len(now):
+                continue
+            relabelled = False
+            for key in ('state', 'stateAfterDrawing'):
+                before = record.get(key, {}).get('textualBoxLines') if isinstance(record.get(key), dict) else None
+                after = now[index].get(key, {}).get('textualBoxLines') if isinstance(now[index].get(key), dict) else None
+                if not before or not after or len(before) != len(after):
+                    continue
+                for line, (old, new) in enumerate(zip(before, after)):
+                    if isinstance(new, str):
+                        seen.setdefault(name, set()).add(new)
+                    if (old != new and isinstance(old, str) and isinstance(new, str) and old.startswith(MEASURES)
+                            and old.split(':')[0] == new.split(':')[0]):
+                        before[line] = new
+                        relabelled = True
+            if relabelled and isinstance(record.get('picture'), dict):
+                for field in LABEL_PICTURE_FIELDS:
+                    if field in now[index].get('picture', {}):
+                        record['picture'][field] = now[index]['picture'][field]
+    return cases
+
+
 def main():
     failures = []
     log = []
@@ -916,8 +970,10 @@ def main():
                     sys.exit(1)
                 outputs[(label, profile)] = json.loads(result.stdout)['cases']
         steps = 0
+        region_lines = {}
         for profile in PROFILES:
-            a, b = with_label_rule(outputs[('reference', profile)]), outputs[('current', profile)]
+            b = outputs[('current', profile)]
+            a = with_region_scale(with_label_rule(outputs[('reference', profile)]), b, region_lines)
             steps += sum(len(v) for v in a.values())
             for problem in roi_harness.diff(a, b):
                 failures.append(f'{profile} preferences: differs from the reference: {problem}')
@@ -925,6 +981,9 @@ def main():
             lit = [s for v in b.values() for s in v if isinstance(s, dict) and s.get('picture', {}).get('lit')]
             if len(lit) < 300:
                 failures.append(f'{profile} preferences: only {len(lit)} steps drew anything')
+    for name, line in US_REGION_EXPECTED.items():
+        if line not in region_lines.get(name, set()):
+            failures.append(f'the {name} case does not tell {line}, its measure by the region\'s own scale')
     for failure in failures[:80]:
         print('FAIL:', failure)
     if failures:

@@ -54,9 +54,17 @@ import Foundation
 @objc(IsiXROIArchiveRecord)
 @objcMembers
 public final class ROIArchiveRecord: NSObject {
-    /// The class version `-encodeWithCoder:` gives ROI: values 12 to 15 are
-    /// OsiriX 6's placeholders, 16 this fork's own.
-    public static let currentVersion = 16
+    /// The class version `-encodeWithCoder:` gives ROI. Versions 1 to 11 are
+    /// the ROI's own values. Versions 12 to 17 are values of the later LGPL
+    /// format, which this application keeps none of and writes as
+    /// placeholders. Version 18 adds this application's own values, after a
+    /// marker (`ROIArchiveCoder.ownValuesMarker`).
+    ///
+    /// Version 16 has two layouts. This application once wrote its own two
+    /// numbers there, where the LGPL format has four strings, and such
+    /// archives are still read: a number where the first of the strings would
+    /// be tells them apart.
+    public static let currentVersion = 18
 
     public var points: NSMutableArray?
     public var rect: CGRect = .zero
@@ -110,17 +118,16 @@ public final class ROIArchiveRecord: NSObject {
     public var hasIsSpline = false
     public var textNameOnly = false
     public var hidden = false
-    /// The empty string written where OsiriX 6 keeps a study UID. An archive
-    /// writes an object it has already written as a reference to it, so the
-    /// writer passes its own empty literal, the one its other empty strings
-    /// are: the archive then stays byte for byte what it was.
+    /// The empty string written for the strings of versions 12 to 18 that
+    /// have nothing to say. An archive writes an object it has already written
+    /// as a reference to it, so the writer passes its own empty literal, the
+    /// one its other empty strings are.
     public var emptyString: NSString = ""
     /// What ties the label of a ratio to its two Lengths (ROIRatioLink), nil
-    /// for a ROI that has no tie. It is written where OsiriX 6 keeps a study
-    /// UID, in place of the empty string: the readers of this fork's archives
-    /// that do not know it read that value and ignore it, so they still read
-    /// the ROI, and an archive without a tie stays what it was. It is read
-    /// only from this fork's archives, where that value is never a study UID.
+    /// for a ROI that has no tie. It is the last of the values of version 18.
+    /// An archive of the former layout of version 16 has it where version 12
+    /// keeps a study UID, and it is read from there only in that layout: in
+    /// every other archive that value is a study UID, and no tie.
     public var link: NSString?
 
     /// The tool as the ROI keeps it: the stored `float` truncated to a short.
@@ -131,8 +138,8 @@ public final class ROIArchiveRecord: NSObject {
 @objc(IsiXROIArchiveRefusal)
 public enum ROIArchiveRefusal: Int {
     case none = 0
-    /// A ball or an oval angle of OsiriX 6, which this application never had:
-    /// silently skipped, as it always was.
+    /// A ball or an oval angle of the later LGPL format, which this
+    /// application never had: silently skipped, as it always was.
     case unsupportedTool
     /// A value of another class or size than a ROI archives.
     case invalidValue
@@ -156,8 +163,15 @@ public final class ROIArchiveCoder: NSObject {
 
     static let brushTool: Int16 = 20         // tPlain
     static let layerTool: Int16 = 24         // tLayerROI
-    static let ballTool: Int16 = 30          // OsiriX 6's tBall
-    static let ovalAngleTool: Int16 = 31     // OsiriX 6's tOvalAngle
+    static let ballTool: Int16 = 30          // tBall of the later LGPL format
+    static let ovalAngleTool: Int16 = 31     // tOvalAngle of the later LGPL format
+
+    /// What opens the values of version 18. The LGPL format numbers its
+    /// versions one after another, so another writer may one day give the
+    /// number 18 a layout of its own: an archive of version 18 or later whose
+    /// value at this place is not this marker is not this application's, and
+    /// is refused rather than read as if it were.
+    static let ownValuesMarker = "isix-roi-values"
 
     /// Reads one ROI written at class `version`. Points must be of `pointClass`
     /// and the layer colour of `colorClass`. On a refusal the result is nil and
@@ -171,7 +185,7 @@ public final class ROIArchiveCoder: NSObject {
         record.points = reader.array(of: pointClass)
         record.rect = NSRectFromString(reader.string() as String? ?? "")
         let archivedType = reader.number()?.floatValue ?? 0
-        if archivedType >= 0 && archivedType <= 31 {   // tWL to OsiriX 6's tOvalAngle; not NaN
+        if archivedType >= 0 && archivedType <= 31 {   // tWL to tOvalAngle; not NaN
             record.type = archivedType
         } else {
             reader.valid = false
@@ -240,18 +254,45 @@ public final class ROIArchiveCoder: NSObject {
             record.hasIsSpline = reader.number()?.boolValue ?? false
         }
 
-        // OsiriX 6.0 or later: read and ignored.
-        let placeholder = version >= 12 ? reader.string() : nil                       // studyInstanceUID
+        // Versions 12 to 17 are of the later LGPL format: read and ignored.
+        let studyUID = version >= 12 ? reader.string() : nil
         if version >= 13 && record.tool == ovalAngleTool { _ = reader.number(); _ = reader.number() }
         if version >= 14 { _ = reader.number() }                                       // rotation
         if version >= 15 { _ = reader.number() }                                       // z location
-
-        // This fork writes placeholders for 12 to 15, then its own values.
         if version >= 16 {
-            record.textNameOnly = reader.number()?.boolValue ?? false
-            record.hidden = reader.number()?.boolValue ?? false
-            // Where version 12 has a study UID, this fork writes a ROI's tie to a ratio.
-            if let placeholder, placeholder.length > 0 { record.link = placeholder }
+            // Four more lines of the text box, or the two numbers this
+            // application once wrote at this version: the former layout,
+            // which also has the ROI's tie to a ratio where the study UID is.
+            let first = reader.next()
+            if version == 16, let nameOnly = first as? NSNumber {
+                record.textNameOnly = nameOnly.boolValue
+                record.hidden = reader.number()?.boolValue ?? false
+                if let studyUID, studyUID.length > 0 { record.link = studyUID }
+            } else {
+                if let first, !first.isKind(of: NSString.self) { reader.valid = false }
+                _ = reader.string()
+                _ = reader.string()
+                _ = reader.string()
+            }
+        }
+        if version >= 17 {
+            // A list of tags and a flag, neither kept: the class of each is
+            // the format's own business, and what the archive may hold at all
+            // is the unarchiver's.
+            _ = reader.next()
+            _ = reader.next()
+        }
+
+        // Version 18: this application's own values, after their marker.
+        if version >= 18 {
+            if reader.string()?.isEqual(to: ownValuesMarker) == true {
+                record.textNameOnly = reader.number()?.boolValue ?? false
+                record.hidden = reader.number()?.boolValue ?? false
+                if let link = reader.string(), link.length > 0 { record.link = link }
+            } else {
+                // Another writer's layout: how many values follow is unknown.
+                reader.valid = false
+            }
         }
 
         guard reader.valid else {
@@ -360,24 +401,31 @@ public final class ROIArchiveCoder: NSObject {
         coder.encode(NSNumber(value: record.isSpline))
         coder.encode(NSNumber(value: record.hasIsSpline))
 
-        // Versions 12 to 15 are OsiriX 6's, which the reader reads and ignores:
-        // placeholders, so that what follows is read at its place.
-        // The first of them holds a ROI's tie to a ratio, when it has one.
+        // Versions 12 to 17 are of the later LGPL format, which the reader
+        // reads and ignores: placeholders of the class each value has there,
+        // so that a reader of that format reads this archive at its places.
+        coder.encode(record.emptyString)            // 12: study UID
+        if record.tool == ovalAngleTool {           // 13
+            coder.encode(NSNumber(value: 0.0))
+            coder.encode(NSNumber(value: 0.0))
+        }
+        coder.encode(NSNumber(value: 0.0))          // 14: rotation
+        coder.encode(NSNumber(value: 0.0))          // 15: z location
+        for _ in 0..<4 {                            // 16: four more lines of the text box
+            coder.encode(record.emptyString)
+        }
+        coder.encode(nil)                           // 17: a list of tags
+        coder.encode(nil)                           //     and a flag
+
+        // Version 18
+        coder.encode(ownValuesMarker as NSString)
+        coder.encode(NSNumber(value: record.textNameOnly))
+        coder.encode(NSNumber(value: record.hidden))
         if let link = record.link, link.length > 0 {
             coder.encode(link)
         } else {
             coder.encode(record.emptyString)
         }
-        if record.tool == ovalAngleTool {
-            coder.encode(NSNumber(value: 0.0))
-            coder.encode(NSNumber(value: 0.0))
-        }
-        coder.encode(NSNumber(value: 0.0))
-        coder.encode(NSNumber(value: 0.0))
-
-        // Version 16
-        coder.encode(NSNumber(value: record.textNameOnly))
-        coder.encode(NSNumber(value: record.hidden))
     }
 
     /// The next values of an unkeyed archive, each checked for its class.
@@ -395,6 +443,9 @@ public final class ROIArchiveCoder: NSObject {
             }
             return object
         }
+
+        /// The next object, whatever its class.
+        mutating func next() -> AnyObject? { coder.decodeObject() as AnyObject? }
 
         /// A number, which the writer puts as an NSNumber. nil reads as 0, as it always did.
         mutating func number() -> NSNumber? { object(of: NSNumber.self) as? NSNumber }

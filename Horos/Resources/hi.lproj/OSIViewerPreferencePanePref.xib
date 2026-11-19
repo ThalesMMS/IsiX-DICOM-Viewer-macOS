@@ -117,7 +117,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
-                                    <rect key="frame" x="200" y="47" width="160" height="22"/>
+                                    <rect key="frame" x="200" y="47" width="170" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="फ़्रेमयुक्त वर्ग" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -169,7 +169,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="323">
                                     <rect key="frame" x="10" y="110" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="सभी खोले गए दर्शकों के लिए अगली/पिछली श्रृंखला बटन लागू करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
+                                    <buttonCell key="cell" type="check" title="अगली/पिछली श्रृंखला बटन सभी खुले व्यूअर पर लागू करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -222,7 +222,7 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="412">
-                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <rect key="frame" x="10" y="10" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="पूर्वावलोकन एप्लिकेशन के साथ PDF खोलें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -230,6 +230,17 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="308" name="value" keyPath="values.openPDFwithPreview" id="440"/>
+                                    </connections>
+                                </button>
+                                <button toolTip="डार्क मोड में PDF दस्तावेज़ और संरचित रिपोर्ट उलटे रंगों में दिखते हैं: गहरे पृष्ठ पर हल्का पाठ। निर्यात, मुद्रण और कॉपी करने पर मूल पृष्ठ मिलता है।" horizontalCompressionResistancePriority="1000" id="invert-pdf-control">
+                                    <rect key="frame" x="316" y="10" width="440" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="डार्क मोड में PDF और संरचित रिपोर्ट उलटे रंगों में दिखाएँ" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="invert-pdf-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.InvertsDocumentPagesInDarkMode" id="invert-pdf-binding"/>
                                     </connections>
                                 </button>
                             </subviews>
@@ -273,7 +284,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
                                     <rect key="frame" x="10" y="50" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="किसी शृंखला को खोलते समय सामग्री पर स्वतः ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
+                                    <buttonCell key="cell" type="check" title="किसी श्रृंखला को खोलते समय सामग्री पर स्वतः ज़ूम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -284,7 +295,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="313">
                                     <rect key="frame" x="10" y="30" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="इसके लिए कोई 'श्रृंखला में प्रचार सेटिंग्स' नहीं:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
+                                    <buttonCell key="cell" type="check" title="श्रृंखला में सेटिंग्स का प्रसार इनके लिए न करें:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="349">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -293,14 +304,14 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
-                                    <rect key="frame" x="300" y="26" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="26" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="रूपात्मकता" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
+                                    <popUpButtonCell key="cell" type="push" title="मोडैलिटी" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="अन्य दृश्य" id="jDc-fg-eC3">
                                             <items>
-                                                <menuItem title="रूपात्मकता" hidden="YES" id="rUf-a6-mNm">
+                                                <menuItem title="मोडैलिटी" hidden="YES" id="rUf-a6-mNm">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
                                                 <menuItem title="CR" state="on" id="FOf-lv-Yw4">
@@ -313,7 +324,7 @@
                                                         <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDX" id="SYc-fl-hLB"/>
                                                     </connections>
                                                 </menuItem>
-                                                <menuItem title="डॉ" id="WGV-vh-73b">
+                                                <menuItem title="DR" id="WGV-vh-73b">
                                                     <connections>
                                                         <binding destination="308" name="value" keyPath="values.noPropagateInSeriesForDR" id="p4b-ru-lzE"/>
                                                     </connections>
@@ -734,14 +745,14 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Pyh-nV-fiK">
-                                    <rect key="frame" x="300" y="119" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="119" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="रूपात्मकता" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
+                                    <popUpButtonCell key="cell" type="push" title="मोडैलिटी" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="अन्य दृश्य" id="3N3-Wh-vx1">
                                             <items>
-                                                <menuItem title="रूपात्मकता" hidden="YES" id="M0C-0c-XXi">
+                                                <menuItem title="मोडैलिटी" hidden="YES" id="M0C-0c-XXi">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
                                                 <menuItem title="CR" state="on" id="8uS-Ii-xSk">
@@ -754,7 +765,7 @@
                                                         <binding destination="308" name="value" keyPath="values.scrollThroughSeriesForDX" id="afJ-VH-28l"/>
                                                     </connections>
                                                 </menuItem>
-                                                <menuItem title="डॉ" id="cza-Ci-dMD">
+                                                <menuItem title="DR" id="cza-Ci-dMD">
                                                     <connections>
                                                         <binding destination="308" name="value" keyPath="values.scrollThroughSeriesForDR" id="lps-qo-ERK"/>
                                                     </connections>
@@ -1059,7 +1070,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="390">
                                     <rect key="frame" x="130" y="15" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="सीआर, एमजी, डीएक्स, डीआर, एक्सए और आरएफ के लिए 12 बिट टोटोकू डिस्प्ले समर्थन स्वचालित रूप से सक्षम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
+                                    <buttonCell key="cell" type="check" title="CR, MG, DX, DR, XA और RF के लिए 12 बिट Totoku डिस्प्ले समर्थन स्वचालित रूप से सक्षम करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1093,7 +1104,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="505">
-                                    <rect key="frame" x="8" y="258" width="122" height="17"/>
+                                    <rect key="frame" x="2" y="258" width="128" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="खिड़की का आकार:" id="506">
                                         <font key="font" metaFont="system"/>

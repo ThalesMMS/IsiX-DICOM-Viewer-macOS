@@ -148,9 +148,10 @@ def verify(arch, report):
     example = report['example']
     check(example.get('state') == 'active', tag + f'example not active: {example}')
     check(example.get('commands') == ['inspect-image|imageFilters|viewer', 'mark-centre|roiTools|viewer',
-                                      'negate-slice|imageFilters|viewer'], tag + f'commands {example.get("commands")}')
+                                      'negate-slice|imageFilters|viewer', 'report-image|report|viewer'],
+          tag + f'commands {example.get("commands")}')
     check(example.get('observations') == 1, tag + 'the example observes once')
-    check(example.get('commandChanges') == 3, tag + 'each registration tells the host to rebuild the menus')
+    check(example.get('commandChanges') == 4, tag + 'each registration tells the host to rebuild the menus')
     check(example.get('canRunWithoutViewer') is False and example.get('canRunWithViewer') is True,
           tag + 'a command that needs a viewer is disabled without one')
     # Refused by the runtime, as the menu disables it: the handler is not called.
@@ -213,7 +214,7 @@ def verify(arch, report):
           tag + 'deactivation did not cancel the task')
     check(observer.get('record', '').startswith(
               'dropped 1 kept 2 cancelled true offMain true deactivated true errors capabilityNotDeclared(database.read),'
-              'commandAlreadyRegistered("invalidate")'),
+              'commandAlreadyRegistered("invalidate"),capabilityNotDeclared(report)'),
           tag + f'observer: {observer.get("record")}')
     # Input: only the kinds asked for, taken when the handler says so, none
     # once the token is invalidated or the plugin deactivated. Drawing: in the

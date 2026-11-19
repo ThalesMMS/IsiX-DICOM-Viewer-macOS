@@ -56,6 +56,17 @@ public final class ITKTransform: NSObject {
     /// The viewer of the moving series, not retained, as before: the
     /// resampling closes it.
     weak var originalViewer: ViewerController?
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared. originalViewer is the pointer to the
+    // viewer above with no retain, as that SDK kept it: written when the
+    // transform is made and not read, since the reference above is the one
+    // that becomes nil when the viewer goes. Nothing of the application stands
+    // behind the other two: the volume below is what ITK reads, and the
+    // result's viewer is answered, not kept. The transform releases itkImage
+    // when it goes.
+    final unowned(unsafe) var originalViewerOfSDK: ViewerController?
+    final unowned(unsafe) var resultViewer: ViewerController?
+    final var itkImage: AnyObject?
     /// The moving series' volume, as ITK reads it.
     let volume: IsiXITKVolume
     /// The process's dependencies, made with the transform: the resampling
@@ -70,6 +81,7 @@ public final class ITKTransform: NSObject {
             return nil
         }
         self.originalViewer = viewer
+        originalViewerOfSDK = viewer
         self.volume = volume
         super.init()
     }

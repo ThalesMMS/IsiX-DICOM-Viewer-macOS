@@ -181,7 +181,7 @@ static const long kBytes = kWidth * kHeight * 4;
 - (void) setSlab:(int) thickness direction:(int) direction mode:(int) mode position:(int) position array:(NSArray*) array
 {
     PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = direction;
-    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, short, pixPos) = position;
     [PIX_IVAR( self, NSArray*, pixArray) release];
     PIX_IVAR( self, NSArray*, pixArray) = [array retain];
     PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;

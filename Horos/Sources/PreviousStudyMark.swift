@@ -50,7 +50,8 @@ public final class PreviousStudyMark: NSObject {
         var newest: [String: Date] = [:]
         for index in patients.indices {
             guard let key = patient(index), let date = day(index) else { continue }
-            if let known = newest[key], known >= date { continue }
+            // Not `>=`: between two dates it is a Foundation symbol only macOS 27.2 has.
+            if let known = newest[key], !(known < date) { continue }
             newest[key] = date
         }
         var previous = IndexSet()

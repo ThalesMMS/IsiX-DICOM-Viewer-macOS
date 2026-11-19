@@ -52,7 +52,7 @@ graphics = (ROOT / 'Horos/Sources/PlanarFramePresenter.swift').read_text()
 border = graphics[graphics.index('public static func drawWindowBorder('):graphics.index('public static func drawOverflow(')]
 overflow = graphics[graphics.index('public static func drawOverflow('):graphics.index('public static func drawTileBorder(')]
 for piece, where, what in [
-    ('let width: Float = active ? 5 : 2', border, 'the frame is 5 points on the key view and 2 on the others'),
+    ('let width: Float = active ? 3 : 2', border, 'the frame is 3 points on the key view and 2 on the others'),
     ('canvas.lineWidth(CGFloat(width * sf))', border, 'the frame is drawn with that width'),
     ('halfWidth: Float(Double(size.width) / 2) - width * sf / 2, halfHeight: Float(Double(size.height) / 2) - width * sf / 2)', border,
      'the whole line is inside the view'),
@@ -64,7 +64,8 @@ for piece, where, what in [
 drawing = (ROOT / 'Horos/Sources/DCMView+Drawing.swift').read_text()
 frame = drawing[drawing.index('var frameInset: CGFloat = 0'):drawing.index('PlanarFrameGraphics.drawTileBorder(')]
 for piece, what in [
-    ('frameInset = PlanarFrameGraphics.drawWindowBorder(', 'the view keeps how far its frame reaches in'),
+    ('frameInset = ViewerWindowBorder.color(for: viewer, active: active).map {', 'the view keeps how far its frame reaches in, 0 without one'),
+    ('PlanarFrameGraphics.drawWindowBorder(size: drawingFrameRect.size, scale: CGFloat(sf), color: $0, active: active) } ?? 0', 'the frame tells it'),
     ('if DCMView.horos_static_OVERFLOWLINES && is2DViewer && self.stringID == nil {', 'the marks follow the preference'),
     ('scale: CGFloat(sf), inset: frameInset)', 'the marks are told where the frame ends'),
 ]:

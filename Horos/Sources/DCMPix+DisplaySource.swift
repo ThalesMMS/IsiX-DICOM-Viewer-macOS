@@ -159,12 +159,9 @@ extension DCMPix {
         case 4, 5:    // Volume Rendering
             guard horos_thickSlab != nil else { return nil }
             let count = horos_pixArray?.count ?? 0
-            let stackSize: Int
-            if stackDirection != 0 {
-                stackSize = position - stack < 0 ? position + 1 : stack + 1
-            } else {
-                stackSize = position + stack < count ? stack : count - position
-            }
+            // The images the label and the other projections count: the slab stops at the series' end.
+            let last = ViewTransform.thickSlabLastIndex(current: position, count: count, stack: stack, flipped: stackDirection != 0)
+            let stackSize = abs(last - position) + 1
             // Backwards, the slab starts at the first of its images, before this one.
             let source = stackDirection != 0 ? horos_fImage.map { $0 - (stackSize - 1) * height * width } : horos_fImage
             let rgba = HorosDCMPixRenderThickSlab(horos_thickSlab, source, stackSize, iwl, displayInverted ? -iww : iww)

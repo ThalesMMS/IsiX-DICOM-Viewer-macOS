@@ -126,7 +126,18 @@ public final class ThreeDPositionController: NSWindowController {
     }
 
     @IBAction public func reset(_ sender: Any?) {
-        viewerController?.executeRevert()
+        // Moved again from the series as its files give it: when they cannot
+        // (a file removed or changed since it was read), the series is kept,
+        // and so is the move it already has.
+        guard let viewerController else { return }
+        viewerController.checkEverythingLoaded()
+        guard ViewerLoadingWait(viewer: viewerController).slicesMatchTheirFiles() else {
+            HorosAlertPanel.run(title: NSLocalizedString("Revert", comment: ""),
+                                message: NSLocalizedString("Files of this dataset were removed or changed since it was read. You cannot restore it.", comment: ""),
+                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        viewerController.executeRevert()
 
         self.movePositionPosition(nil)
     }

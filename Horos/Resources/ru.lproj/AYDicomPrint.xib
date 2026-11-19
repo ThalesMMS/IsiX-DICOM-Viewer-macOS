@@ -205,14 +205,14 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="48">
                                             <items>
-                                                <menuItem title="8 дюймов х 10 дюймов" id="60"/>
+                                                <menuItem title="8 х 10 дюймов" id="60"/>
                                                 <menuItem title="8,5 х 11 дюймов" tag="1" id="58"/>
-                                                <menuItem title="10 дюймов х 12 дюймов" tag="2" id="57"/>
-                                                <menuItem title="10 дюймов х 14 дюймов" tag="3" id="56"/>
-                                                <menuItem title="11 дюймов х 14 дюймов" tag="4" id="54"/>
-                                                <menuItem title="11 дюймов х 17 дюймов" tag="5" id="52"/>
+                                                <menuItem title="10 х 12 дюймов" tag="2" id="57"/>
+                                                <menuItem title="10 х 14 дюймов" tag="3" id="56"/>
+                                                <menuItem title="11 х 14 дюймов" tag="4" id="54"/>
+                                                <menuItem title="11 х 17 дюймов" tag="5" id="52"/>
                                                 <menuItem title="14 х 14 дюймов" tag="6" id="50"/>
-                                                <menuItem title="14 дюймов х 17 дюймов" tag="7" id="59"/>
+                                                <menuItem title="14 х 17 дюймов" tag="7" id="59"/>
                                                 <menuItem title="24 см х 24 см" tag="8" id="49"/>
                                                 <menuItem title="24 см х 30 см" tag="9" id="51"/>
                                                 <menuItem title="A4" tag="10" id="53"/>
@@ -403,8 +403,8 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="124">
                                             <items>
-                                                <menuItem title="Синяя плёнка" id="125"/>
-                                                <menuItem title="Прозрачная плёнка" tag="1" id="126"/>
+                                                <menuItem title="Синяя" id="125"/>
+                                                <menuItem title="Прозрачная" tag="1" id="126"/>
                                                 <menuItem title="Бумага" state="on" tag="2" id="127"/>
                                             </items>
                                         </menu>

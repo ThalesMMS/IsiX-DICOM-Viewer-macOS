@@ -52,7 +52,7 @@ static const TIFFFieldInfo FVTiffFieldInfo[] = {
     { TIFFTAG_FV_USERBLOCK,	TIFF_VARIABLE, TIFF_VARIABLE, TIFF_BYTE, FIELD_CUSTOM, 1, 1, (char *)"FV_USERBLOCK"},
 };
 
-int FV_Read_DIM_INFO(const char* data, FV_MM_DIM_INFO* info)
+__attribute__((used)) int FV_Read_DIM_INFO(const char* data, FV_MM_DIM_INFO* info)
 {
 	memset(info, 0, sizeof(FV_MM_DIM_INFO));
 
@@ -72,7 +72,7 @@ int FV_Read_DIM_INFO(const char* data, FV_MM_DIM_INFO* info)
 	return 1;
 }
 
-int FV_Read_MM_HEAD(const char* data, FV_MM_HEAD* head) // for now I don't quite understand how the MM_HEAD is stored, so I will only fill in
+__attribute__((used)) int FV_Read_MM_HEAD(const char* data, FV_MM_HEAD* head) // for now I don't quite understand how the MM_HEAD is stored, so I will only fill in
 {														// the members I feel kinda confident about
 	int i = 0;
 

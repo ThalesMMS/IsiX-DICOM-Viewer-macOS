@@ -97,9 +97,15 @@ public struct ViewerToolbarCatalog: Sendable {
         public var marksMIP: Bool { tag == 3 }
     }
 
+    /// The tag of Vessel Analysis, which sends the curved MPR's action, as MIP
+    /// sends the volume rendering's: the curved MPR opens with the Curved
+    /// Path tool and runs its path assistant on the second point marked.
+    public static let vesselAnalysisTag = 11
+
     public static let threeDShortcuts = [
         ThreeDShortcut(identifier: "Shortcut3DMPR", label: "MPR", title: "3D MPR", action: "mprViewer:", tag: 10, image: "MPR.tif"),
         ThreeDShortcut(identifier: "Shortcut3DCPR", label: "CPR", title: "3D Curved-MPR", action: "cprViewer:", tag: 1, image: "curvedPath.icns"),
+        ThreeDShortcut(identifier: "Shortcut3DVessels", label: "Vessels", title: "Vessel Analysis", action: "cprViewer:", tag: 11, image: "PathAssistant.png"),
         ThreeDShortcut(identifier: "Shortcut2DOrthoMPR", label: "Ortho", title: "2D Orthogonal MPR", action: "orthogonalMPRViewer:", tag: 8, image: "orthogonalReslice.tif"),
         ThreeDShortcut(identifier: "Shortcut3DMIP", label: "MIP", title: "3D MIP", action: "VRViewer:", tag: 3, image: "MIP.tif"),
         ThreeDShortcut(identifier: "Shortcut3DVR", label: "VR", title: "3D Volume Rendering", action: "VRViewer:", tag: 4, image: "VolumeRendering.tif"),

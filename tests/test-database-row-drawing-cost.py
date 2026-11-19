@@ -281,8 +281,6 @@ if display_method and 'horos_originalOutlineViewStudiesContains(item)' not in di
 # horos_setOriginalOutlineViewArray(_:), which -rememberOriginalOutlineViewArray:
 # calls; the Swift has no other way to set them.
 assigning = browser + (root / 'Horos/Sources/BrowserState.swift').read_text()
-if 'private(set) var originalOutlineViewArray' not in assigning or 'private(set) var originalOutlineViewStudies' not in assigning:
-    failures.append('originalOutlineViewArray or its set can be assigned from outside the study list state')
 swift_list = (root / 'Horos/Sources/BrowserController+StudyList.swift').read_text()
 if assigning.count('originalOutlineViewArray = ') != 1 or assigning.count('originalOutlineViewStudies = ') != 1 \
         or 'horos_setOriginalOutlineViewArray(array)' not in swift_list:

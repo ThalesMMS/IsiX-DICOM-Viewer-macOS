@@ -88,8 +88,15 @@ import IsiXContracts
     public static func weasisCustomizationPaths() -> [String] { return [] }
 }
 // BrowserController is Swift; the estimate never reaches the browser, the
-// object only names the class for the messages the burn itself sends it.
-@objc(BurnSizeProbeBrowserController) public final class BrowserController: NSObject {}
+// object only names the class for the messages the burn itself sends it and
+// for the field it writes itself into, the browser's unretained copy of its
+// burner. The field is of the burner's class, which only the object defines,
+// so the stand-in keeps a field of the same size in the same place, the first
+// after NSObject's, and the offset the object reads is given under the
+// application's symbol (browser_field_offsets()).
+@objc(BurnSizeProbeBrowserController) public final class BrowserController: NSObject {
+    final unowned(unsafe) var burnerWindowControllerField: AnyObject?
+}
 @objc(BurnSizeProbeDicomStudy) public final class DicomStudy: NSObject {
     @objc public dynamic class func displaySeries(withSOPClassUID uid: String!, andSeriesDescription description: String!) -> Bool {
         return true
@@ -130,6 +137,21 @@ struct DatabaseIngest {
     func fileConverting(of database: DicomDatabase?) -> any DatabaseFileConverting { fatalError("not reached by the estimate") }
 }
 """
+
+
+def browser_field_offsets(obj, folder):
+    """An object that defines the direct field offsets `obj` reads of the
+    browser's copy of its burner: the offset of the stand-in's one field, which
+    follows NSObject's isa. None when `obj` reads none."""
+    listing = subprocess.run(["nm", "-u", "-j", str(obj)], check=True, capture_output=True, text=True).stdout
+    symbols = sorted(set(re.findall(r"^_(\$s5Horos17BrowserControllerC\w*_burner\w*Wvd)$", listing, re.M)))
+    if not symbols:
+        return None
+    source, built = folder / "browser_field_offsets.c", folder / "browser_field_offsets.o"
+    source.write_text("".join('const long BrowserFieldOffset%d __asm__("_%s") = sizeof(void *);\n' % (index, symbol)
+                              for index, symbol in enumerate(symbols)))
+    subprocess.run(["xcrun", "clang", "-target", "arm64-apple-macos26.0", "-c", str(source), "-o", str(built)], check=True)
+    return built
 
 
 def undefined_module_symbols(image):
@@ -196,7 +218,8 @@ if is_swift("BurnerWindowController") and not arguments.revision:
     # PreferencesSource is the application's own, over the stand-in graph.
     burner = object_probe.swift_dylib([stand_ins, ROOT / "Horos/Sources/MainActorCallbacks.swift",
                                        ROOT / "Horos/Sources/PreferencesSource.swift"],
-                                      [objects[0]] + helpers, work / "libBurnerWindowController.dylib",
+                                      [objects[0]] + helpers + [o for o in [browser_field_offsets(objects[0], work)] if o],
+                                      work / "libBurnerWindowController.dylib",
                                       bridging_header=bridging,
                                       frameworks=("Cocoa", "DiscRecording", "DiscRecordingUI"), flags=module_flags)
     # A Swift class of the module the object came to name after these stand-ins

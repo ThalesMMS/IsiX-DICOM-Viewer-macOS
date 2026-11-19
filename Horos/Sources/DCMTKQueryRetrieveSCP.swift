@@ -65,12 +65,20 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
     /// The suffix of the TLS files the listener writes.
     private static let tlsStringID = "StoreSCPTLS"
 
-    private let listenerPort: Int32
-    private let listenerAETitle: String?
+    // The instance variables of the former Horos and OsiriX plugin SDK (_port,
+    // _aeTitle, _params, _abort and running), which a plugin reads and writes
+    // at the offset the application exports for each: stored fields of this
+    // class with the type the C declaration has in memory, never private,
+    // constant, lazy or observed. Of the parameters the listener keeps what it
+    // reads from them when it is made, and that dictionary stays nil.
+    var listenerPort: Int32
+    var _aeTitle: NSString?
+    var _params: NSDictionary?
+    private var listenerAETitle: String? { _aeTitle as String? }
     private let secure: Bool
     private let stateLock = NSLock()
-    private var aborted = false
-    private var isRunning = false
+    var aborted = false
+    var isRunning = false
 
     /// Whether a listener of the application, or another one it was told of
     /// (NinjaSTORESCP), receives what a C-MOVE sends here.
@@ -84,7 +92,7 @@ final class DCMTKQueryRetrieveSCP: NSObject, @unchecked Sendable {
     @objc(initWithPort:aeTitle:extraParamaters:)
     init(port: Int32, aeTitle: String?, extraParamaters params: [AnyHashable: Any]?) {
         listenerPort = port
-        listenerAETitle = aeTitle
+        _aeTitle = aeTitle as NSString?
         secure = (params?["TLSEnabled"] as? NSNumber)?.boolValue ?? false
         super.init()
     }

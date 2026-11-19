@@ -101,6 +101,12 @@ public enum PresentationStateOverlay {
         same(sizeMode, "MAGNIFY") && magnification > 0 ? magnification : nil
     }
 
+    /// Whether a displayed area is shown as large as the view allows, none of
+    /// it left out (PS 3.3 C.10.4).
+    public static func fitsView(sizeMode: String) -> Bool {
+        same(sizeMode, "SCALE TO FIT")
+    }
+
     /// The frames of a missing reference as the log names them: joined by
     /// commas, or "all" when it names none.
     public static func framesDescription(_ frames: [Int]) -> String {

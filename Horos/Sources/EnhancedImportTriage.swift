@@ -128,7 +128,8 @@ public final class EnhancedImportTriage: NSObject {
     ]
 
     /// Classes without a picture whose UIDs are no prefix: raw data and the spatial registration
-    /// family, which a CT processed on syngo.via carries beside its slices. Matched exactly, so
+    /// family, which a CT processed on a vendor post-processing workstation carries beside its
+    /// slices. Matched exactly, so
     /// a segmentation (…66.4), which has pixels, is still judged as an image.
     static let nonPixelStorageExact: Set<String> = [
         "1.2.840.10008.5.1.4.1.1.66",     // raw data
@@ -223,7 +224,7 @@ public final class EnhancedImportTriage: NSObject {
             error = text
         } else if WrappedImageFragments.carriesImageFile(data, parsed, width: columns, height: rows) {
             // An image file wrapped under a private transfer syntax is drawn by
-            // ImageIO whatever its BitsAllocated says: VTServer's 1-bit G4 TIFF
+            // ImageIO whatever its BitsAllocated says: a PACS's 1-bit G4 TIFF
             // scans were refused here.
         } else if bitsAllocated != 8 && bitsAllocated != 16 && bitsAllocated != 32 {
             let text = "BitsAllocated is \(bitsAllocated), which the pixel stack cannot load"

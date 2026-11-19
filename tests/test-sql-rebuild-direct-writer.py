@@ -382,8 +382,8 @@ for name, signature in (('the SQL rebuild', REBUILD_SQL), ('the rebuild', 'func 
     body = method(rebuild, signature)
     check('IndexRebuildsUnderWay.shared.begin()' in body and 'IndexRebuildsUnderWay.shared.end()' in body,
           '%s is not listed for quitting' % name)
-window = (root / 'Horos/Sources/BrowserController+Window.swift').read_text()
-terminate = method(window, 'func shouldTerminate(_ sender: Any!) -> Bool {')
+agreement = (root / 'Horos/Sources/BrowserQuitAgreement.swift').read_text()
+terminate = method(agreement, 'func given(asking: Bool) -> Bool {')
 check(0 <= terminate.find('DatabaseRebuildService.waitForRebuildsBeforeQuitting()') < terminate.find('ViewerController.closeAllWindows()'),
       'quitting closes the viewers before it waits for the rebuilds')
 wait = method(rebuild, 'static func waitForRebuildsBeforeQuitting() -> Bool {')

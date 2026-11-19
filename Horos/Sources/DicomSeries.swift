@@ -39,6 +39,7 @@
 
 import Cocoa
 import CoreData
+import IsiXDatabase
 import IsiXDICOMFile
 import IsiXPreferences
 
@@ -543,19 +544,26 @@ public final class DicomSeries: NSManagedObject {
 
         N2ManagedObjectContextPerformAndWait(self.managedObjectContext) {
         if let e = HorosObjCException.caught({
-            let v = dicomSeriesIntValue((self.horosImages()?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
-
-            if v > 1 {
-                no = NSNumber(value: Int32(truncatingIfNeeded: (self.horosImages()?.count ?? 0) - Int(v) + 1))
-            } else {
-                no = NSNumber(value: Int32(truncatingIfNeeded: self.horosImages()?.count ?? 0))
-            }
+            no = NSNumber(value: Int32(truncatingIfNeeded: self.fileCount()))
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries rawNoFiles]")
         }
         }
 
         return no
+    }
+
+    /// The number of files the images are in (SeriesFiles.count): an image a
+    /// file, or one multi-frame file, told by one image and the number of
+    /// images; the images of several multi-frame files are read, each for
+    /// the path of its file.
+    private func fileCount() -> Int {
+        let images = self.horosImages()
+        let frames = dicomSeriesIntValue((images?.anyObject() as AnyObject?)?.value(forKey: "numberOfFrames"))
+
+        return SeriesFiles.count(images: images?.count ?? 0, framesOfOne: Int(frames)) {
+            SeriesFiles.distinctCount((images?.allObjects ?? []).compactMap { ($0 as? DicomImage)?.path() })
+        }
     }
 
     /// -images: the images of the series, without those deleted in the context.
@@ -648,7 +656,7 @@ public final class DicomSeries: NSManagedObject {
             let no: NSNumber?
 
             if v > 1 {
-                no = NSNumber(value: Int32(truncatingIfNeeded: (self.horosImages()?.count ?? 0) - Int(v) + 1))
+                no = NSNumber(value: Int32(truncatingIfNeeded: self.fileCount()))
             } else {
                 no = self.noFiles()
             }
@@ -756,6 +764,8 @@ public final class DicomSeries: NSManagedObject {
 
         let sortDate = NSSortDescriptor(key: "date", ascending: (sortSeriesBySliceLocation > 0) ? true : false)
         let sortInstance = NSSortDescriptor(key: "instanceNumber", ascending: true)
+        // Images that share an instance number follow their location downwards
+        // in the default order, upwards when the location is chosen ascending.
         let sortLocation = NSSortDescriptor(key: "sliceLocation", ascending: (sortSeriesBySliceLocation > 0) ? true : false)
 
         let sortDescriptors: [NSSortDescriptor]
@@ -778,12 +788,43 @@ public final class DicomSeries: NSManagedObject {
         var result: NSArray? = nil
 
         if let e = HorosObjCException.caught({
-            result = (self.horosImages()?.allObjects as NSArray?)?.sortedArray(using: (self.sortDescriptorsForImages() as? [NSSortDescriptor]) ?? []) as NSArray?
+            result = Self.fileByFile((self.horosImages()?.allObjects as NSArray?)?.sortedArray(using: (self.sortDescriptorsForImages() as? [NSSortDescriptor]) ?? [])) as NSArray?
         }) {
             _N2LogExceptionImpl(e, true, "-[DicomSeries sortedImages]")
         }
 
         return result
+    }
+
+    /// Sorted images of a series held in several multi-frame files, file by
+    /// file (SeriesFiles.order): the files by their time, each with its
+    /// frames in their order, where the sort descriptors, which compare an
+    /// image with another, mix the frames the files number and place alike.
+    /// Any other images as they are: each is asked its number of frames, and
+    /// those of a multi-frame file their path, until a second file is met.
+    /// For the images of the series, or some of them sorted by its
+    /// descriptors.
+    static func fileByFile(_ sorted: [Any]?) -> [Any]? {
+        guard let sorted else { return nil }
+        var file: String?
+        var severalFiles = false
+        for case let image as DicomImage in sorted where (image.numberOfFrames?.intValue ?? 0) > 1 {
+            guard let path = image.path() else { continue }
+            if file == nil {
+                file = path
+            } else if path != file {
+                severalFiles = true
+                break
+            }
+        }
+        guard severalFiles else { return sorted }
+
+        let images = sorted.map { element -> SeriesFiles.Image in
+            let image = element as? DicomImage
+            return SeriesFiles.Image(file: image?.path() ?? "", frames: image?.numberOfFrames?.intValue ?? 0, frame: image?.frameID?.intValue ?? 0,
+                                     time: image?.date, instanceNumber: image?.instanceNumber?.intValue ?? 0)
+        }
+        return SeriesFiles.order(images)?.map { sorted[$0] } ?? sorted
     }
 
     /// `sortedImages`, with the type the former header gave Swift.

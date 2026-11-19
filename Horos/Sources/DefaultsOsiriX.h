@@ -53,18 +53,40 @@ enum HotKeyActions {DefaultWWWLHotKeyAction = 0, FullDynamicWWWLHotKeyAction,
     ResliceAxialHotKeyAction, ResliceCoronalHotKeyAction, ResliceSagittalHotKeyAction};
 
 
-// The factory settings, and what they read of this computer, are the
-// IsiXPreferences module's DefaultPreferences: Swift imports the module. In
-// Objective-C, DefaultsOsiriX names that class (IsiXDefaultPreferences), and
-// HorosDefaultPreferences() builds the defaults of the target being compiled:
-// the application's (OSIRIX_VIEWER) or those of a target without the viewer,
-// those of the Mac App Store build when MACAPPSTORE is defined.
+/** \brief Sets up user defaults
+
+The class of the Horos and OsiriX plugin SDK that answers the factory
+settings: a plugin built for either looks it up by name. The factory settings,
+and what they read of this computer, are DefaultPreferences's
+(IsiXDefaultPreferences in Objective-C), of the IsiXPreferences module, which
+the application itself asks; this class answers with them.
+
+DefaultsOsiriX.swift implements the class (@objc @implementation).
+*/
+@interface DefaultsOsiriX : NSObject
+
+/// The factory settings of this build of the application, those of the Mac
+/// App Store build when it is one: a new dictionary at each call.
++ (NSMutableDictionary*) getDefaults;
+/// This computer's host, resolved once.
++ (NSHost*) currentHost;
+
+/// The megabytes of video memory of the first display device that states
+/// them; 0 when none does.
++ (mach_vm_size_t) GPUModelVRAMInfo;
+/// The bytes the graphics of the main display may use.
++ (long) vramSize;
+
+@end
+
+// HorosDefaultPreferences() builds the defaults of the target being compiled,
+// for its Objective-C files: the application's (OSIRIX_VIEWER) or those of a
+// target without the viewer, those of the Mac App Store build when MACAPPSTORE
+// is defined.
 // __swift__: Swift itself reading the bridging header, which sees the module directly.
 #if !defined(__swift__) && __has_include("IsiXPreferences-Swift.h")
 // Found in GENERATED_MODULEMAP_DIR: these targets compile without clang modules.
 #import "IsiXPreferences-Swift.h"
-
-@compatibility_alias DefaultsOsiriX IsiXDefaultPreferences;
 
 static inline NSMutableDictionary *HorosDefaultPreferences(void)
 {

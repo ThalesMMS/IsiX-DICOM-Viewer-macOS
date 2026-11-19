@@ -340,7 +340,6 @@ enum HorosObjCException {
     @discardableResult
     static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
     static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
-    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
     @discardableResult
     static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
     @discardableResult
@@ -382,6 +381,9 @@ nonisolated(unsafe) var heard: [String] = []
 
 final class DicomDatabase: NSObject {
     var timeOfLastModification = 0.0
+    // The import of the probe runs on the main database itself.
+    func isMainDatabase() -> Bool { true }
+    var mainDatabase: AnyObject? { self }
     var routed = false
     var notice: [String?] = []
     func isLocal() -> Bool { true }

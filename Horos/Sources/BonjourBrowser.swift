@@ -59,6 +59,59 @@ public final class BonjourBrowser: NSObject {
     // Not retained, as the Objective-C ivar was not.
     private weak var interfaceOsiriX: BrowserController?
 
+    // MARK: Instance variables of older headers of the former plugin SDK
+
+    // The headers of older Horos and OsiriX plugin SDKs declared these, and a
+    // plugin built with one binds each name when it loads: each is a stored
+    // field of this class with the type the C declaration has in memory, never
+    // private.
+    //
+    // The publisher of the shared database, which that class was made with,
+    // is the process's: not retained, as it was not, and written when this
+    // object or the publisher is made. It is never read here.
+    unowned(unsafe) var publisher: BonjourPublisher?
+    // Everything else was of the client of the shared database protocol,
+    // which that class also was: one request at a time, to the service whose
+    // address it was resolving, with its reply and what the request named.
+    // The client is RemoteDicomDatabase now, one object for each shared
+    // database, with several connections at once; the Sources list resolves
+    // the services itself. Nothing of it is left here: nil, zero and NO.
+    //
+    // The request in progress: its two locks, how far the reply had come, the
+    // service being resolved and its place in the list, the request's text,
+    // whether the address resolved or the user gave up, the dialog shown
+    // meanwhile, the connection, the bytes still to send, the time limit and
+    // the request as a dictionary.
+    var async: NSRecursiveLock?, asyncWrite: NSRecursiveLock?
+    var lastAsyncPos: Int = 0
+    var serviceBeingResolved: NetService?
+    var serviceBeingResolvedIndex: Int32 = 0
+    var messageToRemoteService = IsiXBonjourBrowserMessage()
+    var resolved = false, connectToServerAborted = false
+    unowned(unsafe) var waitWindow: WaitRendering?
+    var currentConnection: FileHandle?
+    var currentDataPtr: UnsafeMutableRawPointer?
+    var currentDataPos: Int = 0
+    var currentTimeOut: NSDate?
+    var messageToSend: NSDictionary?
+    // What a request named and what its reply gave: the copy of the remote
+    // index and its name, the files asked for and sent, the password and
+    // whether the database wanted one or refused it, the studies of an album,
+    // the object, key and value of a change, the dates and the size of the
+    // remote index, the version of its model, a file's date, and the DICOM
+    // listener and destination of the other side.
+    var tempDatabaseFile: NSString?, dbFileName: NSString?, password: NSString?, path: NSString?
+    var dicomFileNames: NSMutableArray?, paths: NSMutableArray?
+    var isPasswordProtected = false, wrongPassword = false
+    var albumStudies: NSMutableArray?
+    var albumUID: NSString?
+    var setValueObject: NSString?, setValueKey: NSString?
+    var setValueValue: AnyObject?
+    var localVersion: TimeInterval = 0, BonjourDatabaseVersion: TimeInterval = 0
+    var BonjourDatabaseIndexFileSize: Int = 0
+    var modelVersion: NSString?, filePathToLoad: NSString?, FileModificationDate: NSString?
+    var dicomListener: NSDictionary?, dicomDestination: NSDictionary?
+
     /// The browser the last -initWithBrowserController: made. Not retained, as
     /// the Objective-C static was not; weak, so it never answers a freed object.
     private struct Latest: Sendable {
@@ -91,6 +144,9 @@ public final class BonjourBrowser: NSObject {
         arrangeServices()
 
         interfaceOsiriX = bC
+        // The publisher of the process, which is told of the window in turn.
+        publisher = processGraph.bonjourPublisher
+        publisher?.interfaceOsiriX = bC
 
         NSUserDefaultsController.shared.addObserver(self, forValuesKey: NetworkPreferences.dicomNodes.name, options: .initial, context: nil)
 

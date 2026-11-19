@@ -203,6 +203,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @IBOutlet private var thickSlabTextField: NSTextField?
     @IBOutlet private var thickSlabSlider: NSSlider?
+    private var slabBar = StackSlabBar() // The slab asked for, in images, and what the slider and the field show of it.
     @IBOutlet private var thickSlabActivated: NSButton?
     @IBOutlet private var thickSlabPopup: NSPopUpButton?
 
@@ -263,17 +264,52 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     /// The Window3DController ivars, by their accessors.
     private var curWLWWMenuIvar: String? {
         get { return self.horos_curWLWWMenu }
-        set { self.horos_curWLWWMenu = newValue }
+        set {
+            self.horos_curWLWWMenu = newValue
+            copyMenusOfOlderSDK()
+        }
     }
 
     private var curCLUTMenuIvar: String? {
         get { return self.horos_curCLUTMenu }
-        set { self.horos_curCLUTMenu = newValue }
+        set {
+            self.horos_curCLUTMenu = newValue
+            copyMenusOfOlderSDK()
+        }
     }
 
     private var curOpacityMenuIvar: String? {
         get { return self.horos_curOpacityMenu }
-        set { self.horos_curOpacityMenu = newValue }
+        set {
+            self.horos_curOpacityMenu = newValue
+            copyMenusOfOlderSDK()
+        }
+    }
+
+    // Instance variables that only older copies of the headers of the former
+    // Horos and OsiriX plugin SDK declare in this class, which a plugin built
+    // with one reads at the offsets the application exports for them. Those
+    // headers declared here the three menus of the window level, the colour
+    // table and the opacity table and the names chosen in them, which the
+    // later ones declare in Window3DController, where the window keeps them.
+    // These are copies, written when the nib has connected the menus, when
+    // this class writes a name and when a change of the menus is announced,
+    // as it is after every other write; nothing reads them.
+    var wlwwPopupOfOlderSDK: NSPopUpButton?, clutPopupOfOlderSDK: NSPopUpButton?, opacityPopupOfOlderSDK: NSPopUpButton?
+    var curWLWWMenuOfOlderSDK: NSString?, curCLUTMenuOfOlderSDK: NSString?, curOpacityMenuOfOlderSDK: NSString?
+
+    private func copyMenusOfOlderSDK() {
+        wlwwPopupOfOlderSDK = wlwwPopup()
+        clutPopupOfOlderSDK = clutPopup()
+        opacityPopupOfOlderSDK = opacityPopup()
+        curWLWWMenuOfOlderSDK = curWLWWMenuOfSDK
+        curCLUTMenuOfOlderSDK = curCLUTMenuOfSDK
+        curOpacityMenuOfOlderSDK = curOpacityMenuOfSDK
+    }
+
+    public override func windowDidLoad() {
+        super.windowDidLoad()
+        copyMenusOfOlderSDK()
     }
 
     // MARK: - Properties
@@ -406,12 +442,10 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         displayResliceAxes = 1
 
         // thick slab
-        thickSlabTextField?.intValue = Int32(truncatingIfNeeded: self.preferenceStore[ReconstructionPreferences.stackThicknessOrthogonalMPR])
-        thickSlabSlider?.intValue = Int32(truncatingIfNeeded: self.preferenceStore[ReconstructionPreferences.stackThicknessOrthogonalMPR])
+        slabBar.requested = max(2, self.preferenceStore[ReconstructionPreferences.stackThicknessOrthogonalMPR])
+        // The slider asks for images, as many as the series has; its track is the scale of the image shown (slabDidChange).
         thickSlabSlider?.minValue = 2
-        //NSLog(@"maxValue : %d",[controller maxThickSlab]);
-        //[thickSlabSlider setMaxValue:[controller maxThickSlab]];
-        //[thickSlabSlider setMaxValue:40];
+        thickSlabSlider?.maxValue = Double(max(2, controller?.maxThickSlab() ?? 2))
 
         exportDCM = nil
 
@@ -422,8 +456,8 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         nc.addObserver(self, selector: #selector(updateCLUTMenu(_:)), name: NSNotification.Name.OsirixUpdateCLUTMenu, object: nil)
         nc.post(name: NSNotification.Name.OsirixUpdateCLUTMenu, object: curCLUTMenuIvar, userInfo: nil)
 
-        // WL/WW Menu
-        curWLWWMenuIvar = NSLocalizedString("Other", comment: "")
+        // WL/WW Menu: the views open on the 2D viewer's images, at its level, so under the name it has for it.
+        curWLWWMenuIvar = vC?.curWLWWMenu() ?? NSLocalizedString("Other", comment: "")
         nc.addObserver(self, selector: #selector(UpdateWLWWMenu(_:)), name: NSNotification.Name.OsirixUpdateWLWWMenu, object: nil)
         nc.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: curWLWWMenuIvar, userInfo: nil)
 
@@ -450,7 +484,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         NSLog("OrthogonalMPRViewer dealloc")
 
         NSUserDefaultsController.shared.removeObserver(self, forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews))
-        self.preferenceStore.set(Int(thickSlabSlider?.intValue ?? 0), for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
+        self.preferenceStore.set(slabBar.requested, for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
 
         self.removeObserver(self, forKeyPath: "syncSeriesState")
 
@@ -504,6 +538,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     }
 
     public override dynamic func updateCLUTMenu(_ note: Notification!) {
+        copyMenusOfOlderSDK()
         //*** Build the menu
         // Presets VIEWER Menu
 
@@ -537,6 +572,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(UpdateWLWWMenu:)
     private dynamic func UpdateWLWWMenu(_ note: Notification!) {
+        copyMenusOfOlderSDK()
         //*** Build the menu
         // Presets VIEWER Menu
         let titles = ReconstructionPreferences.windowLevelMenuTitles(in: self.preferenceStore)
@@ -569,9 +605,9 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             self.setWLWW(Float(value?.level ?? 0), Float(value?.width ?? 0))
         }
 
-        if curWLWWMenuIvar != menuString {
-            curWLWWMenuIvar = menuString
-        }
+        curWLWWMenuIvar = menuString
+        // The level went to the 2D viewer too, and its name goes with it; «Other» applies no level and names none there.
+        if menuString != NSLocalizedString("Other", comment: "") { viewerIvar?.setCurWLWWMenu(menuString) }
 
         self.wlwwPopup()?.menu?.item(at: 0)?.title = menuString ?? ""
 
@@ -590,11 +626,11 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
         self.applyWLWW(for: menuString)
     }
 
+    /// The name of the level a press or a hot key left in a view of this window, which is the 2D viewer's level too: both keep it.
     @objc(setCurWLWWMenu:)
     public dynamic func setCurWLWWMenu(_ wlww: String!) {
-        if curWLWWMenuIvar != wlww {
-            curWLWWMenuIvar = wlww
-        }
+        curWLWWMenuIvar = wlww
+        viewerIvar?.setCurWLWWMenu(wlww)
     }
 
     @objc(OpacityChanged:)
@@ -604,6 +640,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @objc(UpdateOpacityMenu:)
     private dynamic func UpdateOpacityMenu(_ note: Notification!) {
+        copyMenusOfOlderSDK()
         //*** Build the menu
         // Presets VIEWER Menu
 
@@ -621,7 +658,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     }
 
     public override dynamic func applyOpacityString(_ str: String!) {
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             if curOpacityMenuIvar != str {
                 curOpacityMenuIvar = str
             }
@@ -668,30 +705,31 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
     @IBAction @objc(activateThickSlab:)
     public dynamic func activateThickSlab(_ sender: Any!) {
-        if thickSlabActivated?.state == .on {
-            self.setThickSlabMode(thickSlabPopup)
-        } else {
-            self.setThickSlabMode(thickSlabPopup)
-        }
+        self.setThickSlabMode(thickSlabPopup)
     }
 
     @IBAction @objc(setThickSlabMode:)
     public dynamic func setThickSlabMode(_ sender: Any!) {
         if (thickSlabActivated?.state ?? .off) == .off {
-            thickSlabSlider?.isEnabled = false
             controller?.setThickSlab(0)
         } else {
-            thickSlabSlider?.isEnabled = true
             controller?.setThickSlabMode(Int16(truncatingIfNeeded: tagOf((sender as? NSObject)?.value(forKey: "selectedItem"))))
-            controller?.setThickSlab(Int16(truncatingIfNeeded: thickSlabSlider?.intValue ?? 0))
+            controller?.setThickSlab(Int16(clamping: slabBar.requested))
         }
+        slabDidChange()
+    }
+
+    /// The slab's slider and field for the image the original view shows now (StackSlabBar).
+    func slabDidChange() {
+        slabBar.show(controller?.slabScale(), active: thickSlabActivated?.state == .on, slider: thickSlabSlider, field: thickSlabTextField)
     }
 
     @IBAction @objc(setThickSlab:)
     public dynamic func setThickSlab(_ sender: Any!) {
-        thickSlabTextField?.stringValue = String(format: "%d", intValueOf(sender)) //([sender intValue] * [controller thickSlabDistance]/10.0)]];
-        thickSlabTextField?.needsDisplay = true
-        controller?.setThickSlab(Int16(truncatingIfNeeded: intValueOf(sender)))
+        let changed = slabBar.take(Int(intValueOf(sender)), from: sender, slider: thickSlabSlider, applied: Int(controller?.thickSlab() ?? 0))
+        self.preferenceStore.set(slabBar.requested, for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
+        if changed { controller?.setThickSlab(Int16(clamping: slabBar.requested)) }
+        slabDidChange()
     }
 
     // MARK: - NSWindow related methods
@@ -960,11 +998,11 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
     public dynamic func changeTool(_ sender: Any!) {
         let tag = Int32(truncatingIfNeeded: tagOf(sender))
         if tag >= 0 {
-            if (sender as AnyObject?)?.isMember(of: NSMatrix.self) ?? false {
-                self.setCurrentTool(ToolMode(rawValue: Int16(truncatingIfNeeded: (sender as? NSMatrix)?.selectedCell()?.tag ?? 0))!)
-            } else {
-                self.setCurrentTool(ToolMode(rawValue: Int16(truncatingIfNeeded: tag))!)
-            }
+            // A matrix gives the tool in the tag of its clicked cell: its own
+            // tag is 0, window level. The nib names a subclass of NSMatrix, so
+            // any matrix is asked, not only one of that exact class.
+            let tool = (sender as? NSMatrix).map { Int32(truncatingIfNeeded: $0.selectedCell()?.tag ?? 0) } ?? tag
+            self.setCurrentTool(ToolMode(rawValue: Int16(truncatingIfNeeded: tool))!)
         }
     }
 
@@ -1267,7 +1305,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
 
         email = Mailer()
 
-        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: path)
+        email.mailShowingFailure(image: path)
     }
 
     @objc(exportJPEG:)

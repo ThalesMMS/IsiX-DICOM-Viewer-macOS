@@ -96,10 +96,22 @@ extension PluginManager {
         return PluginAdmission.kind(of: name) == .version1
     }
 
-    class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?) {
-        nonisolated(unsafe) let menus = (filtersMenu, roisMenu, othersMenu, dbMenu)
+    class func addIsiXPluginMenuItems(_ filtersMenu: NSMenu?, _ roisMenu: NSMenu?, _ othersMenu: NSMenu?, _ dbMenu: NSMenu?,
+                                      _ reportMenu: NSMenu?) {
+        nonisolated(unsafe) let menus = (filtersMenu, roisMenu, othersMenu, dbMenu, reportMenu)
         onMainActorSync {
-            IsiXPluginHost.shared.addMenuItems(filters: menus.0, rois: menus.1, others: menus.2, database: menus.3)
+            IsiXPluginHost.shared.addMenuItems(filters: menus.0, rois: menus.1, others: menus.2, database: menus.3, report: menus.4)
         }
+    }
+
+    /// The identifier of the Report item of the Plugins menu (MainMenu.xib).
+    static let reportMenuItemIdentifier = "org.horos.menu.plugins.report"
+
+    /// The Report menu that stands beside `dbMenu` in the application's
+    /// Plugins menu; nil for menus that are not the application's own.
+    /// +setMenus:::: takes four menus, and plugins made for Horos or OsiriX
+    /// call it as it is: the fifth is found from the fourth.
+    class func reportMenu(beside dbMenu: NSMenu?) -> NSMenu? {
+        dbMenu?.supermenu?.items.first { $0.identifier?.rawValue == reportMenuItemIdentifier }?.submenu
     }
 }

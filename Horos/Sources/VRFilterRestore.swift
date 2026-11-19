@@ -79,6 +79,13 @@ public final class VRFilterRestore: NSObject {
         cutAfterFilter = true
     }
 
+    /// The note as it was before the cut -undo: took back: with the volume
+    /// as it was then, the window has no cut to ask about when it closes.
+    @objc(restoreCutNote:)
+    public func restoreCutNote(_ cut: Bool) {
+        cutAfterFilter = cut
+    }
+
     /// Writes the copies back into the volumes they were taken from and
     /// returns how many were written. A volume whose size changed since, or
     /// one past those copied, is left alone.

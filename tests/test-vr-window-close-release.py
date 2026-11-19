@@ -244,8 +244,10 @@ if re.search(r'removeObserver:\s*self\s+name:\s*NSWindowWillCloseNotification', 
 # -prepareForRelease is Swift (VRView+State.swift), an extension of VRView: to
 # the line that closes it at the extension's indentation.
 state = read('Horos/Sources/VRView+State.swift')
-release = state[state.find('    func prepareForRelease() {'):]
-release = release[:release.find('\n    }\n')] if '    func prepareForRelease() {' in state else None
+# It overrides the method of VTKView, the base the plugin SDK gave the view.
+opening = '    public override func prepareForRelease() {'
+release = state[state.find(opening):]
+release = release[:release.find('\n    }\n')] if opening in state else None
 if release is None or 'horos_autoRotate?.invalidate()' not in release or 'horos_startAutoRotate?.invalidate()' not in release:
     failures.append('-[VRView prepareForRelease] does not invalidate the auto-rotation timers, which retain the view')
 dealloc = body(controller, '    isolated deinit') or ''

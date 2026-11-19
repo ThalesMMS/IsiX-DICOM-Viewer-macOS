@@ -72,6 +72,20 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     private var dbObjectsID: NSMutableArray?
     private var originalDbObjectsID: NSMutableArray?
 
+    // Instance variables of an older header of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with it. isIrisAnimation and writeDMG are written where the timer of
+    // the iris animation and the path of the disc image are, and never read:
+    // the timer and the path are the state. dbObjects and originalDbObjects
+    // are the objects of the database a burn finds again from their IDs, in
+    // the database of its own thread, written there by each burn and never
+    // read here. The other two have nothing behind them and stay nil, never
+    // retained: the disc is made from a folder on disk, with no list of
+    // nodes, and the size of the folder is a number written to sizeField.
+    final var isIrisAnimation = false, writeDMG = false
+    nonisolated(unsafe) final var dbObjects: NSMutableArray?, originalDbObjects: NSMutableArray?
+    final unowned(unsafe) var nodeArray: NSMutableArray?, folderSize: NSString?
+
     @IBOutlet var nameField: NSTextField!
     @IBOutlet var sizeField: NSTextField!
     @IBOutlet var finalSizeField: NSTextField!
@@ -263,6 +277,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     public override func windowDidLoad() {
         super.windowDidLoad()
         NSLog("BurnViewer did load")
+        browserWindow?.browser._burnerWindowController = self
 
         window?.delegate = self
         setup(nil)
@@ -332,6 +347,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
             writeVolumePath = nil
 
             writeDMGPath = nil
+            writeDMG = false
 
             anonymizationTags = nil
 
@@ -393,6 +409,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
                         if savePanel.runModal() == .OK {
                             self.writeDMGPath = savePanel.url?.path
+                            self.writeDMG = self.writeDMGPath != nil
                             if let writeDMGPath = self.writeDMGPath {
                                 try? FileManager.default.removeItem(atPath: writeDMGPath)
                             }
@@ -530,6 +547,8 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
                 let dbObjects = ((idatabase as? DicomDatabase)?.objects(withIDs: job.dbObjectsID as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray
                 let originalDbObjects = ((idatabase as? DicomDatabase)?.objects(withIDs: job.originalDbObjectsID as? [Any]) as NSArray?)?.mutableCopy() as? NSMutableArray
+                self.dbObjects = dbObjects
+                self.originalDbObjects = originalDbObjects
 
                 if let exception = HorosObjCException.caught({
                     var files = job.files
@@ -866,6 +885,10 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
     public func windowWillClose(_ notification: Notification) {
         irisAnimationTimer?.invalidate()
         irisAnimationTimer = nil
+        isIrisAnimation = false
+        // The browser's copy of its burner, for a plugin built with an older
+        // header of the former SDK: unretained, so taken back here.
+        if let browser = browserWindow?.browser, browser._burnerWindowController === self { browser._burnerWindowController = nil }
 
         burnAnimationTimer?.invalidate()
         burnAnimationTimer = nil
@@ -941,6 +964,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
 
             let irisTimer = Timer(timeInterval: 0.07, target: self, selector: #selector(irisAnimation(_:)), userInfo: nil, repeats: true)
             irisAnimationTimer = irisTimer
+            isIrisAnimation = true
             RunLoop.current.add(irisTimer, forMode: .modalPanel)
             RunLoop.current.add(irisTimer, forMode: .default)
 

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 import IsiXPreferences
 
 /// The messages the controller sends to its viewer, an id in the former class:
@@ -193,6 +194,10 @@ public class OrthogonalMPRController: NSObject {
 
     private var _thickSlabMode: Int16 = 0
     private var _thickSlab: Int16 = 0
+    /// The rows and the columns the reformatted views fuse for the slab, as last given to them.
+    private var appliedSlab = (rows: 0, columns: 0)
+    /// The slab is being given to the views, which reslices: not again from there.
+    private var isApplyingSlab = false
 
     /// The ViewerController of the series, kept without retaining it.
     private unowned(unsafe) var viewerController: ViewerController? = nil
@@ -407,9 +412,15 @@ public class OrthogonalMPRController: NSObject {
             yReslicedView?.setCrossPositionX(Float(Double(y) + 0.5))
             // indexOfObject: is an NSUInteger, NSNotFound when the image is not
             // in the list: the sum wraps as it did.
+            // The crossing is half the request past the slab's first image,
+            // inside the series: a request for more images than are left put
+            // it outside the image.
             let curDCM = originalView?.curDCM
-            let sliceIndex: Int = (originalView?.pixList()?.index(of: curDCM as Any) ?? 0) &+ Int(curDCM?.stack ?? 0) / 2
-            let h: Int = (_sign > 0) ? (originalView?.dcmPixList?.count ?? 0) &- sliceIndex &- 1 : sliceIndex
+            let count = originalView?.dcmPixList?.count ?? 0
+            let first = originalView?.pixList()?.index(of: curDCM as Any) ?? 0
+            let sliceIndex = first == NSNotFound ? first &+ Int(curDCM?.stack ?? 0) / 2
+                                                 : OrthogonalThickSlab.crossIndex(firstImage: first, requestedSlices: Int(curDCM?.stack ?? 0), count: count)
+            let h: Int = (_sign > 0) ? count &- sliceIndex &- 1 : sliceIndex
 
             xReslicedView?.setCrossPositionY(Float(Double(h) + 0.5))
             yReslicedView?.setCrossPositionY(Float(Double(h) + 0.5))
@@ -468,6 +479,9 @@ public class OrthogonalMPRController: NSObject {
                 xReslicedView?.setCrossPositionY(Float(Double(y) + 0.5))
             }
         }
+
+        // The slab follows the image the original view shows now.
+        followSlab()
 
         if originalOldValues {
             // scale
@@ -545,6 +559,8 @@ public class OrthogonalMPRController: NSObject {
         _sign = -_sign
         _reslicer?.flipVolume()
         self.reslice(cLong(_originalView?.crossPositionX() ?? 0), cLong(_originalView?.crossPositionY() ?? 0), _originalView)
+        // The endoscopy draws its camera in the views by the stack's order: drawn again in the order the volume has now.
+        (_viewer as? EndoscopyViewer)?.setCameraRepresentation()
         _xReslicedView?.needsDisplay = true
         _yReslicedView?.needsDisplay = true
     }
@@ -647,7 +663,7 @@ public class OrthogonalMPRController: NSObject {
 
     @objc(ApplyOpacityString:)
     public dynamic func applyOpacityString(_ str: String!) {
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             self.setTransferFunction(nil)
         } else {
             if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
@@ -989,30 +1005,104 @@ public class OrthogonalMPRController: NSObject {
         self.setFusion()
     }
 
+    /// The scale of the slab at the image the original view shows: the
+    /// thicknesses its images make from there to the end of the series, two
+    /// images at least, since the window switches the slab off by a control
+    /// of its own. The window's slider and field show it, and the reformatted
+    /// views fuse its thickness. Nil for a view that shows nothing.
+    func slabScale() -> StackFusionScale? {
+        guard let view = _originalView, let images = view.dcmPixList?.compactMap({ $0 as? DCMPix }), !images.isEmpty else { return nil }
+        let current = Int(view.curImage)
+        guard current >= 0, current < images.count else { return nil }
+        return StackFusionScale(positions: images.map(\.sliceLocation), current: current, towardsStart: false,
+                                sliceThickness: images[current].sliceThickness, fallbackInterval: images[0].sliceInterval,
+                                capacity: images.count, minimumImages: 2)
+    }
+
+    /// The rows and the columns of the reformatted views that make the
+    /// thickness the original view fuses: one of each, no slab, while the
+    /// slab is off, at the last image, or where no thickness is known.
+    private func slabCounts() -> (rows: Int, columns: Int) {
+        guard _thickSlab > 1, let scale = slabScale(), scale.isPhysical, scale.effectiveCount(requested: Int(_thickSlab)) > 1,
+              let pix = _originalView?.curDCM else { return (1, 1) }
+        let thickness = scale.thickness(requested: Int(_thickSlab))
+        return (OrthogonalThickSlab.reslicedCount(thickness: thickness, pixelSpacing: pix.pixelSpacingY),
+                OrthogonalThickSlab.reslicedCount(thickness: thickness, pixelSpacing: pix.pixelSpacingX))
+    }
+
+    /// Gives the three views one slab: the original view the images asked
+    /// for, which it cuts at the series' end itself, and each reformatted
+    /// view the rows or columns of that thickness. A band has the count of
+    /// its own axis.
+    private func applySlab(_ counts: (rows: Int, columns: Int)) {
+        appliedSlab = counts
+        func band(_ count: Int) -> Int { count > 1 ? count : 0 }
+        _originalView?.setFusion(_thickSlabMode, _thickSlab)
+        _originalView?.setThickSlabXY(band(counts.columns), band(counts.rows))
+
+        _reslicer?.setXThickSlab(Int16(truncatingIfNeeded: counts.rows), yThickSlab: Int16(truncatingIfNeeded: counts.columns))
+
+        _xReslicedView?.setFusion(_thickSlabMode, Int16(truncatingIfNeeded: counts.rows))
+        _xReslicedView?.setThickSlabXY(band(counts.columns), Int(_thickSlab))
+
+        _yReslicedView?.setFusion(_thickSlabMode, Int16(truncatingIfNeeded: counts.columns))
+        _yReslicedView?.setThickSlabXY(band(counts.rows), Int(_thickSlab))
+    }
+
+    /// After a reslice: where the image shown changed what the slab fuses
+    /// (near the series' end, or with irregular intervals), the reformatted
+    /// views are made again with their new counts; their horizontal bands
+    /// cover the images fused; and the window's slider and field are told.
+    private func followSlab() {
+        if _thickSlab > 1, !isApplyingSlab {
+            let counts = slabCounts()
+            if counts != appliedSlab {
+                isApplyingSlab = true
+                // The crossing the user set stays where it is.
+                let crossings = (_xReslicedView?.crossPositionY() ?? 0, _yReslicedView?.crossPositionY() ?? 0)
+                applySlab(counts)
+                saveCrossPositions()
+                reslice(cLong(originalCrossPositionX), cLong(originalCrossPositionY), _originalView)
+                _xReslicedView?.setCrossPositionY(crossings.0)
+                _yReslicedView?.setCrossPositionY(crossings.1)
+                isApplyingSlab = false
+            }
+        }
+        var rows: ClosedRange<Int>?
+        if _thickSlab > 1, let scale = slabScale(), let view = _originalView {
+            let count = view.dcmPixList?.count ?? 0, first = Int(view.curImage)
+            let ends = [first, first + scale.effectiveCount(requested: Int(_thickSlab)) - 1]
+                .map { OrthogonalThickSlab.row(index: $0, count: count, ascending: _sign > 0) }
+            rows = min(ends[0], ends[1])...max(ends[0], ends[1])
+        }
+        _xReslicedView?.slabRows = rows
+        _yReslicedView?.slabRows = rows
+        (_viewer as? OrthogonalMPRViewer)?.slabDidChange()
+    }
+
     @objc(setFusion)
     public dynamic func setFusion() {
-        var originalThickSlab: Int, xReslicedThickSlab: Int, yReslicedThickSlab: Int
-        originalThickSlab = Int(_thickSlab)
-
-        let curDCM = _originalView?.curDCM
-        xReslicedThickSlab = cLong(Double(Float(_thickSlab) * self.thickSlabDistance()) / (curDCM?.pixelSpacingY ?? 0))
-        yReslicedThickSlab = cLong(Double(Float(_thickSlab) * self.thickSlabDistance()) / (curDCM?.pixelSpacingX ?? 0))
-
-        _originalView?.setFusion(_thickSlabMode, Int16(truncatingIfNeeded: originalThickSlab))
-        _originalView?.setThickSlabXY(xReslicedThickSlab, cLong(Double(yReslicedThickSlab) / (_originalView?.curDCM?.pixelRatio ?? 0)))
-
-        _reslicer?.thickSlab = Int16(truncatingIfNeeded: xReslicedThickSlab)
-
-        _xReslicedView?.setFusion(_thickSlabMode, Int16(truncatingIfNeeded: xReslicedThickSlab))
-        _xReslicedView?.setThickSlabXY(yReslicedThickSlab, Int(_thickSlab))
-
-        _yReslicedView?.setFusion(_thickSlabMode, Int16(truncatingIfNeeded: yReslicedThickSlab))
-        _yReslicedView?.setThickSlabXY(xReslicedThickSlab, Int(_thickSlab))
+        if _thickSlab > 1 {
+            isApplyingSlab = true
+            applySlab(slabCounts())
+        } else {
+            // No slab, as the views always had it without one.
+            appliedSlab = (0, 0)
+            _originalView?.setFusion(_thickSlabMode, _thickSlab)
+            _originalView?.setThickSlabXY(0, 0)
+            _reslicer?.thickSlab = 0
+            _xReslicedView?.setFusion(_thickSlabMode, 0)
+            _xReslicedView?.setThickSlabXY(0, Int(_thickSlab))
+            _yReslicedView?.setFusion(_thickSlabMode, 0)
+            _yReslicedView?.setThickSlabXY(0, Int(_thickSlab))
+        }
 
         self.saveCrossPositions()
         self.reslice(cLong(originalCrossPositionX), cLong(originalCrossPositionY), _originalView)
-
-        self.preferenceStore.set(Int(_thickSlab), for: ReconstructionPreferences.stackThicknessOrthogonalMPR)
+        if isApplyingSlab {
+            isApplyingSlab = false
+            followSlab()
+        }
     }
 
     // MARK: - NSWindow related methods
@@ -1025,7 +1115,13 @@ public class OrthogonalMPRController: NSObject {
 
         let pix = _originalView?.pixList()?.object(at: 0) as? DCMPix
 
-        _sign = ((pix?.sliceInterval ?? 0) >= 0) ? 1.0 : -1.0
+        // The direction of the series as the reslicer reads it: by the
+        // locations of its first two images where it says no interval.
+        var interval = pix?.sliceInterval ?? 0
+        if interval == 0, let pixes = _originalView?.pixList(), pixes.count > 1 {
+            interval = ((pixes.object(at: 1) as? DCMPix)?.sliceLocation ?? 0) - (pix?.sliceLocation ?? 0)
+        }
+        _sign = interval > 0 || (interval == 0 && (pix?.sliceInterval ?? 0) >= 0) ? 1.0 : -1.0
 
         // orthogonal reslice
         var x: Int, y: Int // coordinate of the reslice

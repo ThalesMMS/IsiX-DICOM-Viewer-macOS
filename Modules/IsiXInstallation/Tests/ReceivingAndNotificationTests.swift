@@ -137,16 +137,45 @@ struct ReceivingAndNotificationTests {
         #expect(policy.interval == 10 && policy.quietSound == 60)
     }
 
-    @Test func theAutomaticChecksRunHourlyAndWaitAMinuteWhileOff() {
+    @Test func theAutomaticCheckRunsAtLaunchOnlyAndReadsNoFeedWhileOffOrInServerMode() {
         typealias S = UpdateCheckSchedule
-        #expect(S.atLaunch(crashed: false, automaticChecks: true, listenerErrorsHidden: false) == .automatic)
-        #expect(S.atLaunch(crashed: false, automaticChecks: false, listenerErrorsHidden: true) == .automatic)
-        #expect(S.atLaunch(crashed: true, automaticChecks: false, listenerErrorsHidden: false) == .afterCrash)
-        #expect(S.atLaunch(crashed: true, automaticChecks: false, listenerErrorsHidden: true) == .none)
-        #expect(S.atLaunch(crashed: true, automaticChecks: true, listenerErrorsHidden: false) == .none)
-        #expect(S.afterCheck(automaticChecks: true) == .check(after: 3600))
-        #expect(S.afterCheck(automaticChecks: false) == .wait(after: 60))
-        #expect(S.afterWait(automaticChecks: true) == .check(after: 0))
-        #expect(S.afterWait(automaticChecks: false) == .wait(after: 60))
+        #expect(S.checksAtLaunch(automaticChecks: true, listenerErrorsHidden: false))
+        #expect(!S.checksAtLaunch(automaticChecks: false, listenerErrorsHidden: false))
+        #expect(!S.checksAtLaunch(automaticChecks: true, listenerErrorsHidden: true))
+        #expect(!S.checksAtLaunch(automaticChecks: false, listenerErrorsHidden: true))
+    }
+
+    @Test func anAutomaticCheckOffersNoBuildUpToTheSkippedOne() {
+        typealias S = UpdateCheckSchedule
+        // Nothing skipped: every release is offered.
+        #expect(S.offersAutomatically(build: "2026111601", skippedBuild: nil))
+        // The skipped build and the ones before it are not; the next one is.
+        #expect(!S.offersAutomatically(build: "2026111601", skippedBuild: "2026111601"))
+        #expect(!S.offersAutomatically(build: "2026111301", skippedBuild: "2026111601"))
+        #expect(S.offersAutomatically(build: "2026111602", skippedBuild: "2026111601"))
+        #expect(S.offersAutomatically(build: "2026120101", skippedBuild: "2026111601"))
+        // Numbers, not text: a longer number is later whatever its first digit.
+        #expect(S.offersAutomatically(build: "10000000000", skippedBuild: "2026111601"))
+        #expect(!S.offersAutomatically(build: "999", skippedBuild: "2026111601"))
+        // A stored value that is not a build number skips nothing.
+        #expect(S.offersAutomatically(build: "2026111601", skippedBuild: ""))
+        #expect(S.offersAutomatically(build: "2026111601", skippedBuild: "6.0.4"))
+        #expect(S.offersAutomatically(build: "2026111601", skippedBuild: "YES"))
+    }
+
+    @Test func onlyTheFirstLaunchOfANewReleaseInstallationAsksAboutTheChecks() {
+        func asks(launchCount: Int = 1, chosen: Bool = false, release: Bool = true, appStore: Bool = false,
+                  protected: Bool = false, server: Bool = false) -> Bool {
+            UpdateCheckSchedule.asksAtFirstLaunch(launchCount: launchCount, choiceAlreadyMade: chosen, releaseCopy: release,
+                                                  appStore: appStore, protectedMode: protected, serverMode: server)
+        }
+        #expect(asks())
+        #expect(!asks(launchCount: 2))
+        #expect(!asks(launchCount: 0))
+        #expect(!asks(chosen: true))
+        #expect(!asks(release: false))
+        #expect(!asks(appStore: true))
+        #expect(!asks(protected: true))
+        #expect(!asks(server: true))
     }
 }

@@ -94,12 +94,20 @@ public final class RetrieveInventoryStore: Sendable {
     /// listed, and a count it gives but does not list is recorded beside it,
     /// not held against it. What earlier attempts received, were refused or
     /// learned of the peer is kept. The inventory receives until `finish`.
+    ///
+    /// `listing` is how a listing made before the transfer ended, as a DIMSE
+    /// retrieve's is, and `listingStatus` the status the node refused it
+    /// with: the inventory then says why it named nothing, and may be judged
+    /// by the node's counters. A listing that runs beside the transfer gives
+    /// neither, and marks where it stands as it goes.
     public func begin(study: String, series: String, endpoint: String, database: String,
                       instances: [RetrieveListedInstance], confirmed: Bool,
-                      reported: Int = 0, seriesReported: [String: Int] = [:]) -> RetrieveInventory {
+                      reported: Int = 0, seriesReported: [String: Int] = [:],
+                      listing outcome: RetrieveListing? = nil, listingStatus: UInt16? = nil) -> RetrieveInventory {
         let path = Self.path(study: study, series: series, endpoint: endpoint, database: database)
         let listing = RetrieveInventoryState.listing(study: study, series: series, instances: instances, confirmed: confirmed,
-                                                     reported: reported, seriesReported: seriesReported)
+                                                     reported: reported, seriesReported: seriesReported, outcome: outcome,
+                                                     status: listingStatus)
         return registry.withLock { registry in
             let inventory = Self.find(path, in: &registry, store: self)
                 ?? RetrieveInventory(record: listing, path: path, store: self)

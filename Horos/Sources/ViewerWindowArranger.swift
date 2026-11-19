@@ -75,7 +75,10 @@ final class ViewerWindowArranger: NSObject {
     private(set) var layout = ViewerTilingLayout()
 
     /// A tiling put off for a moment is waiting.
-    private(set) var isTilingScheduled = false
+    private(set) var isTilingScheduled = false {
+        // The global of this name in the former plugin SDK says the same.
+        didSet { delayedTileWindows = isTilingScheduled ? 1 : 0 }
+    }
 
     /// The tilings put off, each with the grid it asks for.
     private var scheduledTilings: [(timer: Timer, request: Request?)] = []
@@ -478,6 +481,12 @@ final class ViewerWindowArranger: NSObject {
         }
     }
 
+    /// Tiles the windows of the controllers a caller chose itself, for the
+    /// grid its sender asks for.
+    func tileWindows(sender: Any?, controllers: [NSWindowController], display2DViewerToolbar: Bool) {
+        tile(Self.request(from: sender), controllers: controllers, display2DViewerToolbar: display2DViewerToolbar)
+    }
+
     /// Moves `controllers`' windows to the frames `ViewerTilingLayout` chooses,
     /// then makes the right one key and rebuilds the series lists.
     ///
@@ -494,7 +503,7 @@ final class ViewerWindowArranger: NSObject {
         guard let arrangement = placed else { return }
         let preferences = processGraph.preferences
 
-        for i in 0..<NSScreen.screens.count {
+        for i in 0..<ViewerWindowArranger.maximumScreens {
             AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
         }
 

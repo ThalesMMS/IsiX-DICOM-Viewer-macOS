@@ -49,19 +49,36 @@ def method(signature):
 
 
 failures = []
+# The menu and the presets filter through -horosApplyFilter(named:), which
+# goes to the 2D viewer's "apply on source" (the volume, while it shows it),
+# or, when the filter is older, through the 2D viewer directly.
+filter_call = 'horosApplyFilter(named:' if 'func horosApplyFilter(named name: String)' in controller else 'applyConvolutionOnSource'
 apply = method('    public final func applyConvolution(_ sender: Any!) {')
-if not apply or apply.find('horosKeepVolumeBeforeFilter()') < 0 or apply.find('horosKeepVolumeBeforeFilter()') > apply.find('applyConvolutionOnSource'):
+if not apply or apply.find('horosKeepVolumeBeforeFilter()') < 0 or apply.find('horosKeepVolumeBeforeFilter()') > apply.find(filter_call):
     failures.append('applyConvolution: must keep the copy before it filters the 2D buffer')
-if 'sender' in apply[apply.find('applyConvolutionOnSource'):]:
+if 'sender' in apply[apply.find(filter_call):]:
     failures.append('applyConvolution: must read the title before filtering rebuilds the menu that holds its item')
 if 'horosApplyingFilter = true' not in apply:
     failures.append('applyConvolution: must not count its own -prepareUndo as a cut')
-preset = re.search(r'let filters = preset\.object\(forKey: "convolutionFilters"\) as\? NSArray.*?applyConvolutionOnSource', controller, re.S)
+preset = re.search(r'let filters = preset\.object\(forKey: "convolutionFilters"\) as\? NSArray.*?' + re.escape(filter_call), controller, re.S)
 if not preset or 'horosKeepVolumeBeforeFilter()' not in preset.group(0):
     failures.append('a preset with filters must keep the copy before it filters the 2D buffer')
 undo = method('    public final func prepareUndo() {')
 if 'noteCut()' not in undo or 'if !horosApplyingFilter' not in undo:
     failures.append('-prepareUndo must record a cut, except for a filter')
+# A preset's filters take the undo copy as a filter of the menu does, and not as a cut: a Cmd-Z after the
+# preset put back an older copy.
+if not preset or not re.search(r'horosApplyingFilter = true\s*prepareUndo\(\)\s*horosApplyingFilter = false\s*for case let filter as String in filters',
+                               preset.group(0)):
+    failures.append('a preset with filters must take the undo copy before it filters, without counting it as a cut')
+# -undo: puts the note of a cut after the first filter back as it was when the copy was taken: the cut it
+# took back is not one the window asks about when it closes.
+taken = undo.find('horosCutAfterFilterBeforeUndoCopy = horosFilterRestore?.cutAfterFilter ?? false')
+if taken < 0 or taken > undo.find('noteCut()'):
+    failures.append('-prepareUndo must keep the note of a cut after the filter as it is before the cut it copies for')
+undone = method('    public override final func undo(_ sender: Any!) {')
+if 'horosFilterRestore?.restoreCutNote(horosCutAfterFilterBeforeUndoCopy)' not in undone:
+    failures.append('-undo: must put the note of a cut after the filter back with the volume')
 close = method('    public override func windowWillClose(_ notification: Notification) {')
 if 'horosSettleFiltersOnClose()' not in close:
     failures.append('-windowWillClose: must settle the filters')
@@ -110,6 +127,11 @@ precondition(restore.restore(into: [resized, a, extra]) == 1)
 precondition(floats(resized) == [9, 9] && floats(extra) == [8, 8, 8])
 
 restore.noteCut()
+precondition(restore.cutAfterFilter)
+restore.restoreCutNote(false)
+precondition(!restore.cutAfterFilter)
+restore.noteCut()
+restore.restoreCutNote(true)
 precondition(restore.cutAfterFilter)
 
 // close decisions

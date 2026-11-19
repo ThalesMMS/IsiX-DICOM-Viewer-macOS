@@ -28,6 +28,8 @@ public final class MenuShortcutCatalog: NSObject {
     @objc public static let orthogonalMPRID = "reconstruction.orthogonalMPR"
     @objc public static let threeDMPRID = "reconstruction.3dMPR"
     @objc public static let curvedMPRID = "reconstruction.curvedMPR"
+    /// The curved MPR's action with tag 11: Vessel Analysis.
+    @objc public static let vesselAnalysisID = "reconstruction.vesselAnalysis"
     @objc public static let mipID = "reconstruction.mip"
     @objc public static let volumeRenderingID = "reconstruction.vr"
     @objc public static let surfaceRenderingID = "reconstruction.sr"
@@ -44,11 +46,38 @@ public final class MenuShortcutCatalog: NSObject {
             command(id: orthogonalMPRID, title: NSLocalizedString("2D Orthogonal MPR", comment: "Reconstruction command"), selector: "orthogonalMPRViewer:", tag: 8),
             command(id: threeDMPRID, title: NSLocalizedString("3D MPR", comment: "Reconstruction command"), selector: "mprViewer:", tag: 10),
             command(id: curvedMPRID, title: NSLocalizedString("3D Curved-MPR", comment: "Reconstruction command"), selector: "cprViewer:", tag: 1),
+            command(id: vesselAnalysisID, title: NSLocalizedString("Vessel Analysis", comment: "Reconstruction command"), selector: "cprViewer:", tag: 11),
             command(id: mipID, title: NSLocalizedString("3D MIP", comment: "Reconstruction command"), selector: "VRViewer:", tag: 3),
             command(id: volumeRenderingID, title: NSLocalizedString("3D Volume Rendering", comment: "Reconstruction command"), selector: "VRViewer:", tag: 4),
             command(id: surfaceRenderingID, title: NSLocalizedString("3D Surface Rendering", comment: "Reconstruction command"), selector: "SRViewer:", tag: 5),
             command(id: endoscopyID, title: NSLocalizedString("3D Endoscopy", comment: "Reconstruction command"), selector: "endoscopyViewer:", tag: 9),
         ]
+    }
+
+    /// The English titles of the reconstruction commands, as a nib that is
+    /// not translated carries them: the keys of their localized titles.
+    static let reconstructionTitleKeys: [String: String] = [
+        orthogonalMPRID: "2D Orthogonal MPR", threeDMPRID: "3D MPR", curvedMPRID: "3D Curved-MPR",
+        vesselAnalysisID: "Vessel Analysis", mipID: "3D MIP", volumeRenderingID: "3D Volume Rendering",
+        surfaceRenderingID: "3D Surface Rendering", endoscopyID: "3D Endoscopy",
+    ]
+
+    /// Gives the reconstruction items of `menu` that still carry their
+    /// English title the title of the running language. The 2D/3D pull-down
+    /// of the 2D viewer comes from the viewer's nib: a language without a nib
+    /// of its own opens the English one, and a nib may leave these items
+    /// untranslated, so the pull-down read in English beside a translated
+    /// menu bar. An item a nib translated keeps the nib's title.
+    @objc(localizeReconstructionTitlesInMenu:)
+    public static func localizeReconstructionTitles(in menu: NSMenu) {
+        let titles = Dictionary(uniqueKeysWithValues: reconstructionCommands().compactMap { command -> (String, String)? in
+            guard let id = string(command["id"]), let title = string(command["title"]) else { return nil }
+            return (id, title)
+        })
+        for item in menu.items {
+            guard let id = commandID(for: item), item.title == reconstructionTitleKeys[id], let title = titles[id] else { continue }
+            item.title = title
+        }
     }
 
     @objc(pluginCommandIDWithPlugin:menuTitle:)
@@ -216,9 +245,13 @@ public final class MenuShortcutCatalog: NSObject {
         case "mprViewer:":
             return threeDMPRID
         case "cprViewer:":
-            return curvedMPRID
+            return item.tag == 11 ? vesselAnalysisID : curvedMPRID
         case "VRViewer:":
             return item.tag == 3 ? mipID : volumeRenderingID
+        case "SRViewer:":
+            return surfaceRenderingID
+        case "endoscopyViewer:":
+            return endoscopyID
         case "executeFilter:", "executeFilterDB:", "endBlendingType:":
             guard let plugin = pluginName(from: item.representedObject) else { return nil }
             return pluginCommandID(plugin: plugin, menuTitle: item.title)

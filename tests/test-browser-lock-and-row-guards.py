@@ -174,8 +174,10 @@ int main(void) { @autoreleasepool {
 
 
 # 1. Unlocked before an exception goes on.
+RELATED = 'func of(_ study: Any?, in database: DicomDatabase?) -> [Any]?'
 LOCKED = (
-    ('Horos/Sources/BrowserController+Plugins.swift', 'relatedStudiesForStudy:', 'context?'),
+    # -relatedStudiesForStudy: is RelatedStudies'.
+    ('Horos/Sources/RelatedStudies.swift', RELATED, 'context?'),
     # -isUsingExternalViewer: is the browser's ViewerOpener's.
     ('Horos/Sources/ViewerOpener.swift', 'func isUsingExternalViewer(_ item: NSManagedObject?) -> Bool', 'database?'),
 )
@@ -190,12 +192,12 @@ for path, selector, lock in LOCKED:
         opening = body.index('{', queue.start())
         end = closing(body, opening)
         queued, rest = body[opening:end + 1], body[end + 1:]
-        expected_context = 'context' if selector == 'relatedStudiesForStudy:' else 'database?.managedObjectContext'
+        expected_context = 'context' if selector == RELATED else 'database?.managedObjectContext'
         if queue.group(1) != expected_context:
             failures.append('-%s uses the wrong managed context queue' % selector)
         if '.lock()' in body or '.unlock()' in body:
             failures.append('-%s still uses the deprecated lock API in its queued operation' % selector)
-        if selector == 'relatedStudiesForStudy:':
+        if selector == RELATED:
             captured = re.search(r'(\w+) = (?:objcTry|HorosObjCException\.caught) \{', queued)
             if not captured or not re.search(r'if let %s \{ %s\.raise\(\) \}' % (captured.group(1), captured.group(1)), rest):
                 failures.append('-relatedStudiesForStudy: does not rethrow its captured exception after leaving the queue')

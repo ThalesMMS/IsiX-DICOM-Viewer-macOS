@@ -53,16 +53,55 @@ import IsiXDICOMFile
     final var horos_document = IsiXDCMTKStructuredReport()
     /// The image the report refers to, a DicomImage read by key: any object
     /// that answers those keys serves, as +archiveROIsAsDICOM: takes one.
-    final var horos_image: NSObject?
+    final var horos_image: NSObject? {
+        get { horos_imageObject }
+        set {
+            horos_imageObject = newValue
+            image = newValue as? DicomImage
+        }
+    }
+    final var horos_imageObject: NSObject?
     /// The document is new: its series and instance UIDs are made when written.
     final var horos_newSR = false
-    final var horos_seriesInstanceUID: String?
-    final var horos_description: String?
-    final var horos_seriesNumber: String?
-    final var horos_reportURL: String?
+    final var horos_seriesInstanceUID: String? {
+        get { _seriesInstanceUID as String? }
+        set { _seriesInstanceUID = newValue as NSString? }
+    }
+    final var horos_description: String? {
+        get { _DICOMSRDescription as String? }
+        set { _DICOMSRDescription = newValue as NSString? }
+    }
+    final var horos_seriesNumber: String? {
+        get { _DICOMSeriesNumber as String? }
+        set { _DICOMSeriesNumber = newValue as NSString? }
+    }
+    final var horos_reportURL: String? {
+        get { _reportURL as String? }
+        set { _reportURL = newValue as NSString? }
+    }
     // NSData and NSDate: an @implementation cannot store the resilient Data and Date.
     final var horos_dataEncapsulated: NSData?
     final var horos_contentDate: NSDate?
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared: a plugin reads and writes them at
+    // the exported offset. With horos_newSR, horos_dataEncapsulated and
+    // horos_contentDate above, the four strings are the report's state, read
+    // through the accessors above. image is the image the report was made
+    // for when it is a DicomImage, written with it and not read: the report
+    // reads the object above by key. The document was DCMTK's C++ object,
+    // which the adapter's document above stands for: nothing stands behind
+    // it, and it is never released.
+    final var _seriesInstanceUID: NSString?
+    final var _DICOMSRDescription: NSString?
+    final var _DICOMSeriesNumber: NSString?
+    final var _reportURL: NSString?
+    final var image: DicomImage?
+    final unowned(unsafe) var document: AnyObject?
+    // _rois is declared by an older copy of that header. The report keeps its
+    // ROIs archived, in horos_dataEncapsulated: this is the array of them it
+    // last archived or handed out, written there and not read.
+    final var _rois: NSArray?
 
     // MARK: - Reading a report file
 
@@ -265,12 +304,16 @@ import IsiXDICOMFile
         }
         // An archive that is refused or unreadable holds no ROI to keep.
         let preExistingROIs = RestrictedUnarchiver.unarchiveROIs(with: horos_dataEncapsulated as Data?) ?? NSArray()
-        horos_dataEncapsulated = typedStreamArchive(preExistingROIs.addingObjects(from: someROIs ?? []) as NSArray)
+        let all = preExistingROIs.addingObjects(from: someROIs ?? []) as NSArray
+        horos_dataEncapsulated = typedStreamArchive(all)
+        _rois = all
     }
 
     @objc(ROIs)
     func rois() -> [Any]! {
-        RestrictedUnarchiver.unarchiveROIs(with: horos_dataEncapsulated as Data?) as? [Any]
+        let unarchived = RestrictedUnarchiver.unarchiveROIs(with: horos_dataEncapsulated as Data?)
+        _rois = unarchived
+        return unarchived as? [Any]
     }
 
     // MARK: - Writing

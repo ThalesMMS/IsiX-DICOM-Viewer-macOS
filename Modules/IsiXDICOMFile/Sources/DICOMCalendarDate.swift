@@ -38,12 +38,37 @@ public protocol DICOMDateParsing: NSObjectProtocol {
 /// `DCMCalendarDate`, and reads those archives (`registerArchiveName()`).
 @objc(DCMCalendarDate)
 public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
-    private var referenceInterval: TimeInterval = 0
-    private var dicomTimeZone = TimeZone.current as NSTimeZone
-    private var dicomCalendarFormat = "%Y-%m-%d %H:%M:%S %z"
-    private var fractionalMicroseconds: UInt = 0
-    private var query: String?
-    private var queryFlag = false
+    // The instance variables of the former Horos and OsiriX plugin SDK
+    // (queryString, isQuery, referenceInterval, dicomTimeZone,
+    // dicomCalendarFormat and fractionalMicroseconds), which a plugin reads and
+    // writes at the offset the application exports for each: stored fields
+    // with the type the C declaration has in memory, public so that the
+    // application's link reaches them, never private, lazy or observed. A time
+    // zone or a format a plugin set to nil reads as the default zone and as
+    // no format.
+    public var referenceInterval: TimeInterval = 0
+    public var _dicomTimeZone: NSTimeZone? = TimeZone.current as NSTimeZone
+    public var _dicomCalendarFormat: NSString? = "%Y-%m-%d %H:%M:%S %z"
+    public var fractionalMicroseconds: UInt = 0
+    /// The microseconds under the name and with the type an older copy of the
+    /// SDK's header gave them (microseconds, an int), exported as the others
+    /// are: a copy written with fractionalMicroseconds, which the date reads.
+    public var microsecondsOfOlderSDK: Int32 = 0
+    public var _queryString: NSString?
+    public var queryFlag = false
+
+    private var dicomTimeZone: NSTimeZone {
+        get { _dicomTimeZone ?? (NSTimeZone.default as NSTimeZone) }
+        set { _dicomTimeZone = newValue }
+    }
+    private var dicomCalendarFormat: String {
+        get { (_dicomCalendarFormat as String?) ?? "" }
+        set { _dicomCalendarFormat = newValue as NSString }
+    }
+    private var query: String? {
+        get { _queryString as String? }
+        set { _queryString = newValue as NSString? }
+    }
 
     // MARK: NSDate primitives
 
@@ -53,6 +78,7 @@ public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
         super.init()
         referenceInterval = interval
         fractionalMicroseconds = UInt(llround((interval - floor(interval)) * 1e6) % 1_000_000)
+        microsecondsOfOlderSDK = Int32(truncatingIfNeeded: fractionalMicroseconds)
         dicomTimeZone = NSTimeZone.default as NSTimeZone
     }
 
@@ -101,6 +127,7 @@ public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
             if let format = coder.decodeObject(of: NSString.self, forKey: "NS.format") { setCalendarFormat(format as String) }
             if coder.containsValue(forKey: "DCM.microseconds") {
                 fractionalMicroseconds = UInt(bitPattern: coder.decodeInteger(forKey: "DCM.microseconds"))
+                microsecondsOfOlderSDK = Int32(truncatingIfNeeded: fractionalMicroseconds)
             }
             queryFlag = coder.decodeBool(forKey: "DCM.isQuery")
             query = coder.decodeObject(of: NSString.self, forKey: "DCM.queryString") as String?
@@ -117,6 +144,7 @@ public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
         date.setIsQuery(queryFlag)
         date.setQueryString(query)
         date.fractionalMicroseconds = fractionalMicroseconds
+        date.microsecondsOfOlderSDK = Int32(truncatingIfNeeded: date.fractionalMicroseconds)
         return date
     }
 
@@ -157,6 +185,7 @@ public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
               range.location == 0, let date = parsed as? NSDate else { return nil }
         referenceInterval = date.timeIntervalSinceReferenceDate + TimeInterval(microseconds) / 1e6
         fractionalMicroseconds = microseconds % 1_000_000
+        microsecondsOfOlderSDK = Int32(truncatingIfNeeded: fractionalMicroseconds)
         setCalendarFormat(format)
     }
 
@@ -545,6 +574,7 @@ public final class DICOMCalendarDate: NSDate, @unchecked Sendable {
         date.setTimeZone(dicomTimeZone as TimeZone)
         date.setCalendarFormat(dicomCalendarFormat)
         date.fractionalMicroseconds = fractionalMicroseconds
+        date.microsecondsOfOlderSDK = Int32(truncatingIfNeeded: date.fractionalMicroseconds)
         return date
     }
 

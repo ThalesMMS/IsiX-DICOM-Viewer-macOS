@@ -63,6 +63,14 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
 
     @objc public let interpolationMode: CPRInterpolationMode // YES by default
 
+    /// An instance variable that only older copies of the headers of the
+    /// former Horos and OsiriX plugin SDK declare, read at the offset the
+    /// application exports for it: whether the fill interpolates linearly,
+    /// which was all an operation chose before it had an interpolation mode.
+    /// The copy of that question asked of the mode, written with it; the
+    /// fill reads the mode.
+    var _linearInterpolating: Bool
+
     /// vectors and normals need to be arrays of length width; they are copied.
     @objc(initWithVolumeData:interpolationMode:floatBytes:width:height:vectors:normals:)
     public init(volumeData: CPRVolumeData?, interpolationMode: CPRInterpolationMode, floatBytes: UnsafeMutablePointer<Float>?,
@@ -77,6 +85,7 @@ public final class CPRHorizontalFillOperation: Operation, @unchecked Sendable {
         self.normals = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
         memcpy(self.normals, normals, vectorBytes)
         self.interpolationMode = interpolationMode
+        _linearInterpolating = interpolationMode == CPRInterpolationMode(CPRInterpolationModeLinear.rawValue)
         super.init()
     }
 

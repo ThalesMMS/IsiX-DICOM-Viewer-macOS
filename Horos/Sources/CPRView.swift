@@ -106,6 +106,58 @@ public final class CPRView: NSView {
     private var _straightenedView: CPRStraightenedView? = nil
     private var _stretchedView: CPRStretchedView? = nil
 
+    // MARK: - Instance variables of older copies of the SDK's headers
+
+    // Older copies of the headers of the former Horos and OsiriX plugin SDK
+    // declare this class as the reformation view itself, with the state of
+    // one; a plugin built with such a copy reads these at the offsets the
+    // application exports for them. The state is that of the two reformation
+    // views this view hosts, where their own instance variables are. These
+    // are copies of the state of the one shown, the same objects where it
+    // keeps objects, and read by nothing. The reformation view shown writes
+    // each of them where its own state changes, and copyReformationState()
+    // writes them all when a reformation view is put in this one. The
+    // delegate is not retained, as it is not there. The
+    // last request stays nil while the stretched view is shown, whose request
+    // is of another class.
+    unowned(unsafe) var _delegate: AnyObject?
+    var _volumeData: CPRVolumeData?, _curvedVolumeData: CPRVolumeData?
+    var _generator: CPRGenerator?
+    var _curvedPath: CPRCurvedPath?
+    var _displayInfo: CPRDisplayInfo?
+    var _orangePlane = N3Plane(), _purplePlane = N3Plane(), _bluePlane = N3Plane()
+    var _orangeSlabThickness: CGFloat = 0, _purpleSlabThickness: CGFloat = 0, _blueSlabThickness: CGFloat = 0
+    var _orangePlaneColor: NSColor?, _purplePlaneColor: NSColor?, _bluePlaneColor: NSColor?
+    var _orangeVericalLines: NSArray?, _orangePlaneRuns: NSArray?, _orangeTopVericalLines: NSArray?, _orangeTopPlaneRuns: NSArray?
+    var _orangeBottomVericalLines: NSArray?, _orangeBottomPlaneRuns: NSArray?
+    var _purpleVericalLines: NSArray?, _purplePlaneRuns: NSArray?, _purpleTopVericalLines: NSArray?, _purpleTopPlaneRuns: NSArray?
+    var _purpleBottomVericalLines: NSArray?, _purpleBottomPlaneRuns: NSArray?
+    var _blueVericalLines: NSArray?, _bluePlaneRuns: NSArray?, _blueTopVericalLines: NSArray?, _blueTopPlaneRuns: NSArray?
+    var _blueBottomVericalLines: NSArray?, _blueBottomPlaneRuns: NSArray?
+    var _clippingRangeMode: CPRViewClippingRangeMode = 0
+    var _lastRequest: CPRStraightenedGeneratorRequest?
+    var _generatedHeight: CGFloat = 0
+    var _draggingTransverse = false, _draggingTransverseSpacing = false, _clickedNode = false
+    var _mousePlanePointsInPix: NSMutableDictionary?
+    var _editingCurvedPathCount = 0
+    var _drawAllNodes = false, _processingRequest = false, _needsNewRequest = false
+    var _displayCrossLines = false, displayTransverseLinesOfSDK = false
+    var stanStringAttrib: NSMutableDictionary?
+    // The three textures of the labels of the planes were of a class of the
+    // OpenGL drawing, which the application does not have: the labels are
+    // drawn as text. Nil unless a plugin stores one, which the view then
+    // releases with itself.
+    var stringTexA: AnyObject?, stringTexB: AnyObject?, stringTexC: AnyObject?
+
+    /// Writes the copies above from the reformation view shown.
+    func copyReformationState() {
+        if _reformationType == straightenedReformationType {
+            _straightenedView?.copyState(to: self)
+        } else {
+            _stretchedView?.copyState(to: self)
+        }
+    }
+
     /// [self reformationView], to which the former class sent its queries as
     /// messages to an id; nil answers 0/nil/NO as a message to nil did.
     private var reformationViewMessages: CPRViewReformationViewMessages? {
@@ -125,6 +177,7 @@ public final class CPRView: NSView {
         if let straightenedView = _straightenedView {
             self.addSubview(straightenedView)
         }
+        copyReformationState()
     }
 
     public required init?(coder: NSCoder) {
@@ -154,7 +207,10 @@ public final class CPRView: NSView {
     }
 
     private func layoutReformationViews() {
-        let stripHeight = min(stenosisStrip?.frame.height ?? 0, self.bounds.height / 2)
+        // Capped with the strip's own height, not with its current frame, which
+        // a short view has lowered: the strip grows back when the view does.
+        let natural = stenosisStrip.map { $0 is StenosisStrip ? StenosisStrip.height : $0.frame.height } ?? 0
+        let stripHeight = min(natural, self.bounds.height / 2)
         var rest = self.bounds
         rest.origin.y += stripHeight
         rest.size.height -= stripHeight
@@ -191,6 +247,7 @@ public final class CPRView: NSView {
                     }
                 }
                 _reformationType = reformationType
+                copyReformationState()
             }
         }
     }

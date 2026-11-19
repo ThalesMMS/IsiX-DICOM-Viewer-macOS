@@ -178,7 +178,7 @@
                             <rect key="frame" x="0.0" y="0.0" width="288" height="36"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <subviews>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="39">
+                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="39" customClass="IsiXTipMatrix">
                                     <rect key="frame" x="0.0" y="1" width="272" height="34"/>
                                     <autoresizingMask key="autoresizingMask"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -512,7 +512,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="177">
                         <rect key="frame" x="18" y="118" width="282" height="18"/>
                         <autoresizingMask key="autoresizingMask"/>
-                        <buttonCell key="cell" type="check" title="3 तौर-तरीकों को अलग-अलग श्रृंखला में निर्यात करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="246">
+                        <buttonCell key="cell" type="check" title="3 मोडैलिटी को अलग-अलग श्रृंखला में निर्यात करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="246">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                             <connections>

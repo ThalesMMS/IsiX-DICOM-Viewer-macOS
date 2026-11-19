@@ -272,62 +272,83 @@ extension QueryController {
 
         let studies = NSMutableArray()
 
+        for case let server as [String: Any] in serversList ?? [] {
+            QueryController.mergeStudies(queryStudies(forFilters: filters as? [AnyHashable: Any] ?? [:], server: server,
+                                                      showErrors: showErrors).studies, into: studies)
+        }
+
+        return studies
+    }
+
+    /// What the node `server` finds for `filters`, keyed as for
+    /// queryStudies(forFilters:servers:showErrors:): its studies, nil when it
+    /// was not asked, and whether it answered, false when it was not asked or
+    /// its query failed or was given up. An exception raised on the way is
+    /// logged, and the node did not answer.
+    nonisolated class func queryStudies(forFilters filters: [AnyHashable: Any], server: [String: Any],
+                                        showErrors: Bool) -> (studies: [Any]?, answered: Bool) {
+        var found: (studies: [Any]?, answered: Bool) = (nil, false)
         do {
             try HorosObjCException.perform {
-                for case let server as NSDictionary in serversList ?? [] {
-                    Thread.current.status = server.value(forKey: "Description") as? String
+                Thread.current.status = server["Description"] as? String
 
-                    let qm = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: server)
+                let qm = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: server as NSDictionary)
 
-                    if let encoding = PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet], encoding != "ISO_IR 100" {
-                        // Specific Character Set
-                        qm.addFilter(encoding, forDescription: "SpecificCharacterSet")
-                    }
+                if let encoding = PreferencesSource.process.preferences[NetworkPreferences.queryCharacterSet], encoding != "ISO_IR 100" {
+                    // Specific Character Set
+                    qm.addFilter(encoding, forDescription: "SpecificCharacterSet")
+                }
 
-                    let built = QueryStudyFilters.build(filters as? [String: Any] ?? [:],
-                                                        permissions: QueryStudyFilters.Permissions(defaults: .standard),
-                                                        birthDate: { birth in
-                                                            DICOMCalendarDate.queryDate(DICOMCalendarDate.string(from: birth, calendarFormat: "%Y%m%d"))
-                                                        },
-                                                        studyDateAndTime: { code, from, to in
-                                                            let (date, time) = QueryController.dateAndTimeQueryFilters(tag: code, from: from as? Date,
-                                                                                                                       to: to as? Date)
-                                                            return (date.flatMap { DICOMCalendarDate.queryDate($0.filteredValue() as String?) },
-                                                                    time.flatMap { DICOMCalendarDate.queryDate($0.filteredValue() as String?) })
-                                                        })
-                    for removal in built.removed {
-                        switch removal {
-                        case .tooShort(let key, let value):
-                            NSLog("---- too small query -> removed: %@", QueryLog.term(key: key, value: value))
-                        case .empty(let key):
-                            NSLog("---- empty key (%@) -> removed", key)
-                        }
-                    }
-
-                    qm.filters()?.addEntries(from: built.filters)
-
-                    if (qm.filters()?.count ?? 0) == 0 || built.filters.isEmpty {
-                        NSLog("***** no query parameters for queryStudiesForFilters: query not performed.")
-                    } else {
-                        Thread.current.supportsCancel = true
-
-                        qm.performQuery(showErrors)
-
-                        let studiesForThisNode = qm.queries()
-
-                        if studiesForThisNode == nil {
-                            NSLog("queryStudiesForFilters failed for this node: %@", (server.value(forKey: "Description") as? String) ?? "(null)")
-                        }
-
-                        QueryController.mergeStudies(studiesForThisNode as? [Any], into: studies)
+                let built = QueryStudyFilters.build(filters as? [String: Any] ?? [:],
+                                                    permissions: QueryStudyFilters.Permissions(defaults: .standard),
+                                                    birthDate: { birth in
+                                                        DICOMCalendarDate.queryDate(DICOMCalendarDate.string(from: birth, calendarFormat: "%Y%m%d"))
+                                                    },
+                                                    studyDateAndTime: { code, from, to in
+                                                        let (date, time) = QueryController.dateAndTimeQueryFilters(tag: code, from: from as? Date,
+                                                                                                                   to: to as? Date)
+                                                        return (date.flatMap { DICOMCalendarDate.queryDate($0.filteredValue() as String?) },
+                                                                time.flatMap { DICOMCalendarDate.queryDate($0.filteredValue() as String?) })
+                                                    })
+                for removal in built.removed {
+                    switch removal {
+                    case .tooShort(let key, let value):
+                        NSLog("---- too small query -> removed: %@", QueryLog.term(key: key, value: value))
+                    case .empty(let key):
+                        NSLog("---- empty key (%@) -> removed", key)
                     }
                 }
+
+                qm.filters()?.addEntries(from: built.filters)
+
+                if (qm.filters()?.count ?? 0) == 0 || built.filters.isEmpty {
+                    NSLog("***** no query parameters for queryStudiesForFilters: query not performed.")
+                    return
+                }
+                Thread.current.supportsCancel = true
+
+                qm.performQuery(showErrors)
+
+                let studiesForThisNode = qm.queries()
+
+                if studiesForThisNode == nil {
+                    NSLog("queryStudiesForFilters failed for this node: %@", (server["Description"] as? String) ?? "(null)")
+                }
+
+                found = (studiesForThisNode as? [Any], answered(qm))
             }
         } catch {
             QueryController.log(error, "+[QueryController queryStudiesForFilters:servers:showErrors:]")
         }
+        return found
+    }
 
-        return studies
+    /// Whether the node of `manager` answered its last query: false when it
+    /// was not asked (it is this listener), or the query failed or was given
+    /// up (Escape, the progress window's Stop, a cancelled thread).
+    nonisolated static func answered(_ manager: QueryArrayController) -> Bool {
+        guard let root = manager.rootNode() as? DCMTKQueryNode else { return false }
+        return root.lastQuerySucceeded && !root._abortAssociation
     }
 
     /// The studies of the patient of `study` on `serversList`, by the identity
@@ -659,8 +680,18 @@ extension QueryController {
 /// number stays the same. `previousAutoRetrieve` of the former class.
 enum RetrieveInTransfer {
     private static let counts = Mutex<[String: Int32]>([:])
+    /// The same studies and numbers as the dictionary an older header of the
+    /// former plugin SDK declared in the window, which a plugin built with it
+    /// reads there: made equal to the counts, under their lock, whenever they
+    /// change.
+    nonisolated(unsafe) static let ofOlderSDK = NSMutableDictionary()
 
     static func withLock<T: Sendable>(_ body: (inout [String: Int32]) -> T) -> T {
-        counts.withLock { body(&$0) }
+        counts.withLock { counts in
+            let before = counts
+            let result = body(&counts)
+            if counts != before { ofOlderSDK.setDictionary(counts) }
+            return result
+        }
     }
 }

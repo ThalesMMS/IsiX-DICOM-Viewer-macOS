@@ -2,7 +2,8 @@
 """A listen that cannot bind names the service, the port and the errno.
 
 The three sockets Horos opens - the DICOM listener, the XML-RPC interface and
-the web portal - share the same default ports as OsiriX (11112, 8080, 3333).
+the web portal - use the well-known default ports 11112, 8080 and 3333, which
+other DICOM applications on the Mac may already hold.
 When another process is already there, only the web portal used to say so, and
 it never named the port. XML-RPC failed with a CFSocket bind log and then
 silence. The DICOM listener said nothing.
@@ -37,6 +38,11 @@ except FileNotFoundError:
     listener = None
 if listener is None:
     listener_h = None
+elif is_swift('N2ConnectionListener') and '@interface N2ConnectionListener' in (
+        root / 'Nitrogen/Sources/N2ConnectionListener.h').read_text(errors='replace'):
+    # A class of the former plugin SDK again: its Objective-C header declares
+    # it, +lastBindErrno included, and Swift implements what the header says.
+    listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_text(errors='replace')
 elif is_swift('N2ConnectionListener'):
     # Swift: the compatibility header imports the generated
     # interface, so what declares +lastBindErrno to Objective-C callers is the

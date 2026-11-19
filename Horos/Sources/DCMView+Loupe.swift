@@ -50,12 +50,12 @@ extension DCMView {
     @objc(PasteboardTypes)
     public dynamic class func pasteboardTypes() -> NSArray! {
         return [HorosPasteboardType,
-                "com.opensource.horos.uti", "Horos pasteboard", "OsiriX pasteboard"] as NSArray
+                HorosPboardUTI, pasteBoardHoros, pasteBoardOsiriX as String] as NSArray
     }
 
     @objc(PluginPasteboardTypes)
     public dynamic class func pluginPasteboardTypes() -> NSArray! {
         return [HorosPasteboardTypePlugin,
-                "com.opensource.horos.plugin.uti", "HorosPluginDataType", "com.opensource.osirix.plugin.uti", "OsiriXPluginDataType"] as NSArray
+                HorosPluginPboardUTI, pasteBoardHorosPlugin, OsirixPluginPboardUTI as String, pasteBoardOsiriXPlugin as String] as NSArray
     }
 }

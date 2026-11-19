@@ -80,6 +80,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import former_sdk_objects  # noqa: E402
 import n3_geometry_harness  # noqa: E402
 
 SKIPPED = 2
@@ -366,6 +367,7 @@ final class ControllerSteps: NSObject {
     /// How many times the path went to the views.
     var shown = 0
     func showCurvedPathInViews() { shown += 1 }
+    func showChangedCurvedPath() { showCurvedPathInViews() } // and the Stenosis tool told
 
     func updateCurvedPathCost()
 %(updateCurvedPathCost)s
@@ -635,6 +637,8 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-simplification-') as tmp:
         if N3_LIBRARIES:
             n3_geometry_harness.build(tmp / N3_LIBRARIES, 'debug', headers=tmp)
             objects += n3_geometry_harness.libraries(tmp / N3_LIBRARIES)
+            # The constants CPRCurvedPath.h declares extern, which the slice reads.
+            objects.append(former_sdk_objects.app(tmp / N3_LIBRARIES))
         for path, flags in OBJC_SOURCES:
             name = Path(path).name
             obj = tmp / (Path(path).stem + '.o')
@@ -669,7 +673,7 @@ simplified = slider.find('CurvedMPRPathAssistant.simplify(')
 check(0 <= held < simplified < freed, '-onSliderMove: rebuilds the path at each node')
 check('self.removeNode()' not in slider and 'self.undoLastNodeRemoval()' not in slider,
       '-onSliderMove: shows the path in the views at each node')
-check(slider.count('showCurvedPathInViews()') == 1, '-onSliderMove: does not show the path once')
+check(slider.count('showChangedCurvedPath()') + slider.count('showCurvedPathInViews()') == 1, '-onSliderMove: does not show the path once')
 
 setter = block(controller, 'private func setCurvedPathValue(')
 kept_nodes = setter.find('let previousNodes = _curvedPath?.nodes')

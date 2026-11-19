@@ -55,6 +55,12 @@ public enum ReconstructionPreferences {
     public static let cprInterpolationMode = PreferenceKey<Int>("selectedCPRInterpolationMode")
     /// Set once the CPR toolbar was given its Stenosis item.
     public static let cprToolbarStenosisInserted = PreferenceKey<Bool>("CPRToolbarStenosisInserted")
+    public static let cprToolbarPathsInserted = PreferenceKey<Bool>("CPRToolbarPathsInserted")
+    /// The upper limits, in HU, of the lipid-rich, the fibro-fatty and the fibrous plaque the Stenosis tool reads
+    /// the plaque of a coronary artery with; absent or out of order, the tool's own (30, 130 and 350).
+    public static let stenosisPlaqueLipidLimit = PreferenceKey<Float>("StenosisPlaqueLipidLimit")
+    public static let stenosisPlaqueFibroFattyLimit = PreferenceKey<Float>("StenosisPlaqueFibroFattyLimit")
+    public static let stenosisPlaqueFibrousLimit = PreferenceKey<Float>("StenosisPlaqueFibrousLimit")
     /// Set once the endoscopy toolbar was given its View Angle item.
     public static let endoscopyViewAngleItemShown = PreferenceKey<Bool>("EndoscopyViewAngleToolbarItemShown")
     public static let exportMatrixFor3D = PreferenceKey<Int>("EXPORTMATRIXFOR3D", registered: "0")
@@ -101,12 +107,13 @@ public enum ReconstructionPreferences {
     /// Every key of this file.
     static let catalog: [any CataloguedPreference] = [
         curvedPathColourBlue, curvedPathColourGreen, curvedPathColourRed, cprExportIncludesAllViews,
-        cprInterpolationMode, cprToolbarStenosisInserted, endoscopyViewAngleItemShown, exportMatrixFor3D,
+        cprInterpolationMode, cprToolbarPathsInserted, cprToolbarStenosisInserted, endoscopyViewAngleItemShown, exportMatrixFor3D,
         exportIncludesAllViews, lastMPRExportMode, logarithmicThickSlabSlider, mprAxis1Alpha, mprAxis1Blue,
         mprAxis1Green, mprAxis1Red, mprAxis2Alpha, mprAxis2Blue, mprAxis2Green, mprAxis2Red, mprAxis3Alpha,
         mprAxis3Blue, mprAxis3Green, mprAxis3Red, mprCubicDisplay, mpr2DViewsPosition, mprDisplaysMousePosition,
         opensViewer, pathAssistantUsesScrollWheel, petCTExportsThreeModalities,
-        rememberMPRPlaneAngles, savedCPRType, stackThicknessOrthogonalMPR, syncsZoomLevelMPR, undoQueueSize,
+        rememberMPRPlaneAngles, savedCPRType, stackThicknessOrthogonalMPR, stenosisPlaqueFibroFattyLimit,
+        stenosisPlaqueFibrousLimit, stenosisPlaqueLipidLimit, syncsZoomLevelMPR, undoQueueSize,
         doesNotUseUndoQueueForROIs,
     ]
 }

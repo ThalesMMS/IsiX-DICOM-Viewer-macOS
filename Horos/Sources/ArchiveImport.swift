@@ -155,6 +155,8 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
                 showImportError(archive, reason: error.localizedDescription)
                 return
             }
+            // The archives the import folder finds in it draw from this import's budget.
+            ArchiveExpansionRegistry.shared.folder(staging, movedTo: destination)
             DatabaseIngest.process.requestImport(of: database)
             // Without a browser window the offer is a modal, which must not run inside the main queue.
             onMainRunLoop { ArchiveImport.offerToDelete(archive, in: self.browser.window, preferences: self.preferences) }
@@ -220,6 +222,17 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
 
     /// Why unzip did not expand an archive, with its status for a report.
     nonisolated static func reason(forUnzipStatus status: Int32) -> String {
+        if let refusal = ArchiveExpansionRefusal(status: status, budget: expansionBudget) {
+            switch refusal {
+            case .bytes(let limit):
+                return String(format: NSLocalizedString("It would expand to more than %@, the limit of one import.", comment: "Why a ZIP archive could not be imported; %@ is a size, as 256 GB"),
+                              ByteCountFormatter.string(fromByteCount: limit, countStyle: .binary))
+            case .files(let limit):
+                return String(format: NSLocalizedString("It holds more than %ld files, the limit of one import.", comment: "Why a ZIP archive could not be imported"), limit)
+            case .nesting(let limit):
+                return String(format: NSLocalizedString("It is inside more than %ld other ZIP files, the limit of one import.", comment: "Why a ZIP archive could not be imported"), limit)
+            }
+        }
         let reason: String
         switch ArchiveExpansionFailure(unzipStatus: status) {
         case .damaged: reason = NSLocalizedString("The ZIP file is damaged or incomplete.", comment: "Why a ZIP archive could not be imported")
@@ -253,9 +266,14 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
     /// password sheet until it opens or the user cancels; NSModalResponseStop
     /// when expanded.
     func askForPassword(_ file: String?, destination: String?) -> Int32 {
-        // First without a password.
-        guard !BrowserController.unzipFile(file, withPassword: nil, destination: destination) else {
+        // First without a password. One that is over the import's budget is
+        // not one a password opens.
+        var status: Int32 = -1
+        guard !BrowserController.unzipFile(file, withPassword: nil, destination: destination, showGUI: true, terminationStatus: &status) else {
             return Int32(NSApplication.ModalResponse.stop.rawValue)
+        }
+        if ArchiveExpansionRefusal(status: status, budget: Self.expansionBudget) != nil {
+            return Int32(NSApplication.ModalResponse.abort.rawValue)
         }
         browser.pathToEncryptedFile = String(format: NSLocalizedString("File: %@", comment: ""), file ?? "(null)")
         browser.cDpassword = ""
@@ -267,7 +285,9 @@ private let wadoTemporaryFileNumber = Mutex<Int>(1)
             sheet.makeFirstResponder(nil)
             sheet.sheetParent?.endSheet(sheet)
             sheet.orderOut(browser)
-        } while result == .stop && !BrowserController.unzipFile(file, withPassword: browser.cDpassword, destination: destination)
+        } while result == .stop
+            && !BrowserController.unzipFile(file, withPassword: browser.cDpassword, destination: destination, showGUI: true, terminationStatus: &status)
+            && ArchiveExpansionRefusal(status: status, budget: Self.expansionBudget) == nil
         return Int32(result.rawValue)
     }
 
@@ -320,12 +340,21 @@ extension ArchiveImport {
     nonisolated private static let deletesImportedArchive = PreferenceKey<Bool>("deleteZIPfile")
     nonisolated private static let suppressesDeletionQuestion = PreferenceKey<Bool>("HideZIPSuppressionMessage")
 
+    /// What one import of an archive may expand, as the preferences have it.
+    nonisolated static var expansionBudget: ArchiveExpansionBudget {
+        ArchiveExpansionBudget.imported(from: PreferencesSource.process.preferences)
+    }
+
     /// Expands `file` into `destination`, a new private folder, and answers
     /// whether it holds a file of some content. `status` gets unzip's
     /// termination status, -1 when it did not run. On the main thread with
     /// `showingProgress`, a progress window stays responsive while unzip
     /// runs; a cancelled thread stops unzip. An archive unzip expanded whole
-    /// with warnings counts as expanded (HorosArchiveImportLedger).
+    /// with warnings counts as expanded (HorosArchiveImportLedger). The
+    /// expansion draws from the budget of its import, which an archive found
+    /// in an expanded folder shares (ArchiveExpansionRegistry): one that
+    /// holds more than is left, or is inside too many others, leaves nothing
+    /// in `destination` and `status` gets what stands for the refusal.
     nonisolated static func unzip(_ file: String!, password: String!, into destination: String!, showingProgress: Bool,
                                   status: UnsafeMutablePointer<Int32>?) -> Bool {
         status?.pointee = -1
@@ -343,8 +372,9 @@ extension ArchiveImport {
         // The password is typed on unzip's own terminal, never passed as -P,
         // which every process could read (ps).
         var succeeded = false
+        let share = ArchiveExpansionRegistry.shared.share(ofArchive: file, budget: expansionBudget)
         do {
-            let exitStatus = try ProtectedZipArchiver.extract(file, to: destination, password: password, in: files.tmpDirPath()) {
+            switch try ProtectedZipArchiver.extract(file, to: destination, password: password, in: files.tmpDirPath(), share: share, continuing: {
                 // The progress window keeps responding while other windows
                 // stay modal: waiting for unzip must not stop the event loop.
                 if Thread.current.isCancelled { return false }
@@ -352,12 +382,18 @@ extension ArchiveImport {
                     MainActor.assumeIsolated { progress.keepResponding() }
                 }
                 return true
-            }
-            status?.pointee = exitStatus
-            succeeded = !Thread.current.isCancelled
-                && ArchiveImportLedger.unzipExpandedWholeArchive(file, status: exitStatus, into: destination)
-            if succeeded && exitStatus != 0 {
-                NSLog("---- unzip: %@ expanded whole, with warnings (status %d)", (file as NSString).lastPathComponent, exitStatus)
+            }) {
+            case .failure(let refusal):
+                status?.pointee = refusal.status
+                NSLog("---- unzip: %@ was not expanded: it %@", (file as NSString).lastPathComponent, refusal.logText)
+            case .success(let exitStatus):
+                status?.pointee = exitStatus
+                succeeded = !Thread.current.isCancelled
+                    && ArchiveImportLedger.unzipExpandedWholeArchive(file, status: exitStatus, into: destination)
+                if succeeded && exitStatus != 0 {
+                    NSLog("---- unzip: %@ expanded whole, with warnings (status %d)", (file as NSString).lastPathComponent, exitStatus)
+                }
+                if succeeded { ArchiveExpansionRegistry.shared.record(share, expandedInto: destination) }
             }
         } catch {
             NSLog("---- unzip: %@ could not run: %@", (file as NSString).lastPathComponent, error.localizedDescription)

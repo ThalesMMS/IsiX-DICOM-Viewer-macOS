@@ -149,8 +149,19 @@ public final class GSPSDocument: NSObject {
         }
 
         for reference in referencedImages {
-            let frames = reference.frameNumbers.isEmpty ? [1] : reference.frameNumbers
-            for frame in frames {
+            // A reference that names no frame is to the object, every frame it
+            // has (PS 3.3 10.3). How many that is only the object says, and it
+            // is not asked here: what can be told missing is the object, when
+            // none of its frames is among the images. A frame taken for it,
+            // the first, was reported missing with any other frame open, and
+            // the state applied to that frame all the same.
+            if reference.frameNumbers.isEmpty {
+                if !images.contains(where: { $0.sopInstanceUID == reference.sopInstanceUID }) {
+                    result.missingReferences.append(reference)
+                }
+                continue
+            }
+            for frame in reference.frameNumbers {
                 let present = images.contains {
                     $0.sopInstanceUID == reference.sopInstanceUID && max($0.frameNumber, 1) == frame
                 }
@@ -160,12 +171,6 @@ public final class GSPSDocument: NSObject {
                     missing.sopClassUID = reference.sopClassUID
                     missing.frameNumbers = [frame]
                     result.missingReferences.append(missing)
-                }
-            }
-            if reference.frameNumbers.isEmpty {
-                let present = images.contains { $0.sopInstanceUID == reference.sopInstanceUID }
-                if !present && result.missingReferences.contains(where: { $0.sopInstanceUID == reference.sopInstanceUID }) == false {
-                    result.missingReferences.append(reference)
                 }
             }
         }
@@ -214,7 +219,7 @@ public final class GSPSDocument: NSObject {
         if let exact = items.first(where: { $0.restricts(to: sop, frame: frame) }) {
             return exact
         }
-        return items.first(where: { $0.references.isEmpty }) ?? items.first
+        return items.first(where: { $0.references.isEmpty })
     }
 
     private static func flagForUnsupportedSOP(_ uid: String) -> String {
@@ -394,6 +399,8 @@ public final class GSPSAvailableImage: NSObject {
 
 @objc(HorosGSPSDisplayedArea)
 public final class GSPSDisplayedArea: NSObject {
+    /// The first column and row of the area, from 0 for the image's first:
+    /// negative for an area that begins outside the image.
     @objc public var column: Int = 0
     @objc public var row: Int = 0
     @objc public var width: Int = 0
@@ -466,12 +473,14 @@ private final class GSPSDisplayedAreaItem: GSPSApplicable {
             let top = Int(tlhc[1].rounded(.towardZero)) - 1
             let right = Int(brhc[0].rounded(.towardZero)) - 1
             let bottom = Int(brhc[1].rounded(.towardZero)) - 1
-            let column = max(0, min(left, right))
-            let row = max(0, min(top, bottom))
-            area.column = column
-            area.row = row
-            area.width = max(0, abs(right - left) + 1)
-            area.height = max(0, abs(bottom - top) + 1)
+            // The corners may lie outside the image (PS 3.3 C.10.4): the area
+            // then begins before its first column or row, or ends past its
+            // last. Held to the image, the origin moved and the size stayed,
+            // which shifted the whole rectangle and what is placed in it.
+            area.column = min(left, right)
+            area.row = min(top, bottom)
+            area.width = abs(right - left) + 1
+            area.height = abs(bottom - top) + 1
         }
         if !sizeMode.isEmpty { area.sizeMode = sizeMode }
         if let magnification { area.magnification = magnification }

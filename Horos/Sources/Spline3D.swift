@@ -43,19 +43,26 @@ import IsiXVolumeRendering
 
 /// Spline interpolation for FlyThru: a cardinal spline on each coordinate,
 /// VTK's, through its adapter (IsiXVTKCurve3D). The coefficients are computed
-/// at the first evaluation, or by `compute`. The Objective-C name and
-/// selectors are those of the former class.
+/// at the first evaluation, or by `compute`. The Objective-C name, superclass
+/// and selectors are those of the former class.
 @objc(Spline3D)
-public final class Spline3D: NSObject, Interpolation3D, FlyPathSpline {
+public final class Spline3D: Interpolation3D, FlyPathSpline {
     private let curve = IsiXVTKCurve3D(kind: .cardinalSpline)
-    private var computed = false
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each,
+    // so each is a stored field of this class, never private, lazy or observed.
+    // The three VTK splines were pointers to C++ objects, never retained; the
+    // curve is the adapter's now, and they stay nil.
+    unowned(unsafe) var xSpline: AnyObject?, ySpline: AnyObject?, zSpline: AnyObject?
+    var computed = false
 
     @objc public override init() {
         super.init()
     }
 
     @objc(addPoint::)
-    public func addPoint(_ t: Float, _ p: Point3D!) {
+    public override func addPoint(_ t: Float, _ p: Point3D!) {
         add(t, p?.x ?? 0, p?.y ?? 0, p?.z ?? 0)
     }
 
@@ -69,7 +76,7 @@ public final class Spline3D: NSObject, Interpolation3D, FlyPathSpline {
     }
 
     @objc(evaluateAt:)
-    public func evaluate(at t: Float) -> Point3D! {
+    public override func evaluate(at t: Float) -> Point3D! {
         let p = value(t)
         return Point3D(x: p.x, y: p.y, z: p.z)
     }

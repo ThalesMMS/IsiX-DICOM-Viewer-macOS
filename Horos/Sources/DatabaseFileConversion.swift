@@ -135,9 +135,10 @@ struct DatabaseFileConversion: DatabaseFileConverting, @unchecked Sendable {
         // application's.
         let settings = DecompressConversion.settings(from: preferences)
         let moveIfUnreadable = preferences[DatabasePreferences.decompressMovesUnreadableFiles]
+        let archiveBudget = ArchiveExpansionBudget.imported(from: preferences)
         return CompressionHelperRun.run(paths, mode: helperMode, destination: destination, environment: environment) {
             DecompressConversionTask(arguments: $0, settings: settings, moveIfUnreadable: moveIfUnreadable,
-                                     service: DecompressService.shared)
+                                     archiveBudget: archiveBudget, service: DecompressService.shared)
         }
     }
 

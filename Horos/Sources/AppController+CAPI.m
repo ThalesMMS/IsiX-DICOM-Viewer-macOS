@@ -81,8 +81,18 @@ BOOL					USETOOLBARPANEL = NO;
 //short					Altivec = 1;
 AppController			*appController = nil;
 NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and the DCMTK reads of DicomFile (the name is kept: exported symbol)
-NSMutableArray			*accumulateAnimationsArray = nil, *recentStudies = nil;
-NSMutableDictionary     *recentStudiesAlbums = nil;
+NSMutableArray			*accumulateAnimationsArray = nil;
+// Globals of the Horos and OsiriX plugin SDK that the application no longer
+// reads; a plugin built for that SDK looks their names up when it loads, so
+// they stay defined, and used keeps them through the linker's dead stripping.
+// The recent studies of the menu are kept by their object IDs elsewhere: these
+// two stay nil. delayedTileWindows and the two listeners are written by the
+// application, as before, when it puts a tiling off and when a listener
+// starts or stops; what a plugin writes to them changes nothing.
+__attribute__((used)) NSMutableArray *recentStudies = nil;
+__attribute__((used)) NSMutableDictionary *recentStudiesAlbums = nil;
+__attribute__((used)) int delayedTileWindows = NO;
+__attribute__((used)) DCMTKQueryRetrieveSCP *dcmtkQRSCP = nil, *dcmtkQRSCPTLS = nil;
 BOOL					accumulateAnimations = NO;
 
 AppController* OsiriX = nil;
@@ -411,6 +421,85 @@ int GetAllPIDsForProcessName(const char* ProcessName,
         //found matches return success.
         return(kSuccess);
     }
+}
+
+#pragma mark - Functions of the Horos and OsiriX plugin SDK
+
+// Plugins built for that SDK call these by name. The frame the viewers are
+// tiled in, by the MULTIPLESCREENS preference: the main screen, the second
+// screen (with the ones of its size beside it), or all the screens of the
+// main one's size.
+__attribute__((used)) NSRect screenFrame(void)
+{
+	int i = 0;
+	float height = 0.0;
+	float width = 0.0;
+	float singleWidth = 0.0;
+	int screenCount = [[NSScreen screens] count];
+	NSRect frame;
+	NSRect screenRect;
+	switch ([[NSUserDefaults standardUserDefaults] integerForKey: @"MULTIPLESCREENS"])
+	{
+		case 0:		// use main screen only
+			screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+		break;
+		
+		case 1:		// use second screen only
+			if (screenCount == 2)
+			{
+				screenRect = [[[NSScreen screens] objectAtIndex: 1] visibleFrame];
+			}
+			else if ( screenCount > 2)
+			{
+				//multiple monitors. Need to span at least two monitors for viewing if they are the same size.
+				height = [[[NSScreen screens] objectAtIndex:1] frame].size.height;
+				singleWidth = width = [[[NSScreen screens] objectAtIndex:1] frame].size.width;
+				for (i = 2; i < screenCount; i ++)
+				{
+					frame = [[[NSScreen screens] objectAtIndex:i] frame];
+					if (frame.size.height == height && frame.size.width == singleWidth)
+						width = frame.size.width;
+				}	
+				screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:1] frame].origin.x, 
+										[[[NSScreen screens] objectAtIndex:1] frame].origin.y,
+										width,
+										height);	
+			}
+			else //only one screen
+			{
+				screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+			}
+		break;
+		
+		case 2:		// use all screens
+			height = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
+			singleWidth = width = [[[NSScreen screens] objectAtIndex:0] frame].size.width;
+			for (i = 1; i < screenCount; i ++)
+			{
+				frame = [[[NSScreen screens] objectAtIndex:i] frame];
+				if (frame.size.height == height && frame.size.width == singleWidth)
+					width = frame.size.width;
+			}
+			screenRect = NSMakeRect([[[NSScreen screens] objectAtIndex:0] frame].origin.x, 
+										[[[NSScreen screens] objectAtIndex:0] frame].origin.y,
+										width,
+										height);
+			//screenRect    = [[[NSScreen screens] objectAtIndex:0] visibleFrame];
+			
+			
+		break;
+	}
+	return screenRect;
+}
+
+__attribute__((used)) NSString * documentsDirectory(void)
+{
+    return [DicomDatabase defaultBaseDirPath];
+}
+
+__attribute__((used)) NSString * documentsDirectoryFor(int mode, NSString *url)
+{
+    return [DicomDatabase baseDirPathForMode: mode path: url];
 }
 
 #pragma mark - What the Swift class reaches through functions

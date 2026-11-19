@@ -90,11 +90,6 @@ import IsiXPreferences
         self.preferences = preferences
     }
 
-    /// The answers kept for the last selection.
-    private var cache: BrowserSelectionCache {
-        browser.selectionCache
-    }
-
     /// The images of the selection: the thumbnails' when the menu item is in
     /// their menu or they have the focus, the list's otherwise.
     private func selectedImages(for sender: Any?) -> [NSObject] {
@@ -120,8 +115,8 @@ import IsiXPreferences
     func roisAndKeyImages(_ sender: Any?) -> (images: [DicomImage], sameSeries: Bool) {
         let selection = selectedImages(for: sender)
 
-        if let images = cache.ROIsAndKeyImagesCache, cache.lastROIsAndKeyImagesSelectedFiles == selection {
-            return (images, cache.ROIsAndKeyImagesCacheSameSeries)
+        if let images = browser.horos_ROIsAndKeyImagesCache, browser.horos_lastROIsAndKeyImagesSelectedFiles == selection {
+            return (images, browser.horos_ROIsAndKeyImagesCacheSameSeries)
         }
 
         var images: [DicomImage] = []
@@ -147,12 +142,12 @@ import IsiXPreferences
                     BrowserObjC.log(exception, stack: true, "-[BrowserController ROIsAndKeyImages:sameSeries:]")
                 }
             }
-            cache.ROIsAndKeyImagesCacheSameSeries = Self.sameSeries(images)
+            browser.horos_ROIsAndKeyImagesCacheSameSeries = Self.sameSeries(images)
         }
 
-        cache.ROIsAndKeyImagesCache = images
-        cache.lastROIsAndKeyImagesSelectedFiles = selection
-        return (images, cache.ROIsAndKeyImagesCacheSameSeries)
+        browser.horos_ROIsAndKeyImagesCache = images
+        browser.horos_lastROIsAndKeyImagesSelectedFiles = selection
+        return (images, browser.horos_ROIsAndKeyImagesCacheSameSeries)
     }
 
     /// The images of the selection that have ROIs, and whether they are of
@@ -160,8 +155,8 @@ import IsiXPreferences
     func roiImages(_ sender: Any?) -> (images: [DicomImage], sameSeries: Bool) {
         let selection = selectedImages(for: sender)
 
-        if let images = cache.ROIsImagesCache, cache.lastROIsImagesSelectedFiles == selection {
-            return (images, cache.ROIsImagesCacheSameSeries)
+        if let images = browser.horos_ROIsImagesCache, browser.horos_lastROIsImagesSelectedFiles == selection {
+            return (images, browser.horos_ROIsImagesCacheSameSeries)
         }
 
         var images: [DicomImage] = []
@@ -180,25 +175,25 @@ import IsiXPreferences
                     BrowserObjC.log(exception, "-[BrowserController ROIImages:sameSeries:]")
                 }
             }
-            cache.ROIsImagesCacheSameSeries = Self.sameSeries(images)
+            browser.horos_ROIsImagesCacheSameSeries = Self.sameSeries(images)
         }
 
-        cache.ROIsImagesCache = images
-        cache.lastROIsImagesSelectedFiles = selection
-        return (images, cache.ROIsImagesCacheSameSeries)
+        browser.horos_ROIsImagesCache = images
+        browser.horos_lastROIsImagesSelectedFiles = selection
+        return (images, browser.horos_ROIsImagesCacheSameSeries)
     }
 
     /// The key images of the selection.
     func keyImages(_ sender: Any?) -> [DicomImage] {
         let selection = selectedImages(for: sender)
 
-        if let images = cache.KeyImagesCache, cache.lastKeyImagesSelectedFiles == selection {
+        if let images = browser.horos_KeyImagesCache, browser.horos_lastKeyImagesSelectedFiles == selection {
             return images
         }
 
         let images = selection.compactMap { $0 as? DicomImage }.filter { $0.isKeyImage()?.boolValue == true }
-        cache.KeyImagesCache = images
-        cache.lastKeyImagesSelectedFiles = selection
+        browser.horos_KeyImagesCache = images
+        browser.horos_lastKeyImagesSelectedFiles = selection
         return images
     }
 

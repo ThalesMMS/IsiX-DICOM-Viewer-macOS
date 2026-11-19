@@ -22,17 +22,32 @@ import IsiXPreferences
 public final class DICOMCharacterSet: NSObject, NSCopying {
     /// The value as the file states it.
     @objc public let characterSet: String
+    // The instance variables of the former Horos and OsiriX plugin SDK
+    // (encoding, encodings and _characterSet), which a plugin reads at the
+    // offset the application exports for each: stored fields with the type the
+    // C declaration has in memory, public so that the application's link
+    // reaches them, never constant, lazy or observed. The text of the value is
+    // a copy of the one above, written when the set is made.
     /// The encoding of the first term.
-    @objc public let encoding: UInt
-    private let storage: UnsafeMutablePointer<UInt>
+    @objc public internal(set) var encoding: UInt = 0
+    public var storage: UnsafeMutablePointer<UInt>?
+    public var _characterSet: NSString?
 
     /// The encodings of the terms, in order, ten slots, zero after the last.
-    @objc public var encodings: UnsafeMutablePointer<UInt> { storage }
+    @objc public var encodings: UnsafeMutablePointer<UInt> { storage! }
+
+    /// A copy of `other`, as the plugin SDK of Horos and OsiriX made one.
+    @objc(initWithCharacterSet:)
+    public convenience init(characterSet other: DICOMCharacterSet?) {
+        self.init(code: other?.characterSet ?? "")
+    }
 
     @objc(initWithCode:)
     public init(code characterSet: String) {
         self.characterSet = characterSet
-        storage = .allocate(capacity: 10)
+        _characterSet = characterSet as NSString
+        let storage = UnsafeMutablePointer<UInt>.allocate(capacity: 10)
+        self.storage = storage
         storage.initialize(repeating: 0, count: 10)
         storage[0] = String.Encoding.isoLatin1.rawValue
         for (index, term) in characterSet.components(separatedBy: "\\").enumerated() {
@@ -46,7 +61,7 @@ public final class DICOMCharacterSet: NSObject, NSCopying {
         super.init()
     }
 
-    deinit { storage.deallocate() }
+    deinit { storage?.deallocate() }
 
     public func copy(with zone: NSZone? = nil) -> Any { DICOMCharacterSet(code: characterSet) }
 

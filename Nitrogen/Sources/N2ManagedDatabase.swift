@@ -105,7 +105,12 @@ protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
 
     // MARK: - State
 
-    final var storedSqlFilePath: String?
+    // The instance variable _sqlFilePath of the former Horos and OsiriX plugin
+    // SDK, which a plugin reads and writes at the offset the application
+    // exports for it: a stored field with the type the header declared.
+    final var storedSqlFilePath: NSString?
+    // The same for _mainDatabase, _managedObjectContext and associatedThread,
+    // which the headers of older SDKs declared.
     /// The main database of an independent database, retained; nil for a main database.
     final var storedMainDatabase: AnyObject?
     final var storedManagedObjectContext: NSManagedObjectContext?
@@ -115,13 +120,25 @@ protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
     final var contextMergePolicy: Any?
     /// Debug builds: the thread that set the context.
     final var storedAssociatedThread: Thread?
+    // What the header of the first SDK named otherwise, each kept as a second
+    // field with the same object and never read here: basePath, the path the
+    // database was made with, written wherever storedSqlFilePath is, and
+    // managedObjectContext, written wherever storedManagedObjectContext is.
+    final var horos_basePath: NSString?
+    final var horos_managedObjectContext: NSManagedObjectContext?
+    /// _isDeallocating of an older SDK: set as the database starts to go.
+    final var _isDeallocating: Bool = false
+    /// writeLock of the first SDK, taken by its -writeLock, -tryWriteLock and
+    /// -writeUnlock, which the class has not had since: a write runs on the
+    /// queue of its context. Nil.
+    final var horos_writeLock: NSRecursiveLock?
 
     var associatedThread: Thread! {
         storedAssociatedThread
     }
 
     var sqlFilePath: String! {
-        storedSqlFilePath
+        storedSqlFilePath as String?
     }
 
     var mainDatabase: Any! {
@@ -145,6 +162,7 @@ protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
                 _ = Unmanaged.passRetained(previous).autorelease()
             }
             storedManagedObjectContext = newValue
+            horos_managedObjectContext = newValue
             contextMergePolicy = nil
             if self.isMainDatabase(), let context = newValue {
                 var policy: Any? = nil
@@ -212,13 +230,15 @@ protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
     init!(path p: String!, context c: NSManagedObjectContext!, mainDatabase mainDbReference: N2ManagedDatabase!) {
         super.init()
 
-        storedSqlFilePath = p
+        storedSqlFilePath = p as NSString?
+        horos_basePath = p as NSString?
         storedMainDatabase = mainDbReference
 
         self.managedObjectContext = c ?? self.context(atPath: p)
     }
 
     deinit {
+        _isDeallocating = true
         #if DEBUG
         storedAssociatedThread = nil
         #endif
@@ -252,11 +272,13 @@ protocol N2ManagedDatabaseSaveFollowUp: AnyObject {
             // there, on the thread whose context it is.
             self.willChangeValue(forKey: "managedObjectContext")
             storedManagedObjectContext = nil
+            horos_managedObjectContext = nil
             self.didChangeValue(forKey: "managedObjectContext")
         } else {
             self.managedObjectContext = nil
         }
         storedSqlFilePath = nil
+        horos_basePath = nil
         contextMergePolicy = nil
     }
 

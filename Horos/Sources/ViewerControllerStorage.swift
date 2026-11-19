@@ -19,7 +19,11 @@ import Foundation
 
 /// An object kept as a manual retain-release instance variable: retained when
 /// it replaces another (which is released), stored without either by
-/// `assign`, never released by its holder.
+/// `assign`, never released by its holder. It has the layout of one pointer.
+/// An instance variable of the former plugin SDK kept this way is a field of
+/// this type declared in its class, not a wrapped property: a plugin reads it
+/// at the offset the application exports, and the storage a wrapper
+/// synthesizes is private to its file, where no linker alias reaches it.
 @propertyWrapper
 struct ManuallyRetained<Value: AnyObject> {
     private unowned(unsafe) var value: Value?
@@ -48,35 +52,66 @@ struct ManuallyRetained<Value: AnyObject> {
     }
 }
 
-/// A C array of objects kept as manual retain-release instance variables
-/// (one per movie frame): `set` retains the new value and releases the old
-/// one, `assign` stores without either, and the slots are never released.
-final class ManuallyRetainedSlots<Value: AnyObject>: @unchecked Sendable {
-    private let slots: UnsafeMutablePointer<Unmanaged<Value>?>
-    let count: Int
+/// The slots of a C array of objects kept as manual retain-release instance
+/// variables, at an address its user keeps valid: `set` retains the new value
+/// and releases the old one, `assign` stores without either, and nothing
+/// releases a slot when its array goes.
+/// The slots are untyped pointers, as the C struct that declares such an
+/// array inside an object has them.
+struct ManuallyRetainedSlotArray<Value: AnyObject> {
+    let slots: UnsafeMutablePointer<UnsafeMutableRawPointer?>
 
-    init(count: Int) {
-        self.count = count
-        slots = .allocate(capacity: count)
-        slots.initialize(repeating: nil, count: count)
+    init(_ slots: UnsafeMutablePointer<UnsafeMutableRawPointer?>) {
+        self.slots = slots
     }
 
-    deinit {
-        slots.deinitialize(count: count)
-        slots.deallocate()
+    /// The array that is a stored field of `owner`, a C struct of pointers
+    /// `offset` bytes into the instance (the field's ivar_getOffset). A
+    /// plugin of the former SDK reads and writes the array there, so the
+    /// slots are that memory itself and not a copy: the object's address plus
+    /// the offset holds while `owner` lives, which a pointer taken to the
+    /// field for the length of a closure would not.
+    init(fieldAt offset: Int, of owner: AnyObject) {
+        slots = (Unmanaged.passUnretained(owner).toOpaque() + offset).assumingMemoryBound(to: UnsafeMutableRawPointer?.self)
     }
 
     subscript(index: Int) -> Value? {
-        slots[index]?.takeUnretainedValue()
+        slots[index].map { Unmanaged<Value>.fromOpaque($0).takeUnretainedValue() }
     }
 
     func set(_ value: Value?, at index: Int) {
-        let retained = value.map { Unmanaged.passUnretained($0).retain() }
-        slots[index]?.release()
+        let retained = value.map { Unmanaged.passUnretained($0).retain().toOpaque() }
+        if let old = slots[index] { Unmanaged<Value>.fromOpaque(old).release() }
         slots[index] = retained
     }
 
     func assign(_ value: Value?, at index: Int) {
-        slots[index] = value.map { Unmanaged.passUnretained($0) }
+        slots[index] = value.map { Unmanaged.passUnretained($0).toOpaque() }
     }
+}
+
+/// A C array of objects kept as manual retain-release instance variables
+/// (one per movie frame), in memory of its own: `set` retains the new value
+/// and releases the old one, `assign` stores without either, and the slots
+/// are never released.
+final class ManuallyRetainedSlots<Value: AnyObject>: @unchecked Sendable {
+    private let array: ManuallyRetainedSlotArray<Value>
+    let count: Int
+
+    init(count: Int) {
+        self.count = count
+        array = ManuallyRetainedSlotArray(.allocate(capacity: count))
+        array.slots.initialize(repeating: nil, count: count)
+    }
+
+    deinit {
+        array.slots.deinitialize(count: count)
+        array.slots.deallocate()
+    }
+
+    subscript(index: Int) -> Value? { array[index] }
+
+    func set(_ value: Value?, at index: Int) { array.set(value, at: index) }
+
+    func assign(_ value: Value?, at index: Int) { array.assign(value, at: index) }
 }

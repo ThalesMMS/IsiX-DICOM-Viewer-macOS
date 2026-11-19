@@ -55,7 +55,7 @@ import IsiXROI
 // an NSArray result) go through DCMViewDraggingMessages, an @objc protocol that
 // only names the selectors: the message goes to the object as it did, and a
 // message to nil answers nil, NO or 0. Keys and texts are NSString constants.
-// An @try is HorosObjCException.caughtWithoutAllocation, or
+// An @try is HorosObjCException.caught, or
 // HorosObjCException.perform. What the repulsor does to the ROIs'
 // points and which ROIs the ROI selector touches are IsiXROI's ROIRepulsor
 // and ROISelectorRegion.
@@ -187,7 +187,7 @@ extension DCMView {
         if self.horos_dcmPixList != nil {
             DCMView.horos_static_drawLock?.lock()
 
-            if let e = HorosObjCException.caughtWithoutAllocation({
+            if let e = HorosObjCException.caught({
                     var tool = self.horos_currentMouseEventTool
 
                     self.mouseMoved(with: event)    // Update some variables...
@@ -545,7 +545,7 @@ extension DCMView {
         let start = self.horos_start
         self.horos_scrollMode = StackNavigation.dragAxis(self.horos_scrollMode, from: start, to: current)
 
-        let previmage = self.horos_curImage
+        let previmage = Int(self.horos_curImage)
 
         // The wheel obeyed the reversal preference and the flipped series order
         // while the drag ignored both, so the two gestures walked the series in
@@ -554,11 +554,11 @@ extension DCMView {
                                         count: self.horos_dcmPixList?.count ?? 0,
                                         sign: ScrollDirection.dragSign(flippedData: self.horos_flippedData)) else { return }
 
-        if previmage != self.horos_curImage {
+        if previmage != Int(self.horos_curImage) {
             if self.horos_listType == CChar(UInt8(ascii: "i")) {
-                self.setIndex(self.horos_curImage)
+                self.setIndex(Int(self.horos_curImage))
             } else {
-                self.setIndexWithReset(self.horos_curImage, true)
+                self.setIndexWithReset(Int(self.horos_curImage), true)
             }
 
             if let matrix = self.horos_matrix {
@@ -573,7 +573,7 @@ extension DCMView {
             if self.horos_stringID != nil { windowControllerOf(self)?.draggingAdjustSlider() }
 
             // SYNCRO
-            self.sendSyncMessage(self.horos_curImage - previmage)
+            self.sendSyncMessage(Int(self.horos_curImage) - previmage)
             self.horosShowScrollPreview(atWindowPoint: event?.locationInWindow ?? .zero)
         }
     }

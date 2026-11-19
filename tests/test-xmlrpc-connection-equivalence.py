@@ -449,14 +449,18 @@ def build_after(work):
     nitrogen, horos = ROOT / 'Nitrogen/Sources', ROOT / 'Horos/Sources'
     modules = work / 'modules'
     # IsiXLogging: the app's NSLog, which the connection's DLog calls, writes through it.
-    flags = isix_modules.module_flags('IsiXHTTPServer', modules) + isix_modules.module_flags('IsiXLogging', modules)
+    # IsiXDICOMFile: the notice of an inert selector of the former SDK, which N2Connection gives.
+    flags = (isix_modules.module_flags('IsiXHTTPServer', modules) + isix_modules.module_flags('IsiXLogging', modules)
+             + isix_modules.module_flags('IsiXDICOMFile', modules))
     (work / 'stubs.m').write_text(STUBS)
     (work / 'driver.m').write_text(DRIVER)
     (work / 'ProbeConnection.swift').write_text(PROBE_CONNECTION)
     (work / 'Bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "N2Debug.h"\n'
-                                     '#import "HorosObjCException.h"\n')
+                                     '#import "HorosObjCException.h"\n#import "N2Connection.h"\n')
     include = [work, nitrogen, horos]
+    # N2Connection: the base of the connection, a class of the former SDK.
     objects = [compile_swift([nitrogen / 'N2XMLRPCConnection.swift', nitrogen / 'N2XMLRPC.swift',
+                              nitrogen / 'N2Connection.swift', horos / 'FormerSDKFacade.swift',
                               horos / 'XMLRPCRequestContract.swift', work / 'ProbeConnection.swift',
                               *([horos / 'HorosObjCException+Guards.swift']
                                 if (horos / 'HorosObjCException+Guards.swift').exists() else []),
@@ -469,7 +473,7 @@ def build_after(work):
     objects.append(compile_objc(work / 'driver.m', work / 'driver.m.o', include,
                                 ['-DPROBE_SWIFT_CONNECTION', *isix_modules.clang_module_flags('IsiXHTTPServer', modules)]))
     return link(objects, work / 'probe', isix_modules.link_flags('IsiXHTTPServer', modules)
-                + isix_modules.link_flags('IsiXLogging', modules))
+                + isix_modules.link_flags('IsiXLogging', modules) + isix_modules.link_flags('IsiXDICOMFile', modules))
 
 
 HANDLE = 'Warning: [N2XMLRPCConnection handleRequest:] '

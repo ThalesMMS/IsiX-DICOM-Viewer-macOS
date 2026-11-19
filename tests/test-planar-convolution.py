@@ -29,7 +29,8 @@ sum in float64, within one float sum's bound.
 
 Through `PlanarFrame.uploadPixels`, the Metal 3 texture and the Metal 4 pilot's;
 a filter changed on the open frame changes the frame and its pixels; an opacity
-table follows the filter; a 2x enlargement is vImage's of the filtered image.
+table follows the filter; at the high-quality interpolation's 2x the filtered
+floats go up as they are, for the fragment's bounded cubic.
 
 Also checked in the sources: the snapshot no longer refuses a filter and hands
 the kernel over; the renderer runs it after the slab and before the table.
@@ -145,7 +146,7 @@ FILTERS
 - (void) setSlab:(int) thickness mode:(int) mode position:(int) position array:(NSArray*) array
 {
     PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = 0;
-    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, short, pixPos) = position;
     [PIX_IVAR( self, NSArray*, pixArray) release];
     PIX_IVAR( self, NSArray*, pixArray) = [array retain];
     PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
@@ -359,18 +360,13 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
                 expect(texture(pilot.image!, bytesPerPixel: 1) == expected, "Metal 4 combined upload changed bytes")
             }
         } } }
-        // A 2x enlargement is vImage's of the filtered image.
-        let bigger = try PlanarFrame(snapshot(0, mode: 0, scale: 2)).uploadPixels(device: device).pixels
-        var input = filtered, reference = Data(count: plane * 4)
-        let status = reference.withUnsafeMutableBytes { destination in
-            input.withUnsafeMutableBytes { source in
-                var from = vImage_Buffer(data: source.baseAddress!, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
-                var to = vImage_Buffer(data: destination.baseAddress!, height: vImagePixelCount(h * 2), width: vImagePixelCount(w * 2), rowBytes: w * 8)
-                return vImageScale_PlanarF(&from, &to, nil, vImage_Flags(kvImageNoFlags))
-            }
-        }
-        expect(status == kvImageNoError && bigger == reference, "the 2x enlargement is not vImage's of the filtered image")
-        print(String(format: "PASS: %d filters (3x3 and 5x5) on %d scalar cases, with and without a thick slab, within the float summation bound of vImage's result (worst %.3f of it; %d of the pixels not bit for bit, the first row exact) and of the independent float64 convolution (worst %.3f of one sum's bound), and %d colour cases bit for bit; %d pixels through the upload, the Metal 3 texture%@; a changed filter, the opacity table after it and the 2x enlargement hold",
+        // At the high-quality interpolation's 2x the filtered floats go up as
+        // they are: the fragment interpolates them with its bounded cubic.
+        let smooth = try PlanarFrame(snapshot(0, mode: 0, scale: 2))
+        let bigger = try smooth.uploadPixels(device: device).pixels
+        expect(smooth.softwareScale == 1 && smooth.window.w == 2 && bigger == filtered,
+               "at 2x the filtered image is not uploaded as it is for the bounded cubic")
+        print(String(format: "PASS: %d filters (3x3 and 5x5) on %d scalar cases, with and without a thick slab, within the float summation bound of vImage's result (worst %.3f of it; %d of the pixels not bit for bit, the first row exact) and of the independent float64 convolution (worst %.3f of one sum's bound), and %d colour cases bit for bit; %d pixels through the upload, the Metal 3 texture%@; a changed filter, the opacity table after it and the 2x upload hold",
                      filterCount, scalarCases, worst, differing, worstExact, colourCases, pixels, pilot == nil ? "" : " and the Metal 4 pilot's"))
     }
 }

@@ -38,14 +38,17 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 
 // The synchronization the 2D viewers share, which the former viewer kept in
 // globals: the series lock across studies (SYNCSERIES), what the toolbar's
 // "Sync" button does (SyncButtonBehaviorIsBetweenStudies) and the viewer an
-// image is dragged from for a fusion. The process graph makes one; the viewers
-// read and write it on the main actor, through ViewerSettingsPropagator and
-// ViewerFusion, and the other windows through ViewerController's class
-// methods.
+// image is dragged from for a fusion; and, kept here, where each view was
+// panned when the series were locked and the pan its own zooms moved, which
+// the pan going between viewers leaves out. The process graph makes one; the
+// viewers read and write it on the main actor, through
+// ViewerSettingsPropagator and ViewerFusion, and the other windows through
+// ViewerController's class methods.
 
 /// The synchronization state of the process's 2D viewers.
 @MainActor final class ViewerSyncState {
@@ -56,7 +59,11 @@ import AppKit
 
     /// Whether the "Sync" button works between studies: the other displayed
     /// viewers were not all of the key viewer's study when it was worked out.
-    var betweenStudies = false
+    /// It is the C global the former plugin SDK published, which a plugin may set.
+    var betweenStudies: Bool {
+        get { SyncButtonBehaviorIsBetweenStudies.boolValue }
+        set { SyncButtonBehaviorIsBetweenStudies = ObjCBool(newValue) }
+    }
 
     /// Where each view was panned when the series were locked, in pixels of
     /// its image; a view that is gone leaves no entry behind.
@@ -68,6 +75,25 @@ import AppKit
 
     func setLockPan(_ pan: CGPoint, of view: NSView) {
         lockPans.setObject(NSValue(point: pan), forKey: view)
+    }
+
+    /// What the settings last saw of each view's zoom and pan, and how far the
+    /// zooms kept to it have moved its pan; a view that is gone leaves no
+    /// entry behind.
+    private let zoomPans = NSMapTable<NSView, ZoomPanEntry>.weakToStrongObjects()
+
+    private final class ZoomPanEntry {
+        let zoomPan: SettingsPropagation.ZoomPan
+        init(_ zoomPan: SettingsPropagation.ZoomPan) { self.zoomPan = zoomPan }
+    }
+
+    /// Nil for a view the settings have not seen yet.
+    func zoomPan(of view: NSView) -> SettingsPropagation.ZoomPan? {
+        zoomPans.object(forKey: view)?.zoomPan
+    }
+
+    func setZoomPan(_ zoomPan: SettingsPropagation.ZoomPan, of view: NSView) {
+        zoomPans.setObject(ZoomPanEntry(zoomPan), forKey: view)
     }
 
     /// The viewer an image is dragged from, to fuse it with the viewer it is

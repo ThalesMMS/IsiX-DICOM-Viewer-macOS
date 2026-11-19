@@ -42,7 +42,7 @@ if 'location = x * sliceInterval' in method:
 if 'Only ONE ROI per image supported' in method:
     print('FAIL: computeVolume still rejects disconnected components on one slice', file=sys.stderr)
     sys.exit(1)
-if 'stringTex' in method or 'HorosROILabelPresentation' in method:
+if 'stringTex' in method or 'textString' in method or 'HorosROILabelPresentation' in method:
     print('FAIL: volume must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 if 'ROIVolumeGeometry.volume(from:' not in volume:

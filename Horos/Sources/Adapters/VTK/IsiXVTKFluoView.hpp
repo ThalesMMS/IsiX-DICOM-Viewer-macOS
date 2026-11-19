@@ -104,8 +104,12 @@ void IsiXVTKRegisterFluoViewTags(void);
 
 /// The MM header at `data` (a TIFFTAG_FV_MMHEADER field), as far as it is
 /// understood: its first fields and the dimensions.
+// With C names, as the Horos and OsiriX plugin SDK declared them: plugins built
+// for it look them up in the application.
+extern "C" {
 int FV_Read_MM_HEAD(const char* data, FV_MM_HEAD* head);
 int FV_Read_DIM_INFO(const char* data, FV_MM_DIM_INFO* info);
+}
 
 /// The image description of the TIFF at `srcFile` as an XML document, one
 /// node per [Name] ... [Name End] block of its lines; an empty document when

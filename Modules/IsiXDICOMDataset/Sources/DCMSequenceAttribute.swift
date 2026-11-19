@@ -45,8 +45,13 @@ import IsiXDICOMFile
 @objc(DCMSequenceAttribute)
 public final class DCMSequenceAttribute: DCMAttribute {
 
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each:
+    // the items, and the length read from the file, which the sequence does
+    // not keep and which stays 0.
     @objc
     public var sequenceItems: NSMutableArray! = NSMutableArray()
+    public var SQLength = 0
 
     // MARK: For structured reports
 

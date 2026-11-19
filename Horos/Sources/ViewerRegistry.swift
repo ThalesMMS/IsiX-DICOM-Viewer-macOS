@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 import IsiXPreferences
 import Synchronization
 
@@ -157,6 +158,31 @@ nonisolated final class ViewerRegistry: Sendable {
             if !viewer.windowWillClose() { return viewer }
         }
         return nil
+    }
+
+    /// Whether more than one viewer's window is on screen, as WindowFrameRule
+    /// (IsiXImaging) counts them: a window in the Dock, ordered out, on
+    /// another Space, closing or the full screen one is not; one on another
+    /// display is. The frame of a window's views and the frame of its
+    /// thumbnail both ask this, at every draw: a single registered viewer
+    /// answers without asking its window, and the windows are asked no
+    /// further than the second one on screen.
+    @MainActor var severalViewersAreOnScreen: Bool {
+        guard count > 1 else { return false }
+        let entries = state.withLock { state in
+            // A viewer set up twice is one window.
+            var entries: [(viewer: ViewerController, isClosing: Bool, isFullScreen: Bool)] = []
+            for viewer in state.viewers where !entries.contains(where: { $0.viewer === viewer }) {
+                entries.append((viewer, state.closing.contains(ObjectIdentifier(viewer)), state.fullScreen.contains(ObjectIdentifier(viewer))))
+            }
+            return entries
+        }
+        return WindowFrameRule.severalOnScreen(entries.lazy.map { entry in
+            let window = entry.viewer.isWindowLoaded ? entry.viewer.window : nil
+            return WindowFrameRule.Presence(isVisible: window?.isVisible ?? false, isMiniaturized: window?.isMiniaturized ?? false,
+                                            isOnActiveSpace: window?.isOnActiveSpace ?? false,
+                                            isClosing: entry.isClosing || entry.viewer.windowWillClose(), isFullScreen: entry.isFullScreen)
+        })
     }
 
     /// Each series of the displayed viewers once, with the first of its

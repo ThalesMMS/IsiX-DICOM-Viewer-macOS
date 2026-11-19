@@ -101,18 +101,34 @@ public class ROI: NSObject, NSCoding {
 
     // MARK: Stored state (the former instance variables)
 
+    // A plugin built for the former Horos or OsiriX SDK reads and writes the
+    // instance variables that SDK's header declared directly, from a subclass
+    // or from a category of ROI, at the offset the application exports for
+    // each (_OBJC_IVAR_$_ROI.<name>, a linker alias of the field's offset).
+    // Each is therefore a stored field of this class with the type the C
+    // declaration had in memory - never private, lazy, weak, observed or
+    // inside another value - and with the ownership that code gave it. A
+    // field takes the SDK's name, or that name after an underscore where an
+    // Objective-C property has it. A direct write by a plugin calls no setter
+    // and posts no change.
+
     final var roiLock: NSRecursiveLock?
-    /// The brush's mask and where it lies; the bytes are this ROI's.
-    final var mask = ROIBrushMask()
+    /// The brush's mask and where it lies; the bytes are this ROI's. `mask`
+    /// (ROI+Brush) is these seven as the module's value.
+    final var _textureWidth: Int32 = 0, _textureHeight: Int32 = 0
+    final var _textureBuffer: UnsafeMutablePointer<UInt8>?
     /// The mask's outline, drawn around a selected brush; derived from the mask.
     final var textureBufferSelected: UnsafeMutablePointer<UInt8>?
     /// A marker that the layer's pixels in `mask.buffer` are current.
     @objc final var ctxArray: NSMutableArray? = NSMutableArray()
     @objc final var textArray: NSMutableArray? = NSMutableArray()
+    final var _textureUpLeftCornerX: Int32 = 0, _textureUpLeftCornerY: Int32 = 0
+    final var _textureDownRightCornerX: Int32 = 0, _textureDownRightCornerY: Int32 = 0
     final var textureFirstPoint: Int32 = 0
 
-    final var _points = NSMutableArray()
-    final var _zPositions = NSMutableArray()
+    // Optional as every object the SDK declared: a plugin may store nil.
+    final var _points: NSMutableArray! = NSMutableArray()
+    final var _zPositions: NSMutableArray! = NSMutableArray()
     final var _rect = NSRect.zero
     @objc final var _hasIsSpline = false
     @objc final var _isSpline = false
@@ -154,8 +170,9 @@ public class ROI: NSObject, NSCoding {
 
     final var _mousePosMeasure: Float = 0
 
-    /// A text ROI's string.
-    final var stringTex: NSString?
+    /// The SDK's text texture of a text ROI, a class that drew with OpenGL:
+    /// nothing of the application is behind it. The string is `textString`.
+    final var stringTex: AnyObject?
     final var stanStringAttrib: NSMutableDictionary?
     final var stringTextureCache: NSCache<NSArray, AnnotationText>?
 
@@ -202,11 +219,39 @@ public class ROI: NSObject, NSCoding {
     final var _originalIndexForAlias: Int32 = 0
 
     final var _hidden = false
+    /// The SDK's three textures of a label's lines; as `stringTex`.
+    final var stringTexA: AnyObject?, stringTexB: AnyObject?, stringTexC: AnyObject?
     final var _textNameOnly = false
     final var hasTextureLabelPoint = false
     final var textureLabelPointBuffer: UnsafeMutablePointer<UInt8>?
     final var textureLabelPointValue = NSPoint.zero
 
+    // What only older copies of the SDK's header declare, exported as the
+    // rest. None has state here, and each stays 0, NO or nil unless a plugin
+    // writes it: the display lists of an OpenGL font and the textures of a
+    // brush, with the flags, the sizes and the buffer of their upload, which
+    // nothing draws with now (the buffer is freed with the ROI, as the mask
+    // is; fontSize was the view's own table, and is not); the identifiers of
+    // the structured report a ROI was archived in and of the image it
+    // referred to, which the report and the image's own list keep now; and
+    // the lines of the label as C text, which are the strings textualBoxLine1
+    // to 6, written at every draw.
+    final var fontListGL = 0
+    final var fontSize: UnsafeMutablePointer<Int>?
+    final var textureName: UInt32 = 0, textureName2: UInt32 = 0
+    final var needsLoadTexture = false, needsLoadTexture2 = false
+    final var oldTextureWidth: Int32 = 0, oldTextureHeight: Int32 = 0
+    final var tempTextureBuffer: UnsafeMutablePointer<UInt8>?
+    final var _roiSeriesInstanceUID: NSString?, _sopInstanceUID: NSString?
+    final var _referencedSOPInstanceUID: NSString?, _referencedSOPClassUID: NSString?
+    final var _frameNumber: Int32 = 0
+    final var line1 = IsiXROILabelLineText(), line2 = IsiXROILabelLineText(), line3 = IsiXROILabelLineText()
+    final var line4 = IsiXROILabelLineText(), line5 = IsiXROILabelLineText(), line6 = IsiXROILabelLineText()
+
+    // What the application keeps beside the SDK's instance variables.
+
+    /// A text ROI's string.
+    final var textString: NSString?
     final var _median: Double = 0
 
     /// The layer image's ARGB pixels in `mask.buffer`.
@@ -221,7 +266,7 @@ public class ROI: NSObject, NSCoding {
     /// ROI changed on another thread - read for the web portal, or for a
     /// database repair - tells them there, keeping the ROI until they have
     /// been told.
-    func postChange(_ userInfo: [AnyHashable: Any]? = nil) {
+    final func postChange(_ userInfo: [AnyHashable: Any]? = nil) {
         if Thread.isMainThread {
             NotificationCenter.default.post(name: .OsirixROIChange, object: self, userInfo: userInfo)
         } else {
@@ -236,7 +281,7 @@ public class ROI: NSObject, NSCoding {
     /// A ROI being created or decoded is in no list yet, and one being
     /// deallocated is in none any more: off the main thread no view can be
     /// showing it, so only the main thread tells the observers.
-    func postOnMainThreadOnly(_ name: Notification.Name) {
+    final func postOnMainThreadOnly(_ name: Notification.Name) {
         if Thread.isMainThread {
             NotificationCenter.default.post(name: name, object: self, userInfo: nil)
         }
@@ -245,40 +290,40 @@ public class ROI: NSObject, NSCoding {
     // MARK: Class settings
 
     @objc(setFontHeight:)
-    public class func setFontHeight(_ f: Float) {
+    public final class func setFontHeight(_ f: Float) {
         fontHeight = f
     }
 
-    @objc public class func saveDefaultSettings() {
+    @objc public final class func saveDefaultSettings() {
         let s = settings
         guard s.loaded else { return }
         s.write(to: PreferencesSource.process.preferences)
     }
 
-    @objc public class func loadDefaultSettings() {
+    @objc public final class func loadDefaultSettings() {
         settings = Settings(preferences: PreferencesSource.process.preferences)
     }
 
     @discardableResult
-    @objc public class func splineForROI() -> Bool {
+    @objc public final class func splineForROI() -> Bool {
         return settings.spline
     }
 
     @objc(setDefaultName:)
-    public class func setDefaultName(_ n: String!) {
+    public final class func setDefaultName(_ n: String!) {
         defaultNameValue = n
     }
 
     @discardableResult
-    @objc public class func defaultName() -> String! {
+    @objc public final class func defaultName() -> String! {
         return defaultNameValue
     }
 
     @objc(setDefaultName:)
-    public func setDefaultName(_ n: String!) { ROI.setDefaultName(n) }
+    public final func setDefaultName(_ n: String!) { ROI.setDefaultName(n) }
 
     @discardableResult
-    @objc public func defaultName() -> String! { return ROI.defaultNameValue }
+    @objc public final func defaultName() -> String! { return ROI.defaultNameValue }
 
     // MARK: Initialization
 
@@ -295,7 +340,7 @@ public class ROI: NSObject, NSCoding {
 
     /// Creates a new ROI, with the pixel width and height of its image and the image's origin.
     @objc(initWithType::::)
-    public init!(type itype: ToolMode, _ ipixelSpacingx: Float, _ ipixelSpacingy: Float, _ iimageOrigin: NSPoint) {
+    public dynamic init!(type itype: ToolMode, _ ipixelSpacingx: Float, _ ipixelSpacingy: Float, _ iimageOrigin: NSPoint) {
         super.init()
         let s = ROI.settings
         uniqueID = NSNumber(value: ROI.takeUniqueID())
@@ -333,7 +378,7 @@ public class ROI: NSObject, NSCoding {
         _points = NSMutableArray()
         _zPositions = NSMutableArray()
         _comments = ROI.empty
-        stringTex = nil
+        textString = nil
         resetStatistics()
 
         if _type == .tText {
@@ -342,8 +387,8 @@ public class ROI: NSObject, NSCoding {
             color = RGBColor(red: ROI.colorComponent(s.textColorR), green: ROI.colorComponent(s.textColorG), blue: ROI.colorComponent(s.textColorB))
         } else if _type == .tPlain {
             mask = ROIBrushMask()
-            mask.width = 128
-            mask.height = 128
+            _textureWidth = 128
+            _textureHeight = 128
             textureFirstPoint = 0
             _thickness = s.regionThickness
             color = RGBColor(red: ROI.colorComponent(s.regionColorR), green: ROI.colorComponent(s.regionColorG), blue: ROI.colorComponent(s.regionColorB))
@@ -377,7 +422,7 @@ public class ROI: NSObject, NSCoding {
     /// A brush ROI of the `tWidth` × `tHeight` bytes of `tBuff`, whose upper
     /// left corner is at (`posX`, `posY`) in the image.
     @objc(initWithTexture:textWidth:textHeight:textName:positionX:positionY:spacingX:spacingY:imageOrigin:)
-    public init!(texture tBuff: UnsafeMutablePointer<UInt8>!, textWidth tWidth: Int32, textHeight tHeight: Int32, textName tName: String!,
+    public dynamic init!(texture tBuff: UnsafeMutablePointer<UInt8>!, textWidth tWidth: Int32, textHeight tHeight: Int32, textName tName: String!,
                  positionX posX: Int32, positionY posY: Int32, spacingX ipixelSpacingx: Float, spacingY ipixelSpacingy: Float,
                  imageOrigin iimageOrigin: NSPoint) {
         super.init()
@@ -406,7 +451,7 @@ public class ROI: NSObject, NSCoding {
         _points = NSMutableArray()
         _zPositions = NSMutableArray()
         _comments = ROI.empty
-        stringTex = nil
+        textString = nil
         resetStatistics()
         previousPoint = NSPoint(x: -1000, y: -1000)
 
@@ -442,7 +487,7 @@ public class ROI: NSObject, NSCoding {
     /// what is left here is what needs AppKit (the layer's colour and image)
     /// and the ROI's own fields.
     @objc(initWithCoder:)
-    public required init?(coder: NSCoder) {
+    public required dynamic init?(coder: NSCoder) {
         super.init()
         uniqueID = NSNumber(value: ROI.takeUniqueID())
         _groupID = 0.0
@@ -453,7 +498,7 @@ public class ROI: NSObject, NSCoding {
         var refusal = ROIArchiveRefusal.none
         let record = ROIArchiveCoder.read(from: coder, version: coder.version(forClassName: "ROI"),
                                           pointClass: MyPoint.self, colorClass: NSColor.self, refusal: &refusal)
-        if refusal == .unsupportedTool { return nil }   // OsiriX 6's tBall and tOvalAngle
+        if refusal == .unsupportedTool { return nil }   // tBall and tOvalAngle, tools of a later format that the application does not have
         guard let record else {
             NSLog("Refused an archived ROI holding a value of another class or size than a ROI archives")
             return nil
@@ -533,7 +578,7 @@ public class ROI: NSObject, NSCoding {
         }
         mode = ROI_sleep
         previousPoint = NSPoint(x: -1000, y: -1000)
-        stringTex = nil
+        textString = nil
         resetStatistics()
         _mousePosMeasure = -1
         ctxArray = NSMutableArray(capacity: 10)
@@ -545,7 +590,7 @@ public class ROI: NSObject, NSCoding {
     }
 
     @objc(encodeWithCoder:)
-    public func encode(with coder: NSCoder) {
+    public dynamic func encode(with coder: NSCoder) {
         ROI.setVersion(Int(ROIArchiveRecord.currentVersion))
 
         let record = ROIArchiveRecord()
@@ -608,7 +653,7 @@ public class ROI: NSObject, NSCoding {
 
     /// The archive SDK callers and persisted SR comparisons use: a typedstream
     /// written by NSArchiver, which only Objective-C still reaches.
-    @objc public var data: Data! {
+    @objc public final var data: Data! {
         let selector = NSSelectorFromString("archivedDataWithRootObject:")
         guard let writer = NSClassFromString("NSArchiver").map({ $0 as AnyObject }), writer.responds(to: selector) else {
             NSException(name: .internalInconsistencyException, reason: "The historical typedstream writer is unavailable.", userInfo: nil).raise()
@@ -622,7 +667,7 @@ public class ROI: NSObject, NSCoding {
     /// or layer image cannot be copied, as it always did: callers check.
     @objc(copyWithZone:)
     @discardableResult
-    public func copyROI(with zone: NSZone?) -> ROI? {
+    public dynamic func copyROI(with zone: NSZone?) -> ROI? {
         // A layer whose image cannot be decoded has no copy. The Objective-C
         // ROI found it out on a copy it then leaked; this one finds it out
         // before making the copy, which would otherwise be announced removed
@@ -669,7 +714,9 @@ public class ROI: NSObject, NSCoding {
             c.mask.downRightX = mask.downRightX
             c.mask.downRightY = mask.downRightY
             let size = Int(Int32(truncatingIfNeeded: Int(mask.width) &* Int(mask.height)))
-            c.mask.buffer = malloc(size)?.assumingMemoryBound(to: UInt8.self)
+            // Zeroed: a brush ROI that has no texture yet gives none to copy,
+            // and the copy would keep whatever the memory held.
+            c.mask.buffer = calloc(1, size)?.assumingMemoryBound(to: UInt8.self)
             guard let buffer = c.mask.buffer else { return nil }
             if let source = mask.buffer { memcpy(buffer, source, size) }
         }
@@ -707,7 +754,7 @@ public class ROI: NSObject, NSCoding {
         c._originalIndexForAlias = _originalIndexForAlias
         c.mode = ROI_sleep
         c.previousPoint = NSPoint(x: -1000, y: -1000)
-        c.stringTex = nil
+        c.textString = nil
         c.resetStatistics()
         c._mousePosMeasure = -1
         c.ctxArray = NSMutableArray(capacity: 10)
@@ -720,7 +767,7 @@ public class ROI: NSObject, NSCoding {
         return c
     }
 
-    @objc public func prepareForRelease() {
+    @objc public final func prepareForRelease() {
         stringTextureCache = nil
         forgetLayerPixels()
         ctxArray = nil
@@ -736,7 +783,9 @@ public class ROI: NSObject, NSCoding {
             postOnMainThreadOnly(.OsirixRemoveROI)
         }
         prepareForRelease()
-        free(mask.buffer)
+        free(_textureBuffer)
+        // The temporary texture of older headers is never written here, so it
+        // is not freed here: what it holds was put there by a plugin.
         textureBufferHasChanged()
     }
 
@@ -771,13 +820,13 @@ public class ROI: NSObject, NSCoding {
         return attributes
     }
 
-    func resetStatistics() {
+    final func resetStatistics() {
         rmean = -1; rmax = -1; rmin = -1; rdev = -1; rtotal = -1
         Brmean = -1; Brmax = -1; Brmin = -1; Brdev = -1; Brtotal = -1
     }
 
     /// The statistics are computed again when next shown.
-    func forgetStatistics() {
+    final func forgetStatistics() {
         rtotal = -1
         Brtotal = -1
     }
@@ -788,13 +837,13 @@ public class ROI: NSObject, NSCoding {
         get { _imageOrigin }
         set { _imageOrigin = newValue }
     }
-    @objc public var textureWidth: Int32 { mask.width }
-    @objc public var textureHeight: Int32 { mask.height }
-    @objc public var textureDownRightCornerX: Int32 { mask.downRightX }
-    @objc public var textureDownRightCornerY: Int32 { mask.downRightY }
-    @objc public var textureUpLeftCornerX: Int32 { mask.upLeftX }
-    @objc public var textureUpLeftCornerY: Int32 { mask.upLeftY }
-    @objc public var textureBuffer: UnsafeMutablePointer<UInt8>! { mask.buffer }
+    @objc public final var textureWidth: Int32 { _textureWidth }
+    @objc public final var textureHeight: Int32 { _textureHeight }
+    @objc public final var textureDownRightCornerX: Int32 { _textureDownRightCornerX }
+    @objc public final var textureDownRightCornerY: Int32 { _textureDownRightCornerY }
+    @objc public final var textureUpLeftCornerX: Int32 { _textureUpLeftCornerX }
+    @objc public final var textureUpLeftCornerY: Int32 { _textureUpLeftCornerY }
+    @objc public final var textureBuffer: UnsafeMutablePointer<UInt8>! { _textureBuffer }
 
     @objc public dynamic var opacity: Float {
         get { _opacity }
@@ -852,7 +901,7 @@ public class ROI: NSObject, NSCoding {
     // key-value coding, by the names they always had, get and set the very
     // strings the ROI keeps, as the Objective-C class did, without a
     // conversion at each call (observers read the name at every change).
-    public var name: String! {
+    public final var name: String! {
         get { _name as String? }
         set { nameString = newValue as NSString? }
     }
@@ -863,7 +912,7 @@ public class ROI: NSObject, NSCoding {
         set { setNameValue(newValue) }
     }
 
-    public var comments: String! {
+    public final var comments: String! {
         get { _comments as String? }
         set { commentsString = newValue as NSString? }
     }
@@ -892,7 +941,7 @@ public class ROI: NSObject, NSCoding {
         set { setPointsValue(newValue) }
     }
 
-    @objc public var zPositions: NSMutableArray! { _zPositions }
+    @objc public final var zPositions: NSMutableArray! { _zPositions }
 
     @objc public dynamic var clickInTextBox: Bool {
         get { _clickInTextBox }
@@ -918,7 +967,7 @@ public class ROI: NSObject, NSCoding {
     }
 
     /// The view of the ROI. Not retained.
-    @objc public var curView: DCMView! {
+    @objc public final var curView: DCMView! {
         get { _curView }
         set { _curView = newValue }
     }
@@ -981,7 +1030,7 @@ public class ROI: NSObject, NSCoding {
 
     /// The colour with the opacity, calibrated.
     @objc(NSColor)
-    public var nsColor: NSColor! {
+    public final var nsColor: NSColor! {
         get {
             NSColor(calibratedRed: CGFloat(Double(color.red) / 65535.0), green: CGFloat(Double(color.green) / 65535.0),
                     blue: CGFloat(Double(color.blue) / 65535.0), alpha: CGFloat(_opacity))
@@ -1084,12 +1133,12 @@ public class ROI: NSObject, NSCoding {
         set { _displayTextualData = newValue }
     }
 
-    @objc public var clickPoint: NSPoint { _clickPoint }
+    @objc public final var clickPoint: NSPoint { _clickPoint }
 
     // MARK: Setters that do more
 
     @objc(setOpacity:globally:)
-    public func setOpacity(_ newOpacity: Float, globally g: Bool) {
+    public final func setOpacity(_ newOpacity: Float, globally g: Bool) {
         _opacity = newOpacity
         if _type == .tPlain {
             if g { ROI.settings.regionOpacity = _opacity }
@@ -1102,7 +1151,7 @@ public class ROI: NSObject, NSCoding {
 
     /// A name of more than 256 characters is cut, except a text ROI's; a text
     /// ROI's string and frame follow its name and comments.
-    func setNameValue(_ value: NSString?) {
+    final func setNameValue(_ value: NSString?) {
         var a: NSString = value ?? ROI.empty
         if _name !== a && !(_name?.isEqual(to: a as String) ?? false) {
             if _type != .tText && a.length > 256 {
@@ -1119,7 +1168,7 @@ public class ROI: NSObject, NSCoding {
                 finalString = _name ?? ROI.empty
             }
             if finalString.length > 4096 { finalString = finalString.substring(to: 4096) as NSString }
-            stringTex = finalString.copy() as? NSString
+            textString = finalString.copy() as? NSString
             _rect.size = textFrameSize()
             if _pixelSpacingX != 0 && _pixelSpacingY != 0 {
                 _rect.size.height *= CGFloat(_pixelSpacingX / _pixelSpacingY)
@@ -1128,7 +1177,7 @@ public class ROI: NSObject, NSCoding {
     }
 
     /// A hidden ROI sleeps. Changing the mode tells the observers.
-    func setROIModeValue(_ newMode: Int) {
+    final func setROIModeValue(_ newMode: Int) {
         var m = newMode
         if _hidden { m = ROI_sleep }
         if mode != m {
@@ -1141,7 +1190,7 @@ public class ROI: NSObject, NSCoding {
     }
 
     @objc(setColor:globally:)
-    public func setColor(_ a: RGBColor, globally g: Bool) {
+    public final func setColor(_ a: RGBColor, globally g: Bool) {
         color = a
         if _type == .tText {
             if g {
@@ -1169,7 +1218,7 @@ public class ROI: NSObject, NSCoding {
 
     /// Between 1 and 20, rounded. A text's font follows its thickness.
     @objc(setThickness:globally:)
-    public func setThickness(_ a: Float, globally g: Bool) {
+    public final func setThickness(_ a: Float, globally g: Bool) {
         var v = a.rounded()   // roundf: fewer distinct point sizes and line widths
         if v < 1 { v = 1 }
         if v > 20 { v = 20 }
@@ -1189,7 +1238,7 @@ public class ROI: NSObject, NSCoding {
     }
 
     @objc(setNSColor:globally:)
-    public func setNSColor(_ nsColor: NSColor!, globally g: Bool) {
+    public final func setNSColor(_ nsColor: NSColor!, globally g: Bool) {
         // Normalize the input before reading RGB components or changing either property.
         guard let rgb = nsColor?.usingColorSpace(.genericRGB) else { return }   // Pattern colors and nil have no representable ROI color.
         var r: CGFloat = 0, green: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -1203,12 +1252,12 @@ public class ROI: NSObject, NSCoding {
     }
 
     @discardableResult
-    @objc public func isValidForVolume() -> Bool {
+    @objc public final func isValidForVolume() -> Bool {
         return _type == .tCPolygon || _type == .tOPolygon || _type == .tPlain || _type == .tPencil || _type == .tOval
     }
 
     /// Prints the brush's bytes.
-    @objc public func displayTexture() {
+    @objc public final func displayTexture() {
         print("-*- DISPLAY ROI TEXTURE -*-")
         for j in 0..<Int(mask.height) {
             var line = ""
@@ -1218,20 +1267,20 @@ public class ROI: NSObject, NSCoding {
     }
 
     /// The label pictures are made again, in the label font.
-    @objc public func updateLabelFont() {
+    @objc public final func updateLabelFont() {
         stringTextureCache?.removeAllObjects()
         view?.setNeedsDisplay(true)
     }
 
     @available(*, deprecated, message: "use curView")
     @objc(setRoiView:)
-    public func setRoiView(_ v: DCMView!) {
+    public final func setRoiView(_ v: DCMView!) {
         self.curView = v
     }
 
     /// Always NO.
     @discardableResult
-    @objc public func needQuartz() -> Bool {
+    @objc public final func needQuartz() -> Bool {
         return false
     }
 

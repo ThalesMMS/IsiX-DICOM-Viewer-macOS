@@ -120,7 +120,7 @@
             <rect key="frame" x="0.0" y="0.0" width="111" height="40"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" mode="highlight" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="dph-L6-lTP">
+                <matrix verticalHuggingPriority="750" mode="highlight" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="dph-L6-lTP" customClass="IsiXTipMatrix">
                     <rect key="frame" x="0.0" y="0.0" width="111" height="40"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="37" height="40"/>
@@ -747,7 +747,7 @@ DQ
             <rect key="frame" x="0.0" y="0.0" width="332" height="36"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" fixedFrame="YES" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243">
+                <matrix verticalHuggingPriority="750" fixedFrame="YES" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243" customClass="IsiXTipMatrix">
                     <rect key="frame" x="0.0" y="1" width="332" height="34"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1585,9 +1585,9 @@ Gw
                                 </connections>
                             </button>
                             <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="523">
-                                <rect key="frame" x="130" y="7" width="82" height="33"/>
+                                <rect key="frame" x="130" y="5" width="82" height="35"/>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="33" id="QQx-CJ-Bnw"/>
+                                    <constraint firstAttribute="height" constant="35" id="QQx-CJ-Bnw"/>
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="2079">
                                     <font key="font" metaFont="miniSystem"/>
@@ -2781,8 +2781,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -2804,8 +2804,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -2827,8 +2827,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="4"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -2850,8 +2850,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="50"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>

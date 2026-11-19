@@ -36,6 +36,7 @@
  ============================================================================*/
 
 #import "NSUserDefaults+OsiriX.h"
+#import "NSUserDefaultsController+OsiriX.h"
 #import "N2Shell.h"
 #import <Foundation/Foundation.h>
 #import "NSScreen+N2.h"
@@ -173,6 +174,8 @@ __attribute__((used)) NSString* const O2NonViewerScreensDefaultsKey = @"NonViewe
 #pragma mark Bonjour Sharing
 
 __attribute__((used)) NSString* const OsirixBonjourSharingIsActiveDefaultsKey = @"bonjourSharing";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixBonjourSharingActiveFlagDefaultsKey = @"bonjourSharing";
 +(BOOL)bonjourSharingIsActive {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixBonjourSharingIsActiveDefaultsKey];
 }
@@ -197,6 +200,8 @@ __attribute__((used)) NSString* const OsirixBonjourSharingNameDefaultsKey = @"bo
 }
 
 __attribute__((used)) NSString* const OsirixBonjourSharingIsPasswordProtectedDefaultsKey = @"bonjourPasswordProtected";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixBonjourSharingPasswordFlagDefaultsKey = @"bonjourPasswordProtected";
 +(BOOL)bonjourSharingIsPasswordProtected {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixBonjourSharingIsPasswordProtectedDefaultsKey];
 }
@@ -243,22 +248,30 @@ __attribute__((used)) NSString* const OsirixWebPortalUsesSSLDefaultsKey = @"encr
 }
 
 __attribute__((used)) NSString* const OsirixWebPortalUsesWeasisDefaultsKey = @"WebServerUsesWeasis";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixWebServerUsesWeasisDefaultsKey = @"WebServerUsesWeasis";
 +(BOOL)webPortalUsesWeasis {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalUsesWeasisDefaultsKey];
 }
 
 __attribute__((used)) NSString* const OsirixWadoServiceEnabledDefaultsKey = @"wadoServer";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixWadoServerActiveDefaultsKey = @"wadoServer";
 +(BOOL)wadoServiceEnabled {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWadoServiceEnabledDefaultsKey];
 }
 
 __attribute__((used)) NSString* const OsirixWebPortalPrefersFlashDefaultsKey = @"WebServerPrefersFlash";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixWebServerPrefersFlashDefaultsKey = @"WebServerPrefersFlash";
 
 +(BOOL)webPortalPrefersFlash {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalPrefersFlashDefaultsKey];
 }
 
 __attribute__((used)) NSString* const OsirixWebPortalPrefersCustomWebPagesKey = @"customWebPages";
+// The name of this key in the Horos and OsiriX plugin SDK, for the plugins built for it.
+__attribute__((used)) NSString* const OsirixWebServerPrefersCustomWebPagesKey = @"customWebPages";
 +(BOOL)webPortalPrefersCustomWebPages {
 	return [NSUserDefaultsController.sharedUserDefaultsController boolForKey:OsirixWebPortalPrefersCustomWebPagesKey];
 }

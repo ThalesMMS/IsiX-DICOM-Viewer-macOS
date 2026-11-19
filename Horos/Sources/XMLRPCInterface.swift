@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXDICOMNetwork
 import IsiXHTTPServer
 import IsiXPreferences
 
@@ -61,7 +62,13 @@ import IsiXPreferences
 @objc(XMLRPCInterface)
 public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
     private var listener: XMLRPCListener?
-    private let https: Bool
+    // The instance variables of the former plugin SDK, which a plugin reads at
+    // the offset the application exports for each, so each is a stored field
+    // of this class, never private, constant, lazy or observed. The SDK's
+    // listener was of the class of its own sockets, which this server does not
+    // use: the field stays nil, and the listener is the one above.
+    var _listener: AnyObject?
+    var https: Bool
     /// The graph of the process, which hands the methods the browser and its database.
     let processGraph: ProcessGraph
 
@@ -77,13 +84,12 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
 
         // This interface publishes KillOsiriX, Retrieve, DownloadURL and
         // dbwindowfind, and dbwindowfind returns the database: patient names
-        // and identifiers included. Horos answered every peer and asked for no
-        // credential, so a preference turned on for a local script published
-        // all of that to the network. Calls made on this computer are still
-        // answered as Horos answers them, including those a RIS sends to the
-        // machine's own network address, so the socket listens on every
-        // interface and each request is judged by its peer address, against
-        // the settings of the Listener pane as they are when it arrives.
+        // and identifiers included. By default it answers every peer without a
+        // credential unless the Listener pane narrows it. The socket
+        // listens on every interface, as a RIS on this Mac often calls the
+        // machine's own network address, and each request is judged by its
+        // peer address against the settings of the pane as they are when it
+        // arrives, after what a web page sends has been refused.
         https = preferences[NetworkPreferences.xmlrpcServerHTTPS]
         super.init()
 
@@ -186,6 +192,16 @@ public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
             error?.pointee = failure as NSError
             return nil
         }
+    }
+
+    /// The parameter of a request under `name`, whatever the case its name
+    /// is written in (RISRequestRules.parameters): the links and calls of
+    /// one PACS write `ServerName` or `studyinstanceuid` where another's
+    /// write `serverName` and `StudyInstanceUID`, and both spellings are read.
+    /// The request itself, and what its notification hands to plugins, keep
+    /// the names as they came.
+    static func parameter(_ request: AnyObject?, _ name: String) -> Any? {
+        RISRequestRules.parameters(request as? [AnyHashable: Any])(name)
     }
 
     /// The answer `{error: code}`.

@@ -14,8 +14,13 @@ en=strings(root/'Horos/Resources/en.lproj/Localizable.strings')
 it=strings(root/'Horos/Resources/es.lproj/Localizable.strings')
 assert en.keys()<=it.keys(), 'Catalog keys must contain the current English catalog'
 fmt=re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztLq])?[@diuoxXfFeEgGaAcCsSpn%]')
+# Labels of the Viewers settings with a literal percentage, not a format: the number and the sign stay.
+literal_percent={'At 100% of resolution','At 150% of resolution','At 200% of resolution'}
 for key in it:
     original=en.get(key,key)
+    if key in literal_percent:
+        assert re.findall(r'\d+',original)==re.findall(r'\d+',it[key]) and it[key].count('%')==original.count('%'),repr(key)
+        continue
     assert Counter(fmt.findall(original))==Counter(fmt.findall(it[key])),repr(key)
     assert it[key] or not original, f'Unexpected empty translation: {key}'
 # Legacy rendering paths explicitly require ASCII in these catalog comments.
@@ -32,6 +37,10 @@ def structural(node):
 en_tree=ET.parse(root/'Horos/Resources/en.lproj/MainMenu.xib').getroot()
 it_tree=ET.parse(root/'Horos/Resources/es.lproj/MainMenu.xib').getroot()
 assert structural(en_tree)==structural(it_tree), 'Localization changed nib structure/connections'
+# A manager of something is "Gestor de ...": the words are not left in the English order.
+for key, value in it.items():
+    assert not re.search(r'\b(?:Plugin|ROI) Gestor\b', value), f'English word order in {key!r}: {value!r}'
+assert it['Plugin Manager']=='Gestor de plugins' and it['Plugins Manager...']=='Gestor de plugins...'
 assert it_tree.find('.//menuItem[@identifier="org.horos.menu.viewer"]').get('title')=='Visor 2D'
 if len(sys.argv)>1:
     resources=Path(sys.argv[1])/'Contents/Resources'

@@ -82,7 +82,7 @@ extension XMLRPCInterface {
     @objc(OpenDatabase:error:)
     public func openDatabase(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            guard let path = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "path")) else {
+            guard let path = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "path")) else {
                 try Self.fail(400) // Bad Request
             }
             guard FileManager.default.fileExists(atPath: path) else {
@@ -168,7 +168,7 @@ extension XMLRPCInterface {
     @objc(Close2DViewerWithSeriesUID:error:)
     public func close2DViewerWithSeriesUID(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
+            guard let uid = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "uid")) else {
                 try Self.fail(400)
             }
             closeViewers(whose: "imageView.seriesObj.seriesDICOMUID", is: uid)
@@ -187,7 +187,7 @@ extension XMLRPCInterface {
     @objc(Close2DViewerWithStudyUID:error:)
     public func close2DViewerWithStudyUID(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            guard let uid = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "uid")) else {
+            guard let uid = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "uid")) else {
                 try Self.fail(400)
             }
             closeViewers(whose: "imageView.seriesObj.study.studyInstanceUID", is: uid)
@@ -221,7 +221,7 @@ extension XMLRPCInterface {
     @objc(DisplayStudyListByPatientName:error:)
     public func displayStudyListByPatientName(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            guard let patientName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientName")) else {
+            guard let patientName = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "PatientName")) else {
                 try Self.fail(400)
             }
             searchInBrowser(patientName)
@@ -240,7 +240,7 @@ extension XMLRPCInterface {
     @objc(DisplayStudyListByPatientId:error:)
     public func displayStudyListByPatientId(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            guard let patientID = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "PatientID")) else {
+            guard let patientID = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "PatientID")) else {
                 try Self.fail(400)
             }
             searchInBrowser(patientID)
@@ -258,7 +258,7 @@ extension XMLRPCInterface {
     ///           {error: "0", currentDCMPath: ""} if no viewer is open
     @objc(PathToFrontDCM:error:)
     public func pathToFrontDCM(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
-        let onlyFilename = (paramDict?.object(forKey: "onlyfilename") as? NSString)?.isEqual(to: "yes") ?? false
+        let onlyFilename = (Self.parameter(paramDict, "onlyfilename") as? NSString)?.isEqual(to: "yes") ?? false
 
         // The front viewer and its image are read on the main thread. An
         // exception there is raised again here, where the call answers it.

@@ -213,7 +213,10 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         let parsed = CalibrationNumber.parse(recalibrateValue.stringValue, locale: Locale.current)
         let requestedLength = parsed ?? 0
         var valid = parsed != nil && requestedLength > 0
-        let resolution = Double(requestedLength) * 10.0 / Double(pixels) // Entered length is in cm; spacing is in mm.
+        // Entered length is in cm; spacing is in mm (RulerCalibration).
+        let resolution = RulerCalibration.resolution(requestedCentimetres: Double(requestedLength), pixels: Double(pixels))
+        // What an ultrasound image's 2D regions are scaled by: the ruler may have been read with one's own scale.
+        let factor = RulerCalibration.factor(requestedCentimetres: Double(requestedLength), measuredCentimetres: Double(length))
         valid = valid && resolution.isFinite && resolution > 0 && resolution <= Double(Float.greatestFiniteMagnitude) && Float(resolution) > 0
         let images = curController?.pixList() ?? NSMutableArray()
         let verticalSpacings = NSMutableArray(capacity: images.count)
@@ -221,7 +224,7 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         for case let pix as DCMPix in images {
             let previousX = pix.pixelSpacingX
             let previousY = pix.pixelSpacingY
-            let vertical = previousX == 0 ? resolution : previousY * resolution / previousX
+            let vertical = RulerCalibration.verticalSpacing(previousX: previousX, previousY: previousY, resolution: resolution)
             valid = valid && previousX.isFinite && previousX >= 0 &&
                 vertical.isFinite && vertical > 0 && vertical <= Double(Float.greatestFiniteMagnitude) && Float(vertical) > 0
             verticalSpacings.add(NSNumber(value: vertical))
@@ -234,6 +237,18 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
         }
         for i in 0..<images.count {
             let pix = images.object(at: i) as! DCMPix
+            if let factor, pix.hasUSRegions(), pix.pixelSpacingX != 0, pix.pixelSpacingY != 0 {
+                // The image and each of its 2D regions in centimetres keep
+                // their proportions: a ruler inside a region is read with
+                // that region's scale, not with the image's.
+                pix.pixelSpacingX = Double(Float(pix.pixelSpacingX * factor))
+                pix.pixelSpacingY = Double(Float(pix.pixelSpacingY * factor))
+                for case let region as USRegion in pix.usRegions ?? [] where region.pixelSpacing != nil {
+                    region.physicalDeltaX *= factor
+                    region.physicalDeltaY *= factor
+                }
+                continue
+            }
             pix.pixelSpacingX = Double(Float(resolution))
             pix.pixelSpacingY = Double((verticalSpacings.object(at: i) as! NSNumber).floatValue)
         }

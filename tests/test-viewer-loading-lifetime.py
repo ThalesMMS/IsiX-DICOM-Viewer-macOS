@@ -160,10 +160,19 @@ enum ViewerWindowLevel {
     static let automaticConversionWithheld = ForcedPreference(ViewerPreferences.convertPETtoSUVautomatically, to: false)
 }
 final class HarnessImageViews { let openingScaleToFit = DeferredCalls() }
+// The slab's scale, which the delivery of a load refreshes: counted here.
+@MainActor struct ViewerThickSlab {
+    static var refreshes = 0
+    init(viewer: ViewerController, preferences: any PreferenceStore) {}
+    func refreshScale() { Self.refreshes += 1 }
+}
 
 // On the main actor, as the app's ViewerController is by its AppKit superclass.
 @MainActor public final class ViewerController: NSObject {
     let loadingState = ViewerLoadingState()
+    nonisolated(unsafe) var _requestLoadingCancel = false, _checkEverythingLoaded = false, _windowWillClose = false, _postprocessed = false
+    nonisolated(unsafe) var _loadingThread: Thread?
+    var _ThreadLoadImage = false, _stopThreadLoadImage = false, _loadingPercentage: Float = 0
     let imageViewsState = HarnessImageViews()
     var sessionGraph: HarnessGraph! = HarnessGraph(preferences: MemoryPreferences())
     nonisolated(unsafe) var pixLists: [NSMutableArray?] = [nil, nil]

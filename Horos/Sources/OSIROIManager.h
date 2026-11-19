@@ -106,3 +106,13 @@
 #else
 #import "Horos-Swift.h"
 #endif
+
+// Looked up by name by plugins built for Horos or OsiriX, which are not
+// rebuilt: defined once in Objective-C (FormerPluginSDK+CAPI.m), since a Swift
+// constant has no C symbol, and read from there by the Swift code too.
+// The notification an OSIROIManager posts when its ROIs change, and the keys of
+// its user info: the ROIs updated, removed and added.
+extern NSString * const OSIROIManagerROIsDidUpdateNotification;
+extern NSString * const OSIROIUpdatedROIKey;
+extern NSString * const OSIROIRemovedROIKey;
+extern NSString * const OSIROIAddedROIKey;

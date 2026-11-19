@@ -565,6 +565,8 @@ def swift_class_pieces():
                .rsplit('\n}\n', 1)[0] + '\n'
                + between(pix, '    final func initParameters() {', '\n    }\n', include_end=True)
                + between(pix, '    func computeSliceLocation() {', '\n    }\n', include_end=True)
+               + between(pix, '    final func horos_olderShutterFieldsFollow() {', '\n    }\n', include_end=True)
+               + between(pix, '    final func horos_olderImageFieldsFollow() {', '\n    }\n', include_end=True)
                + between(geometry, '    public dynamic func setOrientationDouble(', '\n    }\n', include_end=True)
                + between(suv, '    final func correctTotalDose() {', '\n    }\n', include_end=True)
                + '    func computeTotalDoseCorrected() { correctTotalDose() }\n'
@@ -572,6 +574,8 @@ def swift_class_pieces():
                + '    func harnessSettle() {\n        ' + loading[settle:loading.index(')', loading.index('magnification:', settle)) + 1]
                + '\n    }\n')
     used = set(re.findall(r'\bhoros_\w+', methods + SWIFT_ATTRIBUTE_PROGRAM))
+    # The arrays inside the object, which horos_arrays points into: the lines that declare them.
+    used |= {'horos_orientationArray', 'horos_referenceCoordinatesArray', 'horos_oRows', 'horos_oBits', 'horos_oOrigin'}
     storage = ''.join(line + '\n' for line in pix.splitlines()
                       if (m := re.match(r'\s*final (?:unowned\(unsafe\) )?(?:var|let) (horos_\w+)\b', line)) and m.group(1) in used)
     return {
@@ -608,6 +612,11 @@ enum DCMPixSettings {
 ARRAYS
 
 SOURCE
+
+final class Point3D: NSObject {
+    var x: Float, y: Float, z: Float
+    init(x: Float, y: Float, z: Float) { self.x = x; self.y = y; self.z = z }
+}
 
 final class DCMPix: NSObject {
 STORAGE
@@ -823,7 +832,7 @@ def compile_swift_class(work, name, module_folder):
               '        @"referencePixelX0", @"isReferencePixelX0Present", @"referencePixelY0", @"isReferencePixelY0Present",\n'
               '        @"physicalUnitsXDirection", @"physicalUnitsYDirection", @"refPixelPhysicalValueX", @"refPixelPhysicalValueY",\n'
               '        @"physicalDeltaX", @"physicalDeltaY", @"dopplerCorrectionAngle"]] description];\n}\n')
-    (work / 'Harness.h').write_text(SWIFT_ATTRIBUTE_HEADER)
+    (work / 'Harness.h').write_text('#import <Foundation/Foundation.h>\n#import "LegacyPluginIvarStorage.h"\n' + SWIFT_ATTRIBUTE_HEADER)
     (work / (name + '-standins.m')).write_text(objc, encoding='latin1')
     program = SWIFT_ATTRIBUTE_PROGRAM
     for key in ('ARRAYS', 'SOURCE', 'STORAGE', 'METHODS'):

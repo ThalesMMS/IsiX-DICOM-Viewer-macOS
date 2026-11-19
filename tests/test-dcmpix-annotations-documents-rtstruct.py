@@ -34,7 +34,10 @@ Once DCMPix itself is Swift, no revision of DCMPix.m links with this checkout's
 Swift: the reference is then what the probe answered against the last
 Objective-C class, kept for each configuration in
 tests/fixtures/dcmpix-annotations-documents-rtstruct-records.json (HOROS_RECORD_GOLDEN=1 on a checkout
-of that class writes them).
+of that class writes them). One case differs from that class on purpose: a
+structured report whose converter is missing. The class launched it unguarded
+and logged the exception the launch raised; the launch is bounded and guarded
+now, and the record of that case has the line the bounded run logs.
 
 HOROS_TEST_CONFIGURATION=Release compares the Release builds.
 """

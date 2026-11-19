@@ -44,10 +44,11 @@ import IsiXImaging
 // its orientation matrix) and the orientation its series was opened in are
 // implemented in Swift: a Swift extension of ViewerController, which stays
 // Objective-C, with the same selectors (-setOrientationTool:,
-// -setOrientation:, -computeOriginalOrientation). A change of orientation is
-// the reslice and the flips and turns SeriesReorientation of the IsiXImaging
-// module names (ViewerController+Reslice.swift, +SeriesTransforms.swift); the
-// orientation of a stack is read by SliceStackSpacing.
+// -setOrientation:, -computeOriginalOrientation). A change of orientation,
+// made by ViewerPlaneChange below, is the reslice and the flips and turns
+// SeriesReorientation of the IsiXImaging module names
+// (ViewerController+Reslice.swift, +SeriesTransforms.swift); the orientation
+// of a stack is read by SliceStackSpacing.
 
 public extension ViewerController {
 
@@ -75,121 +76,26 @@ public extension ViewerController {
 
     /// Reslices the series into the orientation of this tag (0 axial,
     /// 1 coronal, 2 sagittal), keeping the zoom, the fusion and the brushes;
-    /// NO when it could not.
+    /// NO, with the viewer as it was, when it could not.
     @objc(setOrientation:)
     func setOrientation(_ newOrientationTool: Int32) -> Bool {
-        var succeed = true
-        let current = Int32(horos_currentOrientationTool)
-        guard newOrientationTool != current else { return succeed }
+        ViewerPlaneChange(viewer: self).change(to: newOrientationTool)
+    }
 
-        let firstPixSpacing = { () -> Double in
-            self.horos_pixArray(Int(self.horos_curMovieIndex)).first?.pixelSpacingX ?? 0
-        }
-        let previousZooming = Float(Double(horos_imageView?.scaleValue ?? 0) / firstPixSpacing())
-
-        if horos_displayOnlyKeyImages {
-            horos_keyImagePopUpButton?.selectItem(at: 0)
-            keyImageDisplayButton(self)
-        }
-
+    /// The reslice of a change of plane, then the flips and turns that bring
+    /// the new slices upright; false when the reslice could not be made.
+    fileprivate func reorient(_ change: SeriesReorientation, newViewer: Bool) -> Bool {
         checkEverythingLoaded()
-        displayWarningIfGantryTitled()
-        displayAWarningIfNonTrueVolumicData()
-
-        let previousFusion = Int32(truncatingIfNeeded: horos_popFusion?.selectedTag() ?? 0)
-        let previousFusionActivated = Int32(truncatingIfNeeded: horos_activatedFusion?.state.rawValue ?? 0)
-        let previousSlabCount = horos_sliderFusion?.integerValue ?? 0
-
-        let volumicData = isDataVolumicIn4D(false)
-        if !volumicData {
-            HorosAlertPanel.run(title: NSLocalizedString("Data Error", comment: ""),
-                                message: NSLocalizedString("This tool works only with 3D data series.", comment: ""),
-                                defaultButton: nil, alternateButton: nil, otherButton: nil)
-            succeed = false
-            return succeed
-        }
-
-        // To stop any attempt to reload the data...
-        horos_postprocessed = true
-
-        let newViewer = false
-
-        horos_imageView?.drawing = false
-
-        horos_imageView?.stopROIEditingForce(true)
-        checkEverythingLoaded()
-
-        if horos_blending != nil {
-            activateBlending(nil)
-        }
-
-        NSLog("Orientation : current: %d new: %d", current, newOrientationTool)
-
-        // The reslice starts the new slices without ROIs: the brushes are
-        // resampled on them once they are flipped and rotated.
-        let brushes = BrushReslice.capture(from: self)
-
-        // From the current orientation to the new one: the reslice, then the
-        // flips and turns that bring it upright.
-        if let change = SeriesReorientation(from: Int(current), to: Int(newOrientationTool)) {
-            checkEverythingLoaded()
-            succeed = processReslice(change.resliceDirection, newViewer)
-            if succeed {
-                for step in change.steps {
-                    switch step {
-                    case .flipVertically: vertFlipDataSet(self)
-                    case .flipHorizontally: horzFlipDataSet(self)
-                    case .rotateClockwise: rotateDataSet(SeriesReorientation.Step.quarterTurnConstant)
-                    }
+        let succeed = processReslice(change.resliceDirection, newViewer)
+        if succeed {
+            for step in change.steps {
+                switch step {
+                case .flipVertically: vertFlipDataSet(self)
+                case .flipHorizontally: horzFlipDataSet(self)
+                case .rotateClockwise: rotateDataSet(SeriesReorientation.Step.quarterTurnConstant)
                 }
             }
         }
-
-        if !succeed {
-            // Was titled "32-bit" and advised upgrading to OsiriX 64-bit: false
-            // on this 64-bit arm64 product, and it named another application.
-            HorosAlertPanel.runCritical(title: NSLocalizedString("Not enough memory", comment: ""),
-                                        message: NSLocalizedString("Cannot execute this reslicing.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", comment: ""),
-                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-        } else {
-            horos_currentOrientationTool = Int16(truncatingIfNeeded: newOrientationTool)
-            brushes?.applyLater(to: self)
-        }
-
-        setPostprocessed(true)
-
-        if !newViewer {
-            horos_orientationMatrix?.selectCell(withTag: Int(horos_currentOrientationTool))
-        }
-
-        var iwl: Float = 0, iww: Float = 0
-        horos_imageView?.getWLWW(&iwl, &iww)
-        horos_imageView?.setWLWW(iwl, iww)
-
-        if previousFusion != 0 {
-            checkEverythingLoaded()
-            computeInterval()
-            if previousFusionActivated == Int32(NSControl.StateValue.on.rawValue) {
-                let slider = horos_sliderFusion
-                let maximum = min(Int(slider?.maxValue ?? 0), horos_pixList(at: Int(horos_curMovieIndex))?.count ?? 0)
-                slider?.integerValue = max(2, min(previousSlabCount, maximum))
-                horos_stacksFusion?.integerValue = slider?.integerValue ?? 0
-                setFusionMode(maximum >= 2 ? Int(previousFusion) : 0)
-            }
-            horos_popFusion?.selectItem(withTag: Int(previousFusion))
-        }
-
-        horos_imageView?.scaleValue = Float(Double(previousZooming) * firstPixSpacing())
-        horos_imageView?.scaleToFit()
-        horos_imageView?.drawing = true
-
-        propagateSettings()
-
-        updateImage(self)
-
-        horos_imageView?.sendSyncMessage(0)
-        adjustSlider()
-
         return succeed
     }
 
@@ -218,5 +124,183 @@ public extension ViewerController {
             horos_originalOrientation = horos_currentOrientationTool
         }
         return spacing.interval
+    }
+}
+
+/// A change of plane of a 2D viewer's series (-setOrientation:), made for
+/// each call: it holds the viewer for that call only. The reslice, flips and
+/// turns are the viewer's; around them this keeps the zoom, the thick slab
+/// and the brushes, and when the reslice cannot be made it leaves the viewer
+/// as it was.
+@MainActor struct ViewerPlaneChange {
+
+    let viewer: ViewerController
+
+    /// Reslices the series into the orientation of this tag; false when it
+    /// could not.
+    func change(to newOrientationTool: Int32) -> Bool {
+        let viewer = self.viewer
+        var succeed = true
+        let current = Int32(viewer.horos_currentOrientationTool)
+        guard newOrientationTool != current else { return succeed }
+
+        let firstPixSpacing = { () -> Double in
+            viewer.horos_pixArray(Int(viewer.horos_curMovieIndex)).first?.pixelSpacingX ?? 0
+        }
+        let previousZooming = Float(Double(viewer.horos_imageView?.scaleValue ?? 0) / firstPixSpacing())
+
+        // A reslice needs every image of the series: a viewer that shows the
+        // key images alone shows them all first, and goes back to the key
+        // images if the change of plane is then not made.
+        let showedOnlyKeyImages = viewer.horos_displayOnlyKeyImages
+        if showedOnlyKeyImages {
+            viewer.horos_keyImagePopUpButton?.selectItem(at: 0)
+            viewer.keyImageDisplayButton(viewer)
+        }
+        let showKeyImagesAgain = {
+            guard showedOnlyKeyImages else { return }
+            viewer.horos_keyImagePopUpButton?.selectItem(at: 1)
+            viewer.keyImageDisplayButton(viewer)
+        }
+
+        viewer.checkEverythingLoaded()
+        viewer.displayWarningIfGantryTitled()
+        viewer.displayAWarningIfNonTrueVolumicData()
+
+        let previousFusion = Int32(truncatingIfNeeded: viewer.horos_popFusion?.selectedTag() ?? 0)
+        let previousFusionActivated = Int32(truncatingIfNeeded: viewer.horos_activatedFusion?.state.rawValue ?? 0)
+        let previousSlabCount = viewer.horos_sliderFusion?.integerValue ?? 0
+        // The slab the user asked for, in millimetres: the same images are another thickness in another plane.
+        let previousSlab = ViewerThickSlab(viewer: viewer, preferences: viewer.sessionGraph.preferences).requestedMillimetres()
+
+        let volumicData = viewer.isDataVolumicIn4D(false)
+        if !volumicData {
+            HorosAlertPanel.run(title: NSLocalizedString("Data Error", comment: ""),
+                                message: NSLocalizedString("This tool works only with 3D data series.", comment: ""),
+                                defaultButton: nil, alternateButton: nil, otherButton: nil)
+            showKeyImagesAgain()
+            succeed = false
+            return succeed
+        }
+
+        // To stop any attempt to reload the data... A reslice that fails
+        // takes the mark back.
+        let wasPostprocessed = viewer.horos_postprocessed
+        // The slices are the files', or a change of plane of them: so will the new ones be.
+        let ofFiles = !wasPostprocessed || viewer.geometryState.planeChangedSeries === viewer.horos_pixList(at: 0)
+        viewer.horos_postprocessed = true
+
+        let newViewer = false
+
+        viewer.horos_imageView?.drawing = false
+
+        viewer.horos_imageView?.stopROIEditingForce(true)
+        viewer.checkEverythingLoaded()
+
+        // The fusion is undone for the reslice; a reslice that fails gives
+        // it back.
+        let fused = viewer.horos_blending
+        if fused != nil {
+            viewer.activateBlending(nil)
+        }
+
+        NSLog("Orientation : current: %d new: %d", current, newOrientationTool)
+
+        // The reslice starts the new slices without ROIs: the brushes are
+        // resampled on them once they are flipped and rotated.
+        let brushes = BrushReslice.capture(from: viewer)
+
+        // From the current orientation to the new one.
+        if let change = SeriesReorientation(from: Int(current), to: Int(newOrientationTool)) {
+            succeed = viewer.reorient(change, newViewer: newViewer)
+        }
+
+        if !succeed {
+            // Was titled "32-bit" and advised upgrading to OsiriX 64-bit: false
+            // on this 64-bit arm64 product, and it named another application.
+            HorosAlertPanel.runCritical(title: NSLocalizedString("Not enough memory", comment: ""),
+                                        message: NSLocalizedString("Cannot execute this reslicing.\r\rClose other studies or open a smaller series. Nothing was reduced silently.", comment: ""),
+                                        defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            // The viewer still shows the slices it had: it keeps its
+            // orientation (and the matrix its cell), its zoom, its window
+            // level, its thick slab, its fusion and its key images alone if
+            // it showed them so, and is post-processed only if it
+            // already was, so that its Revert, the 3D windows' Revert and
+            // the key images still treat its series as the files.
+            viewer.horos_postprocessed = wasPostprocessed
+            if let fused { viewer.activateBlending(fused) }
+            showKeyImagesAgain()
+            viewer.horos_orientationMatrix?.selectCell(withTag: Int(viewer.horos_currentOrientationTool))
+            viewer.horos_imageView?.drawing = true
+            viewer.horos_imageView?.needsDisplay = true
+            return succeed
+        }
+        viewer.horos_currentOrientationTool = Int16(truncatingIfNeeded: newOrientationTool)
+        brushes?.applyLater(to: viewer)
+
+        viewer.setPostprocessed(true)
+        viewer.geometryState.planeChangedSeries = ofFiles ? viewer.horos_pixList(at: 0) : nil
+
+        if !newViewer {
+            viewer.horos_orientationMatrix?.selectCell(withTag: Int(viewer.horos_currentOrientationTool))
+        }
+
+        var iwl: Float = 0, iww: Float = 0
+        viewer.horos_imageView?.getWLWW(&iwl, &iww)
+        viewer.horos_imageView?.setWLWW(iwl, iww)
+
+        if previousFusion != 0 {
+            viewer.checkEverythingLoaded()
+            viewer.computeInterval()
+            if previousFusionActivated == Int32(NSControl.StateValue.on.rawValue) {
+                let slab = ViewerThickSlab(viewer: viewer, preferences: viewer.sessionGraph.preferences)
+                slab.request(millimetres: previousSlab, fallback: previousSlabCount)
+                let maximum = min(Int(viewer.horos_sliderFusion?.maxValue ?? 0), viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0)
+                viewer.setFusionMode(maximum >= 2 ? Int(previousFusion) : 0)
+            }
+            viewer.horos_popFusion?.selectItem(withTag: Int(previousFusion))
+        }
+
+        viewer.horos_imageView?.scaleValue = Float(Double(previousZooming) * firstPixSpacing())
+        viewer.horos_imageView?.scaleToFit()
+        viewer.horos_imageView?.drawing = true
+
+        viewer.propagateSettings()
+
+        viewer.updateImage(viewer)
+
+        viewer.horos_imageView?.sendSyncMessage(0)
+        viewer.adjustSlider()
+
+        return succeed
+    }
+
+    /// Revert Series of a series whose only post-processing is a change of
+    /// plane of the slices read from its files: the series is read from its
+    /// files again, as when it is chosen in the thumbnails, and brought to
+    /// the plane it was in, with its window level. The new slices are made of
+    /// the volume as it is, so a cut or a filter of a 3D window made before
+    /// the change is in them, and nothing else takes it back. The other
+    /// windows on the resliced volume keep it. False, with nothing done, for
+    /// any other post-processed series, and for a 4D one.
+    func revertToFiles() -> Bool {
+        let viewer = self.viewer
+        guard viewer.horos_movieCount == 1, let shown = viewer.horos_pixList(at: 0),
+              viewer.geometryState.planeChangedSeries === shown,
+              let series = (viewer.horos_fileList(at: 0)?.firstObject as? DicomImage)?.series, !series.isDeleted else { return false }
+        let plane = Int32(viewer.horos_currentOrientationTool)
+        var level: Float = 0, width: Float = 0
+        viewer.horos_imageView?.getWLWW(&level, &width)
+
+        viewer.horosSeriesLoad.keepingPreviousSeriesForOtherWindows {
+            BrowserKeyImages(processGraph: viewer.sessionGraph.processGraph).load(series, into: viewer, keyImagesOnly: false)
+        }
+        viewer.checkEverythingLoaded()
+        // The series could not be shown again: the viewer still has the resliced one.
+        if viewer.horos_pixList(at: 0) === shown { return false }
+
+        _ = change(to: plane)
+        viewer.horos_imageView?.setWLWW(level, width)
+        return true
     }
 }

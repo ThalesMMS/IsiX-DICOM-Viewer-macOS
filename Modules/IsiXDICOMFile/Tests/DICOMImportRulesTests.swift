@@ -113,4 +113,126 @@ import Testing
                                        photometricInterpretation: "RGB", frames: 1, pixels: .native(length: 6144))
                 == "its pixel data is 6144 bytes where 9216 are needed for 64x48")
     }
+
+    // MARK: - Multiframe series
+
+    private static let enhancedMR = "1.2.840.10008.5.1.4.1.1.4.1"
+    private static let axial: [Double] = [1, 0, 0, 0, 1, 0]
+
+    /// An axial stack of `frames` slices `spacing` mm apart, from z = `start`.
+    private static func stack(_ frames: Int = 12, spacing: Double = 3, start: Double = 0, x: Double = -100,
+                              orientation: [Double] = axial) -> [DICOMImportRules.FramePlane] {
+        (0..<frames).map { .init(position: [x, -100, start + Double($0) * spacing], orientation: orientation) }
+    }
+
+    private static func layout(_ planes: [DICOMImportRules.FramePlane], sopClassUID: String? = enhancedMR, columns: Int = 64,
+                               rows: Int = 64, frames: Int? = nil) -> DICOMImportRules.MultiframeLayout {
+        .init(sopClassUID: sopClassUID, columns: columns, rows: rows, frames: frames ?? planes.count, planes: planes)
+    }
+
+    private static func volumeKey(_ layout: DICOMImportRules.MultiframeLayout, grouping: String? = "00000001 1.2.3") -> String? {
+        DICOMImportRules.volumeSeriesKey(grouping: grouping, layout: layout)
+    }
+
+    @Test func aVolumeSharesItsSeriesKeyWithTheFilesOfItsGeometry() {
+        // The key is stored: the same on every run and processor.
+        #expect(Self.volumeKey(Self.layout(Self.stack())) == "00000001 1.2.3-volume-64x64x12-860ed26d0358f692")
+        let coronal = (0..<3).map {
+            DICOMImportRules.FramePlane(position: [-120.5, -5 + 2.5 * Double($0), 80.25], orientation: [1, 0, 0, 0, 0, -1])
+        }
+        #expect(Self.volumeKey(Self.layout(coronal, columns: 96, rows: 128), grouping: "00000007 1.2.3.4")
+                == "00000007 1.2.3.4-volume-96x128x3-bc67c0cf68813c3c")
+        #expect(DICOMImportRules.stableHash("") == "cbf29ce484222325")
+        #expect(DICOMImportRules.stableHash("a") == "af63dc4c8601ec8c")
+
+        // Another file of the acquisition: other pixels, another SOP Instance
+        // UID and instance number, the same planes.
+        let key = Self.volumeKey(Self.layout(Self.stack()))
+        #expect(key != nil)
+        #expect(DICOMImportRules.multiframeSeriesKey(grouping: "00000001 1.2.3", imageID: "    1", sopInstanceUID: "1.2.3.1",
+                                                     layout: Self.layout(Self.stack())) == key)
+        #expect(DICOMImportRules.multiframeSeriesKey(grouping: "00000001 1.2.3", imageID: "    2", sopInstanceUID: "1.2.3.2",
+                                                     layout: Self.layout(Self.stack())) == key)
+        // Written with the last digit of a float, and with its frames in another order.
+        let rewritten = Self.stack().map {
+            DICOMImportRules.FramePlane(position: $0.position.map { $0 + 0.0004 }, orientation: [1, 0.0002, 0, -0.0002, 1, 0])
+        }
+        #expect(Self.volumeKey(Self.layout(rewritten)) == key)
+        #expect(Self.volumeKey(Self.layout(Self.stack().reversed())) == key)
+        // The volume classes: enhanced MR, CT and PET and their legacy
+        // converted classes, which state the planes the same way.
+        for sopClassUID in ["1.2.840.10008.5.1.4.1.1.2.1", "1.2.840.10008.5.1.4.1.1.130", "1.2.840.10008.5.1.4.1.1.4.4",
+                            "1.2.840.10008.5.1.4.1.1.2.2", "1.2.840.10008.5.1.4.1.1.128.1"] {
+            #expect(Self.volumeKey(Self.layout(Self.stack(), sopClassUID: sopClassUID)) == key)
+        }
+        #expect(DICOMImportRules.volumeMultiframeSOPClasses.count == 6)
+        // Another series, by any part of the grouping, is another key.
+        #expect(Self.volumeKey(Self.layout(Self.stack()), grouping: "00000002 1.2.4") != key)
+        #expect(Self.volumeKey(Self.layout(Self.stack()), grouping: nil)?.hasPrefix("(null)-volume-64x64x12-") == true)
+    }
+
+    @Test func filesOfAnotherGeometryHaveAnotherKey() {
+        let key = Self.volumeKey(Self.layout(Self.stack()))
+        let others = [
+            Self.layout(Self.stack(), columns: 128),
+            Self.layout(Self.stack(), rows: 128),
+            Self.layout(Self.stack(11)),
+            Self.layout(Self.stack(spacing: 3.1)),
+            Self.layout(Self.stack(start: 1)),
+            Self.layout(Self.stack(x: -99)),
+            Self.layout(Self.stack(orientation: [0.999, 0.0447, 0, -0.0447, 0.999, 0])),
+        ]
+        var keys: Set<String> = []
+        for other in others {
+            let otherKey = Self.volumeKey(other)
+            #expect(otherKey != nil)
+            #expect(otherKey != key)
+            if let otherKey { keys.insert(otherKey) }
+        }
+        #expect(keys.count == others.count)
+    }
+
+    @Test func whatIsNotOneVolumeKeepsASeriesOfItsOwn() {
+        typealias Rules = DICOMImportRules
+        func own(_ layout: Rules.MultiframeLayout) -> Bool {
+            Rules.volumeSeriesKey(grouping: "00000001 1.2.3", layout: layout) == nil
+                && Rules.multiframeSeriesKey(grouping: "00000001 1.2.3", imageID: "    4", sopInstanceUID: "1.2.3.9", layout: layout)
+                    == "00000001 1.2.3-    4-1.2.3.9"
+        }
+        // No frame states its position (a cine, a loop), or not every frame does.
+        #expect(own(Self.layout([], frames: 12)))
+        #expect(own(Self.layout(Array(Self.stack().dropLast()), frames: 12)))
+        // Positions repeated in the file: several phases, echoes or b-values in one file.
+        #expect(own(Self.layout(Self.stack(6) + Self.stack(6))))
+        #expect(own(Self.layout(Self.stack(11) + [Self.stack()[4]])))
+        // Closer than a hundredth of a millimetre is the same place.
+        #expect(own(Self.layout(Self.stack(2, spacing: 0.004))))
+        // Several planes in one file, as a localizer has.
+        var mixed = Self.stack()
+        mixed[5].orientation = [1, 0, 0, 0, 0, -1]
+        #expect(own(Self.layout(mixed)))
+        // No axis leads the normal, so the frames have no slice location to tell them apart.
+        #expect(own(Self.layout(Self.stack(orientation: [0, 0, 0, 0, 0, 0]))))
+        // A class outside the list, positions or not: ultrasound, angiography,
+        // a segmentation, a classic image, a secondary capture, none.
+        for sopClassUID in ["1.2.840.10008.5.1.4.1.1.3.1", "1.2.840.10008.5.1.4.1.1.12.1", "1.2.840.10008.5.1.4.1.1.66.4",
+                            "1.2.840.10008.5.1.4.1.1.4", "1.2.840.10008.5.1.4.1.1.2", "1.2.840.10008.5.1.4.1.1.7.3",
+                            "1.2.840.10008.5.1.4.1.1.4.2", "1.2.840.10008.5.1.4.1.1.128", nil] {
+            #expect(own(Self.layout(Self.stack(), sopClassUID: sopClassUID)))
+        }
+        // A single frame, no size, values that are no place.
+        #expect(own(Self.layout(Self.stack(1))))
+        #expect(own(Self.layout(Self.stack(), columns: 0)))
+        #expect(own(Self.layout(Self.stack(), rows: 0)))
+        var broken = Self.stack()
+        broken[3].position[2] = .nan
+        #expect(own(Self.layout(broken)))
+        broken[3].position = [0, 0]
+        #expect(own(Self.layout(broken)))
+        broken = Self.stack()
+        broken[0].orientation = [1, 0, 0, 0, .infinity, 0]
+        #expect(own(Self.layout(broken)))
+        // The former key prints what is missing as the format did.
+        #expect(Rules.formerMultiframeSeriesKey(grouping: nil, imageID: nil, sopInstanceUID: nil) == "(null)-(null)-(null)")
+    }
 }

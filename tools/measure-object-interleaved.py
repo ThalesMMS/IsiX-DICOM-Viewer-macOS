@@ -12,7 +12,7 @@ dylib and a byte-identical copy of it under another name.
         --source Nitrogen/Sources/NSFileManager+N2.mm \
         --probe tools/probe-noindex-directory.m \
         --baseline efb2b0cef --candidate 55599337f --configuration Release \
-        --build-root ../horos-workbench-baseline \
+        --build-root ../baseline-checkout \
         --args 'interleave {A} {B} {scratch} 400 40 {suffix_A} {suffix_B}' \
         --variant-arg suffix:baseline=.noindex --variant-arg 'suffix:candidate=' \
         --limit existing_us:median=0.05 --out local-validation/delta4/612-Release-c3
@@ -251,7 +251,7 @@ def main():
                   "companion_headers": arguments.companion_header,
                   "baseline_revision": arguments.baseline,
                   "baseline_file": str(arguments.baseline_file) if arguments.baseline_file else None,
-                  "candidate_revision": arguments.candidate, "workbench_head": head,
+                  "candidate_revision": arguments.candidate, "checkout_head": head,
                   "configuration": arguments.configuration, "compile_command": command,
                   "swift_shim": str(arguments.swift_shim) if arguments.swift_shim else None,
                   "swift_defines": swift_defines if swift else None,

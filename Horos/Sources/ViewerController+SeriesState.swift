@@ -10,65 +10,78 @@
 
 import AppKit
 
-/// The series a viewer shows: per movie frame (up to MAX4D) its slices, files, ROIs, ROI copies and volume, which frame is shown and how many there are, and the series-level flags of the volumic checks, the key images and the status to apply.
-final class ViewerSeriesState: @unchecked Sendable {
-    /// fileList[MAX4D]: retained by -set, stored as given by -assign.
-    let fileList = ManuallyRetainedSlots<NSMutableArray>(count: Int(MAX4D))
-    /// pixList[MAX4D]: retained by -set, stored as given by -assign.
-    let pixList = ManuallyRetainedSlots<NSMutableArray>(count: Int(MAX4D))
-    /// roiList[MAX4D]: retained by -set, stored as given by -assign.
-    let roiList = ManuallyRetainedSlots<NSMutableArray>(count: Int(MAX4D))
-    /// copyRoiList[MAX4D]: retained by -set, stored as given by -assign.
-    let copyRoiList = ManuallyRetainedSlots<NSMutableArray>(count: Int(MAX4D))
-    /// volumeData[MAX4D]: retained by -set, stored as given by -assign.
-    let volumeData = ManuallyRetainedSlots<NSObject>(count: Int(MAX4D))
-    var curMovieIndex: Int16 = 0
-    var maxMovieIndex: Int16 = 0
-    var isDataVolumicIn4DLevel: Int32 = 0
-    var nonVolumicDataWarningDisplayed: Bool = false
-    var displayOnlyKeyImages: Bool = false
-    var statusValueToApply: Int32 = 0
+/// pixList[MAX4D], the slices of each movie frame, which is the viewer's field
+/// _pixList, where a plugin of the former SDK reads and writes it: retained by
+/// -set, stored as given by -assign, as the other lists are.
+enum ViewerPixListField {
+    private static let offset: Int = {
+        guard let field = class_getInstanceVariable(ViewerController.self, "_pixList") else {
+            preconditionFailure("ViewerController keeps pixList in its field _pixList")
+        }
+        return ivar_getOffset(field)
+    }()
+
+    static func slots(of viewer: ViewerController) -> ManuallyRetainedSlotArray<NSMutableArray> {
+        ManuallyRetainedSlotArray(fieldAt: offset, of: viewer)
+    }
+}
+
+/// fileList, roiList, copyRoiList and volumeData [MAX4D], the files, the ROIs,
+/// the ROI copies and the volume of each movie frame, kept as pixList is: each
+/// in the viewer's field of its name, retained by -set, stored as given by
+/// -assign.
+enum ViewerFrameListFields {
+    private static func offset(of name: String) -> Int {
+        guard let field = class_getInstanceVariable(ViewerController.self, name) else {
+            preconditionFailure("ViewerController keeps a list per movie frame in its field \(name)")
+        }
+        return ivar_getOffset(field)
+    }
+
+    private static let fileListOffset = offset(of: "_fileList"), roiListOffset = offset(of: "_roiList")
+    private static let copyRoiListOffset = offset(of: "_copyRoiList"), volumeDataOffset = offset(of: "_volumeData")
+
+    static func fileList(of viewer: ViewerController) -> ManuallyRetainedSlotArray<NSMutableArray> { ManuallyRetainedSlotArray(fieldAt: fileListOffset, of: viewer) }
+    static func roiList(of viewer: ViewerController) -> ManuallyRetainedSlotArray<NSMutableArray> { ManuallyRetainedSlotArray(fieldAt: roiListOffset, of: viewer) }
+    static func copyRoiList(of viewer: ViewerController) -> ManuallyRetainedSlotArray<NSMutableArray> { ManuallyRetainedSlotArray(fieldAt: copyRoiListOffset, of: viewer) }
+    static func volumeData(of viewer: ViewerController) -> ManuallyRetainedSlotArray<NSObject> { ManuallyRetainedSlotArray(fieldAt: volumeDataOffset, of: viewer) }
 }
 
 extension ViewerController {
-    nonisolated func horos_fileList(at index: Int) -> NSMutableArray? { seriesState.fileList[index] }
-    func horos_setFileList(_ value: NSMutableArray?, at index: Int) { seriesState.fileList.set(value, at: index) }
-    func horos_assignFileList(_ value: NSMutableArray?, at index: Int) { seriesState.fileList.assign(value, at: index) }
-    nonisolated func horos_pixList(at index: Int) -> NSMutableArray? { seriesState.pixList[index] }
-    func horos_setPixList(_ value: NSMutableArray?, at index: Int) { seriesState.pixList.set(value, at: index) }
-    func horos_assignPixList(_ value: NSMutableArray?, at index: Int) { seriesState.pixList.assign(value, at: index) }
-    func horos_roiList(at index: Int) -> NSMutableArray? { seriesState.roiList[index] }
-    func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.roiList.set(value, at: index) }
-    func horos_assignRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.roiList.assign(value, at: index) }
-    func horos_copyRoiList(at index: Int) -> NSMutableArray? { seriesState.copyRoiList[index] }
-    func horos_setCopyRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.copyRoiList.set(value, at: index) }
-    func horos_assignCopyRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.copyRoiList.assign(value, at: index) }
-    func horos_volumeData(at index: Int) -> NSObject? { seriesState.volumeData[index] }
-    func horos_setVolumeData(_ value: NSObject?, at index: Int) { seriesState.volumeData.set(value, at: index) }
-    func horos_assignVolumeData(_ value: NSObject?, at index: Int) { seriesState.volumeData.assign(value, at: index) }
+    nonisolated func horos_fileList(at index: Int) -> NSMutableArray? { ViewerFrameListFields.fileList(of: self)[index] }
+    func horos_setFileList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.fileList(of: self).set(value, at: index) }
+    func horos_assignFileList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.fileList(of: self).assign(value, at: index) }
+    nonisolated func horos_pixList(at index: Int) -> NSMutableArray? { ViewerPixListField.slots(of: self)[index] }
+    func horos_setPixList(_ value: NSMutableArray?, at index: Int) { ViewerPixListField.slots(of: self).set(value, at: index) }
+    func horos_assignPixList(_ value: NSMutableArray?, at index: Int) { ViewerPixListField.slots(of: self).assign(value, at: index) }
+    func horos_roiList(at index: Int) -> NSMutableArray? { ViewerFrameListFields.roiList(of: self)[index] }
+    func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.roiList(of: self).set(value, at: index) }
+    func horos_assignRoiList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.roiList(of: self).assign(value, at: index) }
+    func horos_copyRoiList(at index: Int) -> NSMutableArray? { ViewerFrameListFields.copyRoiList(of: self)[index] }
+    func horos_setCopyRoiList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.copyRoiList(of: self).set(value, at: index) }
+    func horos_assignCopyRoiList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.copyRoiList(of: self).assign(value, at: index) }
+    func horos_volumeData(at index: Int) -> NSObject? { ViewerFrameListFields.volumeData(of: self)[index] }
+    func horos_setVolumeData(_ value: NSObject?, at index: Int) { ViewerFrameListFields.volumeData(of: self).set(value, at: index) }
+    func horos_assignVolumeData(_ value: NSObject?, at index: Int) { ViewerFrameListFields.volumeData(of: self).assign(value, at: index) }
     nonisolated var horos_curMovieIndex: Int16 {
-        get { seriesState.curMovieIndex }
-        set { seriesState.curMovieIndex = newValue }
-    }
-    nonisolated var horos_maxMovieIndex: Int16 {
-        get { seriesState.maxMovieIndex }
-        set { seriesState.maxMovieIndex = newValue }
+        get { _curMovieIndex }
+        set { _curMovieIndex = newValue }
     }
     var horos_isDataVolumicIn4DLevel: Int32 {
-        get { seriesState.isDataVolumicIn4DLevel }
-        set { seriesState.isDataVolumicIn4DLevel = newValue }
+        get { _isDataVolumicIn4DLevel }
+        set { _isDataVolumicIn4DLevel = newValue }
     }
     var horos_nonVolumicDataWarningDisplayed: Bool {
-        get { seriesState.nonVolumicDataWarningDisplayed }
-        set { seriesState.nonVolumicDataWarningDisplayed = newValue }
+        get { _nonVolumicDataWarningDisplayed }
+        set { (_nonVolumicDataWarningDisplayed, _nonContinuousWarningDisplayed) = (newValue, newValue) }
     }
     var horos_displayOnlyKeyImages: Bool {
-        get { seriesState.displayOnlyKeyImages }
-        set { seriesState.displayOnlyKeyImages = newValue }
+        get { _displayOnlyKeyImages }
+        set { _displayOnlyKeyImages = newValue }
     }
     var horos_statusValueToApply: Int32 {
-        get { seriesState.statusValueToApply }
-        set { seriesState.statusValueToApply = newValue }
+        get { _statusValueToApply }
+        set { _statusValueToApply = newValue }
     }
 
     /// The number of slices of the movie frame shown.

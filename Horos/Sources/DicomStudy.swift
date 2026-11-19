@@ -290,6 +290,9 @@ public final class DicomStudy: NSManagedObject {
     private var dicomTimeCache: NSNumber? = nil
     private var numberOfImagesWhenCachedModalities: Int = 0
     private var cachedModalites: NSString? = nil
+    /// Of an older header of the former Horos and OsiriX plugin SDK, exported at its offset: what
+    /// -rawNoFiles last answered, written with each answer on the context's queue and not read.
+    final var cachedRawNoFiles: NSNumber? = nil
 
     // The former function-local statics.
     // Created once, whatever the thread that asks first.
@@ -770,7 +773,7 @@ public final class DicomStudy: NSManagedObject {
         }
 
         if pixels {
-            if uid == nil || DICOMSOPClass.isImageStorage(uid) {
+            if uid == nil || DICOMSOPClass.isImageStorage(uid) || DICOMSOPClass.isRTDose(uid) {
                 if dicomStudyEqual(uid, DICOMSOPClass.pdfStorageClassUID()) {
                     return false
                 }
@@ -949,7 +952,9 @@ public final class DicomStudy: NSManagedObject {
                 }
             }
 
-            return NSNumber(value: sum)
+            let count = NSNumber(value: sum)
+            self.cachedRawNoFiles = count
+            return count
         }
     }
 
@@ -1100,11 +1105,11 @@ public final class DicomStudy: NSManagedObject {
 
     /// Whether a series of this SOP class holds pictures, rather than a document
     /// shown among them (encapsulated PDF, structured report, waveform, RT
-    /// object). A series without a class counts as pictures.
+    /// object other than a dose grid). A series without a class counts as pictures.
     @objc(isPictureSeriesSOPClassUID:)
     public dynamic class func isPictureSeries(sopClassUID uid: String?) -> Bool {
         guard let uid, !uid.isEmpty else { return true }
-        return DICOMSOPClass.isImageStorage(uid) && uid != DICOMSOPClass.pdfStorageClassUID()
+        return (DICOMSOPClass.isImageStorage(uid) && uid != DICOMSOPClass.pdfStorageClassUID()) || DICOMSOPClass.isRTDose(uid)
     }
 
     /// The series of pictures first and the documents after them, each in the

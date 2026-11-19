@@ -65,15 +65,6 @@ static NSString *retrieveTrigger;
 static double importDelay;
 static atomic_bool delayedImport;
 static NSArray *(*originalAddFiles)(id, SEL, NSArray *, BOOL, BOOL, BOOL, BOOL, BOOL);
-static atomic_int noticesPosted;
-static void (*originalPostNotice)(id, SEL, NSString *, NSString *);
-
-// Every notice posted, repeats included: the panel counts a repeat on the notice
-// already listed, so its row count does not show one.
-static void countedPostNotice(id notices, SEL selector, NSString *title, NSString *message) {
-    atomic_fetch_add(&noticesPosted, 1);
-    originalPostNotice(notices, selector, title, message);
-}
 
 static NSArray *delayedAddFiles(id database, SEL selector, NSArray *files, BOOL notifications,
                                BOOL reread, BOOL generated, BOOL imported, BOOL returnArray) {
@@ -151,8 +142,6 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
                 NSSelectorFromString(@"addFilesDescribedInDictionaries:postNotifications:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:"));
             if (method) originalAddFiles = (void *)method_setImplementation(method, (IMP)delayedAddFiles);
         }
-        Method post = class_getClassMethod(NSClassFromString(@"HorosNetworkNotices"), NSSelectorFromString(@"postTitle:message:"));
-        if (post) originalPostNotice = (void *)method_setImplementation(post, (IMP)countedPostNotice);
         [NSThread detachNewThreadWithBlock:^{
             @autoreleasepool {
                 while (![NSFileManager.defaultManager fileExistsAtPath:trigger]) usleep(50000);
@@ -268,8 +257,13 @@ __attribute__((constructor)) static void installImageLevelRetrieveProbe(void) {
                         Class notices = NSClassFromString(@"HorosNetworkNotices");
                         result[@"notices"] = notices ? [notices valueForKey:@"noticeCount"] : @(-1);
                         result[@"notices_showing"] = notices ? [notices valueForKey:@"isShowing"] : @NO;
+                        // Every notice posted, repeats included: the panel counts a repeat on the
+                        // notice already listed, so its row count does not show one. Asked of
+                        // the panel's own log: the application posts its notices from Swift,
+                        // which a replaced Objective-C method never sees.
+                        result[@"notices_posted"] = [notices respondsToSelector:NSSelectorFromString(@"postedCount")]
+                            ? [notices valueForKey:@"postedCount"] : (notices ? [notices valueForKey:@"noticeCount"] : @(-1));
                     });
-                    result[@"notices_posted"] = @(atomic_load(&noticesPosted));
                 }
                 writeLine(@{(attempt ? @"retrieve_again" : @"retrieve"): result});
                 }

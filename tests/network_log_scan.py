@@ -203,11 +203,17 @@ TECHNICAL = {
         'message': 'the body of storeSCUDiagnostic, whose callers the scan reads',
     },
     'DICOMListenerController.swift': {
-        'message as NSString': 'what a listener reports: the calling and called AE titles with the DCMTK condition an '
-                               'association ended on, or what in the listener\'s own settings kept it from starting',
+        'message as NSString': 'what a listener reports: the calling and called AE titles and the peer\'s address with the '
+                               'DCMTK condition an association ended on, where it was (reading a command, serving a request, '
+                               'ending) and the time the listener waits, or what in the listener\'s own settings kept it '
+                               'from starting',
+    },
+    'HTTPServer.swift': {
+        'sender.name': 'the name of the Bonjour service the HTTP server publishes, which is the computer\'s',
     },
     'ListenerHost.swift': {
-        'message': 'the calling and called AE titles of an association and the DCMTK condition it ended on',
+        'message': 'the calling and called AE titles of an association, the peer\'s address, the DCMTK condition it ended '
+                   'on, where it was (reading a command, serving a request, ending) and the time the listener waits',
     },
     'ExternalRequestHandler.swift': {
         'parsed.message as NSString': 'what the parser of a horos:// link found wrong, in its own words: none quotes the link',

@@ -34,6 +34,13 @@ g = panel.index('@MainActor fileprivate var associatedScreen')
 panel_globals = panel[g:panel.index('///', panel.index('fileprivate func pointerKey', g))]
 s = panel.index('    @objc(setThumbnailsView:viewer:)')
 method = panel[s:panel.rindex('\n}')]
+if 'private func putBack' in panel:
+    # Where a borrowed list goes back to, and the other panels giving it up.
+    r = panel.index('    public func returnBorrowedList()')
+    method = panel[r:panel.index('    isolated deinit', r)] + method
+    origin = ''
+else:
+    origin = 'private weak var superView: NSView?'
 
 driver = r'''
 import AppKit
@@ -51,20 +58,29 @@ func _N2LogExceptionImpl(_ exception: NSException, _ stack: Bool, _ context: Str
 
 GLOBALS
 
+enum ViewerWindowArranger { static let maximumScreens = 10 }
+@MainActor func AppControllerCAPIThumbnailsListPanel(_ index: Int) -> ThumbnailsListPanel? { nil }
+
+/// The viewer's list presenter, as much of it as a panel asks.
+@MainActor final class SeriesListPresenter {
+    weak var listDock: NSView?
+}
+
 @MainActor public final class ViewerController: NSObject {
     let window: NSWindow? = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
                                      styleMask: .borderless, backing: .buffered, defer: true)
     let home = NSView(frame: NSRect(x: 0, y: 0, width: 100, height: 600))
     let list = NSScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 600))
+    let seriesListPresenter = SeriesListPresenter()
     var shown = 0
-    override init() { super.init(); home.addSubview(list) }
+    override init() { super.init(); home.addSubview(list); seriesListPresenter.listDock = home }
     /// ViewerController.m scrolls its list to the series it displays.
     @objc func showCurrentThumbnail(_ sender: Any?) { shown += 1 }
 }
 
 @MainActor public final class ThumbnailsListPanel: NSObject {
     public var thumbnailsView: NSView?
-    private weak var superView: NSView?
+    ORIGIN
     public var viewer: ViewerController?
     let window: NSWindow? = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 110, height: 700),
                                      styleMask: .borderless, backing: .buffered, defer: true)
@@ -108,7 +124,7 @@ METHOD
         print("PASS: a newly lent list shows its viewer's series; the same list lent again keeps its position")
     }
 }
-'''.replace('GLOBALS', panel_globals).replace('METHOD', method)
+'''.replace('GLOBALS', panel_globals).replace('METHOD', method).replace('ORIGIN', origin)
 
 with tempfile.TemporaryDirectory(prefix='horos-thumbnail-lent-scroll-') as folder:
     folder = Path(folder)

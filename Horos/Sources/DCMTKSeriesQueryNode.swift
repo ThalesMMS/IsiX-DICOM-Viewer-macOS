@@ -51,9 +51,22 @@ import IsiXPreferences
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(DCMTKSeriesQueryNode) @usableFromInline
 final class DCMTKSeriesQueryNode: DCMTKQueryNode, @unchecked Sendable {
-    var studyInstanceUIDValue: String?
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each,
+    // so each is a stored field of this class with the type the C declaration
+    // has in memory, never private, lazy, weak or observed: the UID of the
+    // study, and the copy without a retain of the weak reference to the study
+    // below, written with it and never read here.
+    var _studyInstanceUID: NSString?
+    unowned(unsafe) var studyOfSDK: DCMTKStudyQueryNode?
+    var studyInstanceUIDValue: String? {
+        get { _studyInstanceUID as String? }
+        set { _studyInstanceUID = newValue as NSString? }
+    }
     /// The study it was listed in, not retained.
-    @objc weak var study: DCMTKStudyQueryNode?
+    @objc weak var study: DCMTKStudyQueryNode? {
+        didSet { studyOfSDK = study }
+    }
 
     required init(dataset: IsiXDCMTKDataset?, callingAET: String?, calledAET: String?, hostname: String?, port: Int32,
                   transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {

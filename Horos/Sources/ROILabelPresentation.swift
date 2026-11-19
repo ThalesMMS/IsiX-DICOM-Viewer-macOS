@@ -200,24 +200,25 @@ public final class ROILabelPresentation: NSObject {
         })
     }
 
-    /// The check's title: the statistic's name as the label writes it, so that
-    /// both read the same in every language.
+    /// The check's title: the statistic's name, as the catalog gives it to the
+    /// check. Most catalogs name the check as the label writes the readout, so
+    /// that both read the same; the Spanish, Italian and Japanese ones name it
+    /// in their own words while the label's readouts stay as their catalogs
+    /// have them. Without an entry, the English name the label writes.
     @objc(titleForStatistic:)
     public static func title(forStatistic kind: String) -> String {
-        let format: String
+        let comment = "Viewers pane: the check that shows or hides a statistic in the labels of closed ROIs"
         switch kind {
-        case "Area": format = NSLocalizedString("Area: %0.3f mm²", comment: "")
-        case "WH": return "W/H"
-        case "Mean": format = NSLocalizedString("Mean: %0.3f%@", comment: "ROI label statistic")
-        case "SDev": format = NSLocalizedString("SDev: %0.3f%@", comment: "ROI label statistic")
-        case "Sum": format = NSLocalizedString("Sum: %0.0f%@", comment: "ROI label statistic")
-        case "Median": format = NSLocalizedString("Median: %@%@", comment: "ROI label statistic")
-        case "Min": format = NSLocalizedString("Min: %0.3f%@", comment: "ROI label statistic")
-        case "Max": format = NSLocalizedString("Max: %0.3f%@", comment: "ROI label statistic")
+        case "Area": return NSLocalizedString("Area (ROI statistic)", value: "Area", comment: comment)
+        case "WH": return NSLocalizedString("W/H (ROI statistic)", value: "W/H", comment: comment)
+        case "Mean": return NSLocalizedString("Mean (ROI statistic)", value: "Mean", comment: comment)
+        case "SDev": return NSLocalizedString("SDev (ROI statistic)", value: "SDev", comment: comment)
+        case "Sum": return NSLocalizedString("Sum (ROI statistic)", value: "Sum", comment: comment)
+        case "Median": return NSLocalizedString("Median (ROI statistic)", value: "Median", comment: comment)
+        case "Min": return NSLocalizedString("Min (ROI statistic)", value: "Min", comment: comment)
+        case "Max": return NSLocalizedString("Max (ROI statistic)", value: "Max", comment: comment)
         default: return kind
         }
-        let name = format.split(separator: ":", maxSplits: 1).first.map(String.init) ?? format
-        return name.trimmingCharacters(in: .whitespaces)
     }
 
     /// A line written as segments, [kind, text] pairs: the statistics of

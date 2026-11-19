@@ -54,8 +54,10 @@ import Carbon
 // name, the selectors and <Horos/OnOffSwitchControlCell.h> are those of the
 // former class. The header keeps the OnOffSwitchControlColors enum.
 
-/// `smallRect`'s size, centred in `bigRect`.
-private func DKCenterRect(_ smallRect: NSRect, _ bigRect: NSRect) -> NSRect {
+/// `smallRect`'s size, centred in `bigRect`. With its C name, which plugins
+/// built for Horos or OsiriX call.
+@_cdecl("DKCenterRect") @implementation @usableFromInline
+func DKCenterRect(_ smallRect: NSRect, _ bigRect: NSRect) -> NSRect {
     return NSMakeRect(bigRect.origin.x + (bigRect.size.width - smallRect.size.width) / 2.0,
                       bigRect.origin.y + (bigRect.size.height - smallRect.size.height) / 2.0,
                       smallRect.size.width, smallRect.size.height)

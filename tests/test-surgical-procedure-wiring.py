@@ -102,8 +102,17 @@ if 'surgicalRow: object is SurgicalProcedureOutlineRow' not in outline_rows:
     failures.append('timeline rows are no longer distinct from DicomStudy in the outline')
 if '@objc(showSurgicalProcedureTimeline:)' not in browser:
     failures.append('the database window no longer displays the surgical timeline')
-if 'AEDeterminePermissionToAutomateTarget' not in browser or 'automationStatus: Int(numbersAutomationStatus())' not in browser:
-    failures.append('Numbers/Apple Events are no longer probed with a host error status')
+# The panel offers delimited text alone, and the browser asks nothing of
+# another application to tell what was chosen: no bundle is looked up, no
+# permission to automate one is asked.
+if 'panel.allowedContentTypes = [UTType(filenameExtension: "csv")!, UTType(filenameExtension: "txt")!]\n' not in surgical_import:
+    failures.append('the panel of the surgical log no longer offers CSV and text alone')
+if 'guard SurgicalProcedureImport.isDelimitedTextLog(at: url) else {' not in surgical_import:
+    failures.append('a file the panel did not offer, reached through an alias, is no longer refused')
+for asked in ('AEDeterminePermissionToAutomateTarget', 'NSAppleEventDescriptor', 'urlForApplication(withBundleIdentifier:',
+              'com.apple.Numbers', 'com.apple.iWork.Numbers', 'filenameExtension: "numbers"', 'diagnoseSource('):
+    if asked in browser:
+        failures.append('the browser asks about a spreadsheet application again: %s' % asked)
 
 # AppController is Swift: the call is read in its Swift spelling, in the launch
 # of ApplicationLifecycle.

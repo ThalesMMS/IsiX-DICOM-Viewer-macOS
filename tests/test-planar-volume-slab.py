@@ -138,8 +138,8 @@ elif '- (float*) computeThickSlab' not in pix:
     swift_class = '- (void) horos_renderThickSlab' not in source and 'HorosDCMPixRenderThickSlab(' in source
     helper = read('Horos/Sources/DCMPix+CAPI.m' if swift_class else 'Horos/Sources/DCMPix+SwiftIvars.m')
     swift_case = source[source.index('case 4, 5:'):source.index('case 1, 2, 3:')]
-    expected = ['stackSize = position - stack < 0 ? position + 1 : stack + 1',
-                'stackSize = position + stack < count ? stack : count - position',
+    expected = ['let last = ViewTransform.thickSlabLastIndex(current: position, count: count, stack: stack, flipped: stackDirection != 0)',
+                'let stackSize = abs(last - position) + 1',
                 'stackDirection != 0 ? horos_fImage.map { $0 - (stackSize - 1) * height * width } : horos_fImage',
                 'HorosDCMPixRenderThickSlab(horos_thickSlab, source, stackSize, iwl, displayInverted ? -iww : iww)' if swift_class else
                 'horos_renderThickSlab(from: source, count: stackSize, level: iwl, width: displayInverted ? -iww : iww)',
@@ -152,7 +152,7 @@ elif '- (float*) computeThickSlab' not in pix:
     case = '''if( thickSlab)
             {
                 if( stackDirection)
-                    stacksize = pixPos-stack < 0 ? pixPos+1 : stack+1;
+                    stacksize = pixPos+1 < stack ? pixPos+1 : stack;
                 else
                     stacksize = pixPos+stack < (long) [pixArray count] ? stack : [pixArray count] - pixPos;
                 float *source = stackDirection ? fImage - (stacksize-1)*height * width : fImage;
@@ -260,6 +260,20 @@ func texture(_ image: MTLTexture) -> [UInt8] {
 
 @main struct Check {
     static func main() throws {
+        // The volume rendering composes the images the other projections fuse: the one shown and those of sliceIndices.
+        for position in 0..<16 {
+            for stack in 1...17 {
+                for direction in 0...1 {
+                    let composed = Set(PlanarThickSlab.volumeSliceIndices(position: position, stack: stack, direction: direction, count: 16,
+                                                                         memoryOrder: true).map(\.intValue))
+                    let fused = Set(PlanarThickSlab.sliceIndices(position: position, stack: stack, direction: direction, count: 16).map(\.intValue))
+                    if composed != fused.union([position]) {
+                        print("FAIL: at image \(position), \(stack) images, direction \(direction): the volume rendering composes \(composed.sorted()), the projections fuse \(fused.union([position]).sorted())")
+                        exit(1)
+                    }
+                }
+            }
+        }
         guard let device = MTLCreateSystemDefaultDevice() else { print("skipped: no Metal device"); exit(2) }
         let arguments = CommandLine.arguments
         let input = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))

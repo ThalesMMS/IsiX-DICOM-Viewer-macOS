@@ -376,6 +376,36 @@ public extension FileManager {
         return true
     }
 
+    /// The sum of the logical sizes, data and resource forks, of the file at
+    /// `path` or of every file under it when it is a folder.
+    @objc(sizeAtPath:)
+    func size(atPath path: String?) -> UInt {
+        guard let path else { return 0 }
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .totalFileSizeKey, .fileSizeKey]
+        func size(of url: URL) -> UInt {
+            guard let values = try? url.resourceValues(forKeys: keys), values.isDirectory != true else { return 0 }
+            return UInt(values.totalFileSize ?? values.fileSize ?? 0)
+        }
+        let root = URL(fileURLWithPath: path)
+        guard (try? root.resourceValues(forKeys: keys))?.isDirectory == true else { return size(of: root) }
+        var total: UInt = 0
+        for case let url as URL in enumerator(at: root, includingPropertiesForKeys: Array(keys)) ?? FileManager.DirectoryEnumerator() {
+            total += size(of: url)
+        }
+        return total
+    }
+
+    /// Where the Finder alias at `path` leads; nil for anything that is not
+    /// an alias file, a symbolic link included.
+    @objc(destinationOfAliasAtPath:)
+    func destinationOfAlias(atPath path: String?) -> String? {
+        guard let path else { return nil }
+        let url = URL(fileURLWithPath: path)
+        guard let values = try? url.resourceValues(forKeys: [.isAliasFileKey, .isSymbolicLinkKey]),
+              values.isAliasFile == true, values.isSymbolicLink != true else { return nil }
+        return (try? URL(resolvingAliasFileAt: url, options: [.withoutUI]))?.path
+    }
+
     @available(*, deprecated)
     @objc(destinationOfAliasOrSymlinkAtPath:)
     @discardableResult

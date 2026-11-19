@@ -18,6 +18,8 @@ Modules/Package.swift compiles it.
 from pathlib import Path
 import subprocess
 
+import former_sdk_objects
+
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = ['-target', 'arm64-apple-macos15.0']
 HEADERS = ('N3Geometry.h', 'N3BezierCore.h', 'N3BezierCoreAdditions.h', 'N3BezierPath.h')
@@ -65,13 +67,20 @@ def build(folder, configuration='debug', headers=None):
              '-I', str(folder), '-import-objc-header', str(bridge), '-Xcc', '-I' + str(include),
              '-emit-library', '-static', '-o', str(library),
              *map(str, sorted((ROOT / 'Nitrogen/Sources').glob('N3*.swift')))])
+    constants(folder, configuration)
     return ['-I', str(include)], [*libraries(folder), *FRAMEWORKS, *swift_runtime_flags()]
 
 
+def constants(folder, configuration='debug'):
+    """The object with the constants the N3 headers declare extern (N3VectorZero,
+    N3AffineTransformIdentity, the Bezier defaults and callbacks)."""
+    return former_sdk_objects.nitrogen(folder, OBJC_FLAGS[configuration])
+
+
 def libraries(folder):
-    """The static libraries build(folder) made, for a link through swiftc,
-    which adds the Swift runtime itself."""
-    return [str(Path(folder) / 'libN3Geometry.a'), str(Path(folder) / 'libIsiXGeometry.a')]
+    """What build(folder) made, for a link through swiftc, which adds the
+    Swift runtime itself: the two static libraries and the constants."""
+    return [str(Path(folder) / 'libN3Geometry.a'), str(Path(folder) / 'libIsiXGeometry.a'), str(Path(folder) / 'NitrogenConstants.o')]
 
 
 def build_reference(folder, revision, configuration='debug'):

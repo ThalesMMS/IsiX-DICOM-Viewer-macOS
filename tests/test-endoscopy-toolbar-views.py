@@ -87,8 +87,9 @@ func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
     ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants(type, in: $0) }
 }
 
-// What EndoscopyVRController writes in the Shading item, at its widest.
-let shadingText = String(format: "Ambient: %2.1f\nDiffuse: %2.1f\nSpecular :%2.1f-%2.1f", 0.15, 0.65, 0.75, 50.0)
+// What EndoscopyVRController writes in the Shading item, as the VR window
+// writes it, at the widest the shading panel's ranges give.
+let shadingText = "Ambient: 0.44\nDiffuse: 0.44\nSpecular: 0.44/44.44"
 
 /// The controls whole inside their view, and the Shading text on three lines.
 func checkLayout(_ views: [String: NSView], _ context: String) {

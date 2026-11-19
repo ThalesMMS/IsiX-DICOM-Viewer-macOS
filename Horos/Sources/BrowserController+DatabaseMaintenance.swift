@@ -108,17 +108,6 @@ private struct DatabaseToShowAgain: @unchecked Sendable {
     let database: DicomDatabase?
 }
 
-/// Whether the app may automate Numbers, for the first Numbers bundle
-/// identifier the system knows; -10814 (no such application) without one.
-private func numbersAutomationStatus() -> OSStatus {
-    for identifier in ["com.apple.Numbers", "com.apple.iWork.Numbers"] {
-        let target = NSAppleEventDescriptor(bundleIdentifier: identifier)
-        guard let descriptor = target.aeDesc else { continue }
-        return AEDeterminePermissionToAutomateTarget(descriptor, typeWildCard, typeWildCard, false)
-    }
-    return -10814
-}
-
 /// The maintenance of the database the browser shows: its rebuilds, the
 /// preview of its automatic cleanup and its surgical procedure records.
 ///
@@ -378,28 +367,26 @@ private func numbersAutomationStatus() -> OSStatus {
     }
 
     /// Imports a CSV surgical log as structured reports, after a preview of
-    /// what it adds and updates; Numbers documents are diagnosed only.
+    /// what it adds and updates. The panel offers delimited text alone, the
+    /// one form that is read; a spreadsheet document is exported as CSV first.
     func importSurgicalProcedureLog() {
         guard let database = self.database, database.isLocal(), !database.isReadOnly else { return }
 
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "csv")!, UTType(filenameExtension: "txt")!, UTType(filenameExtension: "numbers")!]
-        panel.message = NSLocalizedString("Choose a CSV surgical log. Numbers documents can be imported when Numbers is installed and Automation is allowed.", comment: "")
-        guard panel.runModal() == .OK, let path = panel.url?.path, (path as NSString).length > 0 else {
+        panel.allowedContentTypes = [UTType(filenameExtension: "csv")!, UTType(filenameExtension: "txt")!]
+        panel.message = NSLocalizedString("Choose a surgical log exported as CSV.", comment: "Message of the panel that chooses the surgical log to import")
+        guard panel.runModal() == .OK, let url = panel.url, (url.path as NSString).length > 0 else {
             surgicalLogAlert(NSLocalizedString("Preview cancelled. The database was not changed.", comment: ""))
             return
         }
+        let path = url.path
 
-        let workspace = NSWorkspace.shared
-        let numbersAvailable = workspace.urlForApplication(withBundleIdentifier: "com.apple.Numbers") != nil
-            || workspace.urlForApplication(withBundleIdentifier: "com.apple.iWork.Numbers") != nil
-        let diagnosis = SurgicalProcedureImport.diagnoseSource(atPath: path, numbersAvailable: numbersAvailable,
-                                                               automationStatus: Int(numbersAutomationStatus()))
-        guard diagnosis["kind"] == "csv" else {
-            let message = diagnosis["message"].flatMap { $0.isEmpty ? nil : $0 }
-            surgicalLogAlert(message ?? NSLocalizedString("The selected file is not a CSV surgical log.", comment: ""))
+        // The panel resolves an alias, so what comes back may be a document
+        // it did not offer.
+        guard SurgicalProcedureImport.isDelimitedTextLog(at: url) else {
+            surgicalLogAlert(NSLocalizedString("The selected file is not a CSV surgical log.", comment: ""))
             return
         }
 

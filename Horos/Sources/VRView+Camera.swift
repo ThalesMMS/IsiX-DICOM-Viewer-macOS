@@ -82,6 +82,22 @@ extension VRView {
         needsDisplay = true
     }
 
+    /// The corners of the crop that a camera keeps beside the planes just
+    /// captured into it: computed again only when those planes are not the
+    /// ones of the capture before, since a capture runs for every frame of
+    /// an MPR.
+    private func copyCropCorners(to cam: Camera, planeCount: Int, origins: [Double], normals: [Double]) {
+        if planeCount == capturedCropPlaneCount && origins == capturedCropOrigins && normals == capturedCropNormals {
+            cam.setCroppingCorners(low: capturedCropCorners.low, high: capturedCropCorners.high)
+        } else {
+            cam.copyCroppingCorners()
+            capturedCropPlaneCount = planeCount
+            capturedCropOrigins = origins
+            capturedCropNormals = normals
+            capturedCropCorners = cam.croppingCorners
+        }
+    }
+
     @objc(cameraWithThumbnail:)
     func camera(withThumbnail produceThumbnail: Bool) -> Camera! {
         let vtk = horos_vtk
@@ -141,6 +157,9 @@ extension VRView {
                 cam.croppingPlanes.replaceObject(at: i, with: NSValue(n3Plane: plane)!)
                 i += 1
             }
+        }
+        if planeCount >= 0 {
+            copyCropCorners(to: cam, planeCount: planeCount, origins: cropOrigins, normals: cropNormals)
         }
 
         // fusion percentage

@@ -16,7 +16,9 @@ import IsiXStorage
 /// Imports, at launch, what earlier versions kept in `Application Support/Horos`,
 /// and says what could not be imported. Asks before copying plugins, once; the
 /// plugin manager's Import Plugins from Horos or OsiriX command looks again at
-/// any time, for what was installed or updated in those folders since.
+/// any time, for what was installed or updated in those folders since, and
+/// each launch after that first answer offers, once, a version those folders
+/// have that is higher than the one IsiX has, or a plugin it does not have.
 ///
 /// Horos uses that folder too, and two applications writing the same accounts
 /// and pages is what the import ends, so it is not left to a question: the
@@ -46,35 +48,89 @@ enum LegacySupportImportPrompt {
                                                               otherButton: nil)
                 return answer == HorosAlertPanel.defaultResponse
             }
-            guard !problems.isEmpty else { return }
-            let lines = problems.map { problem in
-                switch problem {
-                case .alreadyInstalled(let name):
-                    return String(format: NSLocalizedString("A plugin named %@ already exists in IsiX.", comment: ""), name)
-                case .copyFailed(let name, let reason):
-                    return String(format: NSLocalizedString("%@: %@", comment: ""), name, reason)
+            if !problems.isEmpty {
+                let lines = problems.map { problem in
+                    switch problem {
+                    case .alreadyInstalled(let name):
+                        return String(format: NSLocalizedString("A plugin named %@ already exists in IsiX.", comment: ""), name)
+                    case .copyFailed(let name, let reason):
+                        return String(format: NSLocalizedString("%@: %@", comment: ""), name, reason)
+                    }
                 }
+                showPluginImportProblem(lines.joined(separator: "\n"))
             }
-            showPluginImportProblem(lines.joined(separator: "\n"))
         } catch {
             showPluginImportProblem(error.localizedDescription)
         }
+        offerNewerPluginsIfNeeded(migration)
         #endif
     }
 
     // MARK: plugins, asked for again
 
-    /// The rules of plugin bundles the copy follows: the plugin loader's own.
+    /// The rules of plugin bundles the copy follows: the plugin loader's own,
+    /// which asks whether this Mac can load a bundle as the loader does before
+    /// opening one, by its signature and its files.
     #if !MACAPPSTORE
     static var pluginRules: LegacyPluginImport.Rules {
+        rules(canLoad: { PluginManager.refusalBeforeOpening(bundleAt: $0) == nil })
+    }
+
+    /// The rules of a launch's own look at those folders. It runs at every
+    /// launch, before the plugins load, so it validates no signature and
+    /// inspects no bundle: between two bundles of one name the version, the
+    /// folder and the format decide, and whether a bundle loads is not asked.
+    static var launchPluginRules: LegacyPluginImport.Rules {
+        rules(canLoad: { _ in true })
+    }
+
+    /// The loader's rules, with `canLoad` answering whether this Mac can load
+    /// the bundle at a path. An entry that is a symbolic link or an alias is
+    /// asked about as the bundle it leads to, which is the one that loads.
+    private static func rules(canLoad: @escaping @Sendable (String) -> Bool) -> LegacyPluginImport.Rules {
         LegacyPluginImport.Rules(
             isPlugin: PluginAdmission.isPluginBundle,
             version: PluginBundleVersion.declared(byBundleAt:),
             compare: PluginBundleVersion.compare,
             isPreferred: { first, second in
-                SameNamePlugins.isPreferred(.init(path: first.url.path, version: first.version, folderRank: first.rank),
-                                            to: .init(path: second.url.path, version: second.version, folderRank: second.rank))
-            })
+                SameNamePlugins.isPreferred(.init(path: (first.target ?? first.url).path, version: first.version, folderRank: first.rank),
+                                            to: .init(path: (second.target ?? second.url).path, version: second.version, folderRank: second.rank),
+                                            canLoad: canLoad)
+            },
+            canLoad: { canLoad($0.path) })
+    }
+
+    /// At a launch after the single offer was answered: what the plugins
+    /// folders of Horos and OsiriX have gained since, a higher version of a
+    /// plugin of IsiX or a plugin it does not have, offered once whatever the
+    /// answer. Importing replaces a plugin as an update does, so the copy it
+    /// replaces is kept until the new one has loaded; this runs before the
+    /// plugins load, so what is imported loads in this launch. Not in
+    /// Protected Mode, where no plugin loads.
+    @MainActor private static func offerNewerPluginsIfNeeded(_ migration: LegacyPluginImport) {
+        guard !DCMPix.isRunOsiriXInProtectedModeActivated() else { return }
+        do {
+            let failed = try migration.offerNewerIfNeeded(rules: launchPluginRules, shouldImport: { additions in
+                let found = lines(of: LegacyPluginImport.Survey(additions: additions)).additions
+                var preview = found.prefix(8).joined(separator: "\n")
+                if found.count > 8 {
+                    preview += "\n" + String(format: NSLocalizedString("… and %ld more", comment: ""), found.count - 8)
+                }
+                let description = NSLocalizedString("New or newer plugins were found in the Horos or OsiriX plugins folders.", comment: "")
+                    + " " + NSLocalizedString("Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed.", comment: "")
+                // The command's own name, without the ellipsis of a button that asks before acting.
+                let title = NSLocalizedString("Import Plugins from Horos or OsiriX…", comment: "").replacingOccurrences(of: "…", with: "")
+                let answer = HorosAlertPanel.runInformational(title: title, message: description + "\n\n" + preview,
+                                                              defaultButton: NSLocalizedString("Import", comment: ""),
+                                                              alternateButton: NSLocalizedString("Not Now", comment: ""),
+                                                              otherButton: nil)
+                return answer == HorosAlertPanel.defaultResponse
+            }, replace: { source, installed in try PluginManager.replaceInstalledPlugin(at: installed, with: source) })
+            let failures = lines(of: LegacyPluginImport.Survey(skipped: failed)).leftOut
+            if !failures.isEmpty { showPluginImportProblem(failures.joined(separator: "\n")) }
+        } catch {
+            showPluginImportProblem(error.localizedDescription)
+        }
     }
 
     /// What a survey found, as the lines the user reads: what would be copied,
@@ -97,6 +153,8 @@ enum LegacySupportImportPrompt {
                 return String(format: NSLocalizedString("%@: it is a symbolic link, not a plugin.", comment: ""), skipped.name)
             case .alias:
                 return String(format: NSLocalizedString("%@: it is an alias, not a plugin.", comment: ""), skipped.name)
+            case .leadsNowhere:
+                return String(format: NSLocalizedString("%@: the link leads to an item that no longer exists.", comment: ""), skipped.name)
             case .sameName(let preferred):
                 return String(format: NSLocalizedString("%1$@: %2$@ has the same name and is used instead.", comment: "Two plugins of one name in the folders searched"),
                               source, named(preferred.name, preferred.version))

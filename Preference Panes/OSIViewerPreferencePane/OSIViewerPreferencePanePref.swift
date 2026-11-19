@@ -110,11 +110,9 @@ public class OSIViewerPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIViewerPreferencePanePref", bundle: nil)
-        nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
+        instantiatePaneNib(named: "OSIViewerPreferencePanePref", topLevelObjects: &_tlos)
 
         if self is OSIViewerROIPreferencePanePref { addROIStatisticsChecks() }
-        if type(of: self) == OSIViewerPreferencePanePref.self { translateFromCatalogIfNeeded() }
 
         if let contentView = paneWindow?.contentView {
             self.mainView = contentView
@@ -128,32 +126,6 @@ public class OSIViewerPreferencePanePref: NSPreferencePane {
 
         // Left empty, the field shows the name a capture gets.
         captureSeriesNameField?.placeholderString = ScreenCaptureSeriesName.defaultName()
-    }
-
-    /// Italian and Spanish have a catalog and no copy of this nib. There the
-    /// Base nib loads in English, and the texts of this pane's own window are
-    /// read from the catalog; a text the catalog lacks stays as it is.
-    private func translateFromCatalogIfNeeded() {
-        guard let language = Bundle.main.preferredLocalizations.first,
-              Bundle.main.url(forResource: "OSIViewerPreferencePanePref", withExtension: "nib", subdirectory: nil, localization: language) == nil,
-              let content = mainWindow?.contentView else { return }
-        Self.translateFromCatalog(content)
-    }
-
-    private static func translateFromCatalog(_ view: NSView) {
-        func translated(_ english: String) -> String {
-            english.isEmpty ? english : Bundle.main.localizedString(forKey: english, value: english, table: nil)
-        }
-        if let box = view as? NSBox {
-            box.title = translated(box.title)
-        } else if let popUp = view as? NSPopUpButton {
-            for item in popUp.itemArray { item.title = translated(item.title) }
-        } else if let button = view as? NSButton {
-            button.title = translated(button.title)
-        } else if let label = view as? NSTextField, !label.isEditable {
-            label.stringValue = translated(label.stringValue)
-        }
-        for child in (view as? NSBox)?.contentView?.subviews ?? view.subviews { translateFromCatalog(child) }
     }
 
     /// Put the compact label setting beside the statistics it overrides.

@@ -35,6 +35,15 @@ is how this test ran, and passed, before the conversion). Both run over the
 same stand-ins of the viewer, its views, slices, files, toolbar and the
 browser, which record what they are given; the two records must be identical.
 
+Where the zoom is kept to each viewer and the pan goes on, the Swift differs
+from the Objective-C on purpose: it leaves with each viewer the pan its own
+zooms moved, and hands on the rest in millimetres. Two scenarios run there on
+the Swift alone and check rules instead: zooms, pinches and Scale to Fit move
+no other viewer, within a study or between locked series, nor do the settings
+another viewer hands back; a pan moves the others as many millimetres; the
+zoom going on gives the former alignment, the locked one between studies, and
+keeping it again moves nothing.
+
     python3 tests/test-viewer-navigation-equivalence.py [--reference REV] [--current REV] [--dump DIR]
 """
 import argparse
@@ -56,6 +65,36 @@ MARK = '- (void) propagateSettingsToViewer: (ViewerController*) vC'
 SWIFT_FILES = ['ViewerController+%s.swift' % name for name in
                ('ImagePipelineSupport', 'Synchronization', 'Registration', 'SeriesNavigation', 'FourDNavigation', 'StudyNavigation')]
 SCENARIOS = ['sync', 'resync', 'navigation', '4d', 'study', 'registration']
+# Run on the Swift alone: rules of the zoom kept to each viewer, where the
+# Objective-C differs on purpose.
+KEPT_ZOOM_SCENARIOS = ['zoomkept', 'zoomkept-locked']
+# A revert differs from the Objective-C on purpose: it tells of the volume of
+# every time of the series, where the reference told of the current one, and
+# says that the volume was read from its files, for the 3D windows to forget
+# the copies they kept of it. Of each run of such records the one the reference
+# has at that place is compared, without the mark.
+READ_FROM_FILES = ' HorosVolumeReadFromFiles=0x0p+0'
+
+
+def as_the_reference_told(expected, got):
+    told, run = [], []
+
+    def close():
+        if run:
+            place = len(told)
+            wanted = expected[place] if place < len(expected) else None
+            told.append(wanted if wanted in run else run[0])
+            run.clear()
+    for line in got:
+        if line.endswith(READ_FROM_FILES) and line.startswith('notification OsirixUpdateVolumeDataNotification '):
+            run.append(line[:-len(READ_FROM_FILES)] + ' ')
+        else:
+            close()
+            told.append(line)
+    close()
+    return told
+
+
 # The window arranger the study navigation asks for a tiling put off: over the
 # harness's delayedTileWindows and AppController, as the reference did it.
 ARRANGER_STAND_IN = r'''
@@ -123,6 +162,25 @@ import IsiXPreferences
 /// is corrected here.
 enum GantryTiltPolicy {
     @MainActor static func clearCorrection(of viewer: AnyObject) {}
+    @MainActor static func correctedDegrees(of viewer: ViewerController?) -> NSNumber? { nil }
+}
+
+extension VRController {
+    static let horosReadFromFilesKey = "HorosVolumeReadFromFiles"
+}
+
+class Window3DController: NSWindowController {
+    func viewer() -> ViewerController? { nil }
+}
+
+/// No series here is a change of plane of the files' slices.
+@MainActor struct ViewerPlaneChange {
+    let viewer: ViewerController
+    func revertToFiles() -> Bool { false }
+}
+
+extension ViewerController {
+    @MainActor static func correctGangtryTilt(_ viewer: ViewerController) {}
 }
 
 typealias ProcessGraph = HarnessSessionProcessGraph
@@ -197,7 +255,7 @@ import IsiXPreferences
     private var lockPans: [ObjectIdentifier: CGPoint] = [:]
     func lockPan(of view: NSView) -> CGPoint { lockPans[ObjectIdentifier(view)] ?? .zero }
     func setLockPan(_ pan: CGPoint, of view: NSView) { lockPans[ObjectIdentifier(view)] = pan }
-    var seriesLocked: Bool {
+ZOOMPAN    var seriesLocked: Bool {
         get { ViewerController.horos_SYNCSERIES() }
         set { ViewerController.horos_setSYNCSERIES(newValue) }
     }
@@ -240,6 +298,13 @@ extension ViewerController {
         self.preferences = preferences
     }
 RESYNC}
+'''
+
+# What the settings last saw of each view's zoom and pan, in revisions whose
+# IsiXImaging keeps the pan of each view's own zooms apart (ZoomPan).
+ZOOM_PAN_STAND_IN = '''    private var zoomPans: [ObjectIdentifier: SettingsPropagation.ZoomPan] = [:]
+    func zoomPan(of view: NSView) -> SettingsPropagation.ZoomPan? { zoomPans[ObjectIdentifier(view)] }
+    func setZoomPan(_ zoomPan: SettingsPropagation.ZoomPan, of view: NSView) { zoomPans[ObjectIdentifier(view)] = zoomPan }
 '''
 
 
@@ -322,6 +387,7 @@ FOUNDATION_EXPORT NSInteger HorosRunCriticalAlertPanel(NSString * _Nullable titl
     short stackValue;
     BOOL originDefined, loaded;
 }
+- (BOOL) loadedFileMatchesDisk;
 @property(nonatomic) long pwidth, pheight;
 @property double pixelSpacingX, pixelSpacingY;
 @property double sliceLocation;
@@ -375,6 +441,8 @@ FOUNDATION_EXPORT NSInteger HorosRunCriticalAlertPanel(NSString * _Nullable titl
 - (void) setWLWW:(float) wl :(float) ww;
 - (BOOL) shouldPropagate;
 - (void) updatePresentationStateFromSeries;
+// The static fits of the propagator ask a view for its viewer; none here.
+- (id) windowController;
 @end
 
 @interface MyPoint : NSObject
@@ -515,6 +583,7 @@ NS_SWIFT_UI_ACTOR
 - (void) sendDidAllocateVolumeDataNotificationWithVolumeData:(NSData *)volumeData movieIndex:(NSInteger)movieIndex;
 // The accessors of ViewerController+SwiftIvars.h, on the same instance variables.
 @property(retain, nullable) DCMView* horos_imageView;
+@property BOOL _SyncButtonBehaviorIsBetweenStudies;
 @property(retain, nullable) SeriesView* horos_seriesView;
 @property(assign) short horos_curMovieIndex NS_SWIFT_NONISOLATED;
 @property(assign) short horos_maxMovieIndex NS_SWIFT_NONISOLATED;
@@ -675,6 +744,9 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 
 @implementation DCMPix
 @synthesize pwidth, pheight, pixelSpacingX, pixelSpacingY, sliceLocation, isRGB, SUVConverted, transferFunction;
+// The revert asks every slice whether its file is still the one it was
+// decoded from: here it always is.
+- (BOOL) loadedFileMatchesDisk { return YES; }
 - (double) originX { return ox; }
 - (double) originY { return oy; }
 - (double) originZ { return oz; }
@@ -688,7 +760,11 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 }
 - (void) computeSliceLocation { self.sliceLocation = ox * vectors[6] + oy * vectors[7] + oz * vectors[8]; }
 - (NSRect) rectCoordinates { return NSMakeRect(ox, oy, pwidth * pixelSpacingX, pheight * pixelSpacingY); }
-+ (NSPoint) originDeltaBetween:(DCMPix*) pix1 And:(DCMPix*) pix2 { return NSMakePoint(pix1->ox - pix2->ox, pix1->oy - pix2->oy); }
+// In pixels of pix2, as the app's: a pan worked out from it goes back and forth between images apart.
++ (NSPoint) originDeltaBetween:(DCMPix*) pix1 And:(DCMPix*) pix2 {
+    if (pix2.pixelSpacingX == 0 || pix2.pixelSpacingY == 0) return NSZeroPoint;
+    return NSMakePoint((pix1->ox - pix2->ox) / pix2.pixelSpacingX, (pix1->oy - pix2->oy) / pix2.pixelSpacingY);
+}
 - (BOOL) isLoaded { return loaded; }
 - (void) revert { Record([NSString stringWithFormat: @"%@ revert", Name(self)]); }
 - (void) setArrayPix: (NSArray*) array :(NSInteger) i { Record([NSString stringWithFormat: @"%@ setArrayPix %@ %ld", Name(self), Name(array), (long)i]); }
@@ -698,6 +774,7 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 @end
 
 @implementation DCMView
+- (id) windowController { return nil; }
 @synthesize flippedData, syncRelativeDiff, syncSeriesIndex, scaleValue, rotation, origin, rows, columns;
 - (NSMutableArray*) dcmPixList { return pixListValue; }
 - (NSInteger) curImage { return curImageValue; }
@@ -1076,8 +1153,13 @@ static void syncScenario(void) {
     // B's images lie a little apart in the plane, so the pan it receives moves.
     for (DCMPix *pix in b->pixList[0]) { pix->ox += 2.5; pix->oy -= 1.25; }
     viewers2D = [@[a, b, c, o] mutableCopy];
+    // With the zoom kept to each viewer the pan is no longer the Objective-C's,
+    // which went on at the source's scale: it goes in millimetres at the other's
+    // scale, without what each one's own zooms moved (the rules of zoomKept and
+    // zoomKeptLocked below). Here, where the zoom is kept, the pan is kept too.
     NSArray *configs = @[@{@"COPYSETTINGS": @YES}, @{@"COPYSETTINGS": @NO}, @{@"COPYSETTINGS": @YES, @"DONTCOPYWLWWSETTINGS": @YES},
-                         @{@"COPYSETTINGS": @YES, @"DONTCOPYZOOMSETTINGS": @YES}, @{@"COPYSETTINGS": @YES, @"DONTCOPYPANSETTINGS": @YES},
+                         @{@"COPYSETTINGS": @YES, @"DONTCOPYZOOMSETTINGS": @YES, @"DONTCOPYPANSETTINGS": @YES},
+                         @{@"COPYSETTINGS": @YES, @"DONTCOPYPANSETTINGS": @YES},
                          @{@"COPYSETTINGS": @YES, @"DONTCOPYROTATIONSETTINGS": @YES}, @{@"COPYSETTINGS": @YES, @"AlwaysPropagateScaleLevel": @YES},
                          @{@"COPYSETTINGS": @YES, @"PARALLELPLANETOLERANCE": @45}];
     for (NSDictionary *config in configs) {
@@ -1157,6 +1239,176 @@ static void syncScenario(void) {
     SyncButtonBehaviorIsBetweenStudies = NO;
     [ViewerController activateSYNCSERIESBetweenStudies];
     Record([NSString stringWithFormat: @"studies %@ %@ %@ button %@", [a studyInstanceUID], [c studyInstanceUID], [f1 studyInstanceUID], Name([a findSyncSeriesButton])]);
+}
+
+// The zoom kept to each viewer (DONTCOPYZOOMSETTINGS) with the pan going on.
+// The Objective-C handed on the pan each viewer's own zooms moved, at the
+// source's scale; the Swift leaves it with the viewer and hands on the rest in
+// millimetres. So these run on the Swift alone and record whether each rule
+// holds, not values to compare.
+typedef struct { float scale; NSPoint origin; } Framing;
+
+static Framing Frame(ViewerController *v) { return (Framing){ v->imageView.scaleValue, v->imageView.origin }; }
+
+static NSPoint ImagePan(ViewerController *v) {
+    float s = v->imageView.scaleValue;
+    return NSMakePoint(v->imageView.origin.x / s, v->imageView.origin.y / s);
+}
+
+static BOOL Near(double a, double b) { return fabs(a - b) < 1e-3; }
+
+static void Rule(BOOL holds, NSString *rule, NSString *detail) {
+    Record([NSString stringWithFormat: @"rule %@: %@", rule, holds ? @"holds" : [@"BROKEN, " stringByAppendingString: detail]]);
+}
+
+static void Stays(ViewerController *v, Framing before, NSString *rule) {
+    Framing now = Frame(v);
+    Rule(now.scale == before.scale && Near(now.origin.x, before.origin.x) && Near(now.origin.y, before.origin.y), rule,
+         [NSString stringWithFormat: @"%@ went from scale %g origin %g %g to scale %g origin %g %g", Name(v), before.scale,
+          before.origin.x, before.origin.y, now.scale, now.origin.x, now.origin.y]);
+}
+
+// `v` moved by as many millimetres as `w`, from the image pans they had, and kept its scale.
+static void Follows(ViewerController *v, NSPoint vFrom, float vScale, ViewerController *w, NSPoint wFrom, NSString *rule) {
+    NSPoint vp = ImagePan(v), wp = ImagePan(w);
+    double vs = v->imageView->spacing, ws = w->imageView->spacing;
+    double vx = (vp.x - vFrom.x) * vs, vy = (vp.y - vFrom.y) * vs, wx = (wp.x - wFrom.x) * ws, wy = (wp.y - wFrom.y) * ws;
+    Rule(v->imageView.scaleValue == vScale && Near(vx, wx) && Near(vy, wy) && (fabs(wx) > 0.1 || fabs(wy) > 0.1), rule,
+         [NSString stringWithFormat: @"%@ moved %g %g mm at scale %g, %@ %g %g mm", Name(v), vx, vy, v->imageView.scaleValue, Name(w), wx, wy]);
+}
+
+// A right-drag zoom from `s0` and `o0` to `s` on `click`, points from the
+// view's centre (ViewportState's zoomDragOrigin, unrotated and unflipped).
+static void ZoomAt(ViewerController *v, float s0, NSPoint o0, NSPoint click, float s) {
+    v->imageView.scaleValue = s;
+    v->imageView.origin = NSMakePoint(o0.x * s / s0 + click.x - click.x * s / s0, o0.y * s / s0 - (click.y - click.y * s / s0));
+}
+
+// What each viewer does on its own, `a` and `b` aligned as they start.
+static void KeptZoomRules(ViewerController *a, ViewerController *b, NSString *pair) {
+    // A zoomed off its centre, in four drag events: B stays.
+    Framing fb = Frame(b);
+    Framing fa = Frame(a);
+    for (int i = 1; i <= 4; i++) {
+        ZoomAt(a, fa.scale, fa.origin, NSMakePoint(30, 20), fa.scale + 0.25f * i);
+        [a propagateSettings];
+        Stays(b, fb, [NSString stringWithFormat: @"%@: A's zoom off its centre, drag %d, leaves B", pair, i]);
+    }
+    // B hands its settings on (clicked, scrolled): A stays zoomed where it is.
+    fa = Frame(a);
+    [b propagateSettings];
+    Stays(a, fa, [pair stringByAppendingString: @": B handing its settings on leaves the zoomed A"]);
+    // Pans at the same scale go on, by as many millimetres, in either direction.
+    NSPoint pa = ImagePan(a), pb = ImagePan(b);
+    NSPoint oa = a->imageView.origin;
+    a->imageView.origin = NSMakePoint(oa.x + 3, oa.y - 1.5); [a propagateSettings];
+    a->imageView.origin = NSMakePoint(oa.x + 6, oa.y - 3); [a propagateSettings];
+    Follows(b, pb, fb.scale, a, pa, [pair stringByAppendingString: @": A's pan, in two drag events, moves B as far"]);
+    pa = ImagePan(a); pb = ImagePan(b); fa = Frame(a);
+    NSPoint ob = b->imageView.origin;
+    b->imageView.origin = NSMakePoint(ob.x - 4, ob.y + 2.5); [b propagateSettings];
+    Follows(a, pa, fa.scale, b, pb, [pair stringByAppendingString: @": B's pan moves A as far"]);
+    // A pinch on B, centred on the view: A stays, and B stays when A hands its settings on.
+    fa = Frame(a); fb = Frame(b);
+    b->imageView.scaleValue = fb.scale * 1.6f;
+    b->imageView.origin = NSMakePoint(fb.origin.x * 1.6f, fb.origin.y * 1.6f);
+    [b propagateSettings];
+    Stays(a, fa, [pair stringByAppendingString: @": B's pinch leaves A"]);
+    fb = Frame(b);
+    [a propagateSettings];
+    Stays(b, fb, [pair stringByAppendingString: @": after B's pinch, A handing its settings on leaves B"]);
+    // A zoom on B's image centre (the scale alone): the same.
+    b->imageView.scaleValue = fb.scale * 0.75f;
+    [b propagateSettings];
+    Stays(a, fa, [pair stringByAppendingString: @": B's zoom on its image's centre leaves A"]);
+    fb = Frame(b);
+    [a propagateSettings];
+    Stays(b, fb, [pair stringByAppendingString: @": after B's zoom on its image's centre, A handing its settings on leaves B"]);
+    // Scale to Fit in A: B stays, and A stays when B hands its settings on.
+    a->imageView.origin = NSMakePoint(0, 0); a->imageView.scaleValue = 1.1f;
+    [a propagateSettings];
+    Stays(b, fb, [pair stringByAppendingString: @": A's Scale to Fit leaves B"]);
+    fa = Frame(a);
+    [b propagateSettings];
+    Stays(a, fa, [pair stringByAppendingString: @": after A's Scale to Fit, B handing its settings on leaves A"]);
+    // Back and forth: nothing moves.
+    for (int i = 0; i < 3; i++) { [a propagateSettings]; [b propagateSettings]; }
+    Stays(a, fa, [pair stringByAppendingString: @": back and forth leaves A"]);
+    Stays(b, fb, [pair stringByAppendingString: @": back and forth leaves B"]);
+}
+
+// The zoom kept again after the zoom went on: nothing jumps.
+static void ZoomKeptAgain(ViewerController *a, ViewerController *b, NSString *pair) {
+    Defaults(@{@"COPYSETTINGS": @YES, @"DONTCOPYZOOMSETTINGS": @YES});
+    Framing fa = Frame(a), fb = Frame(b);
+    [a propagateSettings]; [b propagateSettings];
+    Stays(a, fa, [pair stringByAppendingString: @": the zoom kept again, back and forth leaves A"]);
+    Stays(b, fb, [pair stringByAppendingString: @": the zoom kept again, back and forth leaves B"]);
+    ZoomAt(a, fa.scale, fa.origin, NSMakePoint(-25, 10), fa.scale * 1.5f);
+    [a propagateSettings];
+    Stays(b, fb, [pair stringByAppendingString: @": the zoom kept again, A's zoom off its centre leaves B"]);
+}
+
+static float ScaleFor(ViewerController *from, ViewerController *to) {
+    return (float)((double)(float)(from->imageView.scaleValue / from->imageView->spacing) * to->imageView->spacing);
+}
+
+static void zoomKept(void) {
+    ViewerController *a = Viewer(@"ZA", @"1.2.1", @"CT", 1, 6, axial, 0, 0.7);
+    ViewerController *b = Viewer(@"ZB", @"1.2.1", @"CT", 1, 6, axial, 0, 0.9);
+    // B's images lie a little apart in the plane.
+    for (DCMPix *pix in b->pixList[0]) { pix->ox += 2.5; pix->oy -= 1.25; }
+    viewers2D = [@[a, b] mutableCopy];
+    Defaults(@{@"COPYSETTINGS": @YES, @"DONTCOPYZOOMSETTINGS": @YES});
+    ResetView(a, 40, 400, 2, NSMakePoint(0, 0), 0);
+    ResetView(b, 40, 400, 1, NSMakePoint(0, 0), 0);
+    [a propagateSettings];
+    KeptZoomRules(a, b, @"study");
+    // The zoom going on: B takes A's zoom and the pan of the rule before, from A's centre.
+    Defaults(@{@"COPYSETTINGS": @YES});
+    [a propagateSettings];
+    NSPoint delta = [DCMPix originDeltaBetween: b->imageView.curDCM And: a->imageView.curDCM];
+    float s = a->imageView.scaleValue;
+    NSPoint expected = NSMakePoint(a->imageView.origin.x + delta.x * s, a->imageView.origin.y - delta.y * s);
+    Rule(Near(b->imageView.scaleValue, ScaleFor(a, b)) && Near(b->imageView.origin.x, expected.x) && Near(b->imageView.origin.y, expected.y),
+         @"study: the zoom going on, B takes A's zoom and pan as before",
+         [NSString stringWithFormat: @"B scale %g origin %g %g, expected %g origin %g %g", b->imageView.scaleValue,
+          b->imageView.origin.x, b->imageView.origin.y, ScaleFor(a, b), expected.x, expected.y]);
+    ZoomKeptAgain(a, b, @"study");
+}
+
+static void zoomKeptLocked(void) {
+    ViewerController *a = Viewer(@"LA", @"1.2.1", @"CT", 1, 6, axial, 0, 0.7);
+    ViewerController *c = Viewer(@"LC", @"1.2.9", @"CT", 1, 6, axial, 0, 0.9);
+    viewers2D = [@[a, c] mutableCopy];
+    Defaults(@{@"COPYSETTINGS": @YES, @"DONTCOPYZOOMSETTINGS": @YES});
+    ResetView(a, 40, 400, 2, NSMakePoint(0, 0), 0);
+    ResetView(c, 40, 400, 1, NSMakePoint(4, -2), 0);
+    [a propagateSettings];
+    // A zoomed off its centre before the series are locked.
+    ZoomAt(a, 2, NSMakePoint(0, 0), NSMakePoint(30, 20), 3);
+    [a propagateSettings];
+    [a SetSyncButtonBehavior: nil];
+    [ViewerController activateSYNCSERIESBetweenStudies];
+    Rule(SYNCSERIES && SyncButtonBehaviorIsBetweenStudies, @"locked: the series are locked between studies", @"not locked");
+    NSPoint lockA = ImagePan(a), lockC = ImagePan(c);
+    Framing fa = Frame(a), fc = Frame(c);
+    [a propagateSettings];
+    Stays(c, fc, @"locked: A handing its settings on as they were locked leaves C");
+    [c propagateSettings];
+    Stays(a, fa, @"locked: C handing its settings on as they were locked leaves A");
+    KeptZoomRules(a, c, @"locked");
+    // The zoom going on: C takes A's zoom, at the alignment of the pans as they were locked.
+    Defaults(@{@"COPYSETTINGS": @YES});
+    [a propagateSettings];
+    NSPoint pa = ImagePan(a), pc = ImagePan(c);
+    double ratio = a->imageView->spacing / c->imageView->spacing;
+    NSPoint expected = NSMakePoint((pa.x - lockA.x) * ratio + lockC.x, (pa.y - lockA.y) * ratio + lockC.y);
+    Rule(Near(c->imageView.scaleValue, ScaleFor(a, c)) && Near(pc.x, expected.x) && Near(pc.y, expected.y),
+         @"locked: the zoom going on, C takes A's zoom at the locked alignment",
+         [NSString stringWithFormat: @"C scale %g image pan %g %g, expected %g image pan %g %g", c->imageView.scaleValue,
+          pc.x, pc.y, ScaleFor(a, c), expected.x, expected.y]);
+    ZoomKeptAgain(a, c, @"locked");
 }
 
 static void resync(void) {
@@ -1438,6 +1690,9 @@ int main(int argc, const char **argv) { @autoreleasepool {
     if ([scenario isEqual: @"all"] || [scenario isEqual: @"4d"]) { Record(@"== 4d"); fourD(); }
     if ([scenario isEqual: @"all"] || [scenario isEqual: @"study"]) { Record(@"== study"); study(); }
     if ([scenario isEqual: @"all"] || [scenario isEqual: @"registration"]) { Record(@"== registration"); registration(); }
+    // The Swift's alone, not in "all".
+    if ([scenario isEqual: @"zoomkept"]) { Record(@"== zoomkept"); zoomKept(); }
+    if ([scenario isEqual: @"zoomkept-locked"]) { Record(@"== zoomkept-locked"); zoomKeptLocked(); }
     for (NSString *line in Records()) printf("%s\n", line.UTF8String);
 } return 0; }
 '''
@@ -1541,6 +1796,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
         return program
 
     reference_program = objc_program('reference', reference_vc)
+    zoom_offsets = False  # whether the current side keeps the pan of each view's own zooms apart
     if current_is_objc:
         current_program = objc_program('current', current_vc)
         current_label = 'Objective-C of %s' % (args.current or 'the tree')
@@ -1597,6 +1853,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
         for relative, text in module_sources(args.current).items():
             target = module / relative.replace('/', '_')
             target.write_bytes(text)
+            zoom_offsets = zoom_offsets or b'struct ZoomPan' in text
         built = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '6', '-module-name', 'IsiXImaging', *linked,
                                 '-emit-library', '-static', '-emit-module', '-emit-module-path', str(module / 'IsiXImaging.swiftmodule'),
                                 '-o', str(module / 'libIsiXImaging.a'), *map(str, sorted(module.glob('*.swift')))],
@@ -1624,7 +1881,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
             fusion = read(args.current, 'Horos/Sources/ViewerFusion.swift').decode('utf-8')
             start = fusion.index('    func reSyncOrigin() {')
             resync = fusion[start:fusion.index('\n    }\n', start) + 7]
-            (swift / 'Sync.swift').write_text(SYNC_STAND_IN.replace('RESYNC', resync))
+            (swift / 'Sync.swift').write_text(SYNC_STAND_IN.replace('RESYNC', resync)
+                                              .replace('ZOOMPAN', ZOOM_PAN_STAND_IN if zoom_offsets else ''))
             sources.append(str(swift / 'Sync.swift'))
         exception = subprocess.run(['xcrun', 'clang', '-c', '-fobjc-arc', '-I', str(folder), str(folder / 'HorosObjCException.m'),
                                     '-o', str(folder / 'HorosObjCException.o')], capture_output=True, text=True)
@@ -1646,7 +1904,8 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
         for label, result in (('reference', result_reference), ('current', result_current)):
             if result.returncode:
                 sys.exit('FAIL: %s %s stopped (%d):\n%s' % (label, scenario, result.returncode, (result.stdout + result.stderr)[-3000:]))
-        expected, got = result_reference.stdout.splitlines(), result_current.stdout.splitlines()
+        expected, got = result_reference.stdout.splitlines(), as_the_reference_told(result_reference.stdout.splitlines(),
+                                                                                    result_current.stdout.splitlines())
         if args.dump:
             args.dump.mkdir(parents=True, exist_ok=True)
             (args.dump / ('%s-reference.txt' % scenario)).write_text(result_reference.stdout)
@@ -1658,6 +1917,60 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-navigation-') as tmp:
             print('FAIL: %s differs (%s against the Objective-C of %s):' % (scenario, current_label, reference))
             for line in list(difflib.unified_diff(expected, got, 'reference', 'current', lineterm='', n=1))[:60]:
                 print('  ' + line)
+    for scenario in KEPT_ZOOM_SCENARIOS:
+        if not zoom_offsets:
+            print('%s: not run, the %s hands on the pan of each viewer\'s own zooms' % (scenario, current_label))
+            continue
+        result = subprocess.run([str(current_program), scenario], capture_output=True, text=True, timeout=300)
+        if result.returncode:
+            sys.exit('FAIL: current %s stopped (%d):\n%s' % (scenario, result.returncode, (result.stdout + result.stderr)[-3000:]))
+        if args.dump:
+            args.dump.mkdir(parents=True, exist_ok=True)
+            (args.dump / ('%s-current.txt' % scenario)).write_text(result.stdout)
+        rules = [line for line in result.stdout.splitlines() if line.startswith('rule ')]
+        broken = [line for line in rules if not line.endswith(': holds')]
+        if rules and not broken:
+            print('%s: %d rules hold (%s)' % (scenario, len(rules), current_label))
+        else:
+            failures += 1
+            print('FAIL: %s, %d of %d rules broken (%s):' % (scenario, len(broken), len(rules), current_label))
+            for line in (broken or ['no rule recorded'])[:20]:
+                print('  ' + line)
+    # A fit the application makes (opening, tiling, resizing) frames the view
+    # afresh, so the next settings handed on align it with the others; seen as
+    # a zoom, two series opened side by side kept different points. A fit the
+    # user asks for in one view (Scale to Fit, Actual Size) is that view's own
+    # zoom, as the rules above have it.
+    geometry = read(args.current, 'Horos/Sources/DCMView+Geometry.swift')
+    if zoom_offsets and geometry is not None:
+        geometry = geometry.decode('utf-8')
+
+        def body(signature):
+            start = geometry.find(signature)
+            return '' if start < 0 else geometry[start:geometry.index('\n    }\n', start)]
+
+        fit = body('    public dynamic func scaleToFit() {')
+        opening = body('    public dynamic func applyOpeningScale(toFit content: NSRect) {')
+        asked = [body('    @IBAction public dynamic func scaleToFit(_ sender: Any!) {'),
+                 body('    @IBAction public dynamic func actualSize(_ sender: Any!) {')]
+        tools = (read(args.current, 'Horos/Sources/DCMView+Tools.swift') or b'').decode('utf-8')
+        zoom_tool = tools[tools.find('        case .tZoom:'):tools.find('        case .tRotate:')]
+        wiring = [('the fit frames the view afresh', 'ViewerSettingsPropagator.reframed(self)' in fit),
+                  ('the opening framing frames the view afresh', 'ViewerSettingsPropagator.reframed(self)' in opening),
+                  ('Scale to Fit and Actual Size are the view\'s own zoom',
+                   all('ViewerSettingsPropagator.zoomedAlone(self) {' in text for text in asked)),
+                  # A double or triple click on the zoom tool resets every viewer
+                  # (the tool's notification reaches them all): framed afresh.
+                  ('the zoom tool\'s reset of every viewer frames them afresh',
+                   'zoomedAlone' not in zoom_tool and 'self.scaleToFit()' in zoom_tool
+                   and 'ViewerSettingsPropagator.reframed(self)' in zoom_tool)]
+        for label, holds in wiring:
+            if not holds:
+                failures += 1
+                print('FAIL: %s, not in %s' % (label, current_label))
+        if all(holds for _, holds in wiring):
+            print('fits: the application\'s fits frame afresh, the user\'s are the view\'s own zoom (%s)' % current_label)
     if failures:
         sys.exit(1)
-    print('PASS: synchronization, registration, series, 4D and study navigation are identical to the Objective-C in every scenario')
+    print('PASS: synchronization, registration, series, 4D and study navigation are identical to the Objective-C in every scenario'
+          + (', and the zoom kept to each viewer keeps its rules' if zoom_offsets else ''))

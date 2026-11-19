@@ -44,27 +44,32 @@ import Cocoa
 // functions and its NSValue support are here, for the app's Swift.
 
 /// A slab of `thickness` on `plane`.
+@_cdecl("OSISlabMake") @implementation @usableFromInline
 func OSISlabMake(_ plane: N3Plane, _ thickness: CGFloat) -> OSISlab {
     return OSISlab(plane: plane, thickness: thickness)
 }
 
 /// The same plane and the same thickness.
+@_cdecl("OSISlabEqualTo") @implementation @usableFromInline
 func OSISlabEqualTo(_ slab1: OSISlab, _ slab2: OSISlab) -> Bool {
     return N3PlaneEqualToPlane(slab1.plane, slab2.plane) && slab1.thickness == slab2.thickness
 }
 
 /// Coincident planes and the same thickness.
+@_cdecl("OSISlabIsCoincidentToSlab") @implementation @usableFromInline
 func OSISlabIsCoincidentToSlab(_ slab1: OSISlab, _ slab2: OSISlab) -> Bool {
     return N3PlaneIsCoincidentToPlane(slab1.plane, slab2.plane) && slab1.thickness == slab2.thickness
 }
 
 /// Whether `vector` is within half the thickness of the plane, with a margin
 /// of CGFLOAT_MIN * 1E5 for a slab of no thickness.
+@_cdecl("OSISlabContainsVector") @implementation @usableFromInline
 func OSISlabContainsVector(_ slab: OSISlab, _ vector: N3Vector) -> Bool {
     return N3VectorDistanceToPlane(vector, slab.plane) - slab.thickness / 2.0 <= (CGFloat.leastNormalMagnitude * 1E5)
 }
 
 /// Whether `plane` is parallel to the slab and its point inside it.
+@_cdecl("OSISlabContainsPlane") @implementation @usableFromInline
 func OSISlabContainsPlane(_ slab: OSISlab, _ plane: N3Plane) -> Bool {
     return N3PlaneIsParallelToPlane(slab.plane, plane) && OSISlabContainsVector(slab, plane.point)
 }
@@ -72,6 +77,7 @@ func OSISlabContainsPlane(_ slab: OSISlab, _ plane: N3Plane) -> Bool {
 /// The slab carried by `transform`: its plane, and as thickness the distance
 /// from the new plane's point to where the point a thickness away along the
 /// normal went.
+@_cdecl("OSISlabApplyTransform") @implementation @usableFromInline
 func OSISlabApplyTransform(_ slab: OSISlab, _ transform: N3AffineTransform) -> OSISlab {
     let topPoint = N3VectorAdd(slab.plane.point, N3VectorScalarMultiply(N3VectorNormalize(slab.plane.normal), slab.thickness))
     let transformedTopPoint = N3VectorApplyTransform(topPoint, transform)
@@ -83,21 +89,23 @@ func OSISlabApplyTransform(_ slab: OSISlab, _ transform: N3AffineTransform) -> O
 }
 
 /// "{plane, thickness}", the thickness with six decimals.
-func NSStringFromOSISlab(_ slab: OSISlab) -> String {
-    return String(format: "{%@, %f}", NSStringFromN3Plane(slab.plane) as NSString, Double(slab.thickness))
+@_cdecl("NSStringFromOSISlab") @implementation @usableFromInline
+func NSStringFromOSISlab(_ slab: OSISlab) -> String? {
+    return String(format: "{%@, %f}", (NSStringFromN3Plane(slab.plane) ?? "") as NSString, Double(slab.thickness))
 }
 
 /// The slab as a property list: its plane's dictionary under "plane", its
 /// thickness under "thickness".
-func OSISlabCreateDictionaryRepresentation(_ slab: OSISlab) -> CFDictionary {
+@_cdecl("OSISlabCreateDictionaryRepresentation") @implementation @usableFromInline
+func OSISlabCreateDictionaryRepresentation(_ slab: OSISlab) -> Unmanaged<CFDictionary>? {
     let planeDict = N3PlaneCreateDictionaryRepresentation(slab.plane).takeRetainedValue()
     let thicknessNumber = NSNumber(value: Double(slab.thickness))
-    return ["plane": planeDict, "thickness": thicknessNumber] as NSDictionary
+    return Unmanaged.passRetained(["plane": planeDict, "thickness": thicknessNumber] as NSDictionary as CFDictionary)
 }
 
 /// The slab of a dictionary OSISlabCreateDictionaryRepresentation made, into
 /// `slab` when given; false when `dict` is not one.
-@discardableResult
+@_cdecl("OSISlabMakeWithDictionaryRepresentation") @implementation @usableFromInline @discardableResult
 func OSISlabMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ slab: UnsafeMutablePointer<OSISlab>?) -> Bool {
     guard let dict else {
         return false

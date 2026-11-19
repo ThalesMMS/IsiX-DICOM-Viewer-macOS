@@ -19,7 +19,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 failures = []
 # The browser's study list state is BrowserState.swift.
-state = (root / 'Horos/Sources/BrowserState.swift').read_text()
+state = (root / 'Horos/Sources/BrowserController.swift').read_text()
 # The refreshes a study arriving triggers are BrowserController+DatabaseSwitching.swift.
 switching = (root / 'Horos/Sources/BrowserController+DatabaseSwitching.swift').read_text()
 
@@ -71,7 +71,7 @@ else:
         failures.append('the arrival notification still calls -outlineViewRefresh itself')
 
 # --- what was deferred has to happen once the edit is over -------------------
-if '@objc var refreshDeferredWhileEditing = false' not in state:
+if '_refreshDeferredWhileEditing = false' not in state:
     failures.append('nothing remembers that a refresh was skipped, so the outline stays stale '
                     'until something else happens to refresh it')
 deferred = body('func _refreshDatabaseDisplayIfDeferred()', switching)

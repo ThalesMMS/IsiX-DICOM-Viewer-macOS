@@ -68,6 +68,7 @@ sys.path.insert(0, str(root / 'tests'))
 import isix_modules  # noqa: E402
 import link_placeholders  # noqa: E402
 import roi_harness  # noqa: E402
+import former_sdk_objects  # noqa: E402
 import n3_geometry_harness  # noqa: E402
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -586,8 +587,8 @@ def build_roi_harness(tmp):
     run(['xcrun', 'clang', '-fobjc-exceptions', '-c', str(tmp / 'HorosObjCException.m'), '-o', str(tmp / 'HorosObjCException.o')])
     run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(tmp / 'stubs.m'), '-o', str(tmp / 'stubs.o')])
     placeholders = set()
-    # dyld names one missing data symbol per attempt; functions bind lazily.
-    for _ in range(100):
+    # The data symbols the harness lacks get placeholders; functions bind lazily.
+    for _ in range(roi_harness.PLACEHOLDER_LIMIT if swift_roi else 100):
         assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
         (tmp / 'placeholders.s').write_text('.data\n' + assembly)
         run(['xcrun', 'clang', '-c', str(tmp / 'placeholders.s'), '-o', str(tmp / 'placeholders.o')])
@@ -601,10 +602,10 @@ def build_roi_harness(tmp):
              '-framework', 'QuartzCore', '-o', str(tmp / 'roi-harness')])
         # Any other end of the link run but 0 or dyld's next symbol is a
         # harness that is not built (link_placeholders).
-        missing = link_placeholders.probe(tmp / 'roi-harness', placeholders, 'the link probe of the ROI harness')
-        if missing is None:
+        missing = link_placeholders.lacking(tmp / 'roi-harness', placeholders, 'the link probe of the ROI harness')
+        if not missing:
             return
-        placeholders.add(missing)
+        placeholders.update(missing)
     raise RuntimeError('too many unresolved symbols in %s' % roi_object)
 
 
@@ -823,23 +824,48 @@ func HarnessLoadCurvedPath(_ bytes: Data) -> Any? {
 '''
 
 
+def swift_function(text, signature):
+    """A function of `text`, from its signature to the brace that closes it."""
+    at = text.index(signature)
+    depth = 0
+    for index in range(text.index('{', at), len(text)):
+        depth += {'{': 1, '}': -1}.get(text[index], 0)
+        if depth == 0:
+            return text[at:index + 1]
+    raise ValueError(signature)
+
+
+def path_library():
+    """The window's path library, which reads and writes its path file."""
+    return source('Horos/Sources/CurvedPathLibrary.swift').decode('utf-8')
+
+
 def swift_load_statement():
-    """The decoding in -[CPRController loadBezierPathFromFile:], Swift."""
-    text = source('Horos/Sources/CPRController.swift').decode('utf-8')
-    method = text.index('public dynamic func loadBezierPathFromFile(_ path: String!)')
-    start = text.index('var newCurvedPath: CPRCurvedPath? = nil', method)
-    end = text.index('if let newCurvedPath = newCurvedPath {', start)
-    return text[start:end]
+    """The decoding of a path of a path file, as -[CPRController loadBezierPathFromFile:] has its library do it."""
+    controller = source('Horos/Sources/CPRController.swift').decode('utf-8')
+    assert 'pathLibrary.load(fromFile: path)' in swift_function(controller, 'public dynamic func loadBezierPathFromFile(_ path: String!)')
+    library = path_library()
+    assert 'Self.path(from: current.path)' in swift_function(library, 'func load(fromFile file: String?) -> Bool')
+    decode = swift_function(library, 'private static func path(from archive: Data) -> CPRCurvedPath?').replace('private static func', 'func', 1)
+    return decode + '\n        let newCurvedPath = path(from: data as Data)\n'
 
 
 def swift_save_method():
     """Compile the production writer inside a peer using the existing CPR harness."""
-    text = source('Horos/Sources/CPRController.swift').decode('utf-8')
-    start = text.index('public dynamic func saveBezierPathToFile(_ path: String!)')
-    end = text.index('@objc(loadBezierPathFromFile:)', start)
-    return ('\nfinal class SavePeer {\nvar _curvedPath: CPRCurvedPath?\n'
-            'init(_ path: CPRCurvedPath) { _curvedPath = path }\n'
-            + text[start:end].replace('public dynamic func', 'func', 1) + '\n}\n')
+    controller = source('Horos/Sources/CPRController.swift').decode('utf-8')
+    assert 'pathLibrary.save(toFile: path)' in swift_function(controller, 'public dynamic func saveBezierPathToFile(_ path: String!)')
+    library = path_library()
+    pieces = '\n'.join(swift_function(library, signature).replace('private static func', 'static func', 1)
+                       for signature in ('private static func archive(_ path: CPRCurvedPath) -> Data?',
+                                         'private static func path(from archive: Data) -> CPRCurvedPath?',
+                                         'func save(toFile file: String?)'))
+    path_set = source('Modules/IsiXImaging/Sources/ViewerReconstruction/CurvedPathSet.swift').decode('utf-8').replace('import Foundation\n', '', 1)
+    return ('\n' + path_set + '\nfinal class SavePeer {\n'
+            'final class Shown { var curvedPath: CPRCurvedPath?; init(_ path: CPRCurvedPath?) { curvedPath = path } }\n'
+            'var controller: Shown?\nvar paths = CurvedPathSet()\nstatic var defaultName: String { "Path" }\n'
+            'init(_ path: CPRCurvedPath) { controller = Shown(path) }\n'
+            'var _curvedPath: CPRCurvedPath? { get { controller?.curvedPath } set { controller?.curvedPath = newValue } }\n'
+            'func saveBezierPathToFile(_ path: String!) { save(toFile: path) }\n' + pieces + '\n}\n')
 
 
 def load_statement():
@@ -868,6 +894,8 @@ def build_cpr_harness(tmp):
     if CPR_N3_SWIFT:
         n3_geometry_harness.build(tmp / 'n3', 'debug', headers=tmp)
         objects += n3_geometry_harness.libraries(tmp / 'n3')
+        # The constants CPRCurvedPath.h declares extern, which the slice reads.
+        objects.append(former_sdk_objects.app(tmp / 'n3'))
     for path, flags in CPR_OBJC + [('DCMPixDouble.m', ['-fno-objc-arc'])] + loads:
         obj = tmp / (Path(path).stem + '.o')
         run(['xcrun', 'clang', '-x', 'objective-c', '-include', 'Cocoa/Cocoa.h', '-iquote', str(tmp), *flags,
@@ -875,6 +903,8 @@ def build_cpr_harness(tmp):
         objects.append(str(obj))
     run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-suppress-warnings', '-Onone',
          '-import-objc-header', str(tmp / 'harness.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
+         # The slab of the straightened view is counted by IsiXImaging.
+         *isix_modules.module_flags('IsiXImaging', tmp / 'cpr-modules'),
          *[str(tmp / Path(p).name) for p in CPR_SWIFT], *([str(tmp / 'Load.swift')] if swift_controller else []),
          str(tmp / 'main.swift'), *objects,
          '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'QuartzCore', '-o', str(tmp / 'cpr-harness')])

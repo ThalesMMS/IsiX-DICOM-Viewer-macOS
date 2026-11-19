@@ -44,6 +44,7 @@ import IsiXPreferences
 import Synchronization
 import IsiXHTTPServer
 import IsiXDICOMFile
+import IsiXDatabase
 import IsiXDICOMNetwork
 
 
@@ -155,18 +156,20 @@ func raiseInvalidArgument(_ reason: String, name: NSExceptionName = .invalidArgu
 /// it, and receives uploads.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
-/// <Horos/WebPortalConnection.h> are those of the former class. The pages
-/// themselves are in the (Data) extension. The HTTP exchange itself (reading
-/// the request, its body in pieces, ranges, keep-alive) is the
-/// HTTPConnectionEngine the server gives it, over SwiftNIO; the connection is
-/// its delegate and answers each step of a request on its worker thread.
+/// <Horos/WebPortalConnection.h> are those of the former class, and its
+/// superclass is again the SDK's HTTPConnection. The pages themselves are in
+/// the (Data) extension. The HTTP exchange itself (reading the request, its
+/// body in pieces, ranges, keep-alive) is the HTTPConnectionEngine the server
+/// gives a connection, over SwiftNIO; it asks the connection, by the selectors
+/// of HTTPConnection that this class overrides, for each step of a request, on
+/// the connection's worker thread.
 ///
 /// The properties were atomic and are not: they are written and read on the
 /// connection's own thread; the threads the connection starts only use
 /// -portal.
 @objc(WebPortalConnection)
-public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
-    private let sendLock: NSLock
+public final class WebPortalConnection: HTTPConnection {
+    private let sendLock = NSLock()
     private var sessionValue: WebPortalSession?
 
     // POST / PUT support
@@ -211,20 +214,21 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     // and the parameters the pages write back into links with it.
     @objc public var parameters: NSDictionary!
     @objc public var GETParams: String!
-    @objc public var requestedPath: String!
-
-    /// The exchange this connection answers; set by the server.
-    weak var engine: HTTPConnectionEngine?
-    private weak var serverValue: WebPortalServer?
-
-    init(server: WebPortalServer) {
-        sendLock = NSLock()
-        serverValue = server
-        super.init()
+    @objc public var requestedPath: String! {
+        get { horos_requestedPath as String? }
+        set { horos_requestedPath = newValue as NSString? }
     }
+    /// requestedPath of the header of an older Horos and OsiriX plugin SDK,
+    /// which a plugin built with it binds by name when it loads: the path of
+    /// the request, a stored field with the type the C declaration has in
+    /// memory. Its name here is another because the property of that name
+    /// answers a Swift string.
+    var horos_requestedPath: NSString?
 
-    /// The connection is open: no upload is under way.
-    func connectionDidOpen() {
+    /// A connection of `myServer`, a WebPortalServer, on the socket the server
+    /// made for it. It starts with no upload under way.
+    public override init!(asyncSocket newSocket: AsyncSocket!, for myServer: HTTPServer!) {
+        super.init(asyncSocket: newSocket, for: myServer)
         resetPOST()
     }
 
@@ -425,7 +429,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
     }
 
     @objc public var server: WebPortalServer! {
-        return serverValue
+        return owningServer as? WebPortalServer
     }
 
     /// The IP address of the peer, as the log shows it.
@@ -504,8 +508,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         return (n as? NSNumber)?.stringValue
     }
 
-    @objc(isPasswordProtected:)
-    public func isPasswordProtected(_ path: String!) -> Bool {
+    public override func isPasswordProtected(_ path: String!) -> Bool {
         let p = path as NSString?
         if p?.hasPrefix("/wado") == true
             || p?.hasPrefix("/images/") == true
@@ -536,11 +539,11 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         return portal?.authenticationRequired ?? false
     }
 
-    @objc public func useDigestAccessAuthentication() -> Bool {
+    public override func useDigestAccessAuthentication() -> Bool {
         return false
     }
 
-    @objc public func realm() -> String! {
+    public override func realm() -> String! {
         return "Enter your username and password."
     }
 
@@ -559,7 +562,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         return HTTPServerLimits.portalHeaderWriteDeadline
     }
 
-    @objc public func isSecureServer() -> Bool {
+    public override func isSecureServer() -> Bool {
         return portal?.usesSSL ?? false
     }
 
@@ -628,11 +631,9 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         }
     }
 
-    func httpServerResponse(forMethod method: String, uri path: String) -> HTTPServerResponse? {
-        return httpResponse(forMethod: method, uri: path)
-    }
-
-    @objc public func httpResponse(forMethod method: String!, uri path: String!) -> WebPortalResponse! {
+    /// The portal's response to the request, nil when there is none; the
+    /// engine reads it as the HTTPDataResponse it is.
+    public override func httpResponse(forMethod method: String!, uri path: String!) -> (any NSObjectProtocol & HTTPResponse)! {
         let url = requestURL()
         let urlComponents = url.flatMap { URLComponents(string: $0) }
 
@@ -862,7 +863,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         }
     }
 
-    @objc public func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
+    public override func supportsMethod(_ method: String!, atPath relativePath: String!) -> Bool {
         return method == "POST" || method == "GET" || method == "HEAD"
     }
 
@@ -930,24 +931,16 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
         let fileExtension = (POSTfilename as NSString?)?.pathExtension as NSString?
         if fileExtension?.isEqual(to: "zip") == true || fileExtension?.isEqual(to: "osirixzip") == true {
-            let t = Process()
-
-            do {
-                try HorosObjCException.perform {
-                    t.launchPath = "/usr/bin/unzip"
-                    // +arrayWithObjects: ended at a nil file name.
-                    var args = ["-o", "-d", unzipFolder]
-                    if let name = self.POSTfilename { args.append(name) }
-                    t.arguments = args
-                    t.launch()
-                    while t.isRunning {
-                        Thread.sleep(forTimeInterval: 0.1)
+            // Within what an upload may expand to: its sender is not at this Mac.
+            if let name = POSTfilename {
+                let share = ArchiveExpansionShare(account: ArchiveExpansionAccount(budget: .uploaded))
+                do {
+                    if case .failure(let refusal) = try ProtectedZipArchiver.extract(name, to: unzipFolder, password: nil, in: nil, share: share, continuing: { true }) {
+                        NSLog("***** the uploaded archive was not expanded: it %@", refusal.logText)
                     }
-
-                    //[aTask waitUntilExit];		// <- This is VERY DANGEROUS : the main runloop is continuing...
+                } catch {
+                    NSLog("***** unzipFile exception: %@", error as NSError)
                 }
-            } catch {
-                NSLog("***** unzipFile exception: %@", caughtException(error) ?? (error as NSError))
             }
 
             if let name = POSTfilename {
@@ -1143,7 +1136,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
     // A request body the portal cannot parse must not end the connection thread:
     // only four serve the portal, so four such requests would stop it.
-    public func processDataChunk(_ postDataChunk: Data!) {
+    public override func processDataChunk(_ postDataChunk: Data!) {
         do {
             try HorosObjCException.perform {
                 self.processDataChunkUnguarded(postDataChunk)
@@ -1497,7 +1490,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         return portal?.session(forUsername: username, token: token, doConsume: false) as? WebPortalSession
     }
 
-    public func replyToHTTPRequest() {
+    public override func replyToHTTPRequest() {
         // A request the portal cannot parse (invalid UTF-8 in a parameter, a token
         // or username without a value or given twice) used to raise out of here and
         // end the connection thread; four of them stopped the portal. It now
@@ -1562,7 +1555,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         //NSLog(@"User: %X (R: %@)", user, response.httpHeaders);
     }
 
-    public func isAuthenticated() -> Bool {
+    public override func isAuthenticated() -> Bool {
         let sessionUser = sessionValue?.object(forKey: SessionUsernameKey)
         if sessionUser != nil {
             if self.user != nil {
@@ -1575,7 +1568,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         return false
     }
 
-    public func handleAuthenticationFailed() {
+    public override func handleAuthenticationFailed() {
         //NSLog(@"handleAuthenticationFailed user %@", user);
 
         processLoginHtml()
@@ -1590,7 +1583,7 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
         engine?.sendErrorResponse(status: 401, headers: headers, body: bodyData, closeAfter: false)
     }
 
-    public func handleResourceNotFound() { // also other errors, actually
+    public override func handleResourceNotFound() { // also other errors, actually
         var status = response?.statusCode() ?? 0
         if status == 0 {
             status = 404
@@ -1604,10 +1597,6 @@ public final class WebPortalConnection: NSObject, HTTPConnectionEngineDelegate {
 
         engine?.sendErrorResponse(status: Int(status), headers: [("Content-Length", String(Int32(truncatingIfNeeded: bodyData.count)))],
                                   body: bodyData, closeAfter: false)
-    }
-
-    /// The connection is closed: the server lets it go.
-    func connectionDidDie() {
     }
 }
 

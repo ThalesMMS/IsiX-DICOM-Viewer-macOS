@@ -85,21 +85,6 @@ fileprivate func objcStringProperty(_ object: Any?, _ selectorName: String) -> S
     return (object as AnyObject).perform(NSSelectorFromString(selectorName))?.takeUnretainedValue() as? String
 }
 
-/// A nil `%@` argument for a format taking a C variable argument list.
-fileprivate struct ObjCNilArgument: CVarArg {
-    var _cVarArgEncoding: [Int] { return [0] }
-}
-
-/// `[NSPredicate predicateWithFormat: format, …]` with object arguments, a nil
-/// one passed as nil.
-fileprivate func objcPredicate(_ format: String, _ arguments: Any?...) -> NSPredicate {
-    let list: [CVarArg] = arguments.map { argument -> CVarArg in
-        guard let argument else { return ObjCNilArgument() }
-        return ((argument as AnyObject) as? NSObject) ?? ObjCNilArgument()
-    }
-    return withVaList(list) { NSPredicate(format: format, arguments: $0) }
-}
-
 public extension BrowserController {
 
     // MARK: Plugins
@@ -233,12 +218,6 @@ public extension BrowserController {
         return DicomDatabase.baseDirPath(forMode: mode, path: url)
     }
 
-    /// Plugins built for Horos and OsiriX index the files they wrote by this selector (LegacyPluginIngest).
-    @objc(addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:generatedByOsiriX:)
-    class func legacyPluginAdd(_ files: [Any]!, toContext context: NSManagedObjectContext!, toDatabase browser: BrowserController!, onlyDICOM: Bool, notifyAddedFiles: Bool, parseExistingObject: Bool, dbFolder: String!, generatedByOsiriX: Bool) -> [Any]! {
-        LegacyPluginIngest.add(files, context: context, browser: browser, folder: dbFolder, onlyDICOM: onlyDICOM, notify: notifyAddedFiles, reread: parseExistingObject, generatedByOsiriX: generatedByOsiriX)
-    }
-
     @objc(showLogWindow:)
     func showLogWindow(_ sender: Any!) {
         if horos_logWindowController == nil {
@@ -304,15 +283,7 @@ public extension BrowserController {
 
     @objc(createFilterDescription)
     func createFilterDescription() -> String! {
-        guard let searchString = horos_searchString,
-              let field = StudySearchRules.field(searchType: Int(horos_searchType), searchString: searchString),
-              let format = searchDescriptionFormat(field) else { return nil }
-        let description = String(format: format, searchString as NSString)
-
-        let federated = FederatedStudySearch(source: .process)
-        let names = federated.includedSourceNames(besides: self.database?.baseDirPath)
-        guard !names.isEmpty else { return description }
-        return description.appendingFormat(NSLocalizedString(" / Federated: %@", comment: ""), names.joined(separator: ", ") as NSString)
+        searchDescription(of: horos_searchString, searchType: Int(horos_searchType), databasePath: self.database?.baseDirPath)
     }
 
     @objc(patientsnamePredicate:)
@@ -320,11 +291,11 @@ public extension BrowserController {
         return patientsnamePredicate(s, soundex: PreferencesSource.process.preferences[DatabasePreferences.useSoundexForName])
     }
 
-    /// The patient name search of the database (PatientNameMatching), with
-    /// the names that sound alike when `soundex` is set. Any thread may call it.
+    /// The patient name search of the database (PatientNameMatching), with the names that sound alike when
+    /// `soundex` is set, and the words in any order when the preferences say so. Any thread may call it.
     @objc(patientsnamePredicate:soundex:)
     nonisolated func patientsnamePredicate(_ s: String!, soundex: Bool) -> NSPredicate! {
-        PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil)
+        PatientNameMatching.namePredicate(s, soundex: soundex ? { DicomStudy.soundex($0) } : nil, anyOrder: PreferencesSource.process.preferences[NetworkPreferences.findsPatientNamesInAnyWordOrder])
     }
 
     /// The local databases a federated search can ask (FederatedStudySearch).
@@ -355,45 +326,10 @@ public extension BrowserController {
         return databaseOutline.selectedRowIndexes.compactMap { databaseOutline.item(atRow: $0) }
     }
 
-    // Finding Comparisons
+    // Finding Comparisons (RelatedStudies)
     @objc(relatedStudiesForStudy:)
     func relatedStudies(forStudy study: Any!) -> [Any]! {
-        let context = self.database?.managedObjectContext
-
-        var studiesArray: NSArray? = nil
-        var raised: NSException? = nil
-        N2ManagedObjectContextPerformAndWait(context) {
-        // FIND ALL STUDIES of this patient
-
-        let predicate = objcPredicate("(patientUID BEGINSWITH[cd] %@)", (study as AnyObject?)?.value(forKey: "patientUID"))
-        let dbRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
-        dbRequest.predicate = predicate
-
-        // The result stays alive until the synchronous queue operation ends;
-        // an exception is raised on the caller after leaving the queue.
-        raised = HorosObjCException.caught {
-            studiesArray = (try? context?.fetch(dbRequest)) as NSArray?
-
-            if let e = HorosObjCException.caught({
-                if let current = studiesArray, current.count > 0, let study, current.index(of: study) != NSNotFound {
-                    let sort = NSSortDescriptor(key: "date", ascending: false)
-                    let sortDescriptors = [sort]
-                    let s = NSMutableArray(array: current.sortedArray(using: sortDescriptors))
-                    // remove original study from array
-                    s.remove(study)
-
-                    studiesArray = NSArray(array: s)
-                }
-            }) {
-                _N2LogExceptionImpl(e, true, "-[BrowserController relatedStudiesForStudy:]")
-            }
-        }
-
-        }
-
-        if let raised { raised.raise() }
-
-        return studiesArray as? [Any]
+        RelatedStudies.of(study, in: self.database)
     }
 
     // Of the database shown, asked on any thread; an object's own database
@@ -417,6 +353,18 @@ public extension BrowserController {
         }
         return nil
     }
+}
+
+/// The description of the search of `searchString` in the field of
+/// `searchType`, with the other local databases a federated search asks
+/// besides the one at `databasePath`; nil without a search to describe.
+private func searchDescription(of searchString: String?, searchType: Int, databasePath: String?) -> String? {
+    guard let searchString, let field = StudySearchRules.field(searchType: searchType, searchString: searchString),
+          let format = searchDescriptionFormat(field) else { return nil }
+    let description = String(format: format, searchString as NSString)
+    let names = FederatedStudySearch(source: .process).includedSourceNames(besides: databasePath)
+    guard !names.isEmpty else { return description }
+    return description.appendingFormat(NSLocalizedString(" / Federated: %@", comment: ""), names.joined(separator: ", ") as NSString)
 }
 
 /// The description of a search, by the field searched, with %@ for the string.

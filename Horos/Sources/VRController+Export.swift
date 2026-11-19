@@ -80,7 +80,7 @@ extension VRController {
         let path = ((browserWindowGraph?.database?.tempDirPath() ?? "") as NSString)
             .appendingPathComponent("IsiX DICOM Viewer.jpg")
         try? jpegData(image)?.write(to: URL(fileURLWithPath: path), options: .atomic)
-        Photos().importInPhotos([path])
+        Photos().importShowingFailure([path])
     }
 
     @objc(exportTIFF:)

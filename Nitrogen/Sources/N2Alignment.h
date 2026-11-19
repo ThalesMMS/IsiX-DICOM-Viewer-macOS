@@ -40,7 +40,19 @@
 
 typedef uint8_t N2Alignment;
 
-static const N2Alignment N2Top = 1<<0;
-static const N2Alignment N2Bottom = 1<<1;
-static const N2Alignment N2Left = 1<<2;
-static const N2Alignment N2Right = 1<<3;
+// 1, 2, 4 and 8, defined in Nitrogen+CAPI.m: plugins built for Horos or OsiriX
+// look these names up in the application.
+extern const N2Alignment N2Top;
+extern const N2Alignment N2Bottom;
+extern const N2Alignment N2Left;
+extern const N2Alignment N2Right;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+// A rectangle of the size of the first, centered in one of the size of the
+// second whose origin is zero (N2Operators.swift).
+NSRect NSRectCenteredInRect(NSRect smallRect, NSRect bigRect);
+#ifdef __cplusplus
+}
+#endif

@@ -46,6 +46,8 @@ ALLOWED = {
     'Import Plugins from Horos or OsiriX…': 'the other application',
     'No new or newer plugins were found in the Horos or OsiriX plugins folders.': 'the other application',
     'Importing copies the plugins listed as new or newer to your IsiX plugins folders. The Horos and OsiriX folders are not changed.': 'the other application',
+    # A launch that finds a newer version of a plugin in those folders says where it found it.
+    'New or newer plugins were found in the Horos or OsiriX plugins folders.': 'the other application',
     # Plugins are made for Horos or for OsiriX, and the lists say which.
     'Horos Plugins': 'plugin origin', 'OsiriX Plugins': 'plugin origin',
     'Plugin validated in Horos': 'plugin origin', 'Plugin not validated in Horos': 'plugin origin',
@@ -69,8 +71,6 @@ ALLOWED = {
     'Choose the Horos Data or OsiriX Data folder': 'folder name',
     'No Horos or OsiriX database was found in this folder.': 'the other application',
     NAME + ' detected you have OsiriX pre-installed': 'the other application',
-    # The XML-RPC warning says the open server behaves as Horos's and OsiriX's do.
-    'Without a password, any computer that can reach this machine can list': 'the other application',
     "It seems you don't have OsiriX installed.": 'the other application',
     'Only CLUT created in OsiriX 1.3.1': 'file format history',
     'Only CLUT created in Horos 1.3.1': 'file format history',

@@ -39,52 +39,53 @@
 
 import Foundation
 
-/// When the application looks for a new release by itself.
+/// When the application looks for a new release by itself, and which release
+/// it offers then.
 ///
-/// With the automatic checks on (CheckHorosUpdates), it checks at launch and
-/// then every hour. With them off it asks the preference again every minute,
-/// and checks as soon as they are turned on. After a crash with the automatic
-/// checks off it checks once, so that a user running an outdated version hears
-/// of the release that may fix it; with them on, that launch checks nothing.
+/// With the automatic checks on (CheckHorosUpdates) and the listener errors
+/// shown, it checks once, at launch. With the checks off, or in the server
+/// mode that hides the listener errors, where nobody would be told of a
+/// release, it does not read the feed at all. Nothing follows the launch: no
+/// check is repeated while the application runs, and a preference changed
+/// meanwhile counts from the next launch, which is what the option's label
+/// says ("at startup time"). A check asked from the menu is outside these
+/// rules: it always reads the feed and always tells its result.
 public enum UpdateCheckSchedule {
 
-    /// The time between two automatic checks.
-    public static let interval: TimeInterval = 3600
-    /// The time between two reads of the preference while the checks are off.
-    public static let retry: TimeInterval = 60
-
-    /// What the launch does.
-    public enum LaunchCheck: Sendable, Equatable {
-        /// Start the automatic checks with one now.
-        case automatic
-        /// Check once, as after a crash: a newer release is offered, nothing
-        /// is said when there is none, and no automatic check follows.
-        case afterCrash
-        /// Nothing.
-        case none
+    /// Whether this launch reads the feed.
+    public static func checksAtLaunch(automaticChecks: Bool, listenerErrorsHidden: Bool) -> Bool {
+        automaticChecks && !listenerErrorsHidden
     }
 
-    /// The next step of the automatic checks.
-    public enum Step: Sendable, Equatable {
-        /// Check after this many seconds.
-        case check(after: TimeInterval)
-        /// Read the preference again after this many seconds.
-        case wait(after: TimeInterval)
+    /// Whether an automatic check offers a release the feed reports: not the
+    /// one the user chose to skip, nor an earlier one.
+    ///
+    /// - Parameters:
+    ///   - build: the build number of the release, digits only.
+    ///   - skippedBuild: the build the user skipped (SkippedUpdateBuild), nil
+    ///     when none was. Build numbers are compared as integers; a stored
+    ///     value that is not a number skips nothing.
+    public static func offersAutomatically(build: String, skippedBuild: String?) -> Bool {
+        guard let skipped = skippedBuild.flatMap({ Int64($0) }), let available = Int64(build) else { return true }
+        return available > skipped
     }
 
-    /// What a launch does after a crash marker was found (`crashed`) or not.
-    public static func atLaunch(crashed: Bool, automaticChecks: Bool, listenerErrorsHidden: Bool) -> LaunchCheck {
-        guard crashed else { return .automatic }
-        return !automaticChecks && !listenerErrorsHidden ? .afterCrash : .none
-    }
-
-    /// The step after an automatic check.
-    public static func afterCheck(automaticChecks: Bool) -> Step {
-        automaticChecks ? .check(after: interval) : .wait(after: retry)
-    }
-
-    /// The step after a read of the preference while the checks were off.
-    public static func afterWait(automaticChecks: Bool) -> Step {
-        automaticChecks ? .check(after: 0) : .wait(after: retry)
+    /// Whether a launch asks the user to choose the automatic checks: only the
+    /// first launch of an installation whose preferences are new, of a copy
+    /// that can be told of a release, and only when nobody chose yet.
+    ///
+    /// - Parameters:
+    ///   - launchCount: the launch counter as this launch read it. It is 1 until
+    ///     a launch has stored it, and preferences brought from an earlier
+    ///     installation bring their own count.
+    ///   - choiceAlreadyMade: the preference was given to this launch, is stored
+    ///     for the application, or is imposed by a managed profile.
+    ///   - releaseCopy: a development copy is never told of a release by itself.
+    ///   - appStore: the App Store updates its own copies.
+    ///   - protectedMode: that launch runs no automatic check.
+    ///   - serverMode: the mode that hides the listener errors shows no alert.
+    public static func asksAtFirstLaunch(launchCount: Int, choiceAlreadyMade: Bool, releaseCopy: Bool,
+                                         appStore: Bool, protectedMode: Bool, serverMode: Bool) -> Bool {
+        launchCount == 1 && !choiceAlreadyMade && releaseCopy && !appStore && !protectedMode && !serverMode
     }
 }

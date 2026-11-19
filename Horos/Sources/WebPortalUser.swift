@@ -518,7 +518,7 @@ public final class WebPortalUser: NSManagedObject {
         } catch {
             NSLog("*** [WebPortalUser validateName:error:] exception: %@", webPortalUserCaught(error))
             let info = [NSLocalizedDescriptionKey: NSLocalizedString("Internal database error.", comment: "")]
-            throw NSError(domain: "OsiriXDomain", code: -31, userInfo: info)
+            throw NSError(domain: OsirixErrorDomain, code: -31, userInfo: info)
         }
 
         if duplicate {

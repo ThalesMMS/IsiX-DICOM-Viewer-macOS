@@ -104,8 +104,10 @@ var payload: [String: Any] = [
         [
             "sopInstanceUID": pres.sopInstanceUID,
             "frameNumber": pres.frameNumber,
+            "hasVOI": pres.hasVOI,
             "windowCenter": pres.windowCenter,
             "windowWidth": pres.windowWidth,
+            "hasDisplayedArea": pres.displayedArea != nil,
             "rotationDegrees": pres.rotationDegrees,
             "horizontalFlip": pres.horizontalFlip,
             "annotations": pres.annotations.map { ["kind": $0.kind, "points": $0.points.map { [$0.x, $0.y] }, "text": $0.text ?? ""] },
@@ -192,6 +194,8 @@ json.dump(convert(ds), sys.stdout)
             [python, str(helper), str(dest / 'gsps-missing.dcm')])
         color_json = subprocess.check_output(
             [python, str(helper), str(dest / 'ps-color.dcm')])
+        frame_json = subprocess.check_output(
+            [python, str(helper), str(dest / 'gsps-frame.dcm')])
         ct = subprocess.check_output(
             [python, '-c',
              'from pydicom import dcmread; import json; d=dcmread(%r); '
@@ -242,6 +246,38 @@ json.dump(convert(ds), sys.stdout)
             if kinds.get('TEXT', {}).get('text') != 'GSPS label':
                 failures.append('generated text was lost: %s' % kinds.get('TEXT'))
 
+        scoped = json.loads(frame_json)
+        relationship = scoped['ReferencedSeriesSequence'][0]['ReferencedImageSequence'][0]
+        frame_two = dict(relationship)
+        relationship['ReferencedFrameNumber'] = [1, 2]
+        scoped['SoftcopyVOILUTSequence'][0]['ReferencedImageSequence'] = [frame_two]
+        # An incomplete Displayed Area sequence must not borrow frame 2's crop.
+        scoped['DisplayedAreaSelectionSequence'] = [{
+            'ReferencedImageSequence': [frame_two],
+            'DisplayedAreaTopLeftHandCorner': [2, 3],
+            'DisplayedAreaBottomRightHandCorner': [10, 11],
+            'PresentationSizeMode': 'SCALE TO FIT',
+        }]
+        scoped_path = harness_dir / 'scoped.json'
+        scoped_path.write_text(json.dumps(scoped))
+        frame_images_path = harness_dir / 'frames.json'
+        frame_images_path.write_text(json.dumps([
+            {'sopInstanceUID': relationship['ReferencedSOPInstanceUID'],
+             'frameNumber': frame, 'columns': 16, 'rows': 16}
+            for frame in (1, 2)
+        ]))
+        frame_result = json.loads(subprocess.check_output(
+            [str(binary), str(scoped_path), str(frame_images_path)]))
+        frames = {item['frameNumber']: item for item in frame_result['presentations']}
+        if frames.keys() != {1, 2}:
+            failures.append('GSPS should apply to both referenced frames: %s' % frame_result)
+        else:
+            if frames[1]['hasVOI'] or frames[1]['hasDisplayedArea']:
+                failures.append('frame 1 borrowed frame 2 VOI or Displayed Area: %s' % frames[1])
+            if (not frames[2]['hasVOI'] or (frames[2]['windowCenter'], frames[2]['windowWidth']) != (80, 200)
+                    or not frames[2]['hasDisplayedArea']):
+                failures.append('frame 2 did not get its 80/200 VOI and Displayed Area: %s' % frames[2])
+
         (harness_dir / 'missing.json').write_bytes(missing_json)
         missing = json.loads(subprocess.check_output(
             [str(binary), str(harness_dir / 'missing.json'), str(images_path)]))
@@ -268,7 +304,7 @@ json.dump(convert(ds), sys.stdout)
             for failure in failures:
                 print('FAIL:', failure)
             raise SystemExit(1)
-        print('ok: generated GSPS files apply VOI/transform/annotations, flag a missing')
+        print('ok: generated GSPS files apply global and frame-scoped presentation, flag a missing')
         print('    SOP Instance UID and unsupported modules, and leave CT pixels unchanged')
 
 

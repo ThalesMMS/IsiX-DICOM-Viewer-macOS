@@ -106,9 +106,8 @@ public final class OSIAutoroutingPreferencePanePref: NSPreferencePane, NSTableVi
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIAutoroutingPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSIAutoroutingPreferencePanePref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let view = mainWindow?.contentView {

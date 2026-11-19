@@ -156,7 +156,7 @@ extension VRView {
             }
         } else if c == Int(UInt8(ascii: " ")) {
             if window?.windowController is VRController {
-                horos_isRotating = !horos_isRotating
+                setRotating(!horos_isRotating)
             }
         } else if c == Int(UInt8(ascii: "?")) {
             let now = Date()
@@ -242,9 +242,11 @@ extension VRView {
                 HorosAlertPanel.run(title: NSLocalizedString("3D Cut", comment: ""),
                                     message: NSLocalizedString("Draw an ROI on the 3D image and then press Return (include) or Delete (exclude) keys.", comment: ""),
                                     defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-            } else if c == NSTabCharacter && horos_controller?.viewer2D()?.postprocessed() == true {
-                HorosAlertPanel.run(title: NSLocalizedString("Restore", comment: ""),
-                                    message: NSLocalizedString("This dataset has been post processed (reslicing, MPR, ...). You cannot restore it.", comment: ""),
+            } else if c == NSTabCharacter, let refusal = horos_controller?.horosScissorRestoreRefusal() {
+                // The restore reads the window's own slices from their files:
+                // the window says whether they are still the files' pixels. A
+                // change of plane post-processes the 2D viewer, not them.
+                HorosAlertPanel.run(title: NSLocalizedString("Restore", comment: ""), message: refusal,
                                     defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             } else {
                 let waiting = WaitRendering(NSLocalizedString("Applying Scissor...", comment: ""))

@@ -64,13 +64,22 @@ def block(text, signature):
 
 failures = []
 tree = files()
-FORMER = ('StereoVision', 'VTKStereoVRView', 'VTKStereoSRView')
+FORMER = ('StereoVision',)
 former = sorted(f for f in tree if any(name in f for name in FORMER))
 if former:
     failures.append('the former stereo files are still there: %s' % ', '.join(former[:4]))
 project = read('Horos.xcodeproj/project.pbxproj')
 if any(name in project for name in FORMER):
     failures.append('the project still lists the former stereo files')
+# VTKStereoVRView and VTKStereoSRView are classes of the plugin SDK of Horos and
+# OsiriX: they exist by name, a header and a Swift file each, and do nothing.
+# Their Objective-C++ implementations, which drew the two eyes with VTK, stay gone.
+drawing = sorted(f for f in tree if re.search(r'VTKStereo\w*\.(m|mm)$', f))
+if drawing or re.search(r'VTKStereo\w*\.(m|mm)\b', project):
+    failures.append('the stereo views of VTK are implemented again: %s' % ', '.join(drawing[:4]))
+for name in ('VTKStereoVRView', 'VTKStereoSRView'):
+    if 'FormerSDKFacade.inert' not in read('Horos/Sources/%s.swift' % name):
+        failures.append('%s is not the inert class of the plugin SDK' % name)
 sources = [f for f in tree if re.search(r'\.(h|m|mm|swift|pch)$', f)]
 guarded = sorted(f for f in sources if '_STEREO_VISION_' in code(read(f)))
 if guarded:

@@ -23,10 +23,12 @@
 #include <vtkDelaunay3D.h>
 #include <vtkContourFilter.h>
 #include <vtkFollower.h>
+#include <vtkIdList.h>
 #include <vtkImageData.h>
 #include <vtkImageFlip.h>
 #include <vtkImageImport.h>
 #include <vtkImageResample.h>
+#include <vtkMapper.h>
 #include <vtkOutlineFilter.h>
 #include <vtkPlane.h>
 #include <vtkPoints.h>
@@ -35,6 +37,7 @@
 #include <vtkPolyDataNormals.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
+#include <vtkSmartPointer.h>
 #include <vtkSmoothPolyDataFilter.h>
 #include <vtkSphereSource.h>
 #include <vtkTIFFReader.h>
@@ -89,6 +92,40 @@ static inline void IsiXVTKSet(const char *operation, std::initializer_list<vtkOb
 }
 
 - (vtkActor *)actor { return _actor; }
+
+- (void *)newMapperReference
+{
+    vtkMapper *mapper = _actor ? _actor->GetMapper() : nullptr;
+    if (!mapper) return NULL;
+    try {
+        mapper->Update();
+    } catch (...) {
+        return NULL;
+    }
+    mapper->Register(nullptr);
+    return mapper;
+}
+
++ (NSSet<NSNumber *> *)pointsConnectedToPoint:(long long)pointId inPolyDataAtAddress:(void *)polyData
+{
+    NSMutableSet<NSNumber *> *connected = [NSMutableSet set];
+    vtkPolyData *data = static_cast<vtkPolyData *>(polyData);
+    if (!data || pointId < 0 || pointId >= data->GetNumberOfPoints()) return connected;
+    try {
+        // The cells of a point need the links from points to cells.
+        data->BuildLinks();
+        vtkSmartPointer<vtkIdList> cells = vtkSmartPointer<vtkIdList>::New();
+        vtkSmartPointer<vtkIdList> points = vtkSmartPointer<vtkIdList>::New();
+        data->GetPointCells(pointId, cells);
+        for (vtkIdType cell = 0; cell < cells->GetNumberOfIds(); cell++) {
+            data->GetCellPoints(cells->GetId(cell), points);
+            for (vtkIdType point = 0; point < points->GetNumberOfIds(); point++)
+                [connected addObject:[NSNumber numberWithDouble:(double)points->GetId(point)]];
+        }
+    } catch (...) {
+    }
+    return connected;
+}
 - (void *)vtkActor { return _actor; }
 
 - (BOOL)visible

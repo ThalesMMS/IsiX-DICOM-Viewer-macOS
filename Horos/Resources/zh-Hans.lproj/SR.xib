@@ -20,7 +20,6 @@
                 <outlet property="blendingSlider" destination="388" id="391"/>
                 <outlet property="checkFirst" destination="457" id="502"/>
                 <outlet property="checkSecond" destination="458" id="503"/>
-                <outlet property="decimate" destination="702" id="710"/>
                 <outlet property="distanceValue" destination="1042" id="1067"/>
                 <outlet property="export3DView" destination="604" id="616"/>
                 <outlet property="eyeDistance" destination="1035" id="1066"/>
@@ -34,7 +33,6 @@
                 <outlet property="secondPopup" destination="484" id="499"/>
                 <outlet property="secondTrans" destination="486" id="505"/>
                 <outlet property="secondValue" destination="487" id="496"/>
-                <outlet property="smooth" destination="701" id="711"/>
                 <outlet property="stereoIconView" destination="1013" id="1068"/>
                 <outlet property="toolsView" destination="239" id="265"/>
                 <outlet property="view" destination="146" id="157"/>
@@ -92,7 +90,7 @@
             <rect key="frame" x="0.0" y="0.0" width="189" height="35"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="243" customClass="IsiXTipMatrix">
                     <rect key="frame" x="0.0" y="0.0" width="189" height="35"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="35"/>
@@ -794,7 +792,7 @@ Gw
                         <menu key="menu" title="其他视图" id="609">
                             <items>
                                 <menuItem image="3D" hidden="YES" id="607"/>
-                                <menuItem title="导出为 RenderMan（.rib）" tag="1" id="608">
+                                <menuItem title="导出为 RenderMan (.rib)" tag="1" id="608">
                                     <connections>
                                         <action selector="export3DFileFormat:" target="146" id="612"/>
                                     </connections>
@@ -804,12 +802,12 @@ Gw
                                         <action selector="export3DFileFormat:" target="146" id="613"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="导出为 Inventor（.iv）" tag="3" id="610">
+                                <menuItem title="导出为 Inventor (.iv)" tag="3" id="610">
                                     <connections>
                                         <action selector="export3DFileFormat:" target="146" id="614"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="导出为 Wavefront（.obj）" tag="4" id="611">
+                                <menuItem title="导出为 Wavefront (.obj)" tag="4" id="611">
                                     <connections>
                                         <action selector="export3DFileFormat:" target="146" id="615"/>
                                     </connections>

@@ -63,6 +63,14 @@ NS_ASSUME_NONNULL_BEGIN
                                                              NSUInteger length, NSString *name))block
                                  error:(NSError **)error;
 
+/// A dataset with a copy of the DCMTK dataset at `address`, which is a
+/// DcmDataset the caller keeps: what code that was handed one by its address
+/// has, such as a plugin built with DCMTK's headers. nil for NULL.
++ (nullable instancetype)datasetCopyingDCMTKDatasetAtAddress:(nullable const void *)address;
+/// A new DcmDataset with a copy of this dataset, by its address, for a C++
+/// caller that deletes it; NULL when it could not be made.
+- (nullable void *)newDCMTKDatasetCopy;
+
 /// The dataset as DCMTK prints it.
 @property (readonly, copy) NSString *dump;
 /// Prints the dataset to the standard output, as DCMTK's verbose dumps do.

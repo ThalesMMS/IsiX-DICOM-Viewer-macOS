@@ -52,9 +52,11 @@ private enum OSIWindowFlags {
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/OSIWindow.h> are those of the former class, the custom class of
-/// those nibs' windows.
+/// those nibs' windows. Its superclass is the one the plugin SDK of Horos and
+/// OsiriX gave it, N2OpenGLViewWithSplitsWindow, which overrides nothing of
+/// NSWindow.
 @objc(OSIWindow)
-public final class OSIWindow: NSWindow {
+public final class OSIWindow: N2OpenGLViewWithSplitsWindow {
 
     @objc(dontConstrainWindow)
     public nonisolated class func dontConstrainWindow() -> Bool {

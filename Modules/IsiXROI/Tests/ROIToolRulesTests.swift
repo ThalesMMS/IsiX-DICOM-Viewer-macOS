@@ -91,6 +91,14 @@ private final class Token {}
         #expect(ROIUndoQueuePolicy(size: 1, recordsROIs: false).isEnabled)
     }
 
+    // Draw A, undo, draw B: the state left to redo is of the course given
+    // up. A click that changed nothing leaves it.
+    @Test func whatWasUndoneIsRedoneOnlyWhileTheROIsAreAsTheLastStepLeftThem() {
+        #expect(ROIUndoQueuePolicy.redoStillApplies(lastStep: nil, now: 7))
+        #expect(ROIUndoQueuePolicy.redoStillApplies(lastStep: 7, now: 7))
+        #expect(!ROIUndoQueuePolicy.redoStillApplies(lastStep: 7, now: 8))
+    }
+
     @Test func theOldestGoesBeyondTheSize() {
         let policy = ROIUndoQueuePolicy(size: 3, recordsROIs: true)
         #expect(!policy.dropsOldest(count: 3))

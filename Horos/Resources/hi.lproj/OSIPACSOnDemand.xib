@@ -54,7 +54,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="एसआर" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="630">
+                                            <buttonCell type="check" title="SR" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="630">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -70,7 +70,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="डॉ" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="8" inset="2" id="627">
+                                            <buttonCell type="check" title="DR" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="8" inset="2" id="627">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -78,7 +78,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="ए.यू." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="617">
+                                            <buttonCell type="check" title="AU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="617">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -88,15 +88,15 @@
                                             </buttonCell>
                                         </column>
                                         <column>
-                                            <buttonCell type="check" title="आरजी" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="635">
+                                            <buttonCell type="check" title="RG" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="635">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="एक्ससी" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="632">
+                                            <buttonCell type="check" title="XC" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="632">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="वीएल" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="631">
+                                            <buttonCell type="check" title="VL" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="631">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -116,15 +116,15 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="वीएल" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="620">
-                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                                <font key="font" metaFont="smallSystem"/>
-                                            </buttonCell>
                                             <buttonCell type="check" title="CR" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="618">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
                                             <buttonCell type="check" title="SC" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="712">
+                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                <font key="font" metaFont="smallSystem"/>
+                                            </buttonCell>
+                                            <buttonCell type="check" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" transparent="YES" enabled="NO" inset="2" id="620">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -298,9 +298,9 @@ Gw
                         </connections>
                     </button>
                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="640">
-                        <rect key="frame" x="17" y="71" width="69" height="17"/>
+                        <rect key="frame" x="6" y="71" width="83" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="एसक्यूएल फ़िल्टर:" id="641">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="SQL फ़िल्टर:" id="641">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -503,7 +503,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
-                        <rect key="frame" x="22" y="493" width="430" height="17"/>
+                        <rect key="frame" x="22" y="493" width="441" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="PACS ऑन डिमांड मिलान और पुनर्प्राप्ति के लिए DICOM नोड्स:" id="685">
                             <font key="font" metaFont="system"/>
@@ -613,8 +613,8 @@ Gw
                                                 </binding>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn identifier="modality" editable="NO" width="60" minWidth="60" maxWidth="60" id="540">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="साधन">
+                                        <tableColumn identifier="modality" editable="NO" width="90" minWidth="90" maxWidth="90" id="540">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="मोडैलिटी">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>

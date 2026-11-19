@@ -73,6 +73,14 @@ public final class SurgicalProcedureImport: NSObject {
         return SurgicalProcedureTable(sourcePath: sourcePath, rows: rows)
     }
 
+    /// Whether a file chosen as a surgical log is delimited text, the one form
+    /// that is imported, by its extension alone: nothing is asked of another
+    /// application to answer.
+    public static func isDelimitedTextLog(at url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ext == "csv" || ext == "txt" || ext.isEmpty
+    }
+
     public static func diagnoseSource(at url: URL, numbersAvailable: Bool, appleEventsAuthorized: Bool) -> SurgicalProcedureSourceDiagnosis {
         diagnoseSource(at: url, numbersAvailable: numbersAvailable,
                        automationStatus: appleEventsAuthorized ? 0 : appleEventsDeniedErrorNumber)
@@ -98,7 +106,7 @@ public final class SurgicalProcedureImport: NSObject {
                 message: NSLocalizedString("Numbers is available. Export the surgical log as CSV to import it in this IsiX DICOM Viewer build.", comment: ""),
                 errorNumber: 0)
         }
-        if ext == "csv" || ext == "txt" || ext.isEmpty {
+        if isDelimitedTextLog(at: url) {
             return SurgicalProcedureSourceDiagnosis(kind: .csv, message: "", errorNumber: 0)
         }
         return SurgicalProcedureSourceDiagnosis(
@@ -745,7 +753,8 @@ private func historicalIDs(_ patient: SurgicalProcedurePatient) -> [String] {
 /// indexed twice when two studies of the database keep its Study Instance UID
 /// under different patients.
 private func latestRecordOfEachEvent(_ records: [SurgicalProcedureRecord]) -> [SurgicalProcedureRecord] {
-    let latest = Dictionary(records.map { ($0.eventID, $0) }, uniquingKeysWith: { $0.updatedAt >= $1.updatedAt ? $0 : $1 })
+    // Not `>=`: between two dates it is a Foundation symbol only macOS 27.2 has.
+    let latest = Dictionary(records.map { ($0.eventID, $0) }, uniquingKeysWith: { $0.updatedAt < $1.updatedAt ? $1 : $0 })
     var seen = Set<String>()
     return records.compactMap { seen.insert($0.eventID).inserted ? latest[$0.eventID] : nil }
 }

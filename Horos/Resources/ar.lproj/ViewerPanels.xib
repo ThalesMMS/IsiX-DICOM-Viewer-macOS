@@ -1051,7 +1051,7 @@ Gw
                     </box>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2013">
                         <rect key="frame" x="16" y="11" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="إدراج جميع المشاهدين الثنائي الأبعاد" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
+                        <buttonCell key="cell" type="check" title="إدراج جميع العارضات ثنائية الأبعاد المعروضة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2784,7 +2784,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="1468">
                         <rect key="frame" x="29" y="73" width="88" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="اسم المسلسل:" id="2310">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="اسم السلسلة:" id="2310">
                             <font key="font" metaFont="systemBold"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2792,7 +2792,7 @@ Gw
                     </textField>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2010">
                         <rect key="frame" x="29" y="98" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="إدراج جميع المشاهدين الثنائي الأبعاد" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
+                        <buttonCell key="cell" type="check" title="إدراج جميع العارضات ثنائية الأبعاد المعروضة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2922,7 +2922,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="جميع الصور من المسلسل" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1270">
+                                <buttonCell type="radio" title="جميع صور السلسلة" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1270">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2942,7 +2942,7 @@ Gw
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2396">
                         <rect key="frame" x="30" y="18" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="إدراج جميع المشاهدين الثنائي الأبعاد" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
+                        <buttonCell key="cell" type="check" title="إدراج جميع العارضات ثنائية الأبعاد المعروضة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

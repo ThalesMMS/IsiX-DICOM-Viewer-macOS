@@ -41,11 +41,29 @@
 
 /** \brief Interpolates flight path between FlyThru steps
 
-What Spline3D and Piecewise3D answer: once an abstract class whose methods did
-nothing, a protocol now that the two are its only implementations.
+What an interpolation answers. Swift sees the protocol as
+Interpolation3DProtocol, because the class below has its name.
 */
 
 @protocol Interpolation3D <NSObject>
+
+- (void) addPoint: (float) t : (Point3D*) p;
+- (Point3D*) evaluateAt: (float) t;
+
+@end
+
+/** \brief Interpolates flight path between FlyThru steps
+
+The abstract class of the plugin SDK of Horos and OsiriX, the superclass of
+Spline3D and Piecewise3D, which override its two methods: here -addPoint::
+does nothing and -evaluateAt: answers nil.
+
+Interpolation3D.swift implements the class (@objc @implementation): the
+runtime has an Objective-C class of this name, which a plugin's subclass can
+inherit from.
+*/
+
+@interface Interpolation3D : NSObject <Interpolation3D>
 
 - (void) addPoint: (float) t : (Point3D*) p;
 - (Point3D*) evaluateAt: (float) t;

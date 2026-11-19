@@ -235,6 +235,9 @@ import IsiXPreferences
 
         preferences.set(Int(stacks), for: ViewerPreferences.stackThickness)
 
+        // The slider moved after the mode told the toolbar: it reads the thickness again.
+        ViewerThickSlab(viewer: viewer, preferences: preferences).refreshScale()
+
         viewer.horos_imageView?.sendSyncMessage(0)
     }
 

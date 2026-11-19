@@ -48,3 +48,11 @@
 #elif __has_include("Horos-Swift.h")
 #import "Horos-Swift.h"
 #endif
+
+// The two methods of the category that take or reach an FSRef, which Swift
+// does not see (NSFileManager+LegacyPluginSDK.m). The application does not
+// send them; plugins built for Horos and OsiriX do.
+@interface NSFileManager (N2)
+-(NSString*)findSystemFolderOfType:(int)folderType forDomain:(int)domain;
+-(NSUInteger)sizeAtFSRef:(FSRef*)theFileRef;
+@end

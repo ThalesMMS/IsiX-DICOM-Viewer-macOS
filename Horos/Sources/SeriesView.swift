@@ -110,6 +110,12 @@ public final class SeriesView: NSView {
     private var dcmRoiList: NSMutableArray?
     private var listType: CChar = 0
 
+    /// An instance variable of the former Horos and OsiriX plugin SDK, in an
+    /// older copy of its header, exported at its offset. Nothing stands behind
+    /// it: the series view never kept a current image, each of its tiles keeps
+    /// its own.
+    final var curDCM: DCMPix?
+
     public override convenience init(frame: NSRect) {
         self.init(frame: frame, seriesRows: 1, seriesColumns: 1)
     }

@@ -25,9 +25,23 @@ Only plugins in IsiX are discovered and listed. The probe records every folder
 listed and every existence check, and refuses listings outside the temporary folder, so the real /Library
 folders are never enumerated. The real home is never used.
 
+Symbolic links in the plugins folders, which a user or an installer leaves to
+keep one copy of a plugin, are discovered with the rest: a link to a bundle
+that is gone, with a plugin's name or without, and links that lead back to one
+another, leave the other plugins of the folder loading, and the row of one with
+a plugin's name says why; a bundle reached by two entries, in one folder or in
+the user's and the computer's, loads once, with no alert; a link whose own name
+is not a plugin's loads nothing, as the plugins list shows nothing for it. A
+launch after the single offer was answered offers, once, the higher version
+the Horos folder has of a plugin of IsiX, and loads it in that launch.
+
 `<git revision>` as an optional argument reads the sources from that revision:
 before the fix the isolated launch lists the home's plugins folder, reads its
-marker and loads the plugin there.
+marker and loads the plugin there. IsiXStorage is always the working tree's;
+the import prompt is too when the revision's does not know every reason the
+module gives. With a revision before discovery passed over the entries that
+lead nowhere, a link to nothing stops its folder with an exception, a bundle
+reached twice reads Blocked, and a link with no extension loads.
 """
 from pathlib import Path
 import json
@@ -110,6 +124,8 @@ if 'LegacySupportImportPrompt.offerPluginsIfNeeded()' not in startup[:startup.in
     failures.append('startup does not offer the copy before plugin discovery')
 section = source[source.index('    // MARK: directories'):source.index('    // MARK: activation')]
 methods = [swift_block(source, source.index(anchor)) for anchor in (
+    # Absent from the revisions whose discovery did not pass over such an entry.
+    '    private class func reportEntryThatLeadsNowhere(',
     '@objc public class func crashMarkerPath()',
     '@objc(startProtectForCrashWithPath:)',
     '    private class func writeCrashMarker(forPluginAt',
@@ -121,6 +137,7 @@ methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc(loadOsiriXPluginAtPath:)',
     '@objc(loadPluginAtPath:)',
     '    private class func takePluginsOutOfApplication()',
+    '    class func refusalBeforeOpening(bundleAt',
     '    private class func reportDuplicate(atPath',
     '    private class func folderRank(of folder',
     '@objc public class func discoverPlugins()',
@@ -129,7 +146,7 @@ methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc public class func pluginsList()',
     '@objc public class func availabilities()',
     '    public class func offeredAvailabilities()',
-)]
+) if anchor in source]
 v1 = read('Horos/Sources/PluginManager+IsiXPlugins.swift')
 methods += [swift_block(v1, v1.index(anchor)) for anchor in (
     '@objc(loadIsiXPluginAtPath:)', '    class func isIsiXPluginCompatible(atPath')]
@@ -273,7 +290,9 @@ enum HorosAlertPanel {
         alertButtons.append([defaultButton, alternateButton, otherButton].compactMap { $0 })
         // The default button also for the note of a plugin that was running a
         // command: there it keeps the plugin, and the alternate one disables it.
-        return title == "Copy plugins to IsiX?" || title == "IsiX DICOM Viewer did not quit normally" ? defaultResponse : alternateResponse
+        // And the default button of what a later launch offers: Import.
+        return title == "Copy plugins to IsiX?" || title == "IsiX DICOM Viewer did not quit normally"
+            || title == "Import Plugins from Horos or OsiriX" ? defaultResponse : alternateResponse
     }
     @discardableResult static func runCritical(title: String?, message: String, defaultButton: String?, alternateButton: String?, otherButton: String?) -> Int {
         alerts.append(title ?? ""); return NSAlertAlternateReturn
@@ -366,6 +385,8 @@ let report: [String: Any] = [
     "offeredAvailabilities": PluginManager.offeredAvailabilities().compactMap { $0 as? String },
     "allAvailabilities": (PluginManager.availabilities() ?? []).compactMap { $0 as? String },
     "loadedPlugins": rows.filter { ($0["loadState"] as? String) == "Loaded" }.compactMap { $0["name"] as? String },
+    // The names the loader took a bundle for, listed or not.
+    "registeredNames": (Registry.pluginsNames?.allKeys ?? []).compactMap { $0 as? String }.sorted(),
     "installedOutcomes": [
         "Horos": outcome(support + "/IsiX/Plugins/QADisabled.horosplugin"),
         "OsiriX": outcome(support + "/IsiX/Plugins/QAOsiriX.osirixplugin"),
@@ -407,7 +428,11 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     (work / 'PluginUpdateRecovery.swift').write_text(read('Horos/Sources/PluginUpdateRecovery.swift'))
     (work / 'PluginQuarantine.swift').write_text(read('Horos/Sources/PluginQuarantine.swift'))
     (work / 'ProtectedMode.swift').write_text(read('Horos/Sources/ProtectedMode.swift'))
-    (work / 'LegacySupportImportPrompt.swift').write_text(read('Horos/Sources/LegacySupportImportPrompt.swift'))
+    prompt = read('Horos/Sources/LegacySupportImportPrompt.swift')
+    if revision and '.leadsNowhere' not in prompt:
+        # Its switch over the module's reasons would not compile with the module as it is now.
+        prompt = (root / 'Horos/Sources/LegacySupportImportPrompt.swift').read_text(encoding='utf-8')
+    (work / 'LegacySupportImportPrompt.swift').write_text(prompt)
     objects = []
     for name, path in (('PluginManager+CAPI', root / 'Horos/Sources/PluginManager+CAPI.m'),
                        ('HorosObjCException', root / 'Horos/Sources/HorosObjCException.m'),
@@ -503,13 +528,20 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         ran_folder.mkdir()
         environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home), PROBE_ALLOWED=':'.join(allowed),
                            HOROS_PLUGIN_MARKER_DIR=str(ran_folder))
-        ran = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=60)
+        try:
+            ran = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=60)
+        except subprocess.TimeoutExpired:
+            # Links that lead back to one another used to be followed for ever.
+            failures.append(f'{label}: the probe did not finish in 60 seconds')
+            return None
         line = next((entry for entry in ran.stdout.splitlines() if entry.startswith('PROBE-REPORT ')), None)
         if ran.returncode != 0 or line is None:
             failures.append(f'{label}: the probe did not report (exit {ran.returncode})\n{ran.stdout[-2000:]}{ran.stderr[-2000:]}')
             return None
         report = json.loads(line[len('PROBE-REPORT '):])
         report['case'], report['support'], report['isolated'] = case, support, isolated_folder
+        # What the loader logged, the exception of a folder whose reading stopped included.
+        report['stderr'] = ran.stderr
         report['unchanged'] = before == snapshot(support)
         report['legacyUnchanged'] = legacy_before == snapshot(support / 'Horos')
         report['ownFormerUnchanged'] = own_former_before == snapshot(user_plugins / 'QADisabled.horosplugin')
@@ -692,18 +724,143 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         if twice['alerts'] != ['Plugins']:
             failures.append(f'one plugin twice: alerts {twice["alerts"]}')
 
+    # Builds of QA that this Mac cannot run: only the other architecture's code,
+    # as the Intel-only build of a plugin, with a build number (300) above the
+    # 2.0 of its universal successor, signed ad hoc again. What could not be
+    # made is a failure of its own, and the scenario that needed it is not judged.
+    probe_architectures = subprocess.run(['lipo', '-archs', str(executable)], capture_output=True, text=True).stdout.split()
+    foreign = {'arm64': 'x86_64', 'x86_64': 'arm64'}.get(probe_architectures[0]) if len(probe_architectures) == 1 else None
+    if foreign is None:
+        failures.append(f'the probe is built for {probe_architectures}, not for one known architecture: '
+                        'no build this Mac cannot run could be made')
+    setup_errors = []
+
+    def foreign_build(destination):
+        shutil.copytree(fixtures / 'QA.horosplugin', destination)
+        info = plistlib.loads((destination / 'Contents/Info.plist').read_bytes())
+        info['CFBundleVersion'] = '300'
+        (destination / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
+        code = destination / 'Contents/MacOS/QA'
+        for command in (['lipo', str(code), '-thin', foreign, '-output', str(code)],
+                        ['codesign', '--force', '--sign', '-', str(destination)]):
+            made = subprocess.run(command, capture_output=True, text=True)
+            if made.returncode != 0:
+                setup_errors.append(f'{command[0]} on {destination}: {(made.stdout + made.stderr).strip()}')
+                return
+
+    def judged(label, report):
+        """The report, or None when the scenario's builds could not be made."""
+        if setup_errors:
+            failures.append(f'{label}: the build this Mac cannot run was not made: ' + '; '.join(setup_errors))
+            setup_errors.clear()
+            return None
+        return report
+
+    # The same plugin beside that build: the build that runs loads, and the
+    # other is listed as incompatible, with why, which one loads instead and
+    # both versions. Choosing the higher version first set the one that runs
+    # aside and then refused the other, and the plugin left the menus.
+    def unrunnable_build(support):
+        shutil.copytree(fixtures / 'QA.osirixplugin', support / 'IsiX/Plugins/QA.osirixplugin')
+        foreign_build(support / 'IsiX/Plugins/QA.horosplugin')
+    unrunnable = foreign and judged('beside a build this Mac cannot run', scenario(
+        'release-beside-a-build-this-mac-cannot-run', RELEASE, False, recovery=False, prepare=unrunnable_build))
+    if unrunnable:
+        loaded, refused = unrunnable['loadOf'].get('QA.osirixplugin', ''), unrunnable['loadOf'].get('QA.horosplugin', '')
+        if not loaded.startswith('2.0 Loaded'):
+            failures.append(f'beside a {foreign} build: QA.osirixplugin 2.0 is {loaded!r}')
+        if not refused.startswith('300 Incompatible') or f'The plugin is built for {foreign};' not in refused \
+                or 'QA.osirixplugin (2.0)' not in refused or '(300)' not in refused:
+            failures.append(f'beside a {foreign} build: QA.horosplugin 300 is {refused!r}, not incompatible '
+                            'with its reason, the one that loads instead and both versions')
+        if unrunnable['alerts'] != ['Plugins']:
+            failures.append(f'beside a {foreign} build: alerts {unrunnable["alerts"]}')
+
+    # The same with a build this Mac could run but whose seal no longer
+    # validates, as a plugin that writes into its own bundle leaves it: its
+    # Info.plist changed after it was signed, declaring 300. The loader refuses
+    # it for its signature before it reads its files, so it does not stand for
+    # the plugin either: the intact one loads, and the other is listed as
+    # blocked, with the signature's reason, the one that loads instead and both
+    # versions.
+    def broken_seal(support):
+        shutil.copytree(fixtures / 'QA.osirixplugin', support / 'IsiX/Plugins/QA.osirixplugin')
+        other = support / 'IsiX/Plugins/QA.horosplugin'
+        shutil.copytree(fixtures / 'QA.horosplugin', other)
+        signed = subprocess.run(['codesign', '--force', '--sign', '-', str(other)], capture_output=True, text=True)
+        if signed.returncode != 0:
+            setup_errors.append(f'codesign on {other}: {(signed.stdout + signed.stderr).strip()}')
+            return
+        info = plistlib.loads((other / 'Contents/Info.plist').read_bytes())
+        info['CFBundleVersion'] = '300'
+        (other / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
+    sealed = judged('beside a build whose seal is broken', scenario(
+        'release-beside-a-build-whose-seal-is-broken', RELEASE, False, recovery=False, prepare=broken_seal))
+    if sealed:
+        loaded, refused = sealed['loadOf'].get('QA.osirixplugin', ''), sealed['loadOf'].get('QA.horosplugin', '')
+        if not loaded.startswith('2.0 Loaded'):
+            failures.append(f'beside a broken seal: QA.osirixplugin 2.0 is {loaded!r}')
+        if not refused.startswith('300 Blocked: The plugin signature is invalid:') \
+                or 'QA.osirixplugin (2.0)' not in refused or '(300)' not in refused:
+            failures.append(f'beside a broken seal: QA.horosplugin 300 is {refused!r}, not blocked '
+                            'for its signature with the one that loads instead and both versions')
+        if sealed['alerts'] != ['Plugins']:
+            failures.append(f'beside a broken seal: alerts {sealed["alerts"]}')
+
+    # The Import Plugins from Horos or OsiriX command over that build: an earlier
+    # copy brought it into IsiX, and the Horos folder has it beside its universal
+    # successor. The successor is the one offered, the other is left out for its
+    # name, and the successor takes the place of the build IsiX has, which its
+    # higher version alone would have kept; then the plugin loads.
+    def unrunnable_in_isix(support):
+        (support / 'IsiX/.ImportLegacyPlugins.json').write_text('[]')
+        foreign_build(support / 'IsiX/Plugins/QA.horosplugin')
+        foreign_build(support / 'Horos/Plugins/QA.horosplugin')
+        shutil.copytree(fixtures / 'QA.osirixplugin', support / 'Horos/Plugins/QA.osirixplugin')
+    repaired = foreign and judged('import over a build this Mac cannot run', scenario(
+        'release-import-again-over-a-build-this-mac-cannot-run', RELEASE, False, recovery=False,
+        prepare=unrunnable_in_isix, extra=['--ProbeImportAgain']))
+    if repaired:
+        lines = repaired['importLines']
+        if lines.get('additions') != ['QA.osirixplugin (2.0) replaces QA.horosplugin (300)', 'QALegacy.horosplugin (1.0)',
+                                      'QAStore.osirixplugin (1.0)']:
+            failures.append(f'import over a {foreign} build: would copy {lines.get("additions")}')
+        if lines.get('leftOut') != ['QA.horosplugin (300): QA.osirixplugin (2.0) has the same name and is used instead.']:
+            failures.append(f'import over a {foreign} build: left out {lines.get("leftOut")}')
+        if lines.get('failed') or lines.get('additionsAfterwards'):
+            failures.append(f'import over a {foreign} build: failed {lines.get("failed")}, '
+                            f'still to copy afterwards {lines.get("additionsAfterwards")}')
+        installed = repaired['support'] / 'IsiX/Plugins/QA.horosplugin/Contents/Info.plist'
+        version = plistlib.loads(installed.read_bytes()).get('CFBundleVersion') if installed.is_file() else None
+        if version != '2.0' or not repaired['loadOf'].get('QA.horosplugin', '').startswith('2.0 Loaded'):
+            failures.append(f'import over a {foreign} build: IsiX has QA at {version}, and it is '
+                            f'{repaired["loadOf"].get("QA.horosplugin")!r}')
+        if repaired['alerts']:
+            failures.append(f'import over a {foreign} build: alerts {repaired["alerts"]}')
+
     # The Import Plugins from Horos or OsiriX command: IsiX has QA 1.0 and QAUniversal;
-    # the Horos folder got QA 2.0 under the other extension, a plugin IsiX does not
-    # have, the same QAUniversal, and a link.
+    # the Horos folder got QA 2.0 under the other extension, the same QAUniversal
+    # and a link to it, links under two names, there and in the Horos App folder,
+    # to a plugin IsiX does not have and that is kept outside those folders, a
+    # link to a bundle that is gone and one to something that is not a bundle.
+    # A link stands for the bundle it leads to: the one to QAUniversal adds
+    # nothing and is not mentioned, and the plugin kept outside is copied once,
+    # from where it is and under its own name.
     def later(support):
         shutil.copytree(fixtures / 'QA.horosplugin', support / 'IsiX/Plugins/QA.horosplugin')
         shutil.copytree(fixtures / 'QAUniversal.horosplugin', support / 'IsiX/Plugins/QAUniversal.horosplugin')
         (support / 'IsiX/.ImportLegacyPlugins.json').write_text('[]')
         horos = support / 'Horos/Plugins'
         shutil.copytree(fixtures / 'QA.osirixplugin', horos / 'QA.osirixplugin')
-        shutil.copytree(fixtures / 'QAModalDialog.horosplugin', horos / 'QAModalDialog.horosplugin')
         shutil.copytree(fixtures / 'QAUniversal.horosplugin', horos / 'QAUniversal.horosplugin')
-        (horos / 'QALinked.horosplugin').symlink_to(fixtures / 'QAIntel.horosplugin')
+        (horos / 'QAUniversalAgain.horosplugin').symlink_to('QAUniversal.horosplugin')
+        outside = support / 'Kept Elsewhere/QAModalDialog.horosplugin'
+        shutil.copytree(fixtures / 'QAModalDialog.horosplugin', outside)
+        (horos / 'QALinked.horosplugin').symlink_to(outside)
+        (support / 'Horos App/Plugins/QAModalDialog.horosplugin').symlink_to('../../Kept Elsewhere/QAModalDialog.horosplugin')
+        (horos / 'QAGone.horosplugin').symlink_to(support / 'Kept Elsewhere/QAGone.horosplugin')
+        (support / 'Kept Elsewhere/notes.txt').write_text('not a bundle')
+        (horos / 'QANotes.osirixplugin').symlink_to(support / 'Kept Elsewhere/notes.txt')
     again = scenario('release-import-again', RELEASE, False, recovery=False, prepare=later, extra=['--ProbeImportAgain'])
     if again:
         lines = again['importLines']
@@ -711,8 +868,15 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
         if lines.get('additions') != ['QA.osirixplugin (2.0) replaces QA.horosplugin (1.0)', 'QALegacy.horosplugin (1.0)',
                                       'QAModalDialog.horosplugin (1.0)', 'QAStore.osirixplugin (1.0)']:
             failures.append(f'import again: would copy {lines.get("additions")}')
-        if lines.get('leftOut') != ['QALinked.horosplugin: it is a symbolic link, not a plugin.']:
+        if lines.get('leftOut') != ['QAGone.horosplugin: the link leads to an item that no longer exists.',
+                                    'QANotes.osirixplugin: it is a symbolic link, not a plugin.']:
             failures.append(f'import again: left out {lines.get("leftOut")}')
+        copy, outside = again['support'] / 'IsiX/Plugins/QAModalDialog.horosplugin', again['support'] / 'Kept Elsewhere/QAModalDialog.horosplugin'
+        if copy.is_symlink() or not copy.is_dir() or snapshot(copy) != snapshot(fixtures / 'QAModalDialog.horosplugin') \
+                or snapshot(outside) != snapshot(fixtures / 'QAModalDialog.horosplugin'):
+            failures.append('import again: the plugin kept outside the folders was not copied from where it is, or it changed')
+        if not (again['support'] / 'Horos/Plugins/QALinked.horosplugin').is_symlink():
+            failures.append('import again: the link in the source folder changed')
         if lines.get('failed') or lines.get('additionsAfterwards'):
             failures.append(f'import again: failed {lines.get("failed")}, still to copy afterwards {lines.get("additionsAfterwards")}')
         isix = again['support'] / 'IsiX/Plugins'
@@ -727,6 +891,122 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
             failures.append('import again: the source folder changed')
         if again['alerts']:
             failures.append(f'import again: alerts {again["alerts"]}')
+
+    # --- symbolic links in the plugins folders of IsiX -------------------------------
+    EXCEPTION = '+[PluginManager discoverPlugins]'
+    NOWHERE = 'This plugin is a link or an alias to an item that no longer exists ('
+
+    def rest_loaded(label, report):
+        """The plugins every scenario keeps in the folder still load, and no folder's reading stopped."""
+        if report['outcomes']['home'] != 'Loaded' or report['installedOutcomes'] != {'Horos': 'Loaded', 'OsiriX': 'Loaded'}:
+            failures.append(f'{label}: the other plugins of the folder are {report["outcomes"]}, {report["installedOutcomes"]}')
+        stopped = [line for line in report['stderr'].splitlines() if EXCEPTION in line]
+        if stopped:
+            failures.append(f'{label}: the reading of a folder stopped: {stopped[0][:300]}')
+        if report['alerts']:
+            failures.append(f'{label}: alerts {report["alerts"]}')
+
+    # (a) A link to a bundle that is gone, with a plugin's name and without. The
+    # exception it raised stopped the folder wherever the listing put the link,
+    # so this does not depend on the order of the directory.
+    def gone(support):
+        (support / 'IsiX/Plugins/QAGone.osirixplugin').symlink_to(support / 'Removed/QAGone.osirixplugin')
+        (support / 'IsiX/Plugins/gone link').symlink_to('../Removed/QAGone.osirixplugin')
+    dangling = scenario('release-with-links-to-nothing', RELEASE, False, recovery=False, prepare=gone)
+    if dangling:
+        rest_loaded('links to nothing', dangling)
+        row = dangling['loadOf'].get('QAGone.osirixplugin', '')
+        if not row.startswith(' Load failed: ' + NOWHERE) or 'Removed/QAGone.osirixplugin)' not in row:
+            failures.append(f'links to nothing: the row of QAGone.osirixplugin is {row!r}')
+        if 'gone link' in dangling['listedPlugins'] or 'gone link' in dangling['loadOf']:
+            failures.append('links to nothing: the link with no plugin name is listed')
+        if not dangling['unchanged']:
+            failures.append('links to nothing: discovery changed the folder')
+
+    # (b) A second entry of the folder that leads to a bundle of it: one load,
+    # and both rows say what became of that one bundle.
+    def twice_linked(support):
+        (support / 'IsiX/Plugins/QAOsiriXAgain.osirixplugin').symlink_to('QAOsiriX.osirixplugin')
+    linked = scenario('release-with-a-link-to-a-bundle-of-the-folder', RELEASE, False, recovery=False, prepare=twice_linked)
+    if linked:
+        rest_loaded('a link to a bundle of the folder', linked)
+        states = {name: linked['loadOf'].get(name, '') for name in ('QAOsiriX.osirixplugin', 'QAOsiriXAgain.osirixplugin')}
+        if not all(state.startswith('1.0 Loaded') for state in states.values()):
+            failures.append(f'a link to a bundle of the folder: the two rows are {states}')
+        if 'it is the same bundle as' not in linked['stderr']:
+            failures.append('a link to a bundle of the folder: the log does not say the second entry is the same bundle')
+
+    # (c) A link whose own name is not a plugin's, to a plugin kept elsewhere:
+    # the plugins list, the import and the commands that disable or delete a
+    # plugin go by the name of the entry, and so does what loads.
+    def unnamed(support):
+        (support / 'IsiX/Plugins/QAModalDialog').symlink_to(fixtures / 'QAModalDialog.horosplugin')
+    nameless = scenario('release-with-a-link-that-has-no-plugin-name', RELEASE, False, recovery=False, prepare=unnamed)
+    if nameless:
+        rest_loaded('a link with no plugin name', nameless)
+        if 'QAModalDialog' in nameless['registeredNames'] or 'QAModalDialog' in nameless['listedPlugins']:
+            failures.append(f'a link with no plugin name: loaded {nameless["registeredNames"]}, listed {nameless["listedPlugins"]}')
+        if 'does not have the name of a plugin' not in nameless['stderr']:
+            failures.append('a link with no plugin name: the log does not say why its plugin is not loaded')
+
+    # (d) Links that lead back to one another, and one that names itself: the
+    # launch finishes, and they are entries that lead nowhere.
+    def loops(support):
+        (support / 'IsiX/Plugins/QALoopA.osirixplugin').symlink_to('QALoopB.osirixplugin')
+        (support / 'IsiX/Plugins/QALoopB.osirixplugin').symlink_to('QALoopA.osirixplugin')
+        (support / 'IsiX/Plugins/QAItself.horosplugin').symlink_to(support / 'IsiX/Plugins/QAItself.horosplugin')
+    looped = scenario('release-with-links-in-a-loop', RELEASE, False, recovery=False, prepare=loops)
+    if looped:
+        rest_loaded('links in a loop', looped)
+        rows = {name: looped['loadOf'].get(name, '') for name in ('QALoopA.osirixplugin', 'QALoopB.osirixplugin', 'QAItself.horosplugin')}
+        if not all(row.startswith(' Load failed: ' + NOWHERE) for row in rows.values()):
+            failures.append(f'links in a loop: their rows are {rows}')
+
+    # A link in the user's folder to the bundle in the computer's, in the folders
+    # an isolated launch stands in for them: one bundle, loaded once, and its
+    # two rows say so. Before, the second entry read Blocked, with an alert at
+    # every launch.
+    def across(support):
+        folder = support.parents[2] / 'test root/Isolated Plugins'
+        system = folder / 'System/Library/Application Support/IsiX/Plugins'
+        user = folder / 'User/Library/Application Support/IsiX/Plugins'
+        system.mkdir(parents=True)
+        user.mkdir(parents=True)
+        shutil.copytree(fixtures / 'QAOsiriX.osirixplugin', system / 'QAOsiriX.osirixplugin')
+        (user / 'QAOsiriX.osirixplugin').symlink_to(system / 'QAOsiriX.osirixplugin')
+    shared = scenario('isolated-with-a-link-to-the-computers-bundle', DEVELOPMENT, True, recovery=False, prepare=across)
+    if shared:
+        if shared['listedPlugins'].count('QAOsiriX') != 2 or shared['loadedPlugins'].count('QAOsiriX') != 2:
+            failures.append(f'a link to the computer\'s bundle: listed {shared["listedPlugins"]}, loaded {shared["loadedPlugins"]}')
+        if shared['alerts'] or EXCEPTION in shared['stderr']:
+            failures.append(f'a link to the computer\'s bundle: alerts {shared["alerts"]}, or the reading of a folder stopped')
+        if 'it is the same bundle as' not in shared['stderr']:
+            failures.append('a link to the computer\'s bundle: the log does not say the second entry is the same bundle')
+
+    # A launch after the single offer was answered: the Horos folder has QA 2.0
+    # and IsiX has 1.0, as after the installer of a plugin updated it there.
+    # The launch offers it once, the probe answers Import, and the 2.0 loads in
+    # that launch. The plugins IsiX does not have were there when the record
+    # of what was offered began: taken as declined, they are not offered.
+    def updated(support):
+        (support / 'IsiX/.ImportLegacyPlugins.json').write_text('[]')
+        shutil.copytree(fixtures / 'QA.horosplugin', support / 'IsiX/Plugins/QA.horosplugin')
+        shutil.copytree(fixtures / 'QA.osirixplugin', support / 'Horos/Plugins/QA.osirixplugin')
+    offered = scenario('release-launch-after-an-update-in-the-horos-folder', RELEASE, False, recovery=False,
+                       prepare=updated, extra=['--ProbeCopyLegacyPlugins'])
+    if offered:
+        if offered['alerts'] != ['Import Plugins from Horos or OsiriX'] or offered['alertButtons'] != [['Import', 'Not Now']]:
+            failures.append(f'a launch after an update: alerts {offered["alerts"]}, with {offered["alertButtons"]}')
+        if not offered['loadOf'].get('QA.horosplugin', '').startswith('2.0 Loaded'):
+            failures.append(f'a launch after an update: QA is {offered["loadOf"].get("QA.horosplugin")!r}')
+        record = offered['support'] / 'IsiX/.ImportLegacyPlugins-offered.json'
+        versions = json.loads(record.read_text()) if record.is_file() else None
+        if versions != {'qa': '2.0', 'qalegacy': '1.0', 'qastore': '1.0'}:
+            failures.append(f'a launch after an update: the record of what was offered is {versions}')
+        if (offered['support'] / 'IsiX/Plugins/QALegacy.horosplugin').exists() or (offered['support'] / 'IsiX/Plugins/QAStore.osirixplugin').exists():
+            failures.append('a launch after an update: plugins that were not offered were copied')
+        if snapshot(fixtures / 'QA.osirixplugin') != snapshot(offered['support'] / 'Horos/Plugins/QA.osirixplugin'):
+            failures.append('a launch after an update: the source folder changed')
 
     copied = scenario('copy-legacy-plugins', DEVELOPMENT, True, recovery=False, copy_legacy=True)
     if copied:
@@ -747,4 +1027,5 @@ if failures:
         print('FAIL: ' + failure)
     sys.exit(1)
 print('PASS: discovery and listing use only the IsiX folders; the release probe loads .isixplugin, .horosplugin '
-      'and .osirixplugin from IsiX. Crash recovery, isolated development, and the one-time copy prompt pass.')
+      'and .osirixplugin from IsiX. Crash recovery, isolated development, links in the plugins folders, the one-time '
+      'copy prompt and the offer of a later launch pass.')

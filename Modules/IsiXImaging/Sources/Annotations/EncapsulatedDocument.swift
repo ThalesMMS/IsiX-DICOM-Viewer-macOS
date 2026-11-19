@@ -79,4 +79,15 @@ public enum EncapsulatedDocument {
 
     /// How long the PDF of a structured report may take to be made, in seconds.
     public static let renderingTimeout: TimeInterval = 10
+
+    /// How long dsr2html may take to write the XML of a structured report, in
+    /// seconds, where a command renders the report: an export that gave up on a
+    /// slow report would leave it out of what it writes without a word.
+    public static let conversionTimeout: TimeInterval = 60
+
+    /// The same wait where the report is loaded as the image to show. The image
+    /// view loads the image it shows on the main thread, in the database preview
+    /// and in a viewer, where a minute would freeze the interface: the
+    /// conversion gets what the PDF stage after it gets.
+    public static let conversionTimeoutOnDisplay: TimeInterval = renderingTimeout
 }

@@ -8,7 +8,8 @@ any two consecutive ones 0.01 mm apart raised it. Along the slice normal the
 slices are 1.2500 mm apart, 1.2127 mm at the 7 boundaries, and no slice is more
 than 0.031 mm from a uniform grid - a tenth of a pixel.
 
-HorosSliceIntervalRegularity is compiled and run on synthetic positions only:
+HorosSliceIntervalRegularity, over IsiXImaging's SliceSpacingRegularity, is
+compiled and run on synthetic positions only:
 that stack does not warn and reports 1.2127/1.2500; a regular stack and a
 0.625 mm stack written with two decimals do not warn; a missing slice and a mix
 of 1.25 and 2.5 mm do. ViewerController's warning is checked to use it.
@@ -17,6 +18,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from isix_modules import module_flags  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -52,7 +56,9 @@ run("single", [0, 0, 0], [0, 0, 1], 0.7)
 with tempfile.TemporaryDirectory(prefix='horos-interval-') as directory:
     work = Path(directory)
     (work / 'main.swift').write_text(DRIVER)
-    built = subprocess.run(['xcrun', 'swiftc', str(root / 'Horos/Sources/SliceIntervalRegularity.swift'), str(work / 'main.swift'),
+    target = ['-target', 'arm64-apple-macos15.0']
+    built = subprocess.run(['xcrun', 'swiftc', *target, *module_flags('IsiXImaging', work / 'modules', target),
+                            str(root / 'Horos/Sources/SliceIntervalRegularity.swift'), str(work / 'main.swift'),
                             '-o', str(work / 'interval')], capture_output=True, text=True)
     if built.returncode:
         failures.append('the regularity check does not compile:\n' + built.stderr[-2000:])

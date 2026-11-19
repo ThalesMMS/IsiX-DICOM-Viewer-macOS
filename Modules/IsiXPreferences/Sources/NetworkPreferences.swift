@@ -86,7 +86,7 @@ public enum NetworkPreferences {
     public static let webServer = PreferenceKey<Bool>("httpWebServer", registered: "0")
     public static let webServerPort = PreferenceKey<Int>("httpWebServerPort", registered: "3333")
     public static let xmlrpcServer = PreferenceKey<Bool>("httpXMLRPCServer", registered: "0")
-    /// As Horos and OsiriX: once the server is turned on, any address is answered without a password (scope
+    /// Once the server is turned on, any address is answered without a password (scope
     /// 2). The Listener pane says so in red and offers this Mac only, the local network and a password
     /// instead.
     public static let xmlrpcServerAccessScope = PreferenceKey<Int>("httpXMLRPCServerAccessScope", registered: "2")
@@ -115,6 +115,11 @@ public enum NetworkPreferences {
     public static let notificationsEmailsInterval = PreferenceKey<Int>("notificationsEmailsInterval", registered: "1")
     public static let osirixServers = PreferenceKey<[PropertyListValue]?>("OSIRIXSERVERS", registered: PreferenceDefault { _ in [Any]() })
     public static let pacsOnDemandForSearchField = PreferenceKey<Bool>("PACSOnDemandForSearchField", registered: "1")
+    /// A patient's name is found whatever the order of its words: a search of the Query window or of the
+    /// distant nodes that found nothing asks again with «^» between the words, in each order
+    /// (PatientNameQueryForms of IsiXContracts), and the database's name search matches the first word at
+    /// the start of any word of the name. Off, each keeps the rule it had.
+    public static let findsPatientNamesInAnyWordOrder = PreferenceKey<Bool>("PatientNameAnyWordOrder", registered: "1")
     /// 2: EXS_LittleEndianExplicit.
     public static let preferredSyntaxForIncoming = PreferenceKey<Int>("preferredSyntaxForIncoming", registered: "2")
     public static let publishDICOMBonjour = PreferenceKey<Bool>("publishDICOMBonjour", registered: "1")
@@ -245,6 +250,18 @@ public enum NetworkPreferences {
     public static let xmlrpcServerShowsFailureAlerts = PreferenceKey<Bool>("httpXMLRPCServerShowFailureAlerts")
     /// Seconds a request waits for a study that has not arrived yet.
     public static let xmlrpcServerWaitForStudy = PreferenceKey<Int>("httpXMLRPCServerWaitForStudy")
+    /// The seconds a Retrieve with `then` waits for the first images of the
+    /// study before it gives up opening or selecting it. 30, as the
+    /// retrieve-then-open wait has long been.
+    public static let xmlrpcRetrieveOpenWaitSeconds = PreferenceKey<Int>("XMLRPCRetrieveOpenWaitSeconds", registered: "30")
+
+    // The schemes of the links.
+    /// What is done at launch when another application opens a scheme of the links this one declares:
+    /// 0 or absent tells the user, 1 takes the scheme back without asking, 2 does nothing.
+    public static let linkSchemeStartupPolicy = PreferenceKey<Int>("LinkSchemeStartupPolicy")
+    /// For each scheme this application took, the path of the application that opened it before, which
+    /// the Listener pane gives the scheme back to.
+    public static let linkSchemePreviousHandlers = PreferenceKey<[String: PropertyListValue]?>("LinkSchemePreviousHandlers")
 
     /// Every key of this file.
     static let catalog: [any CataloguedPreference] = [
@@ -263,7 +280,7 @@ public enum NetworkPreferences {
         maximumSendGlobalControllerConcurrentThreads, maxNumberOfFramesForWebPortalMovies,
         maxNumberOfRetrieveForAutoQR, modalityWorklistRefreshMinutes, multipleAssociationsRetrieve, networkLogs, noOfMultipleAssociationsRetrieve,
         notificationsEmails, notificationsEmailsInterval, osirixServers, pacsOnDemandForSearchField,
-        preferredSyntaxForIncoming, publishDICOMBonjour, putsDestinationAETitleInPrivateInformationCreatorUID,
+        findsPatientNamesInAnyWordOrder, preferredSyntaxForIncoming, publishDICOMBonjour, putsDestinationAETitleInPrivateInformationCreatorUID,
         putsSourceAETitleInSourceApplicationEntityTitle, qrRemoveDuplicateEntries, restorePasswordWebServer,
         routingCalendars, routingActivated, runListenerOnlyIfActive, searchDICOMBonjour,
         sendControllerConcurrentThreads, dicomNodes, showErrorMessagesForAutorouting,
@@ -285,6 +302,7 @@ public enum NetworkPreferences {
         autoQueryRefreshSetting, keepsQueryWindowOnTop, betweenDatesMode, customIntervalWithHoursAndMinutes,
         searchesComparativeStudiesOnDICOMNodes, pacsOnDemandNodes, searchesSmartAlbumStudiesOnDICOMNodes, sendsROIs,
         sendTransferSyntax, lastSendServer, lastSendWhat, xmlrpcWithPACSOnDemand, xmlrpcServerShowsFailureAlerts, xmlrpcServerWaitForStudy,
+        xmlrpcRetrieveOpenWaitSeconds, linkSchemeStartupPolicy, linkSchemePreviousHandlers,
     ]
 
     /// The key path of `key` in NSUserDefaultsController, whose observers and bindings hear a change of the key.

@@ -188,6 +188,9 @@ final class FakeBrowser {
     func outlineViewRefresh() -> String! { record("browser outlineViewRefresh"); return "" }
     func refreshColumns() { record("browser refreshColumns") }
     func setNetworkLogs() { record("browser setNetworkLogs") }
+    // The database's preview, which the responder redraws with the viewers and
+    // the reference did not: none here, so the records stay comparable.
+    var horos_imageView: NSView? { nil }
 }
 
 final class ProcessGraph {

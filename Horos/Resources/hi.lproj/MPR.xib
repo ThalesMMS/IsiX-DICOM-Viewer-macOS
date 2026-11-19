@@ -23,6 +23,7 @@
                 <outlet property="quicktimeWindow" destination="910" id="994"/>
                 <outlet property="shadingCheck" destination="732" id="800"/>
                 <outlet property="shadingPanel" destination="525" id="624"/>
+                <outlet property="shadingValues" destination="733" id="sV7-Mp-R33"/>
                 <outlet property="shadingsPresetsController" destination="595" id="623"/>
                 <outlet property="tbAxisColors" destination="816" id="820"/>
                 <outlet property="tbBlending" destination="856" id="893"/>
@@ -93,6 +94,7 @@
                 <string>dcmSameIntervalAndThickness</string>
                 <string>clippingRangeThicknessInMm</string>
                 <string>thickSlabSliderPosition</string>
+                <string>thickSlabFieldThickness</string>
                 <string>dcmRotationDirection</string>
                 <string>colorAxis1</string>
                 <string>colorAxis2</string>
@@ -913,8 +915,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -933,8 +935,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -953,8 +955,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="4"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -973,8 +975,8 @@ Gw
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="50"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -1087,18 +1089,13 @@ Gw
                         <rect key="frame" x="4" y="4" width="47" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="center" title="128" bezelStyle="round" id="665">
-                            <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.##" negativeFormat="#.##" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="309" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="1144">
-                                <nil key="negativeInfinitySymbol"/>
-                                <nil key="positiveInfinitySymbol"/>
-                            </numberFormatter>
+                            <customFormatter key="formatter" id="1144" customClass="IsiXThickSlabFieldFormatter"/>
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                         <connections>
-                            <binding destination="342" name="value" keyPath="selection.clippingRangeThicknessInMm" previousBinding="1189" id="1190"/>
-                            <binding destination="342" name="maxValue" keyPath="selection.dcmIntervalMax" id="1188"/>
-                            <binding destination="342" name="minValue" keyPath="selection.dcmIntervalMin" previousBinding="1188" id="1189"/>
+                            <binding destination="342" name="value" keyPath="selection.thickSlabFieldThickness" id="1190"/>
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="661">
@@ -1202,7 +1199,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="248" height="49"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
-                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" id="700">
+                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" id="700" customClass="IsiXTipMatrix">
                         <rect key="frame" x="1" y="11" width="212" height="34"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1343,10 +1340,10 @@ Gw
             </view>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="डिब्बा" titlePosition="noTitle" id="731" userLabel="tb Shading">
-            <rect key="frame" x="0.0" y="0.0" width="186" height="35"/>
+            <rect key="frame" x="0.0" y="0.0" width="190" height="35"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="U3j-Wy-9nL">
-                <rect key="frame" x="0.0" y="0.0" width="186" height="35"/>
+                <rect key="frame" x="0.0" y="0.0" width="190" height="35"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <button verticalHuggingPriority="750" verticalCompressionResistancePriority="749" id="734">
@@ -1366,7 +1363,7 @@ Gw
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="733">
-                        <rect key="frame" x="76" y="1" width="106" height="33"/>
+                        <rect key="frame" x="72" y="0" width="114" height="35"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="736">
                             <font key="font" metaFont="miniSystem"/>

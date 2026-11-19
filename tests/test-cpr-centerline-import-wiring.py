@@ -31,7 +31,8 @@ if 'importPatientSpaceCenterline(fromFile: path)' not in load:
     sys.exit(1)
 # Decoded with secure coding as a CPRCurvedPath; the class used to
 # be checked after decoding.
-if 'unarchivedObject(ofClass: CPRCurvedPath.self' not in load:
+if 'pathLibrary.load(fromFile: path)' not in load or 'unarchivedObject(ofClass: CPRCurvedPath.self' not in \
+        (root / 'Horos/Sources/CurvedPathLibrary.swift').read_text(encoding='utf-8'):
     print('FAIL: archive load must still require a CPRCurvedPath', file=sys.stderr)
     sys.exit(1)
 open_panel = controller[controller.index('func loadBezierPath('):

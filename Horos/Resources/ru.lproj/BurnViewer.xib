@@ -286,7 +286,7 @@
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="73">
                         <rect key="frame" x="114" y="79" width="284" height="18"/>
-                        <buttonCell key="cell" type="check" title="Копировать соответствующий отчет (отчеты), если таковые имеются" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="74">
+                        <buttonCell key="cell" type="check" title="Копировать соответствующий отчёт (отчёты), если таковые имеются" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="74">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

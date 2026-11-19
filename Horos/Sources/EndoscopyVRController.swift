@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 
 /// [dict setObject: object forKey: key], which raises for nil as the former
 /// code did.
@@ -136,6 +137,14 @@ public final class EndoscopyVRController: VRController {
         z2DPointsArray = NSMutableArray()
 
         viewer2DStorage = vC
+        // What the window opened on, as the VR window records it: the slices
+        // as their files have them when its 2D viewer is not post-processed,
+        // and the geometry they were read with. A change of plane afterwards
+        // leaves this window those slices, and their state
+        // (-horosStateIsSeries) and scissors restore
+        // (-horosScissorRestoreRefusal).
+        horosSlicesFromFiles = vC.map { !$0.postprocessed() } ?? false
+        horosRecordSliceGeometry()
         collect2DPoints(withColour: false)
 
         let nc = NotificationCenter.default
@@ -178,6 +187,11 @@ public final class EndoscopyVRController: VRController {
     }
 
     public override func save3DState() {
+        // A window opened on a resliced series holds another volume under the
+        // name of the series' first file: its state is not the series'
+        // (-horosStateIsSeries). A change of plane since it opened does not
+        // count: the window still holds the slices it opened on.
+        guard horosStateIsSeries() else { return }
         // Without a file list, the volume was never given: the view never had
         // a volume, and its state is not the series'.
         guard let files = horosFileList(), files.count > 0 else { return }
@@ -188,10 +202,8 @@ public final class EndoscopyVRController: VRController {
         setObject(dict, horos_curOpacityMenu, "OpacityName")
         //	[dict setObject:[[shadingsPresetsController selection] valueForKey:@"name"]  forKey:@"shading"]; // crash if 1) flythru panel open & 2) shading panel not opened...
 
-        if (viewer2D()?.postprocessed() ?? false) == false {
-            if let str = str {
-                dict?.write(toFile: str, atomically: true)
-            }
+        if let str = str {
+            dict?.write(toFile: str, atomically: true)
         }
     }
 
@@ -199,30 +211,37 @@ public final class EndoscopyVRController: VRController {
         NSLog("Load Endoscopy 3d State")
         let str = endoscopyStatePath(horosFileList(), in: browserWindowGraph?.database)
 
-        var dict: NSDictionary? = str.flatMap { NSDictionary(contentsOfFile: $0) }
-
-        if viewer2D()?.postprocessed() ?? false { dict = nil }
+        // The saved state is read when the window holds the series as its
+        // files have it, whatever its 2D viewer shows now.
+        let dict: NSDictionary? = horosStateIsSeries() ? str.flatMap { NSDictionary(contentsOfFile: $0) } : nil
 
         let view = volumeView
-        view?.set3DStateDictionary(dict as? [AnyHashable: Any])
-        NSLog("3d Dict: %@", dict ?? ("(null)" as NSString))
-        if dict == nil {
+        // A saved state that raises an Objective-C exception (an old or
+        // damaged plist whose values are not of the type the view reads) is
+        // logged and left aside: the window opens as for a series without one.
+        var state = dict
+        if let e = HorosObjCException.caught({ view?.set3DStateDictionary(dict as? [AnyHashable: Any]) }) {
+            _N2LogExceptionImpl(e, false, "-[EndoscopyVRController load3DState]")
+            NSLog("Endoscopy 3D state %@ could not be read and is ignored", ((str ?? "") as NSString).lastPathComponent)
+            state = nil
+            view?.set3DStateDictionary(nil)
+        }
+        if state == nil {
             applyWLWW(for: "VR - Endoscopy")
         }
 
-        if let clut = dict?.object(forKey: "CLUTName") { applyCLUTString(clut as? String) }
-        else { applyCLUTString("Endoscopy") }
+        applyCLUTString((state?.object(forKey: "CLUTName") as? String) ?? "Endoscopy")
+        applyOpacityString((state?.object(forKey: "OpacityName") as? String) ?? "Logarithmic Table")
 
-        if let opacity = dict?.object(forKey: "OpacityName") { applyOpacityString(opacity as? String) }
-        else { applyOpacityString("Logarithmic Table") }
-
-        var shadingName = dict?.object(forKey: "shading") as? String
-        if shadingName == nil {
-            shadingName = "Endoscopy"
-        }
+        // The shading values the state holds are the view's by now: the
+        // endoscopy's own preset is for a series without them. Applied at
+        // every opening, it replaced what the state had just given back.
+        let holdsShading = (state?.object(forKey: "ShadingValues") as? [Any])?.count == 4
+        let shadingName = VolumeRenderingOpening.endoscopyShadingPreset(savedName: state?.object(forKey: "shading") as? String,
+                                                                        stateHoldsShadingValues: holdsShading)
 
         let presets = shadingsPresetsController
-        for shading in (presets?.arrangedObjects as? NSArray) ?? NSArray() {
+        for shading in (presets?.arrangedObjects as? NSArray) ?? NSArray() where shadingName != nil {
             if ((shading as AnyObject).value(forKey: "name") as? String) == shadingName {
                 presets?.setSelectedObjects([shading])
                 applyShading(nil)
@@ -238,9 +257,9 @@ public final class EndoscopyVRController: VRController {
         var specularpower: Float = 1.0
         //[view setShadingValues:0.12 :0.62 :0.73 :50.0];
         view?.getShadingValues(&ambient, &diffuse, &specular, &specularpower)
-        let values = String(format: NSLocalizedString("Ambient: %2.1f\nDiffuse: %2.1f\nSpecular :%2.1f-%2.1f", comment: ""), ambient, diffuse, specular, specularpower)
-        NSLog("%@", values)
-        shadingValues?.stringValue = values
+        // The text of the VR window's other paths (opening, preset, panel):
+        // two decimals and the region's decimal separator.
+        horosShowShadingValues(.init(ambient: ambient, diffuse: diffuse, specular: specular, specularPower: specularpower))
     }
 
     @IBAction public override func flyThruControllerInit(_ sender: Any!) {

@@ -37,12 +37,15 @@ final class DicomSeries: NSObject {
 final class DICOMSOPClass: NSObject {
     static func isImageStorage(_ uid: String?) -> Bool { ["%(image)s", "%(pdf)s"].contains(uid ?? "") }
     static func pdfStorageClassUID() -> String { "%(pdf)s" }
+    static func isRTDose(_ uid: String?) -> Bool { uid == "1.2.840.10008.5.1.4.1.1.481.2" }
 }
 final class DicomStudy: NSObject {
 %(functions)s
 }
 let given: [DicomSeries] = [DicomSeries("pdf-0", "%(pdf)s"), DicomSeries("sr-0", "%(sr)s"), DicomSeries("t1", "%(image)s"),
-                            DicomSeries("ecg", "%(ecg)s"), DicomSeries("unknown", nil), DicomSeries("t2", "%(image)s")]
+                            DicomSeries("ecg", "%(ecg)s"), DicomSeries("unknown", nil), DicomSeries("t2", "%(image)s"),
+                            // A dose grid holds pictures; a plan, of the same family, is a document.
+                            DicomSeries("plan", "1.2.840.10008.5.1.4.1.1.481.5"), DicomSeries("dose", "1.2.840.10008.5.1.4.1.1.481.2")]
 let sorted = DicomStudy.imagesBeforeDocuments(given as NSArray) as! [DicomSeries]
 print(sorted.map(\\.label).joined(separator: ","))
 ''' % {'image': IMAGE, 'pdf': PDF, 'sr': SR, 'ecg': ECG, 'functions': functions}
@@ -55,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='horos-series-order-') as directory:
         failures.append('the ordering does not compile:\n' + built.stderr[-1500:])
     else:
         out = subprocess.run([str(work / 'order')], capture_output=True, text=True, timeout=60).stdout.strip()
-        if out != 't1,unknown,t2,pdf-0,sr-0,ecg':
+        if out != 't1,unknown,t2,dose,pdf-0,sr-0,ecg,plan':
             failures.append('pictures first, then documents, each in its order: got %r' % out)
 
 pixels = study[study.index('public dynamic func imageSeriesContainingPixels'):study.index('    /// Whether a series of this SOP class holds pictures')]

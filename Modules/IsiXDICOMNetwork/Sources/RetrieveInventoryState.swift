@@ -28,6 +28,22 @@ struct RetrieveInventoryState: Sendable {
     /// Instances the peer had already declared it cannot send when this attempt began:
     /// their absence was reported by the attempt that found it.
     var knownUnsendable: Set<String> = []
+    /// The stores of this attempt that arrived, each copy of an instance counted.
+    var attemptStores = 0
+    /// What the peer answered to each C-MOVE and C-GET of this attempt.
+    var attemptOperations: [PeerOperation] = []
+
+    /// The final response of a C-MOVE or C-GET: its status and its counters.
+    struct PeerOperation: Sendable, Equatable {
+        var status: UInt
+        var completed: UInt
+        var failed: UInt
+        var warnings: UInt
+        var remaining: UInt
+
+        /// The peer ended in success and left nothing failed, questioned or unsent.
+        var endedClean: Bool { status == 0 && failed == 0 && warnings == 0 && remaining == 0 }
+    }
 
     init(record: RetrieveInventoryRecord) {
         self.record = record
@@ -39,10 +55,14 @@ struct RetrieveInventoryState: Sendable {
 
     /// What the node listed, read as `begin` reads it: a new record of
     /// `study` and `series`, unconfirmed when an instance lacks its UID or
-    /// series, or when nothing was listed.
+    /// series, or when nothing was listed. `outcome` is how a listing made
+    /// before the transfer ended, and `status` what the peer refused it with.
     static func listing(study: String, series: String, instances: [RetrieveListedInstance], confirmed: Bool,
-                        reported: Int, seriesReported: [String: Int]) -> RetrieveInventoryRecord {
+                        reported: Int, seriesReported: [String: Int], outcome: RetrieveListing? = nil,
+                        status: UInt16? = nil) -> RetrieveInventoryRecord {
         var record = RetrieveInventoryRecord(study: study, series: series, expected: [:], inventoryConfirmed: confirmed)
+        record.discovery = outcome?.rawValue
+        if outcome == .notImplemented, let status { record.listingStatus = Int(status) }
         for item in instances {
             guard !item.sopInstanceUID.isEmpty, !item.seriesInstanceUID.isEmpty else {
                 record.inventoryConfirmed = false
@@ -85,6 +105,8 @@ struct RetrieveInventoryState: Sendable {
             attemptRefused = []
             baselineImported = nil
             knownUnsendable = expectedAbsent
+            attemptStores = 0
+            attemptOperations = []
         }
         lastImportRevision = nil
         receivers += 1
@@ -159,6 +181,7 @@ struct RetrieveInventoryState: Sendable {
         if status == 0 || (status & 0xf000) == 0xb000 {
             record.received[uid, default: 0] += 1
             attemptReceived.insert(uid)
+            attemptStores += 1
             record.tlsUntrusted?[uid] = nil
         }
         if (status & 0xf000) == 0xb000 {
@@ -278,6 +301,8 @@ struct RetrieveInventoryState: Sendable {
         if record.peerResponses == nil { record.peerResponses = [] }
         record.peerResponses?.append(["operation": operation, "status": String(status), "completed": String(completed),
                                       "failed": String(failed), "warnings": String(warnings), "remaining": String(remaining)])
+        attemptOperations.append(PeerOperation(status: status, completed: completed, failed: failed, warnings: warnings,
+                                               remaining: remaining))
     }
 
     /// Returns whether the imported identities changed.
@@ -299,8 +324,13 @@ struct RetrieveInventoryState: Sendable {
         return [listed(attemptReceived).intersection(asked).count, asked.count]
     }
 
+    /// With a listing, the listed instances this attempt received that the
+    /// index does not hold; when the listing named none and leaves the
+    /// peer's counters to judge, everything this attempt received that it
+    /// does not hold.
     var receivedAwaitingImportCount: Int {
-        listed(attemptReceived).intersection(record.expected.keys).subtracting(listed(record.imported)).count
+        if listingNamedNothing { return attemptReceived.subtracting(record.imported).count }
+        return listed(attemptReceived).intersection(record.expected.keys).subtracting(listed(record.imported)).count
     }
 
     // MARK: How the retrieve is judged
@@ -309,8 +339,51 @@ struct RetrieveInventoryState: Sendable {
     var expectedCount: Int { record.expected.count }
     var localUniqueCount: Int { record.imported.count }
 
+    // MARK: Judged by the peer's counters
+
+    /// The listing made before the transfer was refused, or answered without
+    /// naming an instance: nothing is expected, and nothing was heard against
+    /// the transfer.
+    var listingNamedNothing: Bool {
+        !record.inventoryConfirmed && record.expected.isEmpty
+            && RetrieveListing(rawValue: record.discovery ?? "")?.leavesTheCountersToJudge == true
+    }
+
+    /// What the peer's counters say of this attempt, when they alone can: the
+    /// listing named nothing; every C-MOVE and C-GET ended in success with
+    /// nothing failed, questioned or unsent, and they completed something;
+    /// nothing was refused here; as many stores arrived as the peer counted;
+    /// and everything that arrived is in the index. Nil when any of it fails:
+    /// the retrieve is then reported, as it is without a listing.
+    var countersVerdict: RetrieveCountersVerdict? {
+        guard listingNamedNothing, !attemptOperations.isEmpty, attemptOperations.allSatisfy(\.endedClean) else { return nil }
+        let completed = attemptOperations.reduce(0) { $0 + Int($1.completed) }
+        guard completed > 0, attemptRefused.isEmpty, attemptStores >= completed,
+              attemptReceived.isSubset(of: record.imported) else { return nil }
+        return RetrieveCountersVerdict(operations: attemptOperations.count, completed: completed, received: attemptStores,
+                                       indexed: record.imported.count, reported: reportedCount)
+    }
+
+    /// Judges the attempt by the peer's counters and keeps the verdict in the
+    /// record, for the manifest and for the retrieves that follow. Returns
+    /// whether the counters judged it complete.
+    mutating func judgeByPeerCounters() -> Bool {
+        record.completeness = countersVerdict
+        return record.completeness != nil
+    }
+
+    /// Whether the verdict of the peer's counters still stands: the peer
+    /// reports what it reported then, or nothing, and no instance that was
+    /// here then has gone. A count it did not give then is compared with what
+    /// arrived.
+    func standsByPeerCounters(reported count: Int) -> Bool {
+        guard !inventoryConfirmed, let verdict = record.completeness else { return false }
+        let then = verdict.reported > 0 ? verdict.reported : verdict.indexed
+        return (count <= 0 || count == then) && record.imported.count >= verdict.indexed
+    }
+
     var needsAttention: Bool {
-        if !inventoryConfirmed && record.discovery == "not supported" { return false }
+        if !inventoryConfirmed && (record.discovery == "not supported" || record.completeness != nil) { return false }
         return !inventoryConfirmed || !Set(missingUIDs).subtracting(listed(attemptReceived)).subtracting(listed(baselineImported ?? []))
             .subtracting(knownUnsendable).subtracting(excludedUIDs).isEmpty
     }
@@ -374,10 +447,17 @@ struct RetrieveInventoryState: Sendable {
 
     var summary: String {
         if !inventoryConfirmed {
+            let refusal = record.listingStatus.map { " (C-FIND status \(RetrieveListing.text(ofStatus: $0)))" } ?? ""
             let listing = ["failed": " The listing of the server's instances failed.", "cancelled": " The listing of the server's instances was cancelled.",
                            "in progress": " The listing of the server's instances is still in progress.",
-                           "not supported": " The server does not implement the listing of its series or instances; the whole study or series was retrieved without error."][record.discovery ?? ""] ?? ""
-            return "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced." + listing + " Completeness cannot be established."
+                           "not supported": " The server does not implement the listing of its series or instances; the whole study or series was retrieved without error.",
+                           "not implemented": " The server refused the listing of its series or instances\(refusal).",
+                           "empty": " The server answered the listing of its series or instances without naming any."][record.discovery ?? ""] ?? ""
+            let start = "Inventory unconfirmed: \(localUniqueCount) local unique instances; \(expectedCount) UIDs announced." + listing
+            if let verdict = record.completeness {
+                return start + " Completeness was judged by the server's counters, not by an inventory: \(verdict.completed) sub-operations completed, none failed, with a warning or left; \(verdict.received) instances arrived, all of them in the index."
+            }
+            return start + " Completeness cannot be established."
         }
         let total = String(expectedCount)
         let leftOut = excludedUIDs

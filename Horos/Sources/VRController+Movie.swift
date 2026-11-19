@@ -56,14 +56,21 @@ extension VRController {
     }
 
     /// A volume of this window changed elsewhere: the view reads the current
-    /// one again, unless the view itself sent the notification.
+    /// one again, unless the view itself sent the notification. Only the
+    /// current time's volume is the one the view shows: a change of all the
+    /// times (a Revert, a filter, an undo) tells of each, and the view read
+    /// the current one again once for every time of the series. Another
+    /// time's volume is read when its time is shown.
     @objc(updateVolumeData:)
     public final func updateVolumeData(_ note: Notification!) {
-        if (note?.userInfo?["sender"] as AnyObject?) === vrView { return }
-        for i in 0..<Int(maxMovieIndex) where (note?.object as AnyObject?) === pixLists[i] {
-            guard let volume = volumeData[Int(curMovieIndexStorage)] else { continue }
-            vrView?.movieChangeSource(UnsafeMutablePointer(mutating: volume.bytes.assumingMemoryBound(to: Float.self)))
+        if let tiltGone = note?.userInfo?[VRController.horosReadFromFilesKey] as? Bool,
+           (0..<Int(maxMovieIndex)).contains(where: { pixLists[$0] === (note?.object as AnyObject?) }) {
+            horosVolumeWasReadFromFiles(tiltGone: tiltGone)
         }
+        if (note?.userInfo?["sender"] as AnyObject?) === vrView { return }
+        let current = Int(curMovieIndexStorage)
+        guard current < Int(maxMovieIndex), (note?.object as AnyObject?) === pixLists[current], let volume = volumeData[current] else { return }
+        vrView?.movieChangeSource(UnsafeMutablePointer(mutating: volume.bytes.assumingMemoryBound(to: Float.self)))
     }
 
     @IBAction @objc(movieRateSliderAction:)

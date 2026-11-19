@@ -333,6 +333,7 @@ public struct ImageAttributeReader {
         if attributes.storedWindow.width < 0 { attributes.storedWindow.width = -attributes.storedWindow.width }
 
         try readRescaleType(from: item)
+        readDoseScaling(from: item)
 
         if present("PlanarConfiguration") { attributes.pixels.planarConfiguration = Int(Values.int(number("PlanarConfiguration"))) }
 
@@ -399,6 +400,20 @@ public struct ImageAttributeReader {
             if type.lowercased() == "houndsfield unit" { type = "HU" }
             attributes.rescale.rescaleType = type
         }
+    }
+
+    /// A dose grid (RT Dose, PS 3.3 C.8.8.3) stores integers: the dose of a
+    /// point is its stored value times Dose Grid Scaling, in the unit Dose
+    /// Units names, GY or RELATIVE. The scaling is the grid's rescale slope,
+    /// with no intercept; a relative dose has no unit to show.
+    mutating func readDoseScaling(from item: DICOMAttributeSource) {
+        guard item.attributeValue(withName: "DoseGridScaling") != nil else { return }
+        let scaling = AttributeValueCoercion.float(AttributeValueCoercion.numberValue(item, "DoseGridScaling", file: file))
+        guard scaling.isFinite, scaling > 0 else { return }
+        attributes.rescale.slope = scaling
+        attributes.rescale.intercept = 0
+        let units = (item.attributeValue(withName: "DoseUnits") as? String)?.trimmingCharacters(in: .whitespaces).uppercased()
+        attributes.rescale.rescaleType = units == "GY" ? "Gy" : ""
     }
 
     /// A difference between the file's size and the database's is logged, and

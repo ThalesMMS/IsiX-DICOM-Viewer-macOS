@@ -37,6 +37,7 @@ final class Controller {
     var rendered: Float = -1
     func renderSurfaces() { rendered = firstSurface }
     func renderFusionSurfaces() { rendered = firstSurface }
+    func copyFusionSettings() {}
 METHOD
 }
 func check(_ condition: Bool, _ what: String) { if !condition { print("FAIL: \(what)"); exit(1) } }

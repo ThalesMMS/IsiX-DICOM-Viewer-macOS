@@ -83,6 +83,18 @@ else:
                       + ''.join(swift_method(s) for s in ('scaleToFitForDCMPix:', 'scaleToFit', 'prepareForWorkspacePresentation',
                                                           'applyOpeningScaleToFit:'))
                       + '}\n')
+    if 'ViewerSettingsPropagator.' in geometry_swift:
+        # A fit tells the settings handed between 2D viewers that the view is
+        # framed afresh (tests/test-viewer-navigation-equivalence.py); there is
+        # no other viewer here.
+        geometry_swift += ('\nenum ViewerSettingsPropagator {\n'
+                           '    static func reframed(_ view: DCMView) {}\n}\n')
+    if 'self.viewport.' in geometry_swift:
+        # The view writes its scale and pan through its viewport of IsiXImaging,
+        # which is its fields read and written back; here they are the stand-in's.
+        geometry_swift += ('\nextension DCMView {\n    var viewport: ViewportState {\n'
+                           '        get { ViewportState(scale: horos_scaleValue, origin: horos_origin) }\n'
+                           '        set { horos_scaleValue = newValue.scale; horos_origin = newValue.origin }\n    }\n}\n')
 analysis_method = swift_methods('openingContentBoundsForPixLists:loadThread:', 'startLoadImageThread')
 policy = swift_methods('updateTilingViewsValue', 'finalizeSeriesViewing') + swift_methods('horosRecordSeriesShown:', 'showWindowTransition')
 assert 'func cancelOpeningScaleToFit()' in policy and 'func finishOpeningScaleToFit()' in policy

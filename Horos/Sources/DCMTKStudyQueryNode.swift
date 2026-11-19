@@ -52,7 +52,9 @@ import IsiXPreferences
 @objc(DCMTKStudyQueryNode) @usableFromInline
 final class DCMTKStudyQueryNode: DCMTKQueryNode, @unchecked Sendable {
     /// Children are sorted when they are asked for, not after each one added.
-    private var sortChildren = false
+    // The instance variable _sortChildren of the former plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for it.
+    var sortChildren = false
     private(set) var comparativeIdentity: ComparativePatientIdentity?
 
     required init(dataset: IsiXDCMTKDataset?, callingAET: String?, calledAET: String?, hostname: String?, port: Int32,

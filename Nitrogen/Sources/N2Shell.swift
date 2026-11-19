@@ -109,6 +109,33 @@ import IOKit
         return IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformSerialNumberKey as CFString, kCFAllocatorDefault, 0)?
             .takeRetainedValue() as? String
     }
+
+    /// The address the host's own name resolves to, or that name when it resolves to none.
+    class func ip() -> String! {
+        var name = [CChar](repeating: 0, count: 128)
+        gethostname(&name, 127)
+        guard let host = gethostbyname(name), let list = host.pointee.h_addr_list, let first = list.pointee,
+              host.pointee.h_addrtype == AF_INET else {
+            return name.withUnsafeBufferPointer { $0.baseAddress.map { String(cString: $0) } }
+        }
+        let address = first.withMemoryRebound(to: in_addr.self, capacity: 1) { $0.pointee }
+        return String(cString: inet_ntoa(address))
+    }
+
+    /// The hardware address of en0, as ipconfig gives it, each byte in two digits; nil when it gives none.
+    class func mac() -> String! {
+        let packet = execute("/usr/sbin/ipconfig", arguments: ["getpacket", "en0"], outStatus: nil) ?? ""
+        let prefix = "chaddr = "
+        for line in packet.components(separatedBy: .newlines) where line.hasPrefix(prefix) {
+            return line.dropFirst(prefix.count).components(separatedBy: ":").map { $0.count < 2 ? "0" + $0 : $0 }.joined(separator: ":")
+        }
+        return nil
+    }
+
+    /// getuid().
+    class func userId() -> Int32 {
+        Int32(bitPattern: getuid())
+    }
 }
 
 /// `[NSException raise:name format:…]`: the callers catch it, as before.

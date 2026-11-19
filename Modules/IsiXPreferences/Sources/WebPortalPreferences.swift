@@ -43,6 +43,17 @@ public enum WebPortalPreferences {
     /// first check, which only writes it. The studies a user is sent through the portal are dated with it.
     public static let lastNotificationsDate = PreferenceKey<Double>("lastNotificationsDate")
 
+    /// The SMTP server the portal's emails go through, set in the Web Sharing pane's sheet. An absent or empty
+    /// host means none is set. The password is never here: it is an item of the Keychain.
+    public static let mailServerHost = PreferenceKey<String?>("webPortalMailServerHost")
+    /// The server's port; 0 or absent, the usual ports are tried in turn.
+    public static let mailServerPort = PreferenceKey<Int>("webPortalMailServerPort")
+    /// How the connection uses TLS, as the SMTP client numbers it: 0 never, 1 when the server offers it,
+    /// 2 always. The sheet writes it with the host, so that an absent value is never read for a server.
+    public static let mailServerTLSMode = PreferenceKey<Int>("webPortalMailServerTLSMode")
+    /// The user name the server authenticates; absent or empty, the server is used without authentication.
+    public static let mailServerUsername = PreferenceKey<String?>("webPortalMailServerUsername")
+
     /// A separate server that answers WADO alone, without the portal's pages or accounts.
     public static let wadoOnlyServer = PreferenceKey<Bool>("wadoOnlyServer")
     public static let wadoOnlyServerPort = PreferenceKey<Int>("wadoOnlyServerPort")
@@ -62,7 +73,8 @@ public enum WebPortalPreferences {
     /// Every key of this file.
     static let catalog: [any CataloguedPreference] = [
         address, usesSSL, prefersCustomWebPages, requiresAuthentication, title, logsActivity, adminCanDeleteStudies,
-        notificationsEmailsSender, lastNotificationsDate, wadoOnlyServer, wadoOnlyServerPort, wadoOnlyServerURL,
+        notificationsEmailsSender, lastNotificationsDate, mailServerHost, mailServerPort, mailServerTLSMode,
+        mailServerUsername, wadoOnlyServer, wadoOnlyServerPort, wadoOnlyServerURL,
         pacsOnDemandForSearch, pacsOnDemandForOtherStudies, pacsOnDemandForAlbums, prefersStudyWithMoreImages,
         smartAlbumStudiesDICOMNodes,
     ]

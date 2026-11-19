@@ -16,9 +16,13 @@ dictionaries, strings and NSValues; Bézier cores (curves through nodes,
 flattening, subdivision, lengths, iterators and random accessors, appending,
 dictionaries, samples along the path with tangents and normals, projected
 samples, outlines, closest points, intersections with planes, projections,
-planes of a path, reversing, subpaths, clipping, signed areas); and
+planes of a path, reversing, subpaths, clipping, signed areas);
 N3BezierPath (its initializers, copies, coding, elements, enumeration,
-relative positions, derived paths and mutations).
+relative positions, derived paths and mutations); the constants the headers
+declare (the zero vector, the identity, the axes, the planes, the invalid line
+and plane, the default flatness and subdivision length) and the two sets of
+Core Foundation callbacks for a collection of Bézier cores; and the real
+roots of polynomials of degree one to three.
 
 Tolerance: a number may differ from the reference by at most
 TOLERANCE * max(1, |reference|), and must otherwise be equal, NaN for NaN;
@@ -433,14 +437,67 @@ static void paths(void) {
     }
 }
 
+/* The constants the headers declare, which a caller reads from the library, and
+   the two sets of Core Foundation callbacks, used as a collection uses them. */
+static void constants(void) {
+    label("constants");
+    v(N3VectorZero); tr(N3AffineTransformIdentity);
+    ln(N3LineXAxis); ln(N3LineYAxis); ln(N3LineZAxis); ln(N3LineInvalid);
+    pl(N3PlaneXZero); pl(N3PlaneYZero); pl(N3PlaneZZero); pl(N3PlaneInvalid);
+    d(N3BezierDefaultFlatness); d(N3BezierDefaultSubdivideSegmentLength);
+
+    label("callbacks");
+    N3Vector nodes[4] = {{0, 0, 0}, {10, 2, 1}, {20, -3, 4}, {30, 5, 9}};
+    N3BezierCoreRef c = N3BezierCoreCreateCurveWithNodes(nodes, 4, N3BezierNodeOpenEndsStyle);
+    N3BezierCoreRef copy = N3BezierCoreCreateCopy(c);
+    N3BezierCoreRef other = N3BezierCoreCreateMutable();
+    i(kN3BezierCoreArrayCallBacks.version); i(kN3BezierCoreDictionaryValueCallBacks.version);
+    b(kN3BezierCoreArrayCallBacks.retain(NULL, c) == c); kN3BezierCoreArrayCallBacks.release(NULL, c);
+    b(kN3BezierCoreDictionaryValueCallBacks.retain(NULL, c) == c); kN3BezierCoreDictionaryValueCallBacks.release(NULL, c);
+    b(kN3BezierCoreArrayCallBacks.equal(c, copy)); b(kN3BezierCoreArrayCallBacks.equal(c, other));
+    b(kN3BezierCoreDictionaryValueCallBacks.equal(c, copy)); b(kN3BezierCoreDictionaryValueCallBacks.equal(c, other));
+    CFStringRef text = kN3BezierCoreArrayCallBacks.copyDescription(c); s((id)text); CFRelease(text);
+    text = kN3BezierCoreDictionaryValueCallBacks.copyDescription(copy); s((id)text); CFRelease(text);
+    CFMutableArrayRef array = CFArrayCreateMutable(NULL, 0, &kN3BezierCoreArrayCallBacks);
+    CFArrayAppendValue(array, c);
+    b(CFArrayContainsValue(array, CFRangeMake(0, 1), copy)); b(CFArrayContainsValue(array, CFRangeMake(0, 1), other));
+    CFMutableDictionaryRef dictionary = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kN3BezierCoreDictionaryValueCallBacks);
+    CFDictionarySetValue(dictionary, CFSTR("core"), c);
+    b(CFDictionaryContainsValue(dictionary, copy)); b(CFDictionaryContainsValue(dictionary, other));
+    N3BezierCoreRelease(c);
+    /* The collections keep the core alive by their retain callback. */
+    core((N3BezierCoreRef)CFArrayGetValueAtIndex(array, 0)); core((N3BezierCoreRef)CFDictionaryGetValue(dictionary, CFSTR("core")));
+    CFRelease(array); CFRelease(dictionary);
+    N3BezierCoreRelease(copy); N3BezierCoreRelease(other);
+}
+
+/* The real roots of polynomials of degree one to three, with the coefficients
+   that take each branch (a leading zero, a negative discriminant, a repeated root). */
+static void roots(void) {
+    label("roots");
+    for (int k = 0; k < 8; k++) {
+        CGFloat a = value(), bb = value(), c = value(), dd = value();
+        if (k == 5) { a = 1; bb = -3; c = 3; dd = -1; }
+        if (k == 6) { a = 1; bb = -2; c = 1; dd = 0; }
+        if (k == 7) { a = 1; bb = 0; c = 1; dd = 0; }
+        CGFloat r1 = 7, r2 = 8, r3 = 9;
+        CFIndex count = findRealLinearRoot(a, bb, &r1); i(count); if (count > 0) d(r1);
+        r1 = 7; r2 = 8;
+        count = findRealQuadraticRoots(a, bb, c, &r1, &r2); i(count); if (count > 0) d(r1); if (count > 1) d(r2);
+        r1 = 7; r2 = 8; r3 = 9;
+        count = findRealCubicRoots(a, bb, c, dd, &r1, &r2, &r3); i(count); if (count > 0) d(r1); if (count > 1) d(r2); if (count > 2) d(r3);
+    }
+}
+
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
         out = fopen(argv[1], "w");
         long seeds = atol(argv[2]);
+        constants();
         for (long k = 0; k < seeds; k++) {
             seed = 0x9E3779B97F4A7C15ull ^ (uint64_t)(k * 2654435761u + 1);
             fprintf(out, "\nseed: %ld", k);
-            @autoreleasepool { geometry(); bezier(); paths(); }
+            @autoreleasepool { geometry(); bezier(); paths(); roots(); }
         }
         fprintf(out, "\n");
         fclose(out);

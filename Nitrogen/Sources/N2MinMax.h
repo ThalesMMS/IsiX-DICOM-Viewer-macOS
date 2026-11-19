@@ -39,10 +39,25 @@
 
 // CGFLOAT_MIN is the smallest positive CGFloat, not the most negative one: a
 // minimum of N2NoMin still excludes negative widths.
-static const CGFloat N2NoMin = CGFLOAT_MIN, N2NoMax = CGFLOAT_MAX;
+// Defined in Nitrogen+CAPI.m, where plugins built for Horos or OsiriX find them.
+extern const CGFloat N2NoMin, N2NoMax;
 
 typedef struct N2MinMax {
 	CGFloat min, max;
 } N2MinMax;
 
-// The arithmetic of the struct is Swift (N2MinMax.swift).
+// The arithmetic of the struct is Swift (N2MinMax.swift). The C++ functions
+// the Horos and OsiriX plugin SDK declared for it stay, for the plugins built
+// for it in Objective-C++ (N2Operators+CAPI.mm).
+#ifdef __cplusplus
+N2MinMax N2MakeMinMax(CGFloat min, CGFloat max);
+N2MinMax N2MakeMinMax(CGFloat val);
+N2MinMax N2MakeMinMax();
+N2MinMax N2MakeMin(CGFloat min);
+N2MinMax N2MakeMax(CGFloat max);
+CGFloat N2MinMaxConstrainedValue(const N2MinMax& mm, CGFloat val);
+void N2ExtendMinMax(N2MinMax& n2minmax, CGFloat value);
+N2MinMax N2ComposeMinMax(const N2MinMax& mm1, const N2MinMax& mm2);
+N2MinMax operator+(const N2MinMax& mm1, const N2MinMax& mm2);
+N2MinMax operator+(const N2MinMax& mm, const CGFloat& f);
+#endif

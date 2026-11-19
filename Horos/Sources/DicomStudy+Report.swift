@@ -205,6 +205,12 @@ public extension DicomStudy {
             }
         } else if extensionIs("doc") || extensionIs("docx") {
             let path = Bundle.main.path(forResource: "word2pdf", ofType: "applescript")
+            // An earlier PDF at the destination is removed here: the script
+            // talks to Word alone, the one application a sandboxed build may
+            // address for this conversion.
+            if let outPdfPath = outPdfPath {
+                try? FileManager.default.removeItem(atPath: outPdfPath)
+            }
             // +arrayWithObjects: stopped at the first nil.
             var arguments: [Any] = []
             if let reportPath = reportPath {

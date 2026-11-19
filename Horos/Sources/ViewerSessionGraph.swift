@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 import IsiXPreferences
 
 /// The graph of one 2D viewer: what the viewer and the types that work for it
@@ -36,6 +37,14 @@ import IsiXPreferences
 
     /// The colour tables, opacity tables and convolution filters of the viewer.
     let colourTables: ViewerColourTables
+
+    /// The study the window was opened with and the one it shows, which the
+    /// frame of the window goes by (ViewerWindowBorder).
+    var windowStudies = WindowStudies()
+
+    /// The watch of the active Space, which has the frame drawn again; the
+    /// frame's (ViewerWindowBorder), from the first series to the closing.
+    var activeSpaceObservation: NSObjectProtocol?
 
     init(viewer: ViewerController, processGraph: ProcessGraph) {
         self.viewer = viewer

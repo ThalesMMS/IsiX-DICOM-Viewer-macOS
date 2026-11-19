@@ -314,6 +314,7 @@ struct IncomingAdmission {
                             }
 
                             removeItem(srcPath)
+                            ArchiveExpansionRegistry.shared.forget(srcPath)
                         }
                     }
                 } else if size == 0 {
@@ -346,6 +347,8 @@ struct IncomingAdmission {
                             }
                         } else if let compressedPath {
                             compressedPathArray.append(compressedPath)
+                            // One found in what an archive expanded to draws from that import's budget.
+                            ArchiveExpansionRegistry.shared.archive(at: srcPath, movedTo: compressedPath)
                             if let enclosingArchive {
                                 ArchiveImportLedger.shared.recordNestedArchive(inArchive: enclosingArchive)
                             }

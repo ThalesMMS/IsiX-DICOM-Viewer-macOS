@@ -47,8 +47,12 @@ import IsiXROI
 /// <Horos/OSIPathROI.h> are those of the former class.
 @objc(OSIPathROI)
 public final class OSIPathROI: OSIROI {
-    private let _osiriXROI: ROI?
-    private var _bezierPath: N3MutableBezierPath?
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    var _osiriXROI: ROI?
+    var _bezierPath: N3MutableBezierPath?
 
     // for now implement closed poly first
     /// The ROI of `roi` (a measure, an open or a closed polygon) drawn on the

@@ -39,9 +39,11 @@
 // subclasses, and NSMutableDictionary (WebPortalProxy) are implemented in Swift
 // (Horos/Sources/WebPortalResponse.swift). This header keeps
 // <Horos/WebPortalResponse.h>: it brings in the generated interface, which
-// declares the same class names and selectors.
+// declares the same class names and selectors. WebPortalResponse is a
+// subclass of HTTPDataResponse, whose interface comes first.
 
 #import <Foundation/Foundation.h>
+#import "HTTPResponse.h"
 
 @class WebPortalConnection, WebPortalSession, WebPortal;
 

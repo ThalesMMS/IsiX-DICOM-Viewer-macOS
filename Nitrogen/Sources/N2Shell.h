@@ -46,5 +46,8 @@
 +(NSString*)execute:(NSString*)path arguments:(NSArray*)arguments expectedStatus:(int)expectedStatus;
 +(NSString*)hostname;
 +(NSString*)serialNumber;
++(NSString*)ip;
++(NSString*)mac;
++(int)userId;
 
 @end

@@ -531,6 +531,18 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         return area
     }
 
+    // MARK: - The table of the former plug-in SDK
+
+    // The window lists its ROIs in an outline. The data source of the table it
+    // had is still answered, for the image the viewer shows: `FormerROIManagerTable`.
+    @objc(numberOfRowsInTableView:) public func legacyNumberOfRows(in tableView: NSTableView?) -> Int {
+        FormerROIManagerTable(viewer: viewer).count
+    }
+
+    @objc(tableView:objectValueForTableColumn:row:) public func legacyTableView(_ tableView: NSTableView?, objectValueFor column: NSTableColumn?, row: Int) -> Any? {
+        FormerROIManagerTable(viewer: viewer).value(column: column?.identifier.rawValue, row: row)
+    }
+
     // MARK: - Notifications
 
     /// Also the action of the timer -fireUpdate: scheduled, which passed the

@@ -93,10 +93,13 @@ public final class ForeignDatabaseChoice: NSObject {
 
     /// File > Import on `folder`, into the database the browser of
     /// `browserWindow` shows. That flow asks whether to copy the files or only
-    /// link to them.
+    /// link to them. The files of the folder that the Horos database beside it
+    /// no longer lists, those of studies deleted there among them, are left
+    /// out unless the user asks for them too.
     @MainActor static func importIntoCurrentDatabase(_ folder: String, browserWindow: BrowserWindowGraph?) {
         NSLog("Database: importing the studies of %@", folder)
-        browserWindow?.browser.subSelectFilesAndFolders(toAdd: [folder])
+        guard let browser = browserWindow?.browser else { return }
+        LegacyStudiesImport.shared.importImagesFolder(folder, into: browser)
     }
 
     /// The graph of the database window, for the callers that do not hand
@@ -117,6 +120,8 @@ public final class ForeignDatabaseChoice: NSObject {
     @objc @MainActor public static func startPendingImport() {
         guard let folder = pendingImport else { return }
         pendingImport = nil
-        DispatchQueue.main.async { importIntoCurrentDatabase(folder, browserWindow: databaseWindow) }
+        // From the main run loop: the import may ask how to bring the files
+        // in, and a modal inside a block of the main queue stops that queue.
+        onMainRunLoop { importIntoCurrentDatabase(folder, browserWindow: databaseWindow) }
     }
 }

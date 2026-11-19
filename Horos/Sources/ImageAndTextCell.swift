@@ -56,11 +56,12 @@ fileprivate func retainShared(_ copied: AnyObject?, _ original: AnyObject?) {
 /// <Horos/ImageAndTextCell.h> are those of the former class.
 @objc(ImageAndTextCell)
 public final class ImageAndTextCell: NSTextFieldCell {
-    // The former private ivars.
-    private var imageStorage: NSImage?
-    private var lastImage: NSImage?
-    private var lastImageAlternate: NSImage?
-    private var clickedInLastImageStorage = false
+    // The former ivars, which an older header of the former Horos and OsiriX
+    // plugin SDK declared: each is exported at its field's offset for the
+    // plugins built with it, so each is a stored field of this class with the
+    // C declaration's type, never private, lazy, weak or observed.
+    final var imageStorage: NSImage?, lastImage: NSImage?, lastImageAlternate: NSImage?
+    final var clickedInLastImageStorage = false
 
     public override func hitTest(for theEvent: NSEvent, in cellFrame: NSRect, of controlView: NSView) -> NSCell.HitResult {
         if let lastImage = self.lastImage {

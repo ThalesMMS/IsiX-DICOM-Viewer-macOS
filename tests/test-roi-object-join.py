@@ -13,7 +13,7 @@ nothing joins with the option off.
 
 The production -[DCMView planePointsOfROI:onImage:] and
 -joinFinishedContourToAdjacentObject (DCMView+ROIEditing.swift, with
-IsiXROI's ROIEditing and ROIEditingSession, the ROIs read as ViewROIEditing
+IsiXROI's ROIEditing, ROIEditingSession and ROIContourJoin, the ROIs read as ViewROIEditing
 reads them, and ROIEventEmitter) run here against stand-ins for DCMPix, ROI and
 MyPoint, with the real HorosROIObjectJoin and HorosROIName. The
 production creation block of a click (DCMView+Mouse.swift) also runs, including
@@ -339,6 +339,7 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-object-join-') as folder:
                     '-module-cache-path', str(p / 'modules'), '-module-name', 'Join', '-import-objc-header', str(p / 'Harness.h'),
                     str(p / 'join.swift'), str(p / 'emitter.swift'), str(root / 'Horos/Sources/ROIObjectJoin.swift'), str(root / 'Horos/Sources/ROIName.swift'),
                     str(root / 'Modules/IsiXROI/Sources/ROIEditing.swift'), str(root / 'Modules/IsiXROI/Sources/ROIEditingSession.swift'),
+                    str(root / 'Modules/IsiXROI/Sources/ROIContourJoin.swift'),
                     str(root / 'Modules/IsiXROI/Sources/ROISelection.swift'), *process_graph_stand_in.swift_flags(p / 'isix'),
                     '-emit-objc-header-path', str(p / 'Join-Swift.h'), '-o', str(p / 'join.o')], check=True)
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fobjc-arc-exceptions', '-I', folder,

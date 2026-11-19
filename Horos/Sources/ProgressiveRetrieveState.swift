@@ -212,15 +212,17 @@ final class ProgressiveRetrieveState {
             }
             coalescer?.applied(at: Date.timeIntervalSinceReferenceDate)
 
-            let reloaded = viewer.horos_fileList(at: movieIndex)
-            if !shownSOP.isEmpty && (reloaded?.count ?? 0) > 0 {
-                var sops: [String] = []
-                var frames: [NSNumber] = []
-                for case let image as DicomImage in reloaded ?? [] {
-                    sops.append(image.sopInstanceUID() ?? "")
-                    frames.append(image.frameID ?? NSNumber(value: 0))
-                }
-                let restored = RetrieveViewing.index(ofSOPInstanceUID: shownSOP, frame: shownFrame, inSOPInstanceUIDs: sops, frames: frames, fallback: shownIndex)
+            // The series comes back as one stack or, held in several
+            // multi-frame files, with a time a file, one more with each file
+            // that arrives: the image shown is looked for in every time, and
+            // the instances are counted over all of them.
+            let times = (0..<max(Int(viewer.horos_maxMovieIndex), 1)).map { time in (viewer.horos_fileList(at: time) ?? []).compactMap { $0 as? DicomImage } }
+            let sops = times.map { $0.map { $0.sopInstanceUID() ?? "" } }
+            let time = (shownSOP.isEmpty ? nil : sops.firstIndex { $0.contains(shownSOP) }) ?? min(movieIndex, times.count - 1)
+            if !shownSOP.isEmpty && !times[time].isEmpty {
+                if time != Int(viewer.horos_curMovieIndex) { viewer.setMovieIndex(Int16(truncatingIfNeeded: time)) }
+                let frames = times[time].map { $0.frameID ?? NSNumber(value: 0) }
+                let restored = RetrieveViewing.index(ofSOPInstanceUID: shownSOP, frame: shownFrame, inSOPInstanceUIDs: sops[time], frames: frames, fallback: shownIndex)
                 if restored != Int(viewer.horos_imageView?.curImage ?? 0) {
                     viewer.horos_imageView?.setIndex(Int(truncatingIfNeeded: restored))
                     viewer.adjustSlider()
@@ -228,7 +230,7 @@ final class ProgressiveRetrieveState {
             }
             RetrieveViewing.shared.localCountChanged(studyUID: viewer.currentStudy()?.studyInstanceUID ?? "",
                                                      seriesUID: viewer.currentSeries()?.seriesDICOMUID ?? "",
-                                                     localCount: RetrieveViewing.uniqueInstanceCount(ofImages: (viewer.horos_fileList(at: movieIndex) as? [NSObject]) ?? []))
+                                                     localCount: RetrieveViewing.uniqueInstanceCount(ofImages: times.flatMap { $0 }))
         }
         return true
     }

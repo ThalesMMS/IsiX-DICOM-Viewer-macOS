@@ -65,10 +65,12 @@ struct N3Line {
 };
 typedef struct N3Line N3Line;
 
-static const N3Line N3LineXAxis = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
-static const N3Line N3LineYAxis = {{0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
-static const N3Line N3LineZAxis = {{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
-static const N3Line N3LineInvalid = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+// The constants of this header are defined once, in Nitrogen+CAPI.m: plugins
+// built for Horos or OsiriX look them up by name in the application.
+extern const N3Line N3LineXAxis;
+extern const N3Line N3LineYAxis;
+extern const N3Line N3LineZAxis;
+extern const N3Line N3LineInvalid;
 
 struct N3Plane {
 	N3Vector point;
@@ -76,10 +78,10 @@ struct N3Plane {
 };
 typedef struct N3Plane N3Plane;
 
-static const N3Plane N3PlaneXZero = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
-static const N3Plane N3PlaneYZero = {{0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
-static const N3Plane N3PlaneZZero = {{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
-static const N3Plane N3PlaneInvalid = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+extern const N3Plane N3PlaneXZero;
+extern const N3Plane N3PlaneYZero;
+extern const N3Plane N3PlaneZZero;
+extern const N3Plane N3PlaneInvalid;
 
 typedef N3Vector *N3VectorPointer;
 typedef N3Vector *N3VectorArray;
@@ -95,7 +97,7 @@ typedef CATransform3D N3AffineTransform;
 typedef N3AffineTransform *N3AffineTransformPointer;
 typedef N3AffineTransform *N3AffineTransformArray;
 
-static const N3Vector N3VectorZero = {0.0, 0.0, 0.0};
+extern const N3Vector N3VectorZero;
 
 N3Vector N3VectorMake(CGFloat x, CGFloat y, CGFloat z);
 
@@ -164,7 +166,7 @@ void N3VectorNormalizeVectors(N3VectorArray vectors, CFIndex numVectors);
 CG_INLINE NSPoint NSPointFromN3Vector(N3Vector vector) {return NSMakePoint(vector.x, vector.y);}
 CG_INLINE N3Vector N3VectorMakeFromNSPoint(NSPoint point) {return N3VectorMake(point.x, point.y, 0);}
 
-static const N3AffineTransform N3AffineTransformIdentity = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+extern const N3AffineTransform N3AffineTransformIdentity;
 
 bool N3AffineTransformIsRectilinear(N3AffineTransform t); // this is not the right term, but what is a transform that only includes scale and translation called?
 N3AffineTransform N3AffineTransformTranspose(N3AffineTransform t);
@@ -195,6 +197,11 @@ bool N3LineMakeWithDictionaryRepresentation(CFDictionaryRef dict, N3Line *line);
 bool N3PlaneMakeWithDictionaryRepresentation(CFDictionaryRef dict, N3Plane *plane);
 
 // gets openGL matrix values out of a N3AffineTransform
+// The real roots of ax+b, of ax^2+bx+c and of ax^3+bx^2+cx+d; each answers the number of roots it set.
+CFIndex findRealLinearRoot(CGFloat a, CGFloat b, CGFloat *root);
+CFIndex findRealQuadraticRoots(CGFloat a, CGFloat b, CGFloat c, CGFloat *root1, CGFloat *root2);
+CFIndex findRealCubicRoots(CGFloat a, CGFloat b, CGFloat c, CGFloat d, CGFloat *root1, CGFloat *root2, CGFloat *root3);
+
 void N3AffineTransformGetOpenGLMatrixd(N3AffineTransform transform, double *d); // d better be 16 elements long
 void N3AffineTransformGetOpenGLMatrixf(N3AffineTransform transform, float *f); // f better be 16 elements long
 

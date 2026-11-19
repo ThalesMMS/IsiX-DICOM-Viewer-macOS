@@ -11,6 +11,7 @@ A live LaunchServices read is taken too. It does not change handlers.
 """
 from pathlib import Path
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text  # noqa: E402
+import isix_modules  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/HorosSchemeURL.swift'
@@ -72,6 +74,7 @@ let horosHandler = HorosSchemeLaunchSnapshot()
 horosHandler.scheme = "horos"
 horosHandler.candidateBundleIDs = ["thalesmms.isis.workstation.local-development"]
 horosHandler.chosenBundleID = "thalesmms.isis.workstation.local-development"
+horosHandler.runningBundleID = "thalesmms.isis.workstation.local-development"
 horosHandler.chromeMajorVersion = 152
 horosHandler.navigationHadUserGesture = true
 horosHandler.appleEventDelivered = true
@@ -91,6 +94,7 @@ let otherApp = HorosSchemeLaunchSnapshot()
 otherApp.scheme = "horos"
 otherApp.candidateBundleIDs = ["com.example.other-viewer"]
 otherApp.chosenBundleID = "com.example.other-viewer"
+otherApp.runningBundleID = "thalesmms.isis.workstation"
 otherApp.chromeMajorVersion = 152
 otherApp.navigationHadUserGesture = true
 otherApp.appleEventDelivered = false
@@ -100,6 +104,7 @@ let chromeBlock = HorosSchemeLaunchSnapshot()
 chromeBlock.scheme = "horos"
 chromeBlock.candidateBundleIDs = ["thalesmms.isis.workstation"]
 chromeBlock.chosenBundleID = "thalesmms.isis.workstation"
+chromeBlock.runningBundleID = "thalesmms.isis.workstation"
 chromeBlock.chromeExcludedSchemes = ["horos": true]
 chromeBlock.chromeMajorVersion = 152
 chromeBlock.navigationHadUserGesture = true
@@ -110,6 +115,7 @@ let noGesture = HorosSchemeLaunchSnapshot()
 noGesture.scheme = "horos"
 noGesture.candidateBundleIDs = ["thalesmms.isis.workstation"]
 noGesture.chosenBundleID = "thalesmms.isis.workstation"
+noGesture.runningBundleID = "thalesmms.isis.workstation"
 noGesture.chromeMajorVersion = 94
 noGesture.navigationHadUserGesture = false
 noGesture.appleEventDelivered = false
@@ -119,6 +125,7 @@ let prompt = HorosSchemeLaunchSnapshot()
 prompt.scheme = "horos"
 prompt.candidateBundleIDs = ["thalesmms.isis.workstation"]
 prompt.chosenBundleID = "thalesmms.isis.workstation"
+prompt.runningBundleID = "thalesmms.isis.workstation"
 prompt.chromeMajorVersion = 152
 prompt.navigationHadUserGesture = true
 prompt.appleEventDelivered = false
@@ -140,11 +147,39 @@ let fromPrefs = HorosSchemeLaunchSnapshot.chromeSnapshot(fromPreferencesJSON: pr
 fromPrefs.scheme = "horos"
 fromPrefs.candidateBundleIDs = ["thalesmms.isis.workstation"]
 fromPrefs.chosenBundleID = "thalesmms.isis.workstation"
+fromPrefs.runningBundleID = "thalesmms.isis.workstation"
 fromPrefs.navigationHadUserGesture = true
 fromPrefs.appleEventDelivered = false
 dump("fromPrefs", HorosSchemeURL.diagnose(studyURL, snapshot: fromPrefs))
 
+// The application LaunchServices picks is compared with the one that is
+// running, whatever its identifier: no identifier is the application's own.
+func handled(_ chosenID: String?, _ chosenPath: String?, by runningID: String?, _ runningPath: String?,
+             scheme: String = "horos") -> HorosSchemeDiagnosis {
+    let snapshot = HorosSchemeLaunchSnapshot()
+    snapshot.scheme = scheme
+    snapshot.candidateBundleIDs = [chosenID ?? "unknown"]
+    snapshot.chosenBundleID = chosenID
+    snapshot.chosenPath = chosenPath
+    snapshot.runningBundleID = runningID
+    snapshot.runningPath = runningPath
+    return HorosSchemeURL.diagnose(scheme + "://?methodName=DisplayStudy&StudyInstanceUID=2.25.1", snapshot: snapshot)
+}
+let installed = "/Applications/IsiX DICOM Viewer.app"
+dump("storeBuild", handled("thalesmms.isis.Isis-DICOM-Viewer", installed, by: "thalesmms.isis.Isis-DICOM-Viewer", installed))
+dump("developmentBuild", handled("thalesmms.isis.workstation.local-development", "/b/Development/IsiX DICOM Viewer.app",
+                                 by: "thalesmms.isis.workstation.local-development", "/b/Development/IsiX DICOM Viewer.app"))
+dump("earlierCopy", handled("thalesmms.isis.workstation", installed,
+                            by: "thalesmms.isis.workstation.local-development", "/b/Development/IsiX DICOM Viewer.app"))
+dump("otherChannel", handled("thalesmms.isis.workstation", installed, by: "thalesmms.isis.Isis-DICOM-Viewer", "/Users/u/IsiX DICOM Viewer.app"))
+dump("secondCopy", handled("thalesmms.isis.workstation", "/Users/u/Downloads/IsiX DICOM Viewer.app", by: "thalesmms.isis.workstation", installed))
+dump("isixOther", handled("com.example.other-viewer", "/Applications/Other.app", by: "thalesmms.isis.workstation", installed, scheme: "isix"))
+dump("isixOwn", handled("thalesmms.isis.workstation", installed, by: "thalesmms.isis.workstation", installed, scheme: "isix"))
+dump("unknownRunning", handled("thalesmms.isis.workstation", installed, by: nil, nil))
+
 let live = HorosSchemeURL.liveSnapshot(forScheme: "horos")
+emit("live.chosenPath", live.chosenPath)
+emit("live.running", (live.runningBundleID ?? "nil") + " at " + (live.runningPath ?? "nil"))
 emit("live.candidates", live.candidateBundleIDs.joined(separator: ","))
 emit("live.chosen", live.chosenBundleID)
 emit("live.chromeVersion", live.chromeMajorVersion == 0 ? "unknown" : String(live.chromeMajorVersion))
@@ -163,7 +198,10 @@ else:
         driver = Path(directory) / 'main.swift'
         driver.write_text(DRIVER)
         binary = Path(directory) / 'scheme-launch'
-        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-framework', 'AppKit',
+        # The comparison with the running application is a rule of the module
+        # of the server's rules.
+        modules = isix_modules.module_flags('IsiXHTTPServer', Path(directory) / 'modules')
+        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-framework', 'AppKit', *modules,
                                 '-o', str(binary), str(source), str(driver)],
                                capture_output=True, text=True)
         if built.returncode != 0:
@@ -217,12 +255,29 @@ if results:
     expect('fromPrefs.layer', 'browser', 'Chrome Preferences JSON is read, not rewritten')
     expect('fromPrefs.code', 'chrome-excluded-scheme', 'excluded_schemes.horos == true')
 
-    # Live read is evidence, not a gate: this machine may have several Horos copies.
+    # The running application is itself under any identifier; a copy with
+    # another identifier, or elsewhere, is another application.
+    expect('storeBuild.code', 'ok', 'the build for the store is not another application to itself')
+    expect('developmentBuild.code', 'ok', 'nor is the development build')
+    expect('earlierCopy.code', 'other-handler', 'an earlier copy with another identifier is another application')
+    if '/Applications/IsiX DICOM Viewer.app' not in (results.get('earlierCopy.message') or ''):
+        failures.append('the diagnosis of an earlier copy does not say where it is: %r' % results.get('earlierCopy.message'))
+    expect('otherChannel.code', 'other-handler', 'a build of another channel is another application')
+    expect('secondCopy.code', 'other-handler', 'the same identifier somewhere else is the copy the links open')
+    expect('isixOther.code', 'other-handler', 'isix:// opened by another application is diagnosed as horos:// is')
+    expect('isixOwn.code', 'ok', 'isix:// opened by the running application passes LaunchServices')
+    expect('unknownRunning.code', 'other-handler', 'with nothing known of the running application, no handler is taken for it')
+
+    # Live read is evidence, not a gate: this machine may have several copies.
+    # The driver is not the application, so the handler it reads is another one.
+    if results.get('live.chosen') not in (None, 'nil'):
+        expect('live.code', 'other-handler', 'the handler read live is compared with the process that reads it')
     live_layer = results.get('live.layer')
     if live_layer not in ('accepted', 'launchServices', 'browser'):
         failures.append('live diagnosis is not one of the three layers: %r' % live_layer)
     print('live candidates: %s' % results.get('live.candidates'))
-    print('live chosen: %s' % results.get('live.chosen'))
+    print('live chosen: %s at %s' % (results.get('live.chosen'), results.get('live.chosenPath')))
+    print('live running: %s' % results.get('live.running'))
     print('live chrome: %s excluded=%s → %s/%s'
           % (results.get('live.chromeVersion'), results.get('live.excludedHoros'),
              results.get('live.layer'), results.get('live.code')))
@@ -236,6 +291,42 @@ elif 'com.apple.LaunchServices.plist' in get_url:
     failures.append('getUrl: writes LaunchServices.plist again')
 if 'LSSetDefaultHandlerForURLScheme' in application:
     failures.append('AppController still calls LSSetDefaultHandlerForURLScheme')
+
+# The handler of a scheme changes in one place, through the workspace, for a
+# declared scheme, and the system is asked again afterwards.
+sources = sorted((root / 'Horos/Sources').glob('*.swift')) + sorted((root / 'Preference Panes').rglob('*.swift'))
+writers = [path.name for path in sources
+           if re.search(r'setDefaultApplication\(|LSSetDefaultHandlerForURLScheme|LSSetDefaultRoleHandlerForContentType',
+                        path.read_text(encoding='utf-8'))]
+if writers != ['LinkSchemeRegistry.swift']:
+    failures.append('the handler of a scheme is set outside LinkSchemeRegistry.swift: %r' % writers)
+registry = (root / 'Horos/Sources/LinkSchemeRegistry.swift').read_text(encoding='utf-8')
+for name in ('take', 'giveBack'):
+    at = registry.find('    func %s(_ scheme: String) async' % name)
+    body = swift_block(registry, at) if at >= 0 else ''
+    if not body:
+        failures.append('LinkSchemeRegistry.%s is gone' % name)
+        continue
+    declared_at, set_at, read_at = (body.find(text) for text in ('guard LinkSchemeHandlers.isDeclared(scheme)', 'await Self.setHandler(',
+                                                                 'let after = Self.handler(of: scheme)'))
+    if not 0 <= declared_at < set_at:
+        failures.append('LinkSchemeRegistry.%s changes a scheme before checking that it is declared' % name)
+    if not 0 <= set_at < read_at:
+        failures.append('LinkSchemeRegistry.%s does not ask the system again after the change' % name)
+if re.search(r'\bProcess\(|NSTask', registry):
+    failures.append('LinkSchemeRegistry runs a tool')
+
+# At launch: once the launch has finished, through the rule, with no modal.
+lifecycle = (root / 'Horos/Sources/ApplicationLifecycle.swift').read_text(encoding='utf-8')
+finished = swift_block(lifecycle, lifecycle.find('    func didFinishLaunching() {'))
+if not 0 <= finished.find('LaunchEnd.reach()') < finished.find('LinkSchemeStartupCheck(preferences: preferences).run()'):
+    failures.append('the link schemes are not looked at once the launch has finished')
+check = (root / 'Horos/Sources/LinkSchemeStartupCheck.swift').read_text(encoding='utf-8')
+if 'LinkSchemeHandlers.decisions(' not in check:
+    failures.append('the launch check does not take its answer from LinkSchemeHandlers.decisions')
+for modal in ('runModal', 'beginSheet', 'HorosAlertPanel', 'NSAlert('):
+    if modal in check:
+        failures.append('the launch check of the link schemes uses %s: a link may have launched the app' % modal)
 
 if 'LSIsAppleDefaultForType' not in info:
     failures.append('Info.plist no longer claims the default role for the schemes')

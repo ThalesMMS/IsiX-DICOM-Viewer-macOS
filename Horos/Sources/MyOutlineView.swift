@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXDatabase
 
 /// NSFilenamesPboardType, which Swift marks unavailable: the same type name.
 fileprivate let filenamesPboardType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
@@ -66,13 +67,6 @@ fileprivate func isNameIdentifier(_ identifier: Any?) -> Bool {
     return (identifier as? NSString)?.isEqual(to: "name") ?? false
 }
 
-/// [value floatValue] on an id: 0 for nil.
-fileprivate func objcFloatValue(_ value: Any?) -> Float {
-    if let number = value as? NSNumber { return number.floatValue }
-    if let string = value as? NSString { return string.floatValue }
-    return 0
-}
-
 /// OutlineView for BrowserController.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
@@ -80,6 +74,13 @@ fileprivate func objcFloatValue(_ value: Any?) -> Float {
 /// uses the name as customClass.
 @objc(MyOutlineView)
 public final class MyOutlineView: NSOutlineView {
+
+    /// allColumns of an older header of the former Horos and OsiriX plugin
+    /// SDK, exported at this field's offset for the plugins built with it: the
+    /// columns the outline had when the nib connected it to the database
+    /// window, which writes it with its own copy, and when -setInitialState
+    /// was sent. The outline itself reads tableColumns, never this.
+    final var allColumnsOfSDK: NSArray?
 
     /// The graph of the database window this outline is in, which hands it
     /// the browser and the database it shows; nil outside that window.
@@ -129,23 +130,33 @@ public final class MyOutlineView: NSOutlineView {
         assertion(columnState != nil, "nil columnState!", in: #selector(restoreColumnState(_:)), object: self)
         assertion(columnState is NSArray, "columnState is not an NSArray!", in: #selector(restoreColumnState(_:)), object: self)
 
-        self.hideAllColumns()
-        for case let params as NSDictionary in (columnState as? NSArray) ?? NSArray() {
-            if !isNameIdentifier(params.object(forKey: "Identifier")) {
-                if let identifier = columnIdentifier(params.object(forKey: "Identifier")),
-                   let column = self.tableColumn(withIdentifier: identifier) {
-                    column.isHidden = false
-                    column.width = CGFloat(objcFloatValue(params.object(forKey: "Width")))
-                    self.setIndicatorImage(nil, in: column)
-                    self.needsDisplay = true
-                }
-            } else {
-                self.outlineTableColumn?.width = CGFloat(objcFloatValue(params.object(forKey: "Width")))
-                self.needsDisplay = true
+        // The columns shown first and their widths last, with nothing fitted
+        // to the view afterwards: a width given while columns are still being
+        // shown is taken away by the list as it makes room for the next ones.
+        let steps = StudyListColumnSteps.restoring(savedState: columnState, tableColumns: self.tableColumns.map(\.identifier.rawValue))
+        StudyListColumnArranger.apply(steps, to: self)
+        for case .show(let identifier) in steps {
+            if let column = self.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(identifier)) {
+                self.setIndicatorImage(nil, in: column)
             }
         }
+    }
 
-        self.sizeLastColumnToFit()
+    /// The widths kept with the column state are those of the language they were set in: a header of another
+    /// language may need more than its column has. The first time the list opens in a language, each visible
+    /// column narrower than its header grows to it, up to its maximum. It is done once for a language, so a
+    /// column made narrower afterwards stays as it was left. English is what the columns were laid out for.
+    func restoreColumnState(_ columnState: NSObject?, headersLanguageIn defaults: UserDefaults) {
+        restoreColumnState(columnState)
+        let language = Bundle.main.preferredLocalizations.first ?? "en"
+        let key = "databaseColumnsHeadersLanguage"
+        guard language != (defaults.string(forKey: key) ?? "en") else { return }
+        defaults.set(language, forKey: key)
+        guard language != "en" else { return }
+        for column in self.tableColumns where !column.isHidden {
+            let needed = min(ceil(column.headerCell.cellSize.width), column.maxWidth)
+            if column.width < needed { column.width = needed }
+        }
     }
 
     @objc(setColumnWithIdentifier:visible:)
@@ -158,18 +169,12 @@ public final class MyOutlineView: NSOutlineView {
         assertion(column != nil, "nil column!", in: #selector(setColumnWithIdentifier(_:visible:)), object: self)
         guard let column else { return }
 
-        let hidden = !visible
-
-        if column.isHidden != hidden {
-            column.isHidden = hidden
-
-            if visible {
-                self.moveColumn(self.column(withIdentifier: column.identifier), toColumn: 1)
-            }
-
-            self.sizeLastColumnToFit()
-            self.needsDisplay = true
-        }
+        // Every other column keeps the width it has: the list would share
+        // among the columns that resize with it the width of the one shown or
+        // hidden.
+        let steps = StudyListColumnSteps.toggling(column.identifier.rawValue, visible: visible,
+                                                  columns: StudyListColumnArranger.columns(of: self))
+        StudyListColumnArranger.apply(steps, to: self)
     }
 
     @objc(isColumnWithIdentifierVisible:)
@@ -206,7 +211,7 @@ public final class MyOutlineView: NSOutlineView {
     @available(*, deprecated)
     @objc(setInitialState)
     public func setInitialState() {
-        //allColumns = [[NSArray arrayWithArray:[self tableColumns]] retain];
+        allColumnsOfSDK = self.tableColumns as NSArray
     }
 
     // MARK: Dragging destination

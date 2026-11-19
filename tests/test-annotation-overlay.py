@@ -121,7 +121,7 @@ if textual is None:
 else:
     # The study number box is Swift; the large description, in DCMView.m
     # until it moved to DCMView+Drawing.swift.
-    large = ('self.horos_showDescriptionInLargeText = AnnotationBox(attributedString:' in drawing if drawing
+    large = ('self.largeDescriptionBox = AnnotationBox(attributedString:' in drawing if drawing
              else '[[HorosAnnotationBox alloc]' in view)
     # The box at the top left is the series' number since the series are
     # identified by study: SeriesListIdentification builds it.

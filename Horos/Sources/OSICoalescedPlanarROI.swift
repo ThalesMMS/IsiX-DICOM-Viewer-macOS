@@ -50,16 +50,22 @@ import IsiXROI
 /// are made by OSIROIVolumeGeometry, from IsiXROI's rules.
 @objc(OSICoalescedPlanarROI)
 public final class OSICoalescedPlanarROI: OSIROI {
-    private let _sourceROIs: [Any]
-    private var _coalescedROIMaskVolumeData: OSIFloatVolumeData?
-    private var _cachedSlab = OSISlab()
-    private var _cachedDicomToPixTransform = N3AffineTransform()
-    private var _cachedMinCorner = N3VectorZero
-    private var _cachedMaskRunsData: NSData?
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    // The source ROIs are the NSArray the SDK declared; a plugin may store nil,
+    // read as no ROI.
+    var _sourceROIs: NSArray?
+    var _coalescedROIMaskVolumeData: OSIFloatVolumeData?
+    var _cachedSlab = OSISlab()
+    var _cachedDicomToPixTransform = N3AffineTransform()
+    var _cachedMinCorner = N3VectorZero
+    var _cachedMaskRunsData: NSData?
 
     @objc(initWithSourceROIs:homeFloatVolumeData:)
     public init(sourceROIs rois: [Any]!, homeFloatVolumeData floatVolumeData: OSIFloatVolumeData!) {
-        _sourceROIs = rois ?? []
+        _sourceROIs = (rois ?? []) as NSArray
         super.init()
         setHomeFloatVolumeData(floatVolumeData)
     }
@@ -67,19 +73,16 @@ public final class OSICoalescedPlanarROI: OSIROI {
     /// The planar ROIs this ROI stands for.
     @objc(sourceROIs)
     public var sourceROIs: [Any]! {
-        return _sourceROIs
+        return (_sourceROIs as? [Any]) ?? []
     }
 
     private var sources: [OSIROI] {
-        return _sourceROIs.compactMap { $0 as? OSIROI }
+        return (_sourceROIs as? [Any] ?? []).compactMap { $0 as? OSIROI }
     }
 
     @objc(name)
     public override func name() -> String! {
-        if _sourceROIs.count > 0 {
-            return (_sourceROIs[0] as? OSIROI)?.name()
-        }
-        return nil
+        return (_sourceROIs?.firstObject as? OSIROI)?.name()
     }
 
     @objc(convexHull)
@@ -120,7 +123,7 @@ public final class OSICoalescedPlanarROI: OSIROI {
 
     @objc(osiriXROIs)
     public override func osiriXROIs() -> NSSet! {
-        let osirixROIs = NSMutableSet(capacity: _sourceROIs.count)
+        let osirixROIs = NSMutableSet(capacity: _sourceROIs?.count ?? 0)
         for roi in sources {
             osirixROIs.addObjects(from: roi.osiriXROIs()?.allObjects ?? [])
         }

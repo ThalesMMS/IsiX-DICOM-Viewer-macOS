@@ -83,15 +83,17 @@ def fail(message):
     raise SystemExit(1)
 
 
-# -computeColor is Swift (DCMView+Geometry.swift).
+# -computeColor is Swift (DCMView+Geometry.swift); what it does to the open
+# viewers is ViewerStudyColouring's.
 geometry = (root / 'Horos/Sources/DCMView+Geometry.swift').read_text()
-compute = geometry[geometry.index('    private func computeStudyColours() {'):]
+colouring = (root / 'Horos/Sources/ViewerStudyColouring.swift').read_text()
+compute = colouring[colouring.index('    static func mark('):]
 compute = compute[:compute.index('\n    }\n')]
 if 'PreviousStudyMark.previousIndices(' not in compute or 'PreviousStudyMark.setPrevious(' not in compute:
     fail('computeColor does not record the previous exams')
 if compute.index('PreviousStudyMark.previousIndices(') > compute.index('guard !colouredStudies.isEmpty else { return }'):
     fail('the mark is recorded only when there are studies to colour')
-if 'computeStudyColours()' not in geometry[geometry.index('    @objc(computeColor)'):geometry.index('    private func computeStudyColours() {')]:
+if 'ViewerStudyColouring.mark(' not in geometry[geometry.index('    @objc(computeColor)'):]:
     fail('computeColor does not compute the study colours')
 
 text = (root / 'Horos/Sources/DCMView+WindowLevel+Coordinates.swift').read_text()

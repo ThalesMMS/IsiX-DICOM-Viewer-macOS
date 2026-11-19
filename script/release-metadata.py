@@ -36,6 +36,8 @@ new publication folder with the application ZIPs, stable.plist,
 Technical-Apple-Silicon.txt, Technical-Intel.txt, Licenses-and-source.zip and
 Verification.txt. Build reports default to ROOT/build/Release/ARCH/BUILD-INFO.txt;
 --arm64-info and --intel-info select the final reports after distribution signing.
+An application ZIP is refused when it holds AppleDouble, __MACOSX or .DS_Store
+entries; script/release_archive.py writes the ZIPs without them and checks them.
 --sdk-zip adds the plugin SDK script/build_release.sh wrote in build/Release,
 IsiXPluginKit-SDK-VERSION.zip, VERSION being the tag without its leading v; it
 is refused unless it holds the framework, SDK.json and LegacyPorting/PORTING.json
@@ -62,6 +64,9 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release_archive  # noqa: E402 - the sibling that writes and checks the application ZIPs
 
 def run(*command, cwd=None):
     try:
@@ -484,7 +489,10 @@ def write_metadata(root, temp_dir, staging, audit_path, packages, public_source_
     add('  every file of the bundle: SHA256SUMS.txt (shasum -a 256 -c SHA256SUMS.txt)')
 
     text = '\n'.join(lines) + '\n'
-    for forbidden in (str(Path.home()), '/Users/', 'horos-workbench'):
+    # The name of the development repository, put together here so that this
+    # file does not carry it either.
+    development_repository = '-'.join(('horos', 'work' + 'bench'))
+    for forbidden in (str(Path.home()), '/Users/', development_repository):
         if forbidden in text:
             sys.exit('error: BUILD-INFO.txt would name %s' % forbidden)
     (staging / 'BUILD-INFO.txt').write_text(text)
@@ -526,6 +534,11 @@ def read_release_archive(archive, tag):
     if archive.suffix != '.zip' or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', archive.name):
         raise ValueError('the archive must be a .zip whose name a release asset keeps unchanged')
     with zipfile.ZipFile(archive) as bundle:
+        foreign = release_archive.foreign_entries(bundle.namelist())
+        if foreign:
+            raise ValueError('%s holds %d AppleDouble, __MACOSX or .DS_Store entries (%s ...): an extractor that keeps '
+                             'them breaks the seal of the signature; write the archive with script/release_archive.py'
+                             % (archive.name, len(foreign), foreign[0]))
         plists = [name for name in bundle.namelist() if re.fullmatch(r'[^/]+\.app/Contents/Info\.plist', name)]
         if len(plists) != 1:
             raise ValueError('the archive must hold exactly one application at its top level')

@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 
 // The volumes of VRView: the series' volume the view is built on
 // (-setPixSource::, its 16-bit copy and its affine map, the VTK pipeline), the
@@ -200,7 +201,9 @@ extension VRView {
 
         setCLUT(nil, nil, nil)
 
-        setShadingValues(0.15, 0.9, 0.3, 15)
+        // Those of a first opening, which Revert Series restores.
+        let openingShading = VolumeRenderingOpening.shadingValues
+        setShadingValues(openingShading.ambient, openingShading.diffuse, openingShading.specular, openingShading.specularPower)
 
         let nearest = NSApp.currentEvent?.modifierFlags.contains(.option) ?? false
 
@@ -577,9 +580,11 @@ extension VRView {
 extension VRView {
 
     /// What the gantry tilt's mark says of the series now: nothing once its
-    /// viewer has read the slices from their files again.
+    /// viewer, or the window itself after a change of plane, has read the
+    /// slices from their files again.
     func tiltMarkText() -> String? {
-        GantryTiltPolicy.correctedDegrees(of: horos_controller?.viewer2D())
+        if horos_controller?.horosVolumeReadAgain == true { return nil }
+        return GantryTiltPolicy.correctedDegrees(of: horos_controller?.viewer2D())
             .map { GantryTiltPolicy.overlayText(degrees: $0.floatValue) }
     }
 

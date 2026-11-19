@@ -460,9 +460,19 @@ extension DCMTKQueryNode {
         let result = association.find(withIdentifier: identifier) { [self] match in addChild(match) }
         lastQuerySucceededValue = result.conditionGood && result.status == 0x0000
         if result.condition == nil && result.status != 0x0000 && result.status != 0xff00 {
+            // A status that refuses the request, as a peer that does not answer
+            // this level gives, is not a failure of the moment: a retrieve can
+            // go on without that listing, and is then judged by the peer's counters.
+            lastQueryStatus = result.status
+            lastQueryNotImplementedValue = RetrieveListing.refuses(findStatus: result.status)
             var response = "\(calledAETitle ?? "(null)")  /  \(_hostname ?? "(null)"):\(_port)\r\r" + result.statusText
             if let detail = result.statusDetail { response += "\r\r\r" + detail }
-            if showErrorMessageValue && !_abortAssociation {
+            if listsForRetrieve && lastQueryNotImplementedValue {
+                // The level, the status and its name: none is a value of the request.
+                NSLog("---- retrieve listing: the node refused the C-FIND at the %@ level with status %@ (%@)",
+                      identifier.utf8Value(.queryRetrieveLevel) ?? "(null)", RetrieveListing.text(ofStatus: Int(result.status)),
+                      result.statusText)
+            } else if showErrorMessageValue && !_abortAssociation {
                 Self.postNotice(NSLocalizedString("Query Failed (2)", comment: ""), response)
             } else {
                 Self.applicationNotices.notify(title: NSLocalizedString("Query Failed (2)", comment: ""), description: response, name: "autoquery")

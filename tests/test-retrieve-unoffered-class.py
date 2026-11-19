@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Instances of a class the C-GET does not offer to receive are expected absences.
 
-Siemens studies processed on syngo.via carry one Siemens CT MR Volume
-(1.3.12.2.1107.5.99.3.10) per series beside the classic slices. A C-GET offers
-to receive only the standard storage classes, and OsiriX refuses that class even
-when it is offered, so those volumes never arrive. The IMAGE level now gives each
+Siemens studies processed on a vendor post-processing workstation carry one
+Siemens CT MR Volume (1.3.12.2.1107.5.99.3.10) per series beside the classic
+slices. A C-GET offers to receive only the standard storage classes, and a peer
+may refuse that class even when it is offered, so those volumes never arrive. The IMAGE level now gives each
 instance's SOP class; one of a class the C-GET does not offer is an expected
 absence from the start. It is not asked for, and its failed sub-operation raises
 neither «Get Failed» nor «Retrieve Incomplete», not even the first time. The
@@ -80,7 +80,7 @@ let rows = (1...4).map { ["uid": "CT.\($0)", "series": "S", "sopClass": ct] }
     + [["uid": "VOL.1", "series": "S", "sopClass": volume, "offered": "NO"]]
 let slices = (1...4).map { "CT.\($0)" }
 func begin(_ study: String) -> RetrieveInventory {
-    RetrieveInventory.begin(study: study, series: "", endpoint: "OSIRIX@peer:11112", database: directory, instances: rows,
+    RetrieveInventory.begin(study: study, series: "", endpoint: "PEER@peer:11112", database: directory, instances: rows,
                             confirmed: true, reported: 5, seriesReported: ["S": 5])
 }
 

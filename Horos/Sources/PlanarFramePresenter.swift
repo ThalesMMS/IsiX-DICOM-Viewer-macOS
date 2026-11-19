@@ -205,15 +205,17 @@ public final class PlanarFrameGraphics: NSObject {
         screen(canvas, size, xFlipped: xFlipped, yFlipped: yFlipped)
     }
 
-    /// The frame of a 2D window when more than one is open: thick, in the
-    /// colour of its study, on the key view of the active window; thin and
-    /// neutral on the others. The whole line is inside the view, so the window
-    /// cuts none of its sides. Returns how far the frame reaches into the
-    /// view, in points.
+    /// The frame of a 2D window that has one: in the colour of its study on
+    /// the key view of the active window; thinner and neutral on the others.
+    /// The whole line is inside the view, so the window cuts none of its
+    /// sides, and no wider than what the annotations leave free along them
+    /// (WindowFrameRule). Returns how far the frame reaches into the view, in
+    /// points.
     @discardableResult
     @objc(drawWindowBorderSize:scale:color:active:)
     public static func drawWindowBorder(size: NSSize, scale: CGFloat, color: NSColor, active: Bool) -> CGFloat {
-        let width: Float = active ? 5 : 2
+        // The widths of IsiXImaging's WindowFrameRule, which the annotations keep clear of.
+        let width: Float = active ? 3 : 2
         guard let canvas = ROICanvas.current, let rgb = color.usingColorSpace(.genericRGB) else { return 0 }
         let sf = Float(scale)
         canvas.color(r: rgb.redComponent, g: rgb.greenComponent, b: rgb.blueComponent, a: CGFloat(Float(active ? 0.9 : 0.8)))

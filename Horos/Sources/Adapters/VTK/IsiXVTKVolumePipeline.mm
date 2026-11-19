@@ -741,13 +741,6 @@ static vtkPlaneCollection *IsiXVTKAppliedCrop(IsiXVTKVolumeViewObjects *o)
     IsiXVTKVolumeRun("addOpacityPoint", {}, [&] { opacity->AddPoint(x, value); });
 }
 
-- (void)addOpacitySegmentFrom:(double)x1 value:(double)v1 to:(double)x2 value:(double)v2
-{
-    vtkPiecewiseFunction *opacity = _o->opacityTransferFunction;
-    if (!opacity) return;
-    IsiXVTKVolumeRun("addOpacitySegment", {}, [&] { opacity->AddSegment(x1, v1, x2, v2); });
-}
-
 - (void)removeAllColourPoints
 {
     vtkColorTransferFunction *colour = _o->colorTransferFunction;

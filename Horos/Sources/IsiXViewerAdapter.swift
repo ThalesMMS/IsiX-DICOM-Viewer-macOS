@@ -324,6 +324,10 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
         let selector = NSSelectorFromString("newWindow:::")
         let send = unsafeBitCast(viewer.method(for: selector), to: NewWindow.self)
         let created = send(viewer, selector, pixList, fileList, volume).takeUnretainedValue()
+        // The copies still name the sources' files, but their pixels are the
+        // plugin's: marked post-processed, the viewer's Revert Series and a
+        // volume window's Revert and Tab do not read those files over them.
+        created.setPostprocessed(true)
         created.needsDisplayUpdate()
         if let level = series.windowLevel {
             created.setWL(Float(level.center), ww: Float(level.width))

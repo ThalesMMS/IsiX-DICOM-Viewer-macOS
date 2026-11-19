@@ -698,14 +698,22 @@ struct DicomFileIndexer {
         while seriesIndex < noOfSeries {
             let seriesNum = seriesIndex != 0 ? String(format: "%d", seriesIndex) : ""
             let curDictSeriesID = curDict.object(forKey: "seriesID" + seriesNum) as? String
+            // The key a multiframe volume had as a series of its own. The series
+            // of such a file is looked for each time: the file before it, of the
+            // same key, may be in a series this one is not in.
+            let formerSeriesID = curDict.object(forKey: "formerSeriesID" + seriesNum) as? String
 
-            if !isEqualString(curDictSeriesID, cursor.seriesID) {
+            if formerSeriesID != nil || !isEqualString(curDictSeriesID, cursor.seriesID) {
                 /********************************************/
                 /*********** Find series object *************/
 
                 let seriesArray = (cursor.study?.value(forKey: "series") as? NSSet)?.allObjects as NSArray?
+                let seriesKeys = seriesArray?.value(forKey: "seriesInstanceUID") as? NSArray
+                let inFormerSeries = ImportMatching.staysInFormerSeries(formerKey: formerSeriesID) { indexOfObject($0, in: seriesKeys) != NSNotFound }
+                var seriesKey = curDict.object(forKey: "seriesID" + seriesNum)
+                if inFormerSeries, let formerSeriesID { seriesKey = formerSeriesID }
 
-                let index = indexOfObject(curDict.object(forKey: "seriesID" + seriesNum), in: seriesArray?.value(forKey: "seriesInstanceUID") as? NSArray)
+                let index = indexOfObject(seriesKey, in: seriesKeys)
                 if index == NSNotFound {
                     // Fields
                     cursor.series = NSEntityDescription.insertNewObject(forEntityName: "Series", into: context!)
@@ -721,7 +729,7 @@ struct DicomFileIndexer {
                     let seriesTable = cursor.series
                     if let uid = curDict.object(forKey: "seriesDICOMUID") { seriesTable?.setValue(uid, forKey: "seriesDICOMUID") }
                     if let uid = curDict.object(forKey: "SOPClassUID") { seriesTable?.setValue(uid, forKey: "seriesSOPClassUID") }
-                    seriesTable?.setValue(curDict.object(forKey: "seriesID" + seriesNum), forKey: "seriesInstanceUID")
+                    seriesTable?.setValue(seriesKey, forKey: "seriesInstanceUID")
                     seriesTable?.setValue(curDict.object(forKey: "seriesDescription" + seriesNum), forKey: "name")
                     seriesTable?.setValue(curDict.object(forKey: "modality"), forKey: "modality")
                     seriesTable?.setValue(curDict.object(forKey: "seriesNumber" + seriesNum), forKey: "id")
@@ -737,7 +745,7 @@ struct DicomFileIndexer {
                     }
                 }
 
-                cursor.seriesID = curDictSeriesID
+                cursor.seriesID = inFormerSeries ? formerSeriesID : curDictSeriesID
             }
 
             indexImages(curDict, seriesNum: seriesNum, cursor: cursor, added: added, importedDate: importedDate, today: today,
@@ -1326,7 +1334,14 @@ struct DicomFileIndexer {
                 DicomDatabaseObjC.log(exception, stack: true, "-[DicomDatabase addFilesDescribedInDictionaries:postNotifications:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:]_block_invoke")
             }
 
-            database.timeOfLastModification = Date.timeIntervalSinceReferenceDate
+            // An import runs on an independent database of the one that is
+            // shown and shared: the main one takes the time too, which it
+            // alone is asked for.
+            let modified = Date.timeIntervalSinceReferenceDate
+            database.timeOfLastModification = modified
+            if !database.isMainDatabase(), let main = database.mainDatabase as? DicomDatabase {
+                main.timeOfLastModification = modified
+            }
             if postNotifications {
                 feedback.notifyImport(imagesAdded: notificationString, newStudy: added.newStudy ? notificationStringNewStudy : nil)
             }

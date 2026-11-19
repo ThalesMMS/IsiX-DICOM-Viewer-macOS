@@ -161,7 +161,7 @@ for scenario in 0..<240 {
         return counts
     }
     let seriesScope = chance(25) ? pick(seriesUIDs) : ""
-    let endpoint = pick(["PACS@host:104", "OSIRIX@peer:11112"])
+    let endpoint = pick(["PACS@host:104", "PEER@peer:11112"])
     var rows = listing()
     var uids = rows.compactMap { $0["uid"] }.filter { !$0.isEmpty }
     var inventory: RetrieveInventory? = RetrieveInventory.begin(study: study, series: seriesScope, endpoint: endpoint, database: directory,

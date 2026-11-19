@@ -20,9 +20,9 @@ What must stay true:
   that names the thread to cancel; once stopped, the gate admits no import,
   cancels those inside and lets quitting wait for them, whether or not
   ThreadsManager lists them, and whichever thread gives the admission back;
-- finishTermination stops the gate, through DatabaseIngest, which also stops the
+- quitting stops the gate, through DatabaseIngest, which also stops the
   scheduler of the passes, before it waits for the background threads, and waits
-  for the gate before NSApp.terminate;
+  for the gate before it lets AppKit terminate;
 - the copy and the scan of a medium pass the gate too, and each batch of the
   copy as a part of it, on its own thread: never refused, so that what was
   copied before quitting is not left out, and waited for;
@@ -97,20 +97,26 @@ check(-1 < quit.find('IncomingImportGate.shared.stop()') < quit.find('scheduler.
       'quitting does not close the gate at once, before it tells the scheduler')
 
 controller = class_text('AppController')
-# The rest of quitting is ApplicationLifecycle's.
-finish = body(controller, 'func finishTermination(_ sender: Any?)')
-check(finish, 'finishTermination not found')
-stop = finish.find('processGraph.databaseIngest.stop()')
-listeners = finish.find('dicomListener.stopListeners(before:')
-loop = finish.find('while Date.timeIntervalSinceReferenceDate - start < 10')
-wait = finish.find('IncomingImportGate.shared.waitUntilIdle(before:')
-terminate = finish.find('NSApp.terminate(sender)')
-check(-1 < stop < listeners, 'finishTermination does not stop the incoming import first')
-check(-1 < loop < wait < terminate, 'finishTermination does not wait for the incoming import after the threads and before NSApp.terminate')
-waiting = finish[loop:wait]
-check(waiting.find('cleanupFinishedThreads(nil)') > -1
-      and waiting.find('cleanupFinishedThreads(nil)') < waiting.find('if threads.isEmpty { break }'),
+# The rest of quitting is ApplicationLifecycle's, which says what each stop
+# does, and the order of the stops is OrderlyQuit's, the same for every route.
+work = body(controller, 'private func makeQuit() -> OrderlyQuit')
+check(work, 'the stops of quitting not found')
+check('stopImports: { [unowned self] in self.processGraph.databaseIngest.stop() }' in work,
+      'quitting does not stop the incoming import at its gate')
+check('waitForImports: { deadline in IncomingImportGate.shared.waitUntilIdle(before: deadline) }' in work,
+      'quitting does not wait for the incoming import at its gate')
+threads = work[work.find('cancelThreads:'):work.find('waitForImports:')]
+check(-1 < threads.find('cleanupFinishedThreads(nil)') < threads.find('return threads.count'),
       'the wait does not drop finished threads before it counts them')
+proceed = body(source_text('OrderlyQuit'), 'private func proceed(')
+stop = proceed.find('work.stopImports()')
+listeners = proceed.find('if !stopListeners(')
+loop = proceed.find('while cancelThreads() > 0')
+wait = proceed.find('if !waitForImports(')
+ended = proceed.find('self.stopsEnded()')
+check(-1 < stop < listeners, 'quitting does not stop the incoming import first')
+check(-1 < listeners < loop < wait < ended,
+      'quitting does not wait for the incoming import after the threads and before the reply that lets AppKit terminate')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='latin1')
 check('IncomingImportGate.swift in Sources' in project, 'IncomingImportGate.swift is not in the application target')

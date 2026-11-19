@@ -118,7 +118,8 @@ public final class MPROpenGeometry: NSObject {
         return spacingX.isFinite && spacingY.isFinite && spacingX > 0 && spacingY > 0
     }
 
-    /// horos#391: NSRunCriticalAlertPanel during hidden-MPR `computeMinMax` re-enters drawing.
+    /// A critical alert panel run during the `computeMinMax` of a hidden MPR re-enters drawing,
+    /// so the high dynamic range prompt is not presented while the MPR opens hidden.
     @objc(shouldPresentHighDynamicPromptDuringHiddenInit:)
     public static func shouldPresentHighDynamicPrompt(duringHiddenInit hiddenInit: Bool) -> Bool {
         !hiddenInit

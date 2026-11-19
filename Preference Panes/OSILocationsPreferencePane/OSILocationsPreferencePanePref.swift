@@ -141,9 +141,8 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSILocationsPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSILocationsPreferencePanePref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let view = mainWindow?.contentView {
@@ -303,7 +302,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
             tag = 12
         } else if stringEncoding == "ISO 2022 IR 87" {
             tag = 13
-        } else if stringEncoding == "ISO_IR 1166" {
+        } else if stringEncoding == "ISO_IR 166" {
             tag = 14
         } else {
             UserDefaults.standard.set("ISO_IR 100", forKey: "STRINGENCODING")
@@ -316,6 +315,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         if let characterSetPopup {
             QueryRetrieveDownloadSettings.install(below: characterSetPopup, in: mainView)
             ModalityWorklistSettings.install(below: characterSetPopup, in: mainView, nodes: dicomNodes)
+            PatientNameSearchSettings.install(below: characterSetPopup, in: mainView)
         }
 
         var i = 0
@@ -482,6 +482,9 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
                 popup.addItem(withTitle: title)
                 popup.lastItem?.tag = tag
             }
+            // Wide enough for its widest item, which a translation can make longer than the syntax pop-up: the
+            // sheet widens to it (SheetLabelColumn.fit).
+            popup.setFrameSize(NSSize(width: max(width, PaneFit.neededWidth(of: popup)), height: popup.frame.height))
             popup.toolTip = help
             popup.bind(.selectedTag, to: self, withKeyPath: key, options: nil)
             content.addSubview(popup)
@@ -843,7 +846,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
         case 11: encoding = "ISO 2022 IR 13"
         case 12: encoding = "ISO_IR 13"
         case 13: encoding = "ISO 2022 IR 87"
-        case 14: encoding = "ISO_IR 1166"
+        case 14: encoding = "ISO_IR 166"
         default: encoding = "ISO_IR 100"
         }
         UserDefaults.standard.set(encoding, forKey: "STRINGENCODING")

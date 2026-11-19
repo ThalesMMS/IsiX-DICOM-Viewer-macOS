@@ -15,10 +15,38 @@ command the Debug build logged for the app's Objective-C, a Swift ROI linked as
 the build's own objects, with MyPoint and the Swift they call. One is the
 revision before the extraction, read from git; the other is this checkout. Both
 run the same probe, and every number they print must be the same, bit for bit
-(floats are printed in hexadecimal). Archives written by each are compared
-byte for byte and read back by the other; when ../DICOM_Example holds ROI
-archives of earlier Horos versions (SRs, .roi files), both must read them to
-the same ROIs.
+(floats are printed in hexadecimal). When ../DICOM_Example holds ROI archives
+of earlier Horos versions (SRs, .roi files), both must read them to the same
+ROIs.
+
+The archives the two write are compared as far as the two write one format.
+While both give ROI the same class version, they are the same byte for byte
+and each reads the other's. The archive is unkeyed, though: the class version
+of ROI says which values follow one another, so a later version is a different
+sequence of values. The reference writes version 16 with two numbers of its
+own (name only, hidden) after the placeholders of versions 12 to 15. Those
+numbers stand where the LGPL format has four strings, so this checkout writes
+version 18: four strings and two nil objects as placeholders of versions 16
+and 17, a marker string, and then the two numbers and the tie to a ratio.
+Between two such revisions:
+
+- the archives are the same byte for byte, the class version aside, up to the
+  first value of version 16, which is every value both layouts have at one
+  place (versions 1 to 15); what this checkout writes from there on is exactly
+  the placeholders, the marker, the same two numbers the reference wrote and
+  an empty tie;
+- this checkout reads every archive of the reference as the reference reads
+  it back (files already written stay readable), and reads its own archives,
+  from their files, as it read them back when it wrote them - which the
+  comparison of the two probes has shown to be what the reference reads back
+  from its own;
+- byte equality past the first value of version 16 cannot hold: the values
+  differ in number and class, and an archive numbers its objects in the order
+  they are written, so every reference to an object after the marker, a
+  subclass's own values included, is shifted;
+- the reference cannot read this checkout's archives: it takes version 18 for
+  its own layout of version 16, where strings stand in place of its two
+  numbers and more values follow than it reads. That reading is not asked.
 
 On a tree that has not been changed yet the reference is the tree itself, and
 the probe's own expectations - areas, lengths and statistics worked out by hand
@@ -36,6 +64,7 @@ synthetic series (eight 512 x 512 slices, five ROIs each), without and with
 skewness and kurtosis.
 """
 from pathlib import Path
+import base64
 import json
 import os
 import re
@@ -530,9 +559,12 @@ def build(revision, folder):
             and not (root / statistics).is_file():
         folder.mkdir(parents=True)
         extra_swift = [roi_harness.object_probe.revision_source(statistics, revision, folder / 'swift' / 'ROIStatistics.swift')]
+        # The class is declared once: by the application's header where it has one, which the
+        # generated interface the sources import brings in as well, and here otherwise.
         (folder / 'median.h').write_text('#import <Foundation/Foundation.h>\n'
+                                         '#if __has_include("HorosROIStatistics.h")\n#import "HorosROIStatistics.h"\n#else\n'
                                          '@interface HorosROIStatistics : NSObject\n'
-                                         '+ (double)medianOfValues:(const float *)values count:(NSInteger)count;\n@end\n')
+                                         '+ (double)medianOfValues:(const float *)values count:(NSInteger)count;\n@end\n#endif\n')
         pix_flags = ['-include', str(folder / 'median.h')]
         folder = folder / 'harness'
     return roi_harness.build(revision, folder, PROBE.replace('// PIX_IVARS\n', roi_harness.PIX_IVARS) + harness_defaults.OBJC, config=configuration,
@@ -572,6 +604,46 @@ def example_archives(directory):
 
 diff = roi_harness.diff
 
+# The class version of ROI in an archive: a small integer after the class name.
+ROI_CLASS_VERSION = re.compile(rb'\x84\x84\x03ROI([\x00-\x7f])')
+# What this checkout writes from the first value of version 16 on. Every value
+# is preceded by the reference (\x92) to its type, "@"; <l> is the label of an
+# object already written, \x85 is nil and \x84 opens a new object. Four times
+# the empty string, two nils, the marker as a new string, the two numbers
+# (name only, hidden) and the empty string again, for a ROI with no tie.
+LABEL = rb'(?:\x81..|[^\x81-\x91])'
+OWN_VALUES = re.compile(
+    rb'(?P<empty><l>)(?:\x92(?P=empty)){3}\x92\x85\x92\x85\x92\x84<l><l>\x0fisix-roi-values\x86'
+    rb'\x92(?P<numbers><l>\x92<l>)\x92(?P=empty)'.replace(b'<l>', LABEL), re.S)
+
+
+def class_version(archive):
+    """The class version an archive gives ROI, None when it names no ROI."""
+    found = ROI_CLASS_VERSION.search(archive)
+    return found.group(1)[0] if found else None
+
+
+def archive_difference(reference_archive, current_archive):
+    """What tells the two archives of one ROI apart beyond what their formats
+    allow, None when nothing does: every byte at one class version, and at two
+    the bytes of every value both layouts have at one place."""
+    a, b = ROI_CLASS_VERSION.search(reference_archive), ROI_CLASS_VERSION.search(current_archive)
+    if a is None or b is None or a.start() != b.start():
+        return 'the class version of ROI is not at one place in the two'
+    if a.group(1) == b.group(1):
+        return None if reference_archive == current_archive else 'the bytes differ at one class version'
+    at = a.start(1)
+    renumbered = reference_archive[:at] + current_archive[at:at + 1] + reference_archive[at + 1:]
+    shorter = min(len(renumbered), len(current_archive))
+    common = next((i for i in range(shorter) if renumbered[i] != current_archive[i]), shorter)
+    own = OWN_VALUES.match(current_archive, common)
+    if own is None:
+        return (f'the bytes differ at {common}, which is not where this checkout\'s placeholders of version 16, '
+                'its marker and its own values begin')
+    if not reference_archive.startswith(own.group('numbers'), common):
+        return 'the two numbers after the marker are not the two the reference wrote at version 16'
+    return None
+
 
 if keep:
     for label, revision in (('reference', reference), ('current', roi_harness.WORKTREE)):
@@ -606,16 +678,34 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-characterization-') as tmp:
             failures.append(f'{label}: {failure}')
 
     reference_cases, current_cases = outputs['reference']['cases'], outputs['current']['cases']
+
+    # The archives are compared apart, as far as the two revisions write one format.
+    def archives_of(cases):
+        return {label: base64.b64decode(case.pop('archive')) for label, case in cases.items() if 'archive' in case}
+    reference_archives, current_archives = archives_of(reference_cases), archives_of(current_cases)
     for problem in diff(reference_cases, current_cases):
         failures.append('differs from the reference: ' + problem)
+    for label in sorted(set(reference_archives) | set(current_archives)):
+        if label not in reference_archives or label not in current_archives:
+            failures.append(f'{label}: only one of the two revisions archives it')
+            continue
+        problem = archive_difference(reference_archives[label], current_archives[label])
+        if problem:
+            failures.append(f'{label}: the archive differs from the reference: {problem}')
+    versions = {(class_version(reference_archives[label]), class_version(current_archives[label]))
+                for label in set(reference_archives) & set(current_archives)}
+    one_format = all(a == b for a, b in versions)
 
     # Archives written by each revision, read by the other; earlier versions' archives read by both.
+    # A reference that writes another class version does not read this checkout's archives.
     example_folder = tmp / 'examples'
     example_folder.mkdir()
     examples = example_archives(example_folder)
     reads = {}
     for reader in harnesses:
         for written in ('reference-archives', 'current-archives', 'examples'):
+            if reader == 'reference' and written == 'current-archives' and not one_format:
+                continue
             result = subprocess.run([str(harnesses[reader]), 'read', str(tmp / written)], capture_output=True, text=True, timeout=600)
             if result.returncode:
                 failures.append(f'{reader} could not read {written}: {result.stderr[-2000:]}')
@@ -635,11 +725,26 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-characterization-') as tmp:
         for name, state in reads[('reference', 'current-archives')].items():
             if state != current_cases[name]['readBack']:
                 failures.append(f'{name}: this checkout\'s archive does not read back in the reference as here')
+    # This checkout reads its own archives, from their files, as it read them back when it wrote them.
+    if ('current', 'current-archives') in reads:
+        own = reads[('current', 'current-archives')]
+        for name in sorted(set(own) | set(current_archives)):
+            if own.get(name) != current_cases.get(name, {}).get('readBack'):
+                failures.append(f'{name}: this checkout\'s archive does not read back in this checkout as when it was written')
+    for written in ('reference-archives', 'current-archives'):
+        if ('current', written) in reads and len(reads[('current', written)]) != len(current_archives):
+            failures.append(f'this checkout read {len(reads[("current", written)])} of the {len(current_archives)} {written}')
 
 for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print(f'PASS: {len(current_cases)} ROI cases (every kind, calibrated and not) measure, report statistics and archive '
-      f'exactly as {reference} does; archives cross-read both ways; '
+if one_format:
+    archived = f'archive exactly as {reference} does; archives cross-read both ways; '
+else:
+    archived = (f'archive, up to the first value of version 16, exactly as {reference} does (class versions '
+                + ', '.join(f'{a} and {b}' for a, b in sorted(versions, key=str))
+                + '); this checkout reads the reference\'s archives and its own; ')
+print(f'PASS: {len(current_cases)} ROI cases (every kind, calibrated and not) measure, report statistics and '
+      + archived
       + (f'{examples} archives of earlier versions read alike' if examples else 'no archives of earlier versions in ../DICOM_Example'))

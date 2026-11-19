@@ -53,7 +53,12 @@ import Foundation
     // MARK: - State
 
     /// The file -init: was given.
-    final var horos_filePath: String?
+    /// Four strings are kept as the NSString the SDK declared; the class reads them as Swift strings.
+    final var horos_filePathString: NSString?
+    final var horos_filePath: String? {
+        get { horos_filePathString as String? }
+        set { horos_filePathString = newValue as NSString? }
+    }
     final var horos_name: NSString?
     final var horos_study: NSString?
     final var horos_serie: NSString?
@@ -61,11 +66,24 @@ import Foundation
     final var horos_modality: NSString?
     final var horos_sopUID: NSString?
     final var horos_imageType: NSString?
-    final var horos_studyID: String?
-    final var horos_imageID: String?
+    final var horos_studyIDString: NSString?
+    final var horos_studyID: String? {
+        get { horos_studyIDString as String? }
+        set { horos_studyIDString = newValue as NSString? }
+    }
+    final var horos_imageIDString: NSString?
+    final var horos_imageID: String? {
+        get { horos_imageIDString as String? }
+        set { horos_imageIDString = newValue as NSString? }
+    }
     final var horos_patientID: NSString?
     final var horos_studyIDs: NSString?
     final var horos_seriesNo: NSString?
+    /// The slice location as text: an instance variable of the former Horos
+    /// and OsiriX plugin SDK, in an older copy of its header, exported at its
+    /// offset. The import reads the number, in the elements; this is its text,
+    /// written with it and not read.
+    final var sliceLocation: NSString?
     final var horos_date: NSDate?
     /// Width, height, frames and series, which -init: puts in the elements
     /// once a reader has read the file.
@@ -73,9 +91,23 @@ import Foundation
     final var horos_height: Int = 0
     final var horos_numberOfFrames: Int = 0
     final var horos_numberOfSeries: Int = 0
-    final var horos_dicomElements = NSMutableDictionary()
+    /// The field may be set to nil by who writes it directly; the class then starts another dictionary.
+    final var horos_dicomElementsField: NSMutableDictionary? = NSMutableDictionary()
+    final var horos_dicomElements: NSMutableDictionary {
+        get {
+            if let elements = horos_dicomElementsField { return elements }
+            let elements = NSMutableDictionary()
+            horos_dicomElementsField = elements
+            return elements
+        }
+        set { horos_dicomElementsField = newValue }
+    }
 
-    var serieID: String!
+    final var horos_serieIDString: NSString?
+    var serieID: String! {
+        get { horos_serieIDString as String? }
+        set { horos_serieIDString = newValue as NSString? }
+    }
 
     // MARK: - Initializers
 
@@ -87,7 +119,7 @@ import Foundation
         // Width and height need to be greater than 0, or the database refuses the row.
         horos_width = 1
         horos_height = 1
-        horos_filePath = f
+        horos_filePathString = f as NSString?
         horos_numberOfSeries = 1
         super.init()
         if !readFile(dicomOnly: DICOMOnly) { return nil }
@@ -99,7 +131,7 @@ import Foundation
         horos_height = 1
         // random(), which the Objective-C used, is unavailable in Swift; the
         // numbers only have to differ from one made-up file to the next.
-        horos_filePath = String(format: "protp/aksidkoa/saodkireks/ksidjaiskd/orkerofk%d", Int32.random(in: 0...Int32.max))
+        horos_filePathString = NSString(format: "protp/aksidkoa/saodkireks/ksidjaiskd/orkerofk%d", Int32.random(in: 0...Int32.max))
         horos_numberOfSeries = 1
         super.init()
         readRandomFile(numbered: Int.random(in: 0...Int(Int32.max)))

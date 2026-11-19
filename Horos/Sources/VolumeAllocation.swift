@@ -18,7 +18,7 @@ import Foundation
 /// diagnosis or fallback** — never a silent black film, and never a forced
 /// reduction. The allocation guards that stand in front of the 3D engine, the
 /// reslicing and the resampling used to fail with a dialogue titled "32-bit"
-/// telling the operator to *upgrade to OsiriX 64-bit or OsiriX MD*. On this
+/// telling the operator to upgrade to a 64-bit edition of another name. On this
 /// arm64-only, 64-bit-only product that is false, unactionable, and
 /// names a different application — and it says nothing about what was actually
 /// too large.

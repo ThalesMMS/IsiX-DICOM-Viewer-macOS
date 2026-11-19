@@ -100,7 +100,7 @@ for language, path in variants.items():
 for gone in ['addViewerInteractionControls', 'addPreviousExamCheck', 'ViewerMouseFactorTransformer']:
     if gone in source:
         failures.append(f'the pane still builds controls in code ({gone})')
-if 'if type(of: self) == OSIViewerPreferencePanePref.self { translateFromCatalogIfNeeded() }' not in source:
+if 'instantiatePaneNib(named: "OSIViewerPreferencePanePref"' not in source:
     failures.append('the pane does not read its texts from the catalog where the nib has no copy')
 
 # The property behind the movement pop-up.

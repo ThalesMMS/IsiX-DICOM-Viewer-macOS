@@ -124,6 +124,15 @@ import IsiXPreferences
             let level = WindowLevelText.value(from: wlsetOutlet?.stringValue ?? "", fallback: Double(Window3DWindowLevelSheet.savedLevel))
             let width = WindowLevelText.width(from: wwsetOutlet?.stringValue ?? "", fallback: Double(Window3DWindowLevelSheet.savedWidth))
             setWLWW(Float(level), Float(width))
+
+            // A level typed here is no preset's choice: a window that names
+            // its level calls it «Other», unless the fields still say the
+            // level and width the sheet opened with.
+            let opened = [Window3DWindowLevelSheet.savedLevel, Window3DWindowLevelSheet.savedWidth].map { WindowLevelText.string(for: Double($0)) }
+            if currentWLWWMenu != nil && [Float(level), Float(width)].map({ WindowLevelText.string(for: Double($0)) }) != opened {
+                currentWLWWMenu = NSLocalizedString("Other", comment: "")
+                announceWindowLevelName()
+            }
         } else {
             setWLWW(Window3DWindowLevelSheet.savedLevel, Window3DWindowLevelSheet.savedWidth)
         }
@@ -148,7 +157,7 @@ import IsiXPreferences
             presets.write(to: processGraph.preferences)
 
             currentWLWWMenu = name
-            NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: currentWLWWMenu, userInfo: nil)
+            announceWindowLevelName()
         }
     }
 
@@ -164,12 +173,31 @@ import IsiXPreferences
             var presets = windowLevelPresets
             presets.set(nil, named: name as String)
             presets.write(to: processGraph.preferences)
-            NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: currentWLWWMenu, userInfo: nil)
+            announceWindowLevelName()
         }
     }
 
     func wlwwPopup() -> NSPopUpButton! {
         return wlwwPopupOutlet
+    }
+}
+
+extension Window3DController {
+    /// Tells the presets menus the name of this window's level, after a sheet
+    /// changed the name or the stored presets: each window, this one among
+    /// them, builds its menu again and titles it with the name it keeps.
+    fileprivate final func announceWindowLevelName() {
+        NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: currentWLWWMenu, userInfo: nil)
+    }
+
+    /// The window level tool changed the level in a view of this window that
+    /// looks for no preset: the level is no longer the one the menu names, so
+    /// the window calls it «Other» and tells the menus, once for a drag.
+    final func nameDraggedWindowLevel() {
+        let other = NSLocalizedString("Other", comment: "")
+        guard let name = currentWLWWMenu, name != other else { return }
+        currentWLWWMenu = other
+        announceWindowLevelName()
     }
 }
 
@@ -194,4 +222,25 @@ extension Window3DController {
             }
         }
     }
+}
+
+/// A window that keeps the name of the window level its own views show, by the
+/// message its views send it; a window that does not answer it is told nothing.
+@objc private protocol WindowLevelNameKeeping {
+    @objc(setCurWLWWMenu:) optional func keepWindowLevelName(_ name: NSString?)
+}
+
+/// An image view announces the name of its window level, at the end of a press
+/// or of a preset's hot key: the presets menus are told, and first the view's
+/// own window when it keeps that name, since the notification does not say
+/// which window announced. A press names the level only when it changed the
+/// one it started from: a scroll, a zoom or a drawing leaves the window the
+/// name it has, which the level may not find again (the default of the series,
+/// on a resliced image that has none). A 2D viewer is told by its views while
+/// the level changes, not here; a view without an image has no level to name.
+@MainActor func announceWindowLevelPreset(_ name: String?, from view: DCMView, endingPress: Bool = false) {
+    if let image = view.curDCM, !view.is2DViewer(), !endingPress || image.wl != view.startWL || image.ww != view.startWW {
+        unsafeBitCast(view.windowController() as AnyObject?, to: WindowLevelNameKeeping?.self)?.keepWindowLevelName?(name as NSString?)
+    }
+    inputPost(.OsirixUpdateWLWWMenu, object: name)
 }

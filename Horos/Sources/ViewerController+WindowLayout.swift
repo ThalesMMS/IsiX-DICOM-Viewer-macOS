@@ -210,7 +210,7 @@ public extension ViewerController {
 
         browser?.closeWaitWindowIfNecessary()
 
-        for i in 0..<NSScreen.screens.count {
+        for i in 0..<ViewerWindowArranger.maximumScreens {
             AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
         }
         viewer.window?.makeKeyAndOrderFront(viewer)

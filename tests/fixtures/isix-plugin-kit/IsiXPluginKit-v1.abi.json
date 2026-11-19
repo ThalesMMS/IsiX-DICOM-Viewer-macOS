@@ -156,6 +156,43 @@
        {
         "children": [
          {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Placement",
+            "printedName": "IsiXPluginKit.IsiXCommand.Placement",
+            "usr": "s:13IsiXPluginKit0A8XCommandV9PlacementO"
+           },
+           {
+            "children": [
+             {
+              "kind": "TypeNominal",
+              "name": "Placement",
+              "printedName": "IsiXPluginKit.IsiXCommand.Placement",
+              "usr": "s:13IsiXPluginKit0A8XCommandV9PlacementO"
+             }
+            ],
+            "kind": "TypeNominal",
+            "name": "Metatype",
+            "printedName": "IsiXPluginKit.IsiXCommand.Placement.Type"
+           }
+          ],
+          "kind": "TypeFunc",
+          "name": "Function",
+          "printedName": "(IsiXPluginKit.IsiXCommand.Placement.Type) -> IsiXPluginKit.IsiXCommand.Placement"
+         }
+        ],
+        "declKind": "EnumElement",
+        "kind": "Var",
+        "mangledName": "$s13IsiXPluginKit0A8XCommandV9PlacementO6reportyA2EmF",
+        "moduleName": "IsiXPluginKit",
+        "name": "report",
+        "printedName": "report",
+        "usr": "s:13IsiXPluginKit0A8XCommandV9PlacementO6reportyA2EmF"
+       },
+       {
+        "children": [
+         {
           "kind": "TypeNominal",
           "name": "Bool",
           "printedName": "Swift.Bool",
@@ -27351,6 +27388,51 @@
       "printedName": "xmlRPC",
       "static": true,
       "usr": "s:13IsiXPluginKit0A11XCapabilityV6xmlRPCACvpZ"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXCapability",
+          "printedName": "IsiXPluginKit.IsiXCapability",
+          "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A11XCapabilityV6reportACvgZ",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "static": true,
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV6reportACvgZ"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXCapability",
+        "printedName": "IsiXPluginKit.IsiXCapability",
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "isLet": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A11XCapabilityV6reportACvpZ",
+      "moduleName": "IsiXPluginKit",
+      "name": "report",
+      "printedName": "report",
+      "static": true,
+      "usr": "s:13IsiXPluginKit0A11XCapabilityV6reportACvpZ"
      }
     ],
     "conformances": [

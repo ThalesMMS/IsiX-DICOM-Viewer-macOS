@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
 import isix_modules  # noqa: E402
+import former_sdk_objects
 
 SOURCE = "Nitrogen/Sources/NSImage+N2.mm"  # --revision/--source-file: the former Objective-C
 parser = argparse.ArgumentParser()
@@ -86,7 +87,10 @@ else:
                                    ROOT / "Nitrogen/Sources/N2ImageButtonCell.swift",
                                    ROOT / "Nitrogen/Sources/N2HighlightImageButtonCell.swift",
                                    ROOT / "Nitrogen/Sources/N2Debug.swift", ROOT / "Nitrogen/Sources/NSException+N2.swift"],
-                                   helpers, work / "libNSImageN2.dylib", bridging_header=bridging,
+                                   # The typesetter behaviour the Geometrics header declares extern is defined beside
+                                   # callbacks that call the N3 geometry, which is not here.
+                                   helpers + [Path(former_sdk_objects.nitrogen(work)), Path(former_sdk_objects.bezier_stubs(work))],
+                                   work / "libNSImageN2.dylib", bridging_header=bridging,
                                    include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
                                    frameworks=("Cocoa", "CoreImage", "QuartzCore", "Accelerate"),
                                    flags=isix_modules.module_flags("IsiXGeometry", work / "modules",

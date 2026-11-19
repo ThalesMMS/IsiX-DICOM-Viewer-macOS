@@ -117,6 +117,7 @@ struct MediaVolumeScan {
 
         thread.status = NSLocalizedString("Scanning directories...", comment: "")
         timing.begin("listing")
+        guard let medium = MediaScanRules.FileSetDirectory(path) else { return false }
         let listed = FileManager.default.enumerator(atPath: path, filesOnly: true).allObjects.compactMap { $0 as? String }
         let allpaths = NSMutableArray(array: (path as NSString).strings(byAppendingPaths: listed))
         timing.end("listing", count: allpaths.count, noun: "file")
@@ -127,7 +128,9 @@ struct MediaVolumeScan {
         if usesDicomdir {
             thread.status = NSLocalizedString("Looking for DICOMDIR...", comment: "")
             let listedPaths = allpaths.compactMap { $0 as? String }
-            if let dicomdirPath = MediaScanRules.dicomdir(in: listedPaths) {
+            if let dicomdirPath = MediaScanRules.dicomdir(in: listedPaths.filter {
+                MediaScanRules.isDicomdirName($0) && medium.contains($0)
+            }) {
                 NSLog("(scanAtPath): Scanning DICOMDIR at %@", dicomdirPath)
                 thread.status = NSLocalizedString("Reading DICOMDIR...", comment: "")
 
@@ -189,6 +192,7 @@ struct MediaVolumeScan {
                     if dicomFilePaths.contains(path) { continue }
                     if indexedPaths.contains(path) { continue }
                     if MediaScanRules.skipsWhenScanning(path) { continue }
+                    if !medium.contains(path) { continue }
 
                     examined += 1
 

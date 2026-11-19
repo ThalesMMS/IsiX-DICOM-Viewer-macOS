@@ -41,7 +41,9 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import former_sdk_objects  # noqa: E402
 import n3_geometry_harness  # noqa: E402
+import isix_modules  # noqa: E402
 
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
@@ -520,6 +522,8 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-archive-fill-') as tmp:
         if N3_LIBRARIES:
             n3_geometry_harness.build(tmp / N3_LIBRARIES, arguments.optimization, headers=tmp)
             objects += n3_geometry_harness.libraries(tmp / N3_LIBRARIES)
+            # The constants CPRCurvedPath.h declares extern, which the slice reads.
+            objects.append(former_sdk_objects.app(tmp / N3_LIBRARIES))
         for path, flags in OBJC_SOURCES + [('DCMPixDouble.m', ['-fno-objc-arc'])]:
             name = Path(path).name
             obj = tmp / (Path(path).stem + '.o')
@@ -536,6 +540,7 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-archive-fill-') as tmp:
         run(['xcrun', 'swiftc', '-swift-version', '5', '-module-name', 'Horos', '-sanitize=address', '-g', '-O' if arguments.optimization == 'release' else '-Onone',
              '-D', 'DEBUG', '-import-objc-header', str(tmp / 'harness.h'), '-Xcc', '-iquote', '-Xcc', str(tmp),
              *[str(tmp / Path(path).name) for path in SWIFT_SOURCES], str(tmp / 'main.swift'), *objects,
+             *isix_modules.module_flags('IsiXImaging', tmp / 'modules'),
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'QuartzCore',
              '-o', str(tmp / 'harness')])
     except subprocess.CalledProcessError as e:

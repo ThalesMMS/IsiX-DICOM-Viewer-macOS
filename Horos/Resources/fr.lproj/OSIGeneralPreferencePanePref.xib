@@ -277,7 +277,7 @@ Gw
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="Autres vues" id="228">
                                                     <items>
-                                                        <menuItem title="Même par défaut" id="229"/>
+                                                        <menuItem title="Comme par défaut" id="229"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="286"/>
                                                         <menuItem title="Pas de compression" tag="1" id="232"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="336"/>
@@ -289,7 +289,7 @@ Gw
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="224">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Qualité (perdue aux pauvres)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Qualité (sans perte à faible)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -360,7 +360,7 @@ Gw
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="Autres vues" id="298">
                                                     <items>
-                                                        <menuItem title="Même par défaut" id="303"/>
+                                                        <menuItem title="Comme par défaut" id="303"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="299"/>
                                                         <menuItem title="Pas de compression" tag="1" id="300"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="337"/>
@@ -372,7 +372,7 @@ Gw
                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                         </tableColumn>
                                         <tableColumn identifier="quality" width="177" minWidth="150" maxWidth="180" id="293">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Qualité (perdue aux pauvres)">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Qualité (sans perte à faible)">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -405,16 +405,16 @@ Gw
                         </tableHeaderView>
                     </scrollView>
                     <textField verticalHuggingPriority="750" id="305">
-                        <rect key="frame" x="18" y="398" width="186" height="17"/>
+                        <rect key="frame" x="6" y="398" width="198" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Si la taille de la matrice est inférieure à:" id="306">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Si la matrice est inférieure à :" id="306">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="318">
-                        <rect key="frame" x="481" y="398" width="33" height="17"/>
+                        <rect key="frame" x="481" y="398" width="67" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Sinon:" id="319">
                             <font key="font" metaFont="system"/>
@@ -423,7 +423,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="307">
-                        <rect key="frame" x="206" y="392" width="67" height="26"/>
+                        <rect key="frame" x="206" y="392" width="81" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="128" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="128" imageScaling="proportionallyDown" inset="2" selectedItem="310" id="308">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>

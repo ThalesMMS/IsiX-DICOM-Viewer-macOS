@@ -101,22 +101,57 @@ func storeSCUCount(_ count: Int, _ singular: String, _ plural: String) -> String
 public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
     let callingAET: String?
     let calledAET: String?
-    let port: Int32
+    var port: Int32
     let hostname: String?
-    let transferSyntax: Int32
-    let compression: Float
+    var transferSyntax: Int32
+    var compression: Float
     let tls: TLSNodeSettings
 
     private let filesToSend: [String]
     private let numberOfFiles: Int
-    private var numberSent = 0
-    private var numberErrors = 0
+    private var numberSent = 0 { didSet { _numberSent = Int32(truncatingIfNeeded: numberSent) } }
+    private var numberErrors = 0 { didSet { _numberErrors = Int32(truncatingIfNeeded: numberErrors) } }
     /// Readable by key, as the Objective-C++ ivar was: the native send
     /// diagnostics attribute each reported path to its own send through it.
-    @objc let report = StoreReport()
-    private var patientName: String?
-    private var studyDescription: String?
-    private var logEntry: NSMutableDictionary?
+    @objc var report: StoreReport {
+        if let _report { return _report }
+        let made = StoreReport()
+        _report = made
+        return made
+    }
+    private var patientName: String? { didSet { _patientName = patientName as NSString? } }
+    private var studyDescription: String? { didSet { _studyDescription = studyDescription as NSString? } }
+    private var logEntry: NSMutableDictionary? { didSet { _logEntry = logEntry } }
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each:
+    // stored fields of this class with the type the C declaration has in
+    // memory, never private, constant, lazy or observed. The port, the transfer
+    // syntax, the compression and the report are the send's own. The titles,
+    // the host, the parameters, the files, the three counts, the two names and
+    // the log entry are copies, written when the send is made and when one
+    // changes, and never read here: the send reads its own Swift values. The
+    // thread status and the TLS settings of the association the SDK's class
+    // made itself have no state here, the node's settings being in `tls`:
+    // zero and nil, but the verification, which is the SDK's default.
+    // _shouldAbort, which only the header of an older SDK declared, is a copy
+    // too: a send is given up by cancelling the operation or the thread it
+    // runs on, and the field is what the send last read of that.
+    var _report: StoreReport? = StoreReport()
+    var _callingAET: NSString?, _calledAET: NSString?, _hostname: NSString?
+    var _extraParameters: NSDictionary?
+    var _filesToSend: NSMutableArray?
+    var _numberOfFiles: Int32 = 0, _numberSent: Int32 = 0, _numberErrors: Int32 = 0
+    var _patientName: NSString?, _studyDescription: NSString?
+    var _logEntry: AnyObject?
+    var _threadStatus = false
+    var _secureConnection = false, _doAuthenticate = false
+    var _keyFileFormat: Int32 = 0
+    var _cipherSuites: NSArray?
+    var _readSeedFile: UnsafePointer<CChar>?, _writeSeedFile: UnsafePointer<CChar>?
+    var certVerification: TLSCertificateVerificationType = RequirePeerCertificate
+    var _dhparam: UnsafePointer<CChar>?
+    var _shouldAbort = false
 
     /// The send setting that matches the listener's preferred syntax for
     /// incoming images, an E_TransferSyntax value.
@@ -144,6 +179,12 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
         var seen = Set<[UInt16]>()
         self.filesToSend = (filesToSend ?? []).compactMap { $0 as? String }.filter { seen.insert(Array($0.utf16)).inserted }
         numberOfFiles = self.filesToSend.count
+        _callingAET = callingAET as NSString?
+        _calledAET = calledAET as NSString?
+        _hostname = hostname as NSString?
+        _extraParameters = extraParameters as NSDictionary?
+        _filesToSend = NSMutableArray(array: self.filesToSend)
+        _numberOfFiles = Int32(truncatingIfNeeded: numberOfFiles)
         super.init()
         if let first = self.filesToSend.first { readNames(ofFileAtPath: first) }
     }
@@ -167,8 +208,9 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
     }
 
     private func cancelled(_ operation: Operation?) -> Bool {
-        if let operation { return operation.isCancelled }
-        return Thread.current.isCancelled
+        let cancelled = operation?.isCancelled ?? Thread.current.isCancelled
+        _shouldAbort = cancelled
+        return cancelled
     }
 
     @objc(run:)
@@ -321,6 +363,12 @@ public final class DCMTKStoreSCU: NSObject, @unchecked Sendable {
 
         if report.failedCount > 0 { NSLog("**** DICOM send: %@", report.logDetail(limit: 20)) }
         try link.end(after: condition)
+    }
+
+    /// The selector of the plugin SDK of Horos and OsiriX that updated the
+    /// entry: the message is the one of its dictionary.
+    @objc(updateLogEntry:) func legacyUpdateLogEntry(_ userInfo: [AnyHashable: Any]?) {
+        updateLogEntry(message: userInfo?["Message"] as? String ?? "")
     }
 
     /// The entry of this send in the network log, when the log is on, with

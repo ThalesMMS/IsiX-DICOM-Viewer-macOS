@@ -60,7 +60,8 @@ compute = member(instance, '    dynamic func computeDataFileIndex() -> UInt {')
 size = member(instance, '    private static var dataFolderSize: UInt64 {')
 shared = re.search(r'^\s*dataFileAllocator = \(main as\? DicomDatabase\)\?\.dataFileAllocator \?\? DataFileAllocator\(\)$', database, re.M)
 check(shared, 'an independent database does not take the allocator of its main database')
-check('dataFileIndex' not in database and 'dataFileIndex' not in instance,
+# The instance variable of the former plugin SDK stays, inert: one declaration, never read or written.
+check('dataFileIndex' not in database.replace('final var _dataFileIndex: N2MutableUInteger?', '', 1) and 'dataFileIndex' not in instance,
       'the former count of the data files is still kept beside the allocator')
 
 PROBE = r'''

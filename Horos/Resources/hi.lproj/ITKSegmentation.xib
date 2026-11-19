@@ -268,7 +268,7 @@
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="751" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="228">
                                     <rect key="frame" x="14" y="177" width="141" height="18"/>
-                                    <buttonCell key="cell" type="check" title="परिणाम को 4डी में प्रचारित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="229">
+                                    <buttonCell key="cell" type="check" title="परिणाम को 4डी में प्रसारित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="229">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

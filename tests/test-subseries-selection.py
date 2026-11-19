@@ -17,7 +17,11 @@ a = content.index('    static func sorted(_ items: [Any], by descriptors: [NSSor
 sorted_rows = content[a:content.index('\n    }\n', a) + 7]
 code = r'''
 import Foundation
-final class DicomSeries: NSObject { func sortDescriptorsForImages() -> [Any]? { [] } }
+final class DicomSeries: NSObject {
+    func sortDescriptorsForImages() -> [Any]? { [] }
+    // The images of several multi-frame files file by file: none here.
+    static func fileByFile(_ sorted: [Any]?) -> [Any]? { sorted }
+}
 final class DicomImage: NSObject { var series: Any? }
 final class BrowserController: NSObject {
     var horos_subFrom: Int32 = 0, horos_subTo: Int32 = 0, horos_subInterval: Int32 = 0

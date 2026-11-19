@@ -85,9 +85,12 @@ public final class PatientNameMatching: NSObject {
     /// universal matching does in a C-FIND (PS3.4 C.2.2.2.3); a component with
     /// `*` or `?` inside is matched as a wildcard pattern (C.2.2.2.4).
     /// `soundex`: the Soundex code of a component, to match the names that
-    /// sound alike too; nil: the letters only. It reads no state, so any
-    /// thread may call it.
-    public static func namePredicate(_ name: String?, soundex: ((String) -> String?)?) -> NSPredicate {
+    /// sound alike too; nil: the letters only. `anyOrder`: the first component
+    /// matches from the start of any word of the name, after a space or «^»,
+    /// so that «Jan Kowalski» finds KOWALSKI^JAN (the browser's search); false
+    /// for the listener's C-FIND and the web portal, which keep the order. It
+    /// reads no state, so any thread may call it.
+    public static func namePredicate(_ name: String?, soundex: ((String) -> String?)?, anyOrder: Bool = false) -> NSPredicate {
         var s = name as NSString?
         s = s?.replacingOccurrences(of: "^", with: " ") as NSString?
         s = s?.replacingOccurrences(of: ", ", with: " ") as NSString?
@@ -115,8 +118,25 @@ public final class PatientNameMatching: NSObject {
                 continue
             }
 
+            let atAnyWord = firstComponent && anyOrder
             if component.contains("*") || component.contains("?") {
-                p = objcPredicate("name LIKE[cd] %@", (firstComponent ? "" : "*") + (component as String) + "*")
+                let pattern = (component as String) + "*"
+                if atAnyWord {
+                    p = objcPredicate("(name LIKE[cd] %@) OR (name LIKE[cd] %@) OR (name LIKE[cd] %@)", pattern, "* " + pattern, "*^" + pattern)
+                } else {
+                    p = objcPredicate("name LIKE[cd] %@", (firstComponent ? "" : "*") + pattern)
+                }
+            } else if atAnyWord {
+                // The Soundex codes of the words are each after a space, as
+                // the code of the component is: CONTAINS finds it at the
+                // start of any word.
+                let word = component as String
+                if let soundex, component.length >= 2 {
+                    p = objcPredicate("(soundex CONTAINS[cd] %@) OR (name BEGINSWITH[cd] %@) OR (name CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)",
+                                      soundex(word), word, " " + word, "^" + word)
+                } else {
+                    p = objcPredicate("(name BEGINSWITH[cd] %@) OR (name CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)", word, " " + word, "^" + word)
+                }
             } else if firstComponent == false {
                 if let soundex, component.length >= 2 {
                     p = objcPredicate("(soundex CONTAINS[cd] %@) OR (name CONTAINS[cd] %@)", soundex(component as String), component)
@@ -134,7 +154,8 @@ public final class PatientNameMatching: NSObject {
             // [cd] does not fold Ł, Ø, Đ or ı: "zolw" also finds "Żółw".
             if let plain = p, !component.contains("*"), !component.contains("?"),
                let pattern = undecomposedPattern(component: component as String, anchored: firstComponent) {
-                p = NSCompoundPredicate(orPredicateWithSubpredicates: [plain, objcPredicate("name MATCHES[cd] %@", pattern)])
+                let anywhere = atAnyWord ? "(?:.*[ \\^])?" + pattern : pattern
+                p = NSCompoundPredicate(orPredicateWithSubpredicates: [plain, objcPredicate("name MATCHES[cd] %@", anywhere)])
             }
 
             if let p {

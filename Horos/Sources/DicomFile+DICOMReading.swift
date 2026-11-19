@@ -319,7 +319,9 @@ private let structuredReportReading = NSLock()
             dataset.getFloat64Values($0.baseAddress!, count: 6, forTag: DicomFileTag.imageOrientationPatient)
         }
         let location = DICOMImportRules.sliceLocation(origin: origin, orientation: orientation)
-        set(NSNumber(value: location), "sliceLocation")
+        let locationNumber = NSNumber(value: location)
+        set(locationNumber, "sliceLocation")
+        sliceLocation = locationNumber.stringValue as NSString
 
         if DICOMImportRules.needsLocationIdentifier(horos_imageID) {
             horos_imageID = DICOMImportRules.imageIdentifier(sliceLocation: location)
@@ -385,7 +387,7 @@ private let structuredReportReading = NSLock()
 
         readPixelDataProblem(of: file, dataset: dataset, rows: rows, columns: columns, sopClassUID: sopClassUID,
                              fileName: fileName)
-        readFrames(of: dataset)
+        let framePlanes = readFrames(of: dataset)
 
         // An encapsulated PDF takes its page count and size from the document.
         if sopClassUID == DICOMSOPClass.pdfStorageClassUID() {
@@ -403,9 +405,22 @@ private let structuredReportReading = NSLock()
         horos_numberOfSeries = 1
         if horos_patientID == nil { horos_patientID = "" }
 
-        if horos_numberOfFrames > 1 { // SERIES ID MUST BE UNIQUE!!!!!
-            serieID = String(format: "%@-%@-%@", serieID ?? "(null)", horos_imageID ?? "(null)",
-                             (elements.object(forKey: "SOPUID") as? String) ?? "(null)")
+        // A multiframe file is a series of its own, but for a volume, which
+        // shares its series with the files of the same geometry: the other
+        // points in time of its acquisition. The key the file had before
+        // volumes shared one goes with it, for the databases indexed with it.
+        var formerSeriesID: String?
+        if horos_numberOfFrames > 1 {
+            let ownSeriesID = DICOMImportRules.formerMultiframeSeriesKey(
+                grouping: serieID, imageID: horos_imageID, sopInstanceUID: elements.object(forKey: "SOPUID") as? String)
+            let layout = DICOMImportRules.MultiframeLayout(sopClassUID: sopClassUID, columns: horos_width, rows: horos_height,
+                                                           frames: horos_numberOfFrames, planes: framePlanes)
+            if let volumeSeriesID = DICOMImportRules.volumeSeriesKey(grouping: serieID, layout: layout) {
+                serieID = volumeSeriesID
+                formerSeriesID = ownSeriesID
+            } else {
+                serieID = ownSeriesID
+            }
         }
 
         if horos_numberOfFrames <= 1 && noLocalizer()
@@ -441,7 +456,7 @@ private let structuredReportReading = NSLock()
             NSLog("---- %@ has no SeriesInstanceUID; indexed under %@", fileName, derived)
         }
 
-        groupSeries(sopClassUID: sopClassUID, fileName: fileName)
+        groupSeries(sopClassUID: sopClassUID, fileName: fileName, formerSeriesID: formerSeriesID)
 
         if horos_studyID == nil {
             horos_studyID = horos_name as String?
@@ -602,13 +617,16 @@ private let structuredReportReading = NSLock()
     }
 
     /// The slice location, the trigger delay and the place in its stack of each
-    /// frame of a multiframe object, from its functional groups.
-    private final func readFrames(of dataset: IsiXDCMTKItem) {
+    /// frame of a multiframe object, from its functional groups. Returns the
+    /// plane of each frame that states its position, which the series of the
+    /// file is decided on.
+    private final func readFrames(of dataset: IsiXDCMTKItem) -> [DICOMImportRules.FramePlane] {
         let elements = horos_dicomElements
         let sliceLocations = NSMutableArray(), triggers = NSMutableArray()
         // Where each frame sits in its stack, if the acquisition says so. Without
         // it a frame's instance number is only its place in the file.
         let stackPositions = NSMutableArray()
+        var planes: [DICOMImportRules.FramePlane] = []
 
         var originMultiFrame = [Double](repeating: 0, count: 3)
         var orientationMultiFrame: [Double] = [1, 0, 0, 0, 1, 0]
@@ -691,6 +709,7 @@ private let structuredReportReading = NSLock()
                     let location = Float(DICOMImportRules.sliceLocation(origin: originMultiFrame,
                                                                          orientation: orientationMultiFrame))
                     sliceLocations.add(NSNumber(value: location))
+                    planes.append(DICOMImportRules.FramePlane(position: originMultiFrame, orientation: orientationMultiFrame))
                 }
                 x += 1
             } while item != nil
@@ -719,6 +738,7 @@ private let structuredReportReading = NSLock()
                       Int32(truncatingIfNeeded: frames), Int32(truncatingIfNeeded: triggers.count))
             }
         }
+        return planes
     }
 
     /// A structured report: rendered when the database shows it as a document,
@@ -752,8 +772,11 @@ private let structuredReportReading = NSLock()
 
     /// Where the import files the series: the file alone for ultrasound when
     /// the preferences say so, one series for the projection images of a study
-    /// or one per image, or the grouping identifier.
-    private final func groupSeries(sopClassUID: String?, fileName: String) {
+    /// or one per image, or the grouping identifier. `formerSeriesID`, the key
+    /// a multiframe volume had as a series of its own, is filed the same way
+    /// beside it: the importer leaves the file in the series a database
+    /// indexed with that key already holds.
+    private final func groupSeries(sopClassUID: String?, fileName: String, formerSeriesID: String?) {
         let elements = horos_dicomElements
         let modality = horos_modality as String?
         if modality == "US" && oneFileOnSeriesForUS() {
@@ -772,6 +795,12 @@ private let structuredReportReading = NSLock()
             }
         } else {
             elements.setObject(serieID as Any, forKey: "seriesID" as NSString)
+        }
+        // What was put after the key follows the former key too; the one
+        // series of a study's projection images has no former key.
+        if let formerSeriesID, let key = serieID, let filed = elements.object(forKey: "seriesID") as? String,
+           filed.hasPrefix(key) {
+            elements.setObject(formerSeriesID + String(filed.dropFirst(key.count)), forKey: "formerSeriesID" as NSString)
         }
     }
 

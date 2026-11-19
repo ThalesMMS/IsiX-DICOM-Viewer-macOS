@@ -39,7 +39,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="831" height="975"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="DICOM Nodes for DICOM Query/Retrieve and DICOM Send" id="112">
+                    <box title="DICOM 検索/取得と DICOM 送信のノード" id="112">
                         <rect key="frame" x="17" y="633" width="797" height="334"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="MJs-vY-QQ0">
@@ -49,7 +49,7 @@
                                 <button verticalHuggingPriority="750" id="101">
                                     <rect key="frame" x="678" y="90" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Add new node" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
+                                    <buttonCell key="cell" type="push" title="ノードを追加" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="327">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -63,7 +63,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="106">
-                                    <rect key="frame" x="168" y="10" width="194" height="22"/>
+                                    <rect key="frame" x="168" y="10" width="241" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="UTF8 (Unicode): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -71,20 +71,20 @@
                                         <menu key="menu" title="OtherViews" id="103">
                                             <items>
                                                 <menuItem title="UTF8 (Unicode): ISO_IR 192" state="on" id="143"/>
-                                                <menuItem title="Western European: ISO_IR 100" tag="1" id="110"/>
-                                                <menuItem title="Western European: ISO_IR 101" tag="2" id="108"/>
-                                                <menuItem title="Western European: ISO_IR 109" tag="3" id="109"/>
-                                                <menuItem title="Central European: ISO_IR 110" tag="4" id="136"/>
-                                                <menuItem title="Arabic: ISO_IR 127" tag="5" id="139"/>
-                                                <menuItem title="Cyrillic: ISO_IR 144" tag="6" id="141"/>
-                                                <menuItem title="Greek: ISO_IR 126" tag="7" id="140"/>
-                                                <menuItem title="Hebrew: ISO_IR 138" tag="8" id="144"/>
-                                                <menuItem title="Chinese: GB18030" tag="9" id="145"/>
-                                                <menuItem title="Korean: ISO 2022 IR 149" tag="10" id="147"/>
-                                                <menuItem title="Japanese: ISO 2022 IR 13" tag="11" id="138"/>
-                                                <menuItem title="Japanese: ISO_IR 13" tag="12" id="142"/>
-                                                <menuItem title="Japanese: ISO 2022 IR 87" tag="13" id="146"/>
-                                                <menuItem title="Thai: ISO_IR 166" tag="14" id="137"/>
+                                                <menuItem title="西欧: ISO_IR 100" tag="1" id="110"/>
+                                                <menuItem title="中欧: ISO_IR 101" tag="2" id="108"/>
+                                                <menuItem title="南欧: ISO_IR 109" tag="3" id="109"/>
+                                                <menuItem title="北欧: ISO_IR 110" tag="4" id="136"/>
+                                                <menuItem title="アラビア語: ISO_IR 127" tag="5" id="139"/>
+                                                <menuItem title="キリル文字: ISO_IR 144" tag="6" id="141"/>
+                                                <menuItem title="ギリシャ語: ISO_IR 126" tag="7" id="140"/>
+                                                <menuItem title="ヘブライ語: ISO_IR 138" tag="8" id="144"/>
+                                                <menuItem title="中国語: GB18030" tag="9" id="145"/>
+                                                <menuItem title="韓国語: ISO 2022 IR 149" tag="10" id="147"/>
+                                                <menuItem title="日本語: ISO 2022 IR 13" tag="11" id="138"/>
+                                                <menuItem title="日本語: ISO_IR 13" tag="12" id="142"/>
+                                                <menuItem title="日本語: ISO 2022 IR 87" tag="13" id="146"/>
+                                                <menuItem title="タイ語: ISO_IR 166" tag="14" id="137"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -122,7 +122,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Address" width="90.49609375" minWidth="60" maxWidth="400" id="98">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Address">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="アドレス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -140,7 +140,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="AETitle" width="90" minWidth="90" maxWidth="90" id="102">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AE タイトル">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -158,7 +158,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Port" width="50" minWidth="50" maxWidth="60" id="105">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Port">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="ポート">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -195,7 +195,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="RetrieveMode" width="90" minWidth="90" maxWidth="90" id="452">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Retrieve">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="取得">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -220,8 +220,8 @@
                                                             <binding destination="283" name="selectedTag" keyPath="arrangedObjects.retrieveMode" id="536"/>
                                                         </connections>
                                                     </tableColumn>
-                                                    <tableColumn identifier="Send" width="40" minWidth="40" maxWidth="55" id="322">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Send">
+                                                    <tableColumn identifier="Send" width="45" minWidth="40" maxWidth="55" id="322">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="送信">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -247,8 +247,8 @@
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" title="OtherViews" id="729">
                                                                 <items>
-                                                                    <menuItem title="No" id="730"/>
-                                                                    <menuItem title="Yes" state="on" tag="1" id="731">
+                                                                    <menuItem title="いいえ" id="730"/>
+                                                                    <menuItem title="はい" state="on" tag="1" id="731">
                                                                         <modifierMask key="keyEquivalentModifierMask"/>
                                                                         <connections>
                                                                             <action selector="editTLS:" target="-2" id="732"/>
@@ -275,7 +275,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Description" width="121.6640625" minWidth="4" maxWidth="1000" id="100">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Name">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="名前">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -293,7 +293,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Transfer Syntax" width="183.953125" minWidth="87.552726745605469" maxWidth="300" id="209">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Send Transfer Syntax">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="送信構文">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -303,20 +303,20 @@
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <menu key="menu" id="347">
                                                                 <items>
-                                                                    <menuItem title="Explicit Little Endian" id="441"/>
-                                                                    <menuItem title="Implicit Little Endian" tag="9" id="450"/>
+                                                                    <menuItem title="明示的 Little Endian" id="441"/>
+                                                                    <menuItem title="暗黙的 Little Endian" tag="9" id="450"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="456"/>
-                                                                    <menuItem title="JPEG 2000 Lossless" tag="1" id="442"/>
-                                                                    <menuItem title="JPEG 2000 Lossy - Good Quality" tag="2" id="443"/>
-                                                                    <menuItem title="JPEG 2000 Lossy - Medium Quality" tag="3" id="444"/>
-                                                                    <menuItem title="JPEG 2000 Lossy - Low Quality" tag="4" id="445"/>
+                                                                    <menuItem title="JPEG 2000 ロスレス" tag="1" id="442"/>
+                                                                    <menuItem title="JPEG 2000 非可逆 - 高画質" tag="2" id="443"/>
+                                                                    <menuItem title="JPEG 2000 非可逆 - 中画質" tag="3" id="444"/>
+                                                                    <menuItem title="JPEG 2000 非可逆 - 低画質" tag="4" id="445"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="457"/>
-                                                                    <menuItem title="JPEG LS Lossless" tag="13" id="1104"/>
-                                                                    <menuItem title="JPEG LS Lossy - Low Quality" tag="14" id="1105"/>
-                                                                    <menuItem title="JPEG LS Lossy - Good Quality" tag="15" id="1101"/>
-                                                                    <menuItem title="JPEG LS Lossy - Medium Quality" state="on" tag="16" id="1102"/>
+                                                                    <menuItem title="JPEG-LS ロスレス" tag="13" id="1104"/>
+                                                                    <menuItem title="JPEG-LS 非可逆 - 低画質" tag="14" id="1105"/>
+                                                                    <menuItem title="JPEG-LS 非可逆 - 高画質" tag="15" id="1101"/>
+                                                                    <menuItem title="JPEG-LS 非可逆 - 中画質" state="on" tag="16" id="1102"/>
                                                                     <menuItem isSeparatorItem="YES" tag="-1" id="1103"/>
-                                                                    <menuItem title="JPEG Lossless" tag="5" id="446"/>
+                                                                    <menuItem title="JPEG ロスレス" tag="5" id="446"/>
                                                                 </items>
                                                             </menu>
                                                         </popUpButtonCell>
@@ -357,7 +357,7 @@
                                 <button verticalHuggingPriority="750" id="235">
                                     <rect key="frame" x="414" y="90" width="82" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Verify" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
+                                    <buttonCell key="cell" type="push" title="検証" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="330">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -373,7 +373,7 @@
                                 <button id="242">
                                     <rect key="frame" x="14" y="34" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Search for other DICOM Nodes through Bonjour protocol" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="Bonjour でほかの DICOM ノードを検索" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -384,7 +384,7 @@
                                 <button id="462">
                                     <rect key="frame" x="14" y="52" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Restart DICOM Auto Query &amp; Retrieve settings, at launch" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
+                                    <buttonCell key="cell" type="check" title="起動時に DICOM 自動検索/取得の設定をリセット" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -407,7 +407,7 @@
                                 <button verticalHuggingPriority="750" id="248">
                                     <rect key="frame" x="230" y="90" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Save..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="334">
+                                    <buttonCell key="cell" type="push" title="保存…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="334">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -418,7 +418,7 @@
                                 <button horizontalHuggingPriority="249" verticalHuggingPriority="750" tag="1" id="1177">
                                     <rect key="frame" x="7" y="102" width="47" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="All" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1178">
+                                    <buttonCell key="cell" type="push" title="すべて" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1178">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -429,7 +429,7 @@
                                 <button verticalHuggingPriority="750" id="1180">
                                     <rect key="frame" x="58" y="102" width="56" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="None" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1181">
+                                    <buttonCell key="cell" type="push" title="なし" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="1181">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -440,7 +440,7 @@
                                 <button verticalHuggingPriority="750" id="249">
                                     <rect key="frame" x="322" y="90" width="92" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Load..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
+                                    <buttonCell key="cell" type="push" title="読み込む…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="335">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -456,7 +456,7 @@
                                 <button id="363">
                                     <rect key="frame" x="14" y="70" width="384" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Automatically sync the DICOM Nodes list from this URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
+                                    <buttonCell key="cell" type="check" title="次の URL から DICOM ノードの一覧を自動的に同期:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -494,7 +494,7 @@
                                 <textField verticalHuggingPriority="750" id="1188">
                                     <rect key="frame" x="14" y="15" width="150" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Text encoding:" id="1189">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="テキストエンコーディング:" id="1189">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -505,7 +505,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="DICOMweb Nodes for DICOM Query/Retrieve and DICOM Send" id="W99-box-799">
+                    <box title="DICOM 検索/取得と DICOM 送信の DICOMweb ノード" id="W99-box-799">
                         <rect key="frame" x="17" y="429" width="797" height="200"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="W99-bxv-799">
@@ -527,7 +527,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn identifier="Address" width="125" minWidth="30" maxWidth="1000" id="W99-c1-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Address">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="アドレス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -539,8 +539,8 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="WADOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c2-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="WADO Path">
+                                                    <tableColumn identifier="WADOPath" width="93" minWidth="30" maxWidth="1000" id="W99-c2-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="WADO パス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -552,8 +552,8 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="QIDOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c3-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="QIDO Path">
+                                                    <tableColumn identifier="QIDOPath" width="87" minWidth="30" maxWidth="1000" id="W99-c3-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="QIDO パス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -566,7 +566,7 @@
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="Name" width="90" minWidth="30" maxWidth="1000" id="W99-c4-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Name">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="名前">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -589,8 +589,8 @@
                                                             <font key="font" metaFont="smallSystem"/>
                                                         </buttonCell>
                                                     </tableColumn>
-                                                    <tableColumn identifier="RetrieveSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c6-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Retrieve Syntax">
+                                                    <tableColumn identifier="RetrieveSyntax" width="138" minWidth="60" maxWidth="300" id="W99-c6-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="取得構文">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -606,8 +606,8 @@
                                                         </popUpButtonCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="Auth" width="95" minWidth="30" maxWidth="1000" id="W99-c7-col" headerToolTip="Click to set the authentication">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Auth">
+                                                    <tableColumn identifier="Auth" width="95" minWidth="30" maxWidth="1000" id="W99-c7-col" headerToolTip="クリックして認証を設定">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="認証">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -619,8 +619,8 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="Send" width="40" minWidth="40" maxWidth="40" id="W99-c8-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Send">
+                                                    <tableColumn identifier="Send" width="45" minWidth="45" maxWidth="45" id="W99-c8-col">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="送信">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -631,7 +631,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Send Syntax">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="送信構文">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -672,7 +672,7 @@
                                 <textField verticalHuggingPriority="750" id="W99-not-799">
                                     <rect key="frame" x="12" y="4" width="490" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="Click a node's Auth cell to set its credentials. Secrets are kept in the Keychain." id="W99-ntc-799">
+                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="ノードの「認証」セルをクリックして資格情報を設定します。秘密情報はキーチェーンに保存されます。" id="W99-ntc-799">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -685,7 +685,7 @@
                                 <button verticalHuggingPriority="750" id="W99-tst-btn">
                                     <rect key="frame" x="528" y="4" width="66" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Test" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
+                                    <buttonCell key="cell" type="push" title="テスト" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -696,7 +696,7 @@
                                 <button verticalHuggingPriority="750" id="W99-rem-btn">
                                     <rect key="frame" x="596" y="4" width="80" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Remove" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-rem-cel">
+                                    <buttonCell key="cell" type="push" title="削除" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-rem-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -707,7 +707,7 @@
                                 <button verticalHuggingPriority="750" id="W99-add-btn">
                                     <rect key="frame" x="678" y="4" width="113" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Add new node" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
+                                    <buttonCell key="cell" type="push" title="ノードを追加" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-add-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -720,7 +720,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box verticalHuggingPriority="249" title="Network - IsiX DICOM Viewer Databases with Fixed Addresses (tcp/ip port 8780):" id="175">
+                    <box verticalHuggingPriority="249" title="ネットワーク - 固定アドレスの IsiX DICOM Viewer データベース(TCP/IP ポート 8780):" id="175">
                         <rect key="frame" x="17" y="197" width="797" height="228"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lzr-xt-m2i">
@@ -730,7 +730,7 @@
                                 <button verticalHuggingPriority="750" id="177">
                                     <rect key="frame" x="626" y="56" width="165" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Add new server" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="336">
+                                    <buttonCell key="cell" type="push" title="サーバを追加" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="336">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -758,7 +758,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn identifier="Address" width="233" minWidth="40" maxWidth="1000" id="201">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Address">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="アドレス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -775,7 +775,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Description" width="538" minWidth="4" maxWidth="1000" id="198">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Description">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="説明">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -846,7 +846,7 @@
                                 <button id="393">
                                     <rect key="frame" x="15" y="33" width="317" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Automatically sync this list from this URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
+                                    <buttonCell key="cell" type="check" title="次の URL からこの一覧を自動的に同期:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="394">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -858,7 +858,7 @@
                                 <button verticalHuggingPriority="750" id="397">
                                     <rect key="frame" x="127" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Load from..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
+                                    <buttonCell key="cell" type="push" title="読み込む…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="400">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -874,7 +874,7 @@
                                 <button verticalHuggingPriority="750" id="398">
                                     <rect key="frame" x="2" y="56" width="125" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Save as..." bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
+                                    <buttonCell key="cell" type="push" title="別名で保存…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="399">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -885,7 +885,7 @@
                                 <button id="360">
                                     <rect key="frame" x="15" y="11" width="774" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Turn Off Bonjour searching protocol - Do not search for Bonjour IsiX DICOM Viewer Databases" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="Bonjour による検索をオフにする(Bonjour の IsiX DICOM Viewer データベースを検索しない)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -898,7 +898,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Local - IsiX DICOM Viewer Databases files / folder:" id="252">
+                    <box title="ローカル - IsiX DICOM Viewer データベースのファイル/フォルダ:" id="252">
                         <rect key="frame" x="17" y="16" width="797" height="177"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mjQ-dI-b1Y">
@@ -906,9 +906,9 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="259">
-                                    <rect key="frame" x="626" y="5" width="165" height="28"/>
+                                    <rect key="frame" x="626" y="5" width="166" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Add a local path" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
+                                    <buttonCell key="cell" type="push" title="ローカルパスを追加" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -931,7 +931,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn identifier="Path" width="520" minWidth="40" maxWidth="1000" id="258">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Local Path">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="ローカルパス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -948,7 +948,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Description" width="252.0908203125" minWidth="65.0908203125" maxWidth="1000" id="257">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Description">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="説明">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -993,7 +993,7 @@
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1127">
                         <rect key="frame" x="503" y="183" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Press Delete key to remove a database" id="1128">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete キーでデータベースを削除" id="1128">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1002,7 +1002,7 @@
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1129">
                         <rect key="frame" x="503" y="414" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Press Delete key to remove a database" id="1130">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete キーでデータベースを削除" id="1130">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1011,7 +1011,7 @@
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="1131">
                         <rect key="frame" x="503" y="956" width="310" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Press Delete key to remove a node" id="1132">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Delete キーでノードを削除" id="1132">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1093,27 +1093,27 @@
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" id="539">
-                        <rect key="frame" x="47" y="166" width="78" height="17"/>
+                        <rect key="frame" x="33" y="166" width="92" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WADO Port:" id="540">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WADO ポート:" id="540">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1071">
-                        <rect key="frame" x="50" y="141" width="75" height="17"/>
+                        <rect key="frame" x="18" y="141" width="107" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Encryption:" id="1072">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="暗号化:" id="1072">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="583">
-                        <rect key="frame" x="46" y="193" width="80" height="17"/>
+                        <rect key="frame" x="20" y="193" width="106" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WADO Path:" id="584">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WADO パス:" id="584">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1148,37 +1148,37 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="545">
-                        <rect key="frame" x="21" y="60" width="105" height="17"/>
+                        <rect key="frame" x="6" y="60" width="121" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Retrieve Syntax:" id="548">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="取得構文:" id="548">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="550">
-                        <rect key="frame" x="129" y="54" width="261" height="26"/>
+                        <rect key="frame" x="128" y="54" width="273" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <popUpButtonCell key="cell" type="push" title="JPEG LS Lossless" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
+                        <popUpButtonCell key="cell" type="push" title="JPEG-LS ロスレス" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="OtherViews" id="552">
                                 <items>
-                                    <menuItem title="Explicit Little Endian" id="556"/>
-                                    <menuItem title="Implicit Little Endian" tag="9" id="557"/>
-                                    <menuItem title="Original Syntax" tag="-1" id="565"/>
+                                    <menuItem title="明示的 Little Endian" id="556"/>
+                                    <menuItem title="暗黙的 Little Endian" tag="9" id="557"/>
+                                    <menuItem title="元の構文" tag="-1" id="565"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="558"/>
-                                    <menuItem title="JPEG 2000 Lossless" tag="1" id="559"/>
-                                    <menuItem title="JPEG 2000 Lossy - Good Quality" tag="2" id="560"/>
-                                    <menuItem title="JPEG 2000 Lossy - Medium Quality" tag="3" id="561"/>
-                                    <menuItem title="JPEG 2000 Lossy - Low Quality" tag="4" id="562"/>
+                                    <menuItem title="JPEG 2000 ロスレス" tag="1" id="559"/>
+                                    <menuItem title="JPEG 2000 非可逆 - 高画質" tag="2" id="560"/>
+                                    <menuItem title="JPEG 2000 非可逆 - 中画質" tag="3" id="561"/>
+                                    <menuItem title="JPEG 2000 非可逆 - 低画質" tag="4" id="562"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="563"/>
-                                    <menuItem title="JPEG LS Lossless" state="on" tag="13" id="ppX-DQ-T9z"/>
-                                    <menuItem title="JPEG LS Lossy - Good Quality" tag="14" id="u1L-5l-6Xv"/>
-                                    <menuItem title="JPEG LS Lossy - Medium Quality" tag="15" id="Xwd-aD-c8t"/>
-                                    <menuItem title="JPEG LS Lossy - Low Quality" tag="16" id="d0T-gv-rUv"/>
+                                    <menuItem title="JPEG-LS ロスレス" state="on" tag="13" id="ppX-DQ-T9z"/>
+                                    <menuItem title="JPEG-LS 非可逆 - 高画質" tag="14" id="u1L-5l-6Xv"/>
+                                    <menuItem title="JPEG-LS 非可逆 - 中画質" tag="15" id="Xwd-aD-c8t"/>
+                                    <menuItem title="JPEG-LS 非可逆 - 低画質" tag="16" id="d0T-gv-rUv"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="ybk-3s-eXY"/>
-                                    <menuItem title="JPEG Lossless" tag="5" id="564"/>
+                                    <menuItem title="JPEG ロスレス" tag="5" id="564"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1203,7 +1203,7 @@ DQ
                     <button verticalHuggingPriority="750" id="570">
                         <rect key="frame" x="199" y="13" width="97" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="571">
+                        <buttonCell key="cell" type="push" title="キャンセル" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="571">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -1217,25 +1217,25 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="573">
                         <rect key="frame" x="219" y="166" width="120" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="From 1 to 65535" id="574">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="1〜65535" id="574">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1106">
-                        <rect key="frame" x="23" y="88" width="103" height="17"/>
+                        <rect key="frame" x="6" y="88" width="123" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="HTTP Password:" id="1115">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="HTTP パスワード:" id="1115">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1107">
-                        <rect key="frame" x="19" y="115" width="107" height="17"/>
+                        <rect key="frame" x="2" y="115" width="127" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="HTTP Username:" id="1114">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="HTTP ユーザ名:" id="1114">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1305,7 +1305,7 @@ DQ
                     <button verticalHuggingPriority="750" id="627">
                         <rect key="frame" x="205" y="18" width="97" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="628">
+                        <buttonCell key="cell" type="push" title="キャンセル" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="628">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                             <string key="keyEquivalent" base64-UTF8="YES">
@@ -1317,9 +1317,9 @@ Gw
                         </connections>
                     </button>
                     <button id="706">
-                        <rect key="frame" x="18" y="472" width="198" height="18"/>
+                        <rect key="frame" x="18" y="472" width="216" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Enable TLS communications" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="707">
+                        <buttonCell key="cell" type="check" title="TLS 通信を有効にする" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="707">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1334,7 +1334,7 @@ Gw
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                         <font key="titleFont" metaFont="system"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Type of communications" borderType="line" id="736">
+                    <box autoresizesSubviews="NO" title="通信の種類" borderType="line" id="736">
                         <rect key="frame" x="17" y="348" width="379" height="109"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="eBN-bx-86z">
@@ -1353,11 +1353,11 @@ Gw
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Anonymous" imagePosition="left" alignment="left" controlSize="small" inset="2" id="592">
+                                            <buttonCell type="radio" title="匿名" imagePosition="left" alignment="left" controlSize="small" inset="2" id="592">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Authenticated, with the following certificate:" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="593">
+                                            <buttonCell type="radio" title="認証あり(次の証明書):" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="593">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -1369,9 +1369,9 @@ Gw
                                     </connections>
                                 </matrix>
                                 <button verticalHuggingPriority="750" id="996">
-                                    <rect key="frame" x="298" y="14" width="61" height="17"/>
+                                    <rect key="frame" x="294" y="14" width="77" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Choose" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="997">
+                                    <buttonCell key="cell" type="roundRect" title="選択" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="997">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1414,7 +1414,7 @@ Gw
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Cipher Suites" borderType="line" id="787">
+                    <box autoresizesSubviews="NO" title="暗号スイート" borderType="line" id="787">
                         <rect key="frame" x="17" y="150" width="379" height="194"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="fXX-eu-wYu">
@@ -1451,7 +1451,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="308" minWidth="40" maxWidth="1000" id="667">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Cipher">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="暗号">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -1485,9 +1485,9 @@ Gw
                                     </scroller>
                                 </scrollView>
                                 <button id="788">
-                                    <rect key="frame" x="15" y="12" width="122" height="18"/>
+                                    <rect key="frame" x="6" y="12" width="132" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="DH Parameter file" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
+                                    <buttonCell key="cell" type="check" title="DH パラメータ" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1518,7 +1518,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="1094">
                                     <rect key="frame" x="18" y="37" width="96" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Select All" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1097">
+                                    <buttonCell key="cell" type="roundRect" title="すべて選択" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1097">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -1527,9 +1527,9 @@ Gw
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="1095">
-                                    <rect key="frame" x="122" y="37" width="96" height="17"/>
+                                    <rect key="frame" x="122" y="37" width="104" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Deselect All" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1096">
+                                    <buttonCell key="cell" type="roundRect" title="すべての選択を解除" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1096">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -1542,7 +1542,7 @@ Gw
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Peer Authentication" borderType="line" id="894">
+                    <box autoresizesSubviews="NO" title="ピア認証" borderType="line" id="894">
                         <rect key="frame" x="17" y="62" width="379" height="84"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="g8j-ip-9Dm">
@@ -1550,9 +1550,9 @@ Gw
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="903">
-                                    <rect key="frame" x="15" y="44" width="89" height="14"/>
+                                    <rect key="frame" x="15" y="44" width="91" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Peer Certificate:" id="904">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="ピア証明書:" id="904">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1570,15 +1570,15 @@ Gw
                                     </connections>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="907">
-                                    <rect key="frame" x="108" y="44" width="62" height="15"/>
+                                    <rect key="frame" x="108" y="44" width="98" height="15"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Ignore" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="912" id="908">
+                                    <popUpButtonCell key="cell" type="push" title="無視" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="912" id="908">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                         <menu key="menu" title="OtherViews" id="909">
                                             <items>
-                                                <menuItem title="Verify" tag="1" id="911"/>
-                                                <menuItem title="Ignore" state="on" tag="2" id="912"/>
+                                                <menuItem title="検証" tag="1" id="911"/>
+                                                <menuItem title="無視" state="on" tag="2" id="912"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -1588,9 +1588,9 @@ Gw
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="999" verticalCompressionResistancePriority="1000" id="1069">
-                                    <rect key="frame" x="111" y="14" width="251" height="22"/>
+                                    <rect key="frame" x="111" y="14" width="260" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="When choosing &quot;Verify&quot; or &quot;Require&quot;, the peer certificate is tested against all trusted certificates of the Keychain." id="1070">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="「検証」または「必須」を選ぶと、ピア証明書をキーチェーンのすべての信頼済み証明書と照合します。" id="1070">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

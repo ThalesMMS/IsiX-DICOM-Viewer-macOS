@@ -56,7 +56,7 @@ BRANCH
  func imagePosition() -> AnnotationImagePosition { AnnotationImagePosition(current: 0, count: 0, stack: 1, flipped: false, step: nil) }
  func millimetrePosition() -> AnnotationMillimetrePosition? { nil }
  func windowLevel() -> AnnotationWindowLevel { AnnotationWindowLevel(level: 0, width: 0, windowsAsPET: false, maximumOfSeries: 0) }
- func slice() -> AnnotationSlice { AnnotationSlice(thickness: 0, location: 0, stack: 1, viewPosition: nil, patientPosition: nil) }
+ func slice() -> AnnotationSlice { AnnotationSlice(thickness: 0, location: 0, stack: 1, viewPosition: nil, patientPosition: nil, hasLocation: false) }
  func thickSlab() -> (thickness: Float, location: Float) { (0, 0) }
 }
 func render(_ dcmFilesList: NSArray?, _ curImage: Int, _ annotationType: Int, _ item: String = "PatientName") -> String {

@@ -1051,7 +1051,7 @@ Gw
                     </box>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2013">
                         <rect key="frame" x="16" y="11" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी दर्शक शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
+                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी व्यूअर शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2178">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1279,7 +1279,7 @@ Gw
                     </matrix>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="1137">
                         <rect key="frame" x="77" y="243" width="162" height="18"/>
-                        <buttonCell key="cell" type="check" title="4डी श्रृंखला में प्रचारित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
+                        <buttonCell key="cell" type="check" title="4डी श्रृंखला में प्रसारित करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1361,7 +1361,7 @@ Gw
                 </constraints>
             </view>
         </window>
-        <window title="चयनित ROI(s) का प्रचार करें" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
+        <window title="चयनित ROI(s) का प्रसार करें" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="177" y="459" width="367" height="271"/>
@@ -1460,7 +1460,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="727">
                         <rect key="frame" x="9" y="237" width="231" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="वर्तमान चयनित ROI(s) को यहां तक ​​प्रचारित करें:" id="2195">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="वर्तमान चयनित ROI(s) को यहां तक ​​प्रसारित करें:" id="2195">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2792,7 +2792,7 @@ Gw
                     </textField>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2010">
                         <rect key="frame" x="29" y="98" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी दर्शक शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
+                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी व्यूअर शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2311">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2942,7 +2942,7 @@ Gw
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2396">
                         <rect key="frame" x="30" y="18" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी दर्शक शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
+                        <buttonCell key="cell" type="check" title="सभी प्रदर्शित 2डी व्यूअर शामिल करें" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2397">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

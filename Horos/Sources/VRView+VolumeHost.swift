@@ -477,7 +477,7 @@ extension VRView {
             // per unit of the scaled frame; the renderer wants opacity per
             // millimetre. A projection paints with the curve itself.
             let samplesPerMillimetre = samplesPerMillimetre(superSampling: superSampling, spacingX: sx)
-            let points = Self.points(currentOpacityArray as NSArray?)
+            let points = Self.points(_currentOpacityArray)
             let curve = VolumeOpacityCurve.curvePoints(points, composite: renderingMode == 0, superSampling: superSampling,
                                                        samplesPerMillimetre: samplesPerMillimetre)
             var opacity = curve.opacity, projectionOpacity = curve.projection

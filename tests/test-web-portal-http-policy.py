@@ -34,6 +34,27 @@ checks what the portal's former CocoaHTTPServer core did:
   with the web server's identity, which lives in the login Keychain: it is
   checked in the app.
 
+The portal's server, connection and response descend from the classes the
+Horos and OsiriX plugin SDK gave them (HTTPServer, HTTPConnection,
+HTTPDataResponse), which the app implements in Swift over the same transport.
+They are compiled unchanged too, and checked the same way:
+
+- the same page code as a subclass of HTTPConnection, as the portal's
+  connection is, served by an HTTPServer: the whole matrix above in HTTP, on
+  the thread the server keeps for its connections, with the connection's
+  AsyncSocket answering both ends, and an answer in TLS with the server's
+  identity;
+- a plain HTTPServer with a document root and plain HTTPConnections: GET and
+  HEAD of a file, a range, a folder's index.html, a link inside the root; 404
+  for what is missing or leaves the root (.., an encoded .., a link out of
+  it); 405 for POST;
+- a connection class made as a plugin's Objective-C subclass is, which
+  overrides only -httpResponseForMethod:URI:, answers its own response and
+  falls back to the files;
+- an AsyncSocket made by itself is not connected and refuses to connect with
+  an error of AsyncSocketErrorDomain, and DDKeychain names the formats of the
+  Security framework.
+
 Exit 2 (skipped) without the SwiftNIO checkouts of a Debug build, or openssl.
 No app, no network peer beyond loopback and no login Keychain item are used.
 """
@@ -61,6 +82,7 @@ if not OPENSSL:
     raise SystemExit(2)
 
 MAIN = r'''
+import CFNetwork
 import Foundation
 import IsiXHTTPServer
 import IsiXKeychain
@@ -128,7 +150,143 @@ final class Page: HTTPConnectionEngineDelegate {
     func handleResourceNotFound() {
         engine?.sendErrorResponse(status: 404, headers: [("Content-Length", "9")], body: Data("not found".utf8), closeAfter: false)
     }
+    func prepareForBody(withSize contentLength: UInt64) { onWorker() }
+    func handleInvalidRequest(_ data: Data!) { engine?.answerInvalidRequest() }
+    func handleUnknownMethod(_ method: String!) { engine?.answerUnknownMethod(method) }
+    func handleVersionNotSupported(_ version: String!) { engine?.answerVersionNotSupported(version) }
+    func preprocessResponse(_ response: CFHTTPMessage!) -> Data! { engine?.serializedHead(of: response) }
+    func preprocessErrorResponse(_ response: CFHTTPMessage!) -> Data! { engine?.serializedHead(of: response) }
     func connectionDidDie() { onWorker() }
+}
+
+// MARK: The same page code on the classes of the former plugin SDK
+
+/// The notice of a selector of the former SDK that does nothing: in the app it
+/// comes with a module this package does not build.
+enum FormerSDKFacade {
+    static func inert(_ type: String, _ selector: String, because reason: String) {}
+}
+
+/// The thread an HTTPServer keeps for the connections of a server that
+/// chooses none.
+let sdkThreadName = "HTTP server connections"
+nonisolated(unsafe) var sdkWrongThreads = 0
+
+func onSDKThread() {
+    if Thread.current.name != sdkThreadName {
+        threadLock.withLock { sdkWrongThreads += 1 }
+    }
+}
+
+/// A body as the portal's response is: an HTTPDataResponse that answers the
+/// optional selectors of the SDK's protocol for its header fields and chunks.
+final class SDKBody: HTTPDataResponse {
+    private var chunked = false
+    @objc let httpHeaders: NSDictionary = ["Content-Type": "application/x-test", "X-Test": "1", "Accept-Ranges": "bytes"]
+    convenience init(_ data: Data, chunked: Bool = false) {
+        self.init(data: data)
+        self.chunked = chunked
+    }
+    override init!(data: Data!) { super.init(data: data) }
+    @objc(isChunked) func answersChunked() -> Bool { chunked }
+    override func readData(ofLength length: UInt32) -> Data! {
+        onSDKThread()
+        return super.readData(ofLength: length)
+    }
+}
+
+/// The page code above as a subclass of HTTPConnection, as the portal's
+/// connection is: it overrides the selectors the engine asks.
+final class SDKPage: HTTPConnection {
+    var pieces: [Int] = []
+    override func supportsMethod(_ method: String!, atPath path: String!) -> Bool { onSDKThread(); return ["GET", "HEAD", "POST"].contains(method) }
+    override func processDataChunk(_ postDataChunk: Data!) { onSDKThread(); pieces.append(postDataChunk.count) }
+    override func isPasswordProtected(_ path: String!) -> Bool { path.hasPrefix("/protected") }
+    override func isAuthenticated() -> Bool { false }
+    override func handleAuthenticationFailed() {
+        engine?.sendErrorResponse(status: 401, headers: [("Content-Length", "5")], body: Data("login".utf8), closeAfter: false)
+    }
+    override func httpResponse(forMethod method: String!, uri path: String!) -> (any NSObjectProtocol & HTTPResponse)! {
+        onSDKThread()
+        switch path ?? "" {
+        case "/data": return SDKBody(payload)
+        case "/chunked": return SDKBody(payload, chunked: true)
+        case "/empty": return SDKBody(Data())
+        case "/upload":
+            let answer = "pieces=" + pieces.map(String.init).joined(separator: ",")
+            pieces = []
+            return SDKBody(Data(answer.utf8))
+        case "/threads": return SDKBody(Data("wrong=\(threadLock.withLock { sdkWrongThreads })".utf8))
+        case "/socket":
+            let facts = "peer=\(socket?.connectedHost() ?? "none");local=\(socket?.localPort() ?? 0);"
+                + "connected=\(socket?.isConnected() ?? false);server=\(owningServer?.numberOfHTTPConnections() ?? 0)"
+            return SDKBody(Data(facts.utf8))
+        default: return nil
+        }
+    }
+    override func handleResourceNotFound() {
+        engine?.sendErrorResponse(status: 404, headers: [("Content-Length", "9")], body: Data("not found".utf8), closeAfter: false)
+    }
+    override func die() { onSDKThread(); super.die() }
+}
+
+nonisolated(unsafe) var sdkServers: [HTTPServer] = []
+func sdkServer(tls: HTTPServerTLSIdentity?, connections: AnyClass? = nil, documentRoot: URL? = nil) -> Int {
+    let server: HTTPServer = HTTPServer()
+    if let connections { server.setConnectionClass(connections) }
+    server.setDocumentRoot(documentRoot)
+    server.tlsIdentity = tls
+    try! server.start()
+    sdkServers.append(server)
+    return Int(server.port())
+}
+
+/// A connection class made as a plugin's is: an Objective-C subclass of
+/// HTTPConnection, with none of the metadata of a Swift class, that overrides
+/// only -httpResponseForMethod:URI:.
+func pluginConnectionClass() -> AnyClass {
+    let made: AnyClass = objc_allocateClassPair(HTTPConnection.self, "TransportTestPluginConnection", 0)!
+    let selector = NSSelectorFromString("httpResponseForMethod:URI:")
+    typealias Response = @convention(c) (AnyObject, Selector, NSString?, NSString?) -> AnyObject?
+    let inherited = unsafeBitCast(class_getMethodImplementation(HTTPConnection.self, selector), to: Response.self)
+    let block: @convention(block) (AnyObject, NSString?, NSString?) -> AnyObject? = { connection, method, path in
+        path == "/hello" ? HTTPDataResponse(data: Data("hello from a plugin".utf8)) : inherited(connection, selector, method, path)
+    }
+    class_addMethod(made, selector, imp_implementationWithBlock(block), "@@:@@")
+    objc_registerClassPair(made)
+    return made
+}
+
+/// A document root, a file beside it, and links to both.
+func makeDocumentRoot() -> URL {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("isix-transport-docs-\(UUID().uuidString)")
+    let root = folder.appendingPathComponent("docs")
+    try! FileManager.default.createDirectory(at: root.appendingPathComponent("sub"), withIntermediateDirectories: true)
+    try! payload.write(to: root.appendingPathComponent("file.bin"))
+    try! Data("the index".utf8).write(to: root.appendingPathComponent("index.html"))
+    try! Data("a folder's index".utf8).write(to: root.appendingPathComponent("sub/index.html"))
+    try! Data("outside".utf8).write(to: folder.appendingPathComponent("secret.txt"))
+    try! FileManager.default.createSymbolicLink(atPath: root.appendingPathComponent("link.bin").path, withDestinationPath: "file.bin")
+    try! FileManager.default.createSymbolicLink(atPath: root.appendingPathComponent("out.txt").path, withDestinationPath: "../secret.txt")
+    return root
+}
+
+/// An AsyncSocket of its own: not connected, and it neither connects nor accepts.
+func loneSocketIsInert() -> Bool {
+    let socket: AsyncSocket = AsyncSocket(delegate: nil)
+    var refusals = 0
+    do { try socket.connect(toHost: "127.0.0.1", onPort: 9) } catch { if (error as NSError).domain == AsyncSocketErrorDomain { refusals += 1 } }
+    do { try socket.accept(onPort: 0) } catch { if (error as NSError).domain == AsyncSocketErrorDomain { refusals += 1 } }
+    return refusals == 2 && !socket.isConnected() && socket.connectedHost() == nil && socket.localPort() == 0
+        && AsyncSocket.crlfData() == Data([13, 10]) && AsyncSocketException == "AsyncSocketException"
+}
+
+func keychainHelperNames() -> Bool {
+    DDKeychain.string(for: SecExternalFormat.formatPKCS12) == "kSecFormatPKCS12"
+        && DDKeychain.string(for: SecExternalItemType.itemTypeCertificate) == "kSecItemTypeCertificate"
+        && DDKeychain.string(forSecKeychainAttrType: SecItemAttr.labelItemAttr.rawValue) == "kSecLabelItemAttr"
+        && DDKeychain.string(forError: errSecItemNotFound)?.isEmpty == false
+        && DDKeychain.applicationTemporaryDirectory()?.hasSuffix("OsiriX HTTP Server") == true
 }
 
 /// XML-RPC's connection, as XMLRPCInterfaceConnection uses its transport.
@@ -184,6 +342,12 @@ func rpc(https: Bool) -> Int {
     return listener.port
 }
 ports["rpc"] = rpc(https: false)
+ports["sdk"] = sdkServer(tls: nil, connections: SDKPage.self)
+let documentRoot = makeDocumentRoot()
+ports["files"] = sdkServer(tls: nil, documentRoot: documentRoot)
+ports["plugin"] = sdkServer(tls: nil, connections: pluginConnectionClass(), documentRoot: documentRoot)
+ports["loneSocket"] = loneSocketIsInert() ? 1 : 0
+ports["keychainNames"] = keychainHelperNames() ? 1 : 0
 
 // TLS: an identity imported into a disposable Keychain, never into the user's.
 let arguments = CommandLine.arguments
@@ -202,12 +366,14 @@ if arguments.count >= 4 {
     let chain = (item[kSecImportItemCertChain as String] as? [SecCertificate]) ?? []
     let tls = HTTPServerTLSIdentity(identity: identity, chain: chain)
     ports["tls"] = portal(tls: tls, deadline: 240)
+    ports["sdktls"] = sdkServer(tls: tls, connections: SDKPage.self)
     ports["chain"] = chain.count
     ports["commonNameOK"] = KeychainIdentities.certificate(of: identity).flatMap { KeychainIdentities.commonName(of: $0) } == "IsiX Transport Test" ? 1 : 0
 }
 print(String(decoding: try! JSONSerialization.data(withJSONObject: ports), as: UTF8.self))
 fflush(stdout)
 _ = readLine()
+try? FileManager.default.removeItem(at: documentRoot.deletingLastPathComponent())
 '''
 
 failures = []
@@ -218,8 +384,13 @@ def check(condition, message):
         failures.append(message)
 
 
-def exchange(port, payload, tls=None, read_timeout=5.0, slow=False):
+# How long a connection must stay quiet for an exchange to be taken as answered.
+QUIET = 5.0
+
+
+def exchange(port, payload, tls=None, read_timeout=None, slow=False):
     """Write `payload`; read until the server closes or goes quiet. (bytes, closed)."""
+    read_timeout = QUIET if read_timeout is None else read_timeout
     sock = socket.create_connection(('127.0.0.1', port), timeout=read_timeout)
     if tls:
         sock = tls.wrap_socket(sock, server_hostname='127.0.0.1')
@@ -356,6 +527,45 @@ def protocol_matrix(port, tls=None, label='http'):
     check(body == b'wrong=0', f'{label}: page code ran off its worker thread: {body!r}')
 
 
+def sdk_socket_checks(port):
+    (status, fields, body), _ = get(port, '/socket')
+    check(body == f'peer=127.0.0.1;local={port};connected=true;server=1'.encode(),
+          f'the socket of an SDK connection answered {body!r}')
+
+
+def sdk_file_checks(port, label, plugin=False):
+    (status, fields, body), closed = get(port, '/file.bin')
+    check(status == 200 and body == PAYLOAD and fields.get('content-length') == '64' and not closed
+          and fields.get('accept-ranges') == 'bytes' and 'date' in fields, f'{label}: a file answered {status} {fields}')
+    data, _ = exchange(port, b'HEAD /file.bin HTTP/1.1\r\nHost: test\r\n\r\n')
+    head = data.split(b'\r\n\r\n', 1)
+    check(head[0].startswith(b'HTTP/1.1 200') and b'Content-Length: 64' in head[0] and head[1] == b'',
+          f'{label}: HEAD of a file sent {data[:200]!r}')
+    (status, fields, body), _ = get(port, '/file.bin', 'Range: bytes=5-9\r\n')
+    check(status == 206 and body == PAYLOAD[5:10] and fields.get('content-range') == 'bytes 5-9/64',
+          f'{label}: a range of a file answered {status} {fields} {body!r}')
+    (status, fields, body), _ = get(port, '/link.bin?x=1')
+    check(status == 200 and body == PAYLOAD and fields.get('content-length') == '64',
+          f'{label}: a link inside the root answered {status} {fields}')
+    for path, expected in (('/', b'the index'), ('/sub/', b"a folder's index")):
+        (status, fields, body), _ = get(port, path)
+        check(status == 200 and body == expected, f'{label}: {path} answered {status} {body!r}')
+    for path in ('/missing', '/sub', '/out.txt', '/../secret.txt', '/%2e%2e/secret.txt', '/..%2fsecret.txt',
+                 '/sub/../../secret.txt'):
+        (status, fields, body), closed = get(port, path)
+        check(status == 404 and body == b'' and fields.get('content-length') == '0' and not closed,
+              f'{label}: {path} answered {status} {body!r}')
+    data, closed = exchange(port, b'POST /file.bin HTTP/1.1\r\nHost: t\r\nContent-Length: 0\r\n\r\n')
+    answers = responses(data)
+    check(answers and answers[0][0] == 405 and closed, f'{label}: POST answered {data[:80]!r} closed={closed}')
+    (status, fields, body), _ = get(port, '/hello')
+    if plugin:
+        check(status == 200 and body == b'hello from a plugin' and fields.get('content-length') == '19',
+              f'{label}: the subclass\'s own response answered {status} {body!r}')
+    else:
+        check(status == 404, f'{label}: /hello answered {status} {body!r}')
+
+
 def deadline_checks(port):
     # The client reads nothing: the chunk lines (written with the header deadline)
     # wait behind the body and the connection is closed after the deadline.
@@ -447,6 +657,9 @@ def main():
         before = subprocess.run(['security', 'list-keychains', '-d', 'user'], capture_output=True, text=True).stdout
         subprocess.run(['security', 'create-keychain', '-p', 'transport', str(keychain)], check=True, capture_output=True)
         subprocess.run(['security', 'unlock-keychain', '-p', 'transport', str(keychain)], check=True, capture_output=True)
+        # No lock after a time: a new Keychain locks itself after five minutes,
+        # and a TLS handshake then waits for someone to unlock it.
+        subprocess.run(['security', 'set-keychain-settings', str(keychain)], check=True, capture_output=True)
         after = subprocess.run(['security', 'list-keychains', '-d', 'user'], capture_output=True, text=True).stdout
         check(before == after, 'the disposable Keychain entered the user\'s search list')
         server = subprocess.Popen([str(binary), str(keychain), str(work / 'id.p12'), 'transport'], stdin=subprocess.PIPE,
@@ -466,6 +679,19 @@ def main():
                                input='', capture_output=True, text=True, timeout=30).stdout
         check(shown.count('-----BEGIN CERTIFICATE-----') == 2 and 'IsiX Transport Test' in shown,
               f'the TLS listener did not present the leaf and its CA ({shown.count("BEGIN CERTIFICATE")} certificates)')
+        # The SDK classes over the same transport. The answers are the same
+        # and loopback gives them at once: a shorter quiet time is enough.
+        global QUIET
+        QUIET = 1.5
+        protocol_matrix(ports['sdk'], label='the SDK classes')
+        sdk_socket_checks(ports['sdk'])
+        (status, fields, body), closed = get(ports['sdktls'], '/data', tls=tls)
+        check(status == 200 and body == PAYLOAD and fields.get('x-test') == '1' and not closed,
+              f'the SDK classes in https: GET answered {status} {fields}')
+        sdk_file_checks(ports['files'], 'a plain server')
+        sdk_file_checks(ports['plugin'], 'a subclass of one method', plugin=True)
+        check(ports.get('loneSocket') == 1, 'an AsyncSocket made by itself is connected, or connects')
+        check(ports.get('keychainNames') == 1, 'DDKeychain does not name the formats of the Security framework')
     finally:
         if server and server.poll() is None:
             server.stdin.close()
@@ -481,7 +707,8 @@ def main():
         return 1
     print('PASS: GET/HEAD, ranges, chunks, keep-alive and pipelining, refusals and header limits, 401/404, '
           '2 MiB upload pieces on the worker thread, the header deadline, TLS with a Keychain identity and its chain, '
-          'and XML-RPC over the SwiftNIO transport')
+          'and XML-RPC over the SwiftNIO transport; the same through the SDK\'s HTTPServer and HTTPConnection, the '
+          'files of a document root, and a subclass of one method')
     return 0
 
 

@@ -39,6 +39,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 sys.path.insert(0, str(ROOT / 'tests'))
+import harness_cache  # noqa: E402
 import isix_modules  # noqa: E402
 import link_placeholders  # noqa: E402
 import object_probe  # noqa: E402
@@ -58,7 +59,7 @@ def built_object(name='DCMPix'):
 def referenced_classes(objects):
     names = set()
     for obj in objects:
-        listing = subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
+        listing = harness_cache.nm(obj, '-u', check=True)
         names |= set(re.findall(r'_OBJC_CLASS_\$_(\w+)', listing))
     return names
 
@@ -126,8 +127,7 @@ def dcmpix_extensions(obj):
         folder = built.parent if built else None
     if folder is None:
         return []
-    listing = subprocess.run(['nm', '-g', '--defined-only', '-j', str(obj)], capture_output=True, text=True).stdout + \
-        subprocess.run(['nm', '-j', str(obj)], capture_output=True, text=True).stdout
+    listing = harness_cache.nm(obj, '-g', '--defined-only', '-j') + harness_cache.nm(obj, '-j')
     wanted = [name for name, marker in DCMPIX_EXTENSIONS.items()
               if marker not in listing and (folder / f'{name}.o').is_file()]
     if not wanted:
@@ -141,7 +141,7 @@ def dcmpix_extensions(obj):
 def defined_classes(objects):
     names = set()
     for obj in objects:
-        listing = subprocess.run(['nm', '-g', '--defined-only', str(obj)], capture_output=True, text=True, check=True).stdout
+        listing = harness_cache.nm(obj, '-g', '--defined-only', check=True)
         names |= set(re.findall(r'_OBJC_CLASS_\$_(\w+)', listing))
     return names
 
@@ -219,17 +219,17 @@ def link_and_run(work, sources, objects, run_arguments=(), *, compiler=('xcrun',
         # The probe's own run is the test's: how it ends is for the caller to
         # judge, a signal included. Whether it loads is not, and is asked
         # first, by its link run, which ends before main().
-        missing = link_placeholders.probe(probe, placeholders,
-                                          'the link probe of ' + objects[0].name if objects else 'the link probe')
-        if missing is None:
+        missing = link_placeholders.lacking(probe, placeholders,
+                                            'the link probe of ' + objects[0].name if objects else 'the link probe')
+        if not missing:
             if runner:
                 result = runner(probe)
             else:
                 result = subprocess.run([str(probe), *map(str, run_arguments)], capture_output=True, text=True,
                                         timeout=timeout)
-            missing = next((symbol for run in (result if isinstance(result, list) else [result])
-                            for symbol in [link_placeholders.missing_symbol(run, placeholders)] if symbol), None)
-            if missing is None:
+            missing = [symbol for run in (result if isinstance(result, list) else [result])
+                       for symbol in [link_placeholders.missing_symbol(run, placeholders)] if symbol][:1]
+            if not missing:
                 return result
-        placeholders.add(missing)
+        placeholders.update(missing)
     raise RuntimeError('too many unresolved symbols in %s' % ', '.join(map(str, objects)))

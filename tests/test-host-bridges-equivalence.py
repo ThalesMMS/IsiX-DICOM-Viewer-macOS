@@ -151,7 +151,7 @@ HEADER = r'''
 
 void reference_pixel_centre(const float corner[3], const float cosines[9], double spacing, double out[3]);
 double reference_sample_step(double interval, double thickness, double spacingX, double spacingY);
-bool reference_cubic(bool preference, bool isFused, float thickness);
+bool reference_cubic(bool preference, bool isFused, float thickness, float thinEnd);
 bool reference_volume_route(long mode);
 unsigned reference_planar(long stackMode, long stack, long width, long height, unsigned long count, long seriesCount,
                           bool isRGB, bool packed, bool subtracted, bool shutter, bool displayPlaneMatches, bool fused,
@@ -194,7 +194,13 @@ double reference_sample_step(double interval, double thickness, double spacingX,
 
 MAXIMUM_SLAB
 
-bool reference_cubic(bool preference, bool isFused, float thickness) { return CUBIC; }
+// The Objective-C rule stands wherever the window's thinnest slab is 1 mm or
+// less, as every window's was; a window whose thinnest slab is thicker has the
+// cubic plane up to that slab.
+bool reference_cubic(bool preference, bool isFused, float thickness, float thinEnd) {
+    if (thinEnd > 1.0f) return preference && !isFused && thickness <= thinEnd + 1e-3f;
+    return CUBIC;
+}
 
 bool reference_volume_route(long mode) { return VOLUME_ROUTE; }
 
@@ -365,7 +371,11 @@ for _ in 0..<20000 {
 
     let preference = coin(), isFused = coin()
     let slab = Float(pick([uniform(0, 3), 1.0, 1.001, 1.0009, 1.0011, Double(Float(1.0) + Float(1e-3))]))
-    check("cubic plane", reference_cubic(preference, isFused, slab) == MPRPlaneRules.drawsCubicDisplayPlane(preference: preference, fused: isFused, thickness: slab), "\(preference) \(isFused) \(slab)")
+    let thinEnd = Float(pick([uniform(0.1, 1), 1.0, 0.625, 0.7, uniform(1, 3), 1.2, 2.5]))
+    let thickSlab = coin() ? slab : pick([thinEnd, thinEnd + 1e-3, thinEnd + 2e-3, thinEnd + 0.01, slab])
+    check("cubic plane", reference_cubic(preference, isFused, thickSlab, thinEnd)
+            == MPRPlaneRules.drawsCubicDisplayPlane(preference: preference, fused: isFused, thickness: thickSlab, thinEnd: Double(thinEnd)),
+          "\(preference) \(isFused) \(thickSlab) \(thinEnd)")
     let mode = Int(next() % 7) - 1
     check("volume route", reference_volume_route(mode) == !MPRPlaneRules.reslices(projectionMode: mode), "\(mode)")
 

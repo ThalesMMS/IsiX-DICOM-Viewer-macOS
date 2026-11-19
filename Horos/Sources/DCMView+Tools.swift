@@ -104,6 +104,8 @@ extension DCMView {
                     self.setOriginX(0, y: 0)
                     self.rotation = 0.0
                     self.scaleValue = 1.0
+                    // Every viewer is reset so, as by a fit: framed afresh.
+                    ViewerSettingsPropagator.reframed(self)
                 }
             }
 
@@ -180,10 +182,10 @@ extension DCMView {
         case .otherMouseDown?, .otherMouseDragged?: button = .other(buttonNumber: event.buttonNumber)
         default: button = .left
         }
-        // The middle tool is read only when the middle button is the one.
-        let middle: Int16
-        if case .other(let number) = button, number == 2 { middle = self.currentToolMiddle.rawValue } else { middle = ViewInput.Tool.translate }
-        let bindings = ViewerToolBindings(left: Int(self.horos_currentTool.rawValue), right: Int(self.horos_currentToolRight.rawValue), middle: Int(middle))
+        // The middle and right tools are read, through their properties, only when their button is the one.
+        var middle = ViewInput.Tool.translate, right = self.horos_currentToolRight.rawValue
+        if case .other(let number) = button, number == 2 { middle = self.currentToolMiddle.rawValue } else if case .right = button { right = self.currentToolRight.rawValue }
+        let bindings = ViewerToolBindings(left: Int(self.horos_currentTool.rawValue), right: Int(right), middle: Int(middle))
         let tool = bindings.tool(button: button, modifiers: inputModifiers(event),
                                  leftDrawsROIs: self.roiTool(self.horos_currentTool), hasBlending: self.blending != nil)
         return ToolMode(rawValue: tool) ?? .tWL
@@ -282,7 +284,7 @@ func inputModifiers(_ event: NSEvent?) -> ViewInput.Modifiers {
     @objc(adjustSlider) func inputAdjustSlider()
     @objc(adjustKeyImage) func inputAdjustKeyImage()
     @objc(showCurrentThumbnail:) func inputShowCurrentThumbnail(_ sender: AnyObject?)
-    @objc(applyOpacityString:) func inputApplyOpacityString(_ name: NSString?)
+    @objc(ApplyOpacityString:) func inputApplyOpacityString(_ name: NSString?)
     @objc(setCurWLWWMenu:) func inputSetCurWLWWMenu(_ name: NSString?)
     @objc(fullScreenMenu:) func inputFullScreenMenu(_ sender: AnyObject?)
     @objc(windowWillClose) func inputWindowWillClose() -> Bool
@@ -332,7 +334,7 @@ func inputBeyondLast(_ index: Int, _ count: Int) -> Bool {
     return UInt(bitPattern: index) >= UInt(bitPattern: count)
 }
 
-/// An exception HorosObjCException.caughtWithoutAllocation(_:) caught, logged as
+/// An exception HorosObjCException.caught(_:) caught, logged as
 /// N2LogExceptionWithStackTrace did.
 func inputLogException(_ exception: NSException?, _ function: String) {
     if let exception {
@@ -353,8 +355,8 @@ extension DCMView {
     /// The image index after the keyboard or the wheel moved it: shown with
     /// -setIndex: or -setIndexWithReset::, the matrix following.
     func inputShowCurrentImage() {
-        if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(self.horos_curImage) }
-        else { self.setIndexWithReset(self.horos_curImage, true) }
+        if self.horos_listType == CChar(UInt8(ascii: "i")) { self.setIndex(Int(self.horos_curImage)) }
+        else { self.setIndexWithReset(Int(self.horos_curImage), true) }
 
         self.inputSelectMatrixCell()
     }

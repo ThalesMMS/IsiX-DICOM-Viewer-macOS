@@ -58,6 +58,12 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
 
     // MARK: - Outlets
 
+    // The outlets and the state below are also the instance variables of the
+    // former Horos and OsiriX plugin SDK: a plugin built for it reads and
+    // writes each at the offset the application exports, so each is a stored
+    // field of this class with the C declaration's type, never private, lazy,
+    // weak or observed; a plugin's write calls no setter.
+
     /// The `view` outlet: VRView. Its getter is -view, Window3DController's.
     final var vrView: VRView?
     @IBOutlet final var toolsView: NSView?
@@ -88,8 +94,11 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     @IBOutlet final var moviePlayStop: NSButton?
     @IBOutlet final var movieRateSlider: NSSlider?
     @IBOutlet final var moviePosSlider: NSSlider?
-    /// The `clutOpacityDrawer` outlet; its getter is -clutOpacityDrawer.
+    /// The `clutOpacityDrawer` outlet; its getter is -clutOpacityDrawer. The
+    /// SDK declared a drawer of AppKit there, which this panel is not: the
+    /// SDK's variable stays nil.
     final var clutOpacityDrawerOutlet: HorosCLUTPanel?
+    final var horos_clutOpacityDrawer_sdk: AnyObject?
     @IBOutlet final var clutOpacityView: CLUTOpacityView?
     @IBOutlet final var shadingPanel: NSPanel?
     @IBOutlet final var shadingsPresetsController: ShadingArrayController?
@@ -159,17 +168,24 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
 
     // Read by the scissors' operations on their own threads, as the former
     // instance variables were: unsafe, set on the main thread before them.
-    nonisolated(unsafe) final var styleName: String?
-    nonisolated(unsafe) final var pixLists = [NSMutableArray?](repeating: nil, count: Int(MAX4D))
+    // The style and the rendering mode are kept as the strings the SDK
+    // declared (styleName and renderingModeStorage answer them to Swift), and
+    // the arrays of one value per time of a 4D series are inside the window,
+    // used in place through pixLists, volumeData, roiVolumeLists and undodata
+    // (VRController+State.swift), which retain and release what they hold.
+    nonisolated(unsafe) final var _style: NSString?
+    final var _pixList = IsiXVRControllerFrameObjects(), _volumeData = IsiXVRControllerFrameObjects()
     nonisolated(unsafe) final var fileListStorage: NSArray?
-    nonisolated(unsafe) final var volumeData = [NSData?](repeating: nil, count: Int(MAX4D))
     nonisolated(unsafe) final var curMovieIndexStorage: Int16 = 0
     nonisolated(unsafe) final var maxMovieIndex: Int16 = 0
     nonisolated(unsafe) final var blendingVolumeData: NSData?
     nonisolated(unsafe) final var blendingPixList: NSMutableArray?
     /// Not retained, as the former class did not: VRView drops the fusion when
     /// the fused viewer closes, and -CloseViewerNotification: forgets it.
-    nonisolated(unsafe) final weak var blendingControllerStorage: ViewerController?
+    /// Kept weak, which no offset can export: the unretained copy beside it
+    /// is the SDK's variable, written with it and read by nothing here.
+    nonisolated(unsafe) final weak var blendingControllerStorage: ViewerController? { didSet { blendingControllerOfSDK = blendingControllerStorage } }
+    nonisolated(unsafe) final unowned(unsafe) var blendingControllerOfSDK: ViewerController?
     nonisolated(unsafe) final var minimumValueStorage: Float = 0
     nonisolated(unsafe) final var maximumValueStorage: Float = 0
     nonisolated(unsafe) final var blendingMinimumValueStorage: Float = 0
@@ -184,9 +200,15 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     final var blending = false
     final var lastMovieTime: TimeInterval = 0
     final var movieTimer: Timer?
-    final var undodata = [UnsafeMutablePointer<Float>?](repeating: nil, count: Int(MAX4D))
+    final var _undodata = IsiXVRControllerUndoVolumes()
     // Fly Thru: the adapter of the open fly-thru window, which retains it.
     final unowned(unsafe) var FTAdapter: VRFlyThruAdapter?
+    // Declared only by older copies of the SDK's headers: the slider of the
+    // level of detail and the menu of the rendering engines, two outlets.
+    // VR.xib connects neither: the slider of the level of detail is bound to
+    // its value, and there is one renderer and no menu to choose it. They
+    // stay nil unless a plugin stores one, and are never released.
+    final unowned(unsafe) var LODSliderOfOlderSDK: NSSlider?, enginePopupOfOlderSDK: NSPopUpButton?
     // 3D Points
     nonisolated(unsafe) final var viewer2DStorage: ViewerController?
     final var roi2DPointsArray: NSMutableArray?
@@ -195,8 +217,8 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     final var y2DPointsArray: NSMutableArray?
     final var z2DPointsArray: NSMutableArray?
     // ROIs Volumes
-    nonisolated(unsafe) final var roiVolumeLists = [NSMutableArray?](repeating: nil, count: Int(MAX4D))
-    final var renderingModeStorage: String?
+    final var _roiVolumes = IsiXVRControllerFrameObjects()
+    final var _renderingMode: NSString?
     final var shadingEditable = false
     final var appliedConvolutionFilters: NSMutableArray?
     final var selectedPresetPreview: VRPresetPreview?
@@ -231,6 +253,26 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
     final var horosApplyingFilter = false
     // The 2D viewer is closing: there is no series left to restore.
     final var horosViewerClosing = false
+    // The slices were read from their files when the window opened (its 2D
+    // viewer was not post-processed). A change of plane lets the window keep
+    // them while the 2D viewer shows others: Revert Series then reads them
+    // from their files itself.
+    final var horosSlicesFromFiles = false
+    // The geometry of the window's first slice as its file gave it, when the
+    // window opened or since the slices were read again: the 2D viewer's flips
+    // and rotations change it, with the pixels (-horosSlicesKeepGeometryAsRead).
+    final var horosSliceGeometryAsRead: [Double] = []
+    // The window read its slices from their files itself: the gantry tilt
+    // correction its 2D viewer records is no longer in its volume.
+    final var horosVolumeReadAgain = false
+    // A change the copy before the first filter does not take back: a cut or
+    // a bone removal made, or a filter applied, while there was no copy.
+    final var horosChangedWithoutFilterCopy = false
+    // horosChangedWithoutFilterCopy before the change the undo copy was made
+    // for: -undo: takes that change back, and the copy holds one change only.
+    final var horosChangedWithoutFilterCopyBeforeUndoCopy = false
+    // Whether a cut after the first filter was noted when the undo copy was taken: -undo: puts the note back with the volume.
+    final var horosCutAfterFilterBeforeUndoCopy = false
 
     /// The context of the shading presets' observer.
     nonisolated(unsafe) static let shadingObservation = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1)
@@ -342,6 +384,8 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
         pixLists[0] = pix
         volumeData[0] = vData
         viewer2DStorage = vC
+        horosSlicesFromFiles = vC.map { !$0.postprocessed() } ?? false
+        horosRecordSliceGeometry()
         blendingControllerStorage = bC
         if let bC { blendingPixList = bC.pixList() }
 
@@ -546,6 +590,17 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
                         presetPreview7, presetPreview8, presetPreview9, selectedPresetPreview] {
             preview?.prepareForRelease()
         }
+        // The window and the presets panel can outlive the controller and
+        // still have their views displayed: each forgets it and its volume.
+        vrView?.horosControllerWasReleased()
+        for preview in [presetPreview1, presetPreview2, presetPreview3, presetPreview4, presetPreview5, presetPreview6,
+                        presetPreview7, presetPreview8, presetPreview9, selectedPresetPreview] {
+            preview?.horosControllerWasReleased()
+        }
+        // The lists of every time, which the window retained as it stored them.
+        pixLists.releaseAll()
+        volumeData.releaseAll()
+        roiVolumeLists.releaseAll()
     }
 
     // MARK: - Accessors

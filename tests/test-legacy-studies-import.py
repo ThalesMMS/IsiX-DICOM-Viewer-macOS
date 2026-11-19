@@ -16,7 +16,9 @@ application:
 * the albums are made before the files arrive, since a study's own
   annotations only put it in albums that exist, and the comments and states
   wait for each study to be added;
-* nothing writes into the earlier folder.
+* nothing writes into the earlier folder;
+* the line that counts the files the earlier database no longer lists says
+  what becomes of them as the box now stands: left out, or imported too.
 """
 from pathlib import Path
 import plistlib
@@ -86,11 +88,18 @@ need(source, [
     ('"COPYDATABASE": NSNumber(value: choice == .copy)', 'the button decides between copying and indexing in place'),
     ('"COPYDATABASEMODE": NSNumber(value: DatabaseCopyRule.always)', 'the copy is not asked a second time'),
     ('"async": NSNumber(value: true)', 'the import runs on a thread of the Activity list'),
-    ('browser.droppedFiles.importFiles(survey.files.paths, options: [', 'the files go through the import of dropped files'),
+    ('browser.droppedFiles.importFiles(files, options: [', 'the files go through the import of dropped files'),
+    ('survey.files.paths + (unlisted.state == .on ? survey.files.unlisted : [])', 'the files the earlier database no longer lists come only when asked for'),
+    ('survey.files.paths + (includingUnlisted ? survey.files.unlisted : [])', 'and without the dialog too'),
+    ('LegacyDatabase.holding(imagesFolder:', 'an image folder chosen on the way to a database is read with the database beside it'),
+    ('if answer == HorosAlertPanel.alternateResponse { files += survey.files.unlisted }', 'whose unlisted files come only when asked for'),
+    ('LegacyStudiesImport.unlistedText(read.files, imported: unlisted.state == .on)', 'the line of the files no longer listed says what the box asks for'),
+    ('@objc private func unlistedChosen(_ sender: Any?) {\n        if let survey { show(survey) }', 'and is shown again when the box changes'),
+    ('onMainRunLoop { self.importSurveyed(survey, into: browser) }', 'asked from the main run loop, not from the main queue'),
     ('name: .OsirixAddToDB', 'the notes wait for the studies to be added'),
     ('notes.notesMissing(comments: current', 'the notes only fill what is empty'),
-    ('setButtons(copy: fits, link: true)', 'copying is refused without room for it'),
-    ('database.files(linked: contents.linkedFiles, isCancelled: { Task.isCancelled })', 'the folder is read off the main thread, and stops when another is chosen'),
+    ('setButtons(copy: fits && files > 0, link: files > 0)', 'copying is refused without room for it, and nothing is imported without files'),
+    ('database.survey(isCancelled: { Task.isCancelled })', 'the folder is read off the main thread, and stops when another is chosen'),
 ], 'LegacyStudiesImport.swift')
 prepare = source[source.index('private func prepareNotes('):]
 prepare = prepare[:prepare.index('\n    }\n')]
@@ -103,11 +112,41 @@ if not run.index('prepareNotes(') < run.index('importFiles('):
 
 # Nothing here or in the reader writes, moves or removes.
 reader = (root / 'Modules/IsiXStorage/Sources/LegacyDatabase.swift').read_text()
-for name, text in (('LegacyStudiesImport.swift', source), ('LegacyDatabase.swift', reader)):
+index = (root / 'Modules/IsiXStorage/Sources/LegacyFileIndex.swift').read_text()
+for name, text in (('LegacyStudiesImport.swift', source), ('LegacyDatabase.swift', reader), ('LegacyFileIndex.swift', index)):
     for call in re.findall(r'\b(removeItem|moveItem|copyItem|createDirectory|createFile|write\(to|SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE)\b', text):
         failures.append(f'{name} calls {call}')
 need(reader, [('SQLITE_OPEN_READONLY | SQLITE_OPEN_URI', 'the database is opened read-only'), ('"?immutable=1"', 'and as immutable when nothing has it open')],
      'LegacyDatabase.swift')
+
+# The files the earlier database no longer lists: the texts that count them,
+# offer them and say when none is left out are in every language's catalog.
+TEXTS = [
+    'Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are left out unless you choose to import them too.',
+    'Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are imported too.',
+    'Also import the files the database no longer lists',
+    'Import Them Too',
+    'Every file in the folder is imported, including those of studies deleted in the earlier application.',
+    'This database does not record where its files are.',
+    'Albums, comments and states do not come with them.',
+]
+for text in TEXTS:
+    if f'NSLocalizedString("{text}", comment: "")' not in source:
+        failures.append(f'LegacyStudiesImport.swift does not show {text!r}')
+for path in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):
+    language, strings = path.parent.stem, catalog(path.parent.stem)
+    for text in TEXTS:
+        translated = strings.get(text)
+        if translated is None:
+            failures.append(f'{language}: no entry for {text!r}')
+        elif language != 'en' and translated == text:
+            failures.append(f'{language}: {text!r} is not translated')
+        elif translated.count('%@') != text.count('%@'):
+            failures.append(f'{language}: {text!r} lost a placeholder')
+choice = (root / 'Horos/Sources/ForeignDatabaseChoice.swift').read_text()
+need(choice, [('LegacyStudiesImport.shared.importImagesFolder(folder, into: browser)', 'the import of a chosen Horos database leaves out what it no longer lists'),
+              ('onMainRunLoop { importIntoCurrentDatabase(folder, browserWindow: databaseWindow) }', 'the import that waited for the first database starts from the main run loop')],
+     'ForeignDatabaseChoice.swift')
 
 if failures:
     print('\n'.join('FAIL: ' + failure for failure in failures))

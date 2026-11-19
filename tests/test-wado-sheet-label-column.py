@@ -6,13 +6,17 @@ longer than that was clipped ("Caminho WA", "Recuperar sintax" in Portuguese).
 `SheetLabelColumn.fit` widens the label column to the longest label of the
 sheet's language and moves the controls right by as much.
 
-Checked here, for the ten localized nibs compiled from source with ibtool and
-the three rows the pane adds at run time (labels translated from each
-language's catalog, placed as `addWADORetrieveRows` places them):
+Checked here, for the ten localized nibs compiled from source with ibtool, the
+Base nib in Spanish and Italian (which have no copy: CatalogTranslation reads
+its texts from their catalogs, as the pane's instantiatePaneNib does), and the
+three rows the pane adds at run time (labels translated from each language's
+catalog, placed as `addWADORetrieveRows` places them, the Series Order pop-up
+with its items and as wide as its widest item, as `addRow` makes it):
 
 * after the fit, every label is as wide as its text needs, the label column
-  ends before the first control, no label overlaps a control, and every view
-  is inside the sheet;
+  ends before the first control, no label overlaps a control, the pop-ups the
+  pane adds are as wide as their widest item ("Menos instancias primero
+  (estimación)" in Spanish), and every view is inside the sheet;
 * a second fit changes nothing;
 * the negative control: without the fit, the Portuguese sheet has clipped labels.
 
@@ -29,8 +33,12 @@ root = Path(__file__).resolve().parents[1]
 out = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else None
 pane = root / 'Preference Panes/OSILocationsPreferencePane'
 resources = root / 'Horos/Resources'
-languages = ['Base', 'ja-JP', 'ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans']
+languages = ['Base', 'ja-JP', 'ar', 'de', 'fr', 'hi', 'ko', 'pt-BR', 'ru', 'zh-Hans', 'es', 'it-IT']
+# Languages without a copy of the nib: the Base nib, its texts read from the catalog.
+CATALOG_LANGUAGES = ('es', 'it-IT')
 runtime_keys = ['Parallel Requests:', 'Series Order:', 'Exclude Series:']
+# RetrievePlan.orderTitles: the items of the Series Order pop-up.
+order_keys = ['As Listed', 'Series Number', 'Fewest Instances First (estimate)']
 
 DRIVER = r'''
 import AppKit
@@ -40,7 +48,7 @@ final class Owner: NSObject {
     override func value(forUndefinedKey key: String) -> Any? { nil }
     override func setValue(_ value: Any?, forUndefinedKey key: String) {}
 }
-struct Case: Decodable { let language: String; let nib: String; let labels: [String] }
+struct Case: Decodable { let language: String; let nib: String; let labels: [String]; let orders: [String]; let catalog: [String: String]? }
 let cases = try! JSONDecoder().decode([Case].self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))
 let output = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : nil
 var failures: [String] = []
@@ -50,6 +58,8 @@ var clippedWithoutFit: [String: Int] = [:]
     var objects: NSArray?
     let nib = NSNib(nibData: try! Data(contentsOf: URL(fileURLWithPath: c.nib)), bundle: nil)
     nib.instantiate(withOwner: owner, topLevelObjects: &objects)
+    // A language without a copy of the nib reads its texts from the catalog, as instantiatePaneNib does.
+    if let catalog = c.catalog { CatalogTranslation.translate(Array(objects ?? []), with: { catalog[$0] ?? $0 }) }
     for case let window as NSWindow in objects ?? [] {
         guard let content = window.contentView,
               let syntax = content.subviews.compactMap({ $0 as? NSPopUpButton }).first(where: {
@@ -76,6 +86,12 @@ var clippedWithoutFit: [String: Int] = [:]
                                             width: syntaxFrame.width - 6, height: 22))
                 : NSPopUpButton(frame: NSRect(x: syntaxFrame.minX, y: y, width: index == 0 ? 80 : syntaxFrame.width,
                                               height: syntaxFrame.height), pullsDown: false)
+            if let popUp = control as? NSPopUpButton {
+                // The items addRow gives it, and the width of the widest, as addRow sizes it.
+                popUp.identifier = NSUserInterfaceItemIdentifier(index == 0 ? "WADOMaxRequests" : "WADOSeriesOrder")
+                popUp.addItems(withTitles: index == 0 ? (1...20).map(String.init) : c.orders)
+                popUp.setFrameSize(NSSize(width: max(popUp.frame.width, PaneFit.neededWidth(of: popUp)), height: popUp.frame.height))
+            }
             content.addSubview(control)
             let label = NSTextField(labelWithString: title)
             label.alignment = .right
@@ -121,6 +137,13 @@ for c in cases {
     for label in labels { for control in controls where label.frame.intersects(control.frame) {
         failures.append("\(c.language): label \((label as! NSTextField).stringValue) overlaps a control")
     } }
+    for case let popUp as NSPopUpButton in content.subviews
+        where ["WADOMaxRequests", "WADOSeriesOrder"].contains(popUp.identifier?.rawValue) {
+        let needed = ceil(popUp.cell!.cellSize.width)
+        if needed > popUp.frame.width + 0.5 {
+            failures.append("\(c.language): the pop-up \(popUp.identifier!.rawValue) has \(Int(popUp.frame.width)) points, its widest item needs \(Int(needed))")
+        }
+    }
     for view in content.subviews where view.frame.maxX > content.bounds.width + 0.5 || view.frame.minX < 0 {
         failures.append("\(c.language): a view leaves the sheet")
     }
@@ -155,15 +178,19 @@ with tempfile.TemporaryDirectory(prefix='horos-wado-labels-') as name:
     directory = Path(name)
     cases = []
     for language in languages:
-        xib = (pane if language in ('Base', 'ja-JP') else resources) / f'{language}.lproj/OSILocationsPreferencePanePref.xib'
+        copy = 'Base' if language in CATALOG_LANGUAGES else language
+        xib = (pane if copy in ('Base', 'ja-JP') else resources) / f'{copy}.lproj/OSILocationsPreferencePanePref.xib'
         nib = directory / f'{language}.nib'
         subprocess.run(['xcrun', 'ibtool', '--compile', str(nib), '--flatten', 'YES', str(xib)], check=True,
                        stdout=subprocess.DEVNULL, timeout=300)
         strings = catalog(language)
-        cases.append({'language': language, 'nib': str(nib), 'labels': [strings.get(k, k) for k in runtime_keys]})
+        cases.append({'language': language, 'nib': str(nib), 'labels': [strings.get(k, k) for k in runtime_keys],
+                      'orders': [strings.get(k, k) for k in order_keys],
+                      'catalog': strings if language in CATALOG_LANGUAGES else None})
     (directory / 'cases.json').write_text(json.dumps(cases))
     (directory / 'main.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-swift-version', '5', str(pane / 'SheetLabelColumn.swift'),
+                            str(root / 'Preference Panes/PaneCatalogTranslation.swift'),
                             str(directory / 'main.swift'), '-o', str(directory / 'check')], timeout=600)
     if build.returncode:
         print('FAIL: the label column does not build with the driver')

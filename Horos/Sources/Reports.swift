@@ -78,6 +78,12 @@ private func preparation(_ prepare: @escaping (String) throws -> Bool) -> (Strin
 @objc(Reports)
 public final class Reports: NSObject {
 
+    /// myComponent of an older header of the former Horos and OsiriX plugin
+    /// SDK, exported at this field's offset for the plugins built with it: the
+    /// scripting component of the Component Manager the report scripts once
+    /// ran in. They run in NSAppleScript: nothing here reads or writes it.
+    final var myComponent: UnsafeMutableRawPointer?
+
     /// The former templateName ivar: one mutable string, which -templateName
     /// hands out and -setTemplateName: rewrites in place.
     private let templateNameStorage = NSMutableString(string: "")
@@ -362,13 +368,25 @@ public final class Reports: NSObject {
     // MARK: -
     // MARK: Word
 
+    /// The database folder the templates folders are in: the browser's
+    /// database, or, before the browser has one, the location the launch
+    /// opens. None while first use is still to answer: that location may then
+    /// be a Horos or OsiriX database, which the question says is left as it
+    /// is, and the browser's toolbar asks for the templates before the
+    /// question, as its window loads.
+    private class func templatesDatabaseDirPath() -> String? {
+        if let path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath {
+            return path
+        }
+        if DatabaseFirstUse.hasPendingChoice {
+            return nil
+        }
+        return DicomDatabase.defaultBaseDirPath()
+    }
+
     @objc public class func checkForWordTemplates() {
         if let exception = HorosObjCException.caught({
-            var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
-
-            if path == nil {
-                path = DicomDatabase.defaultBaseDirPath()
-            }
+            let path = Reports.templatesDatabaseDirPath()
 
             // previously, we had a single word template in the Horos Data folder
             let oldReportFilePath = (path as NSString?)?.appendingPathComponent("ReportTemplate.doc")
@@ -404,13 +422,7 @@ public final class Reports: NSObject {
     }
 
     @objc public class func databaseWordTemplatesDirPath() -> String! {
-        var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
-
-        if path == nil {
-            path = DicomDatabase.defaultBaseDirPath()
-        }
-
-        guard let base = path, (base as NSString).length > 0 else { return nil }
+        guard let base = self.templatesDatabaseDirPath(), (base as NSString).length > 0 else { return nil }
         let folder = (base as NSString).appendingPathComponent("WORD TEMPLATES")
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(atPath: folder, isDirectory: &isDirectory) {
@@ -769,13 +781,7 @@ public final class Reports: NSObject {
     // MARK: Pages.app
 
     @objc class func databasePagesTemplatesDirPath() -> String! {
-        var path = BrowserDatabaseSource.process.browserDatabase?.baseDirPath
-
-        if path == nil {
-            path = DicomDatabase.defaultBaseDirPath()
-        }
-
-        return (path as NSString?)?.appendingPathComponent("PAGES TEMPLATES")
+        return (self.templatesDatabaseDirPath() as NSString?)?.appendingPathComponent("PAGES TEMPLATES")
     }
 
     @objc public class func checkForPagesTemplate() {
@@ -995,7 +1001,9 @@ public final class Reports: NSObject {
         if Reports.pages5orHigher() != 0 {
             let templateDirectory = self.databasePagesTemplatesDirPath()
 
-            if pagesTemplatesFirstTime.exchange(false, ordering: .relaxed) {
+            // The copy waits for a database folder: there is none while first
+            // use is still to answer, and the next list after it copies them.
+            if let templateDirectory, pagesTemplatesFirstTime.exchange(false, ordering: .relaxed) {
                 Reports.copyPages4templatesToPages5(templateDirectory)
             }
 

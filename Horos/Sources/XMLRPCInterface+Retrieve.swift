@@ -39,6 +39,7 @@
 
 import Foundation
 import IsiXDICOMNetwork
+import IsiXPreferences
 
 /// The methods that bring images from elsewhere: DownloadURL (a file or a WADO
 /// URL), Retrieve and CMove (a query to a node, then a retrieve), and the
@@ -61,7 +62,7 @@ extension XMLRPCInterface {
         Self.answering(error) {
             var badRequest = false
             if let exception = HorosObjCException.caught({
-                guard let address = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "URL")) else {
+                guard let address = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "URL")) else {
                     badRequest = true
                     return
                 }
@@ -109,13 +110,13 @@ extension XMLRPCInterface {
 
     private func downloadAndOpen(_ paramDict: NSDictionary?, in database: DicomDatabase) {
         // DownloadURL checked the URL before it started this thread.
-        guard let address = paramDict?.value(forKey: "URL") as? String, let url = NSURL(string: address) else { return }
+        guard let address = Self.parameter(paramDict, "URL") as? String, let url = NSURL(string: address) else { return }
         let downloader = WADODownload()
         downloader.WADODownload([url])
 
         guard downloader.countOfSuccesses != 0, !Thread.current.isCancelled else { return }
         // Opened only when the images went to the database the browser shows.
-        guard Self.boolValue(paramDict?.value(forKey: "Display")),
+        guard Self.boolValue(Self.parameter(paramDict, "Display")),
               (DatabaseIngest.process.admissionFolder(of: self.database).path as NSString).isEqual(to: DatabaseIngest.process.admissionFolder().path) else {
             return
         }
@@ -188,25 +189,30 @@ extension XMLRPCInterface {
 
     /// Method: Retrieve
     ///
-    /// Parameters:
+    /// Parameters, their names in any case:
     /// serverName:
-    /// filterValue:
-    /// filterKey:
+    /// filterKey, filterValue, then filterKey2, filterValue2 up to 9:
+    /// retrieveOnlyIfNeeded: "yes" leaves a study that is whole here where it is
+    /// then: "open" (or "display") or "select", once the first images of the study are here
     ///
     /// Example: osirix://?methodName=retrieve&serverName=Minipacs&filterKey=PatientID&filterValue=296228
     ///
     /// Response: {error: "0"}
     ///
     /// osirix://?methodName=retrieve&serverName=LaTour&filterKey=StudyInstanceUID&filterValue=2.16.840.1.113669.632.20.121711.10000348708
+    /// osirix://?methodName=Retrieve&retrieveOnlyIfNeeded=yes&ServerName=LaTour&filterKey=StudyInstanceUID&filterValue=2.16.840.1.113669.632.20.121711.10000348708&then=Open
     @objc(Retrieve:error:)
     public func retrieve(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
             let parameters = paramDict as? [String: Any]
-            guard let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "serverName")) else {
+            // The names in any case: one PACS writes ServerName where another writes serverName.
+            let parameter = RISRequestRules.parameters(paramDict as? [AnyHashable: Any])
+            guard let serverName = RISRequestRules.nonEmptyText(parameter("serverName")) else {
                 NSLog("****** XMLRPC server name is empty: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+                RISRequestAlert.report(RISRequestAlert.noServerName(), code: 400)
                 try Self.fail(400)
             }
-            let requestedMode = Self.integerValue(paramDict?.object(forKey: "retrieveMode"))
+            let requestedMode = Self.integerValue(parameter("retrieveMode"))
 
             // DIMSE and DICOMweb nodes, by description or, for DIMSE, AE title.
             guard let source = RISRequestServers.server(named: serverName) else {
@@ -215,11 +221,23 @@ extension XMLRPCInterface {
                 return Self.answer(-2)
             }
 
-            let filters = RISRequestRules.retrieveFilters { paramDict?.object(forKey: $0) }
+            // A filter the query would leave out, or none with a value, asks
+            // the node for more than the request meant: every study it has.
+            let filters = RISRequestRules.retrieveFilters(parameter)
+            let refusal = RISRequestRules.refusal(ofRetrieveFilters: filters) {
+                QueryFilterAttribute.named($0) != nil || DICOMKeyword.standardTag(for: $0) != nil
+            }
+            if let refusal {
+                NSLog("****** XMLRPC Retrieve not sent, its filters ask for too much: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
+                RISRequestAlert.report(RISRequestAlert.retrieveNotSent(server: serverName, refusal: refusal), code: 400)
+                try Self.fail(400)
+            }
             let nodeMode = Int(Self.intValue(source["retrieveMode"]))
             let retrieveMode = RISRequestRules.retrieveMode(node: nodeMode, requested: requestedMode)
 
-            let code = retrieve(from: source, filters: filters, retrieveMode: Int32(truncatingIfNeeded: retrieveMode))
+            let code = retrieve(from: source, filters: filters, retrieveMode: Int32(truncatingIfNeeded: retrieveMode),
+                                onlyIfNeeded: RISRequestRules.flag(parameter("retrieveOnlyIfNeeded")),
+                                followUp: RISRequestRules.RetrieveFollowUp(then: parameter("then")))
             if code == -3 {
                 NSLog("****** XMLRPC no images found corresponding to this filter: %@", QueryLog.describeRetrieveParameters(parameters) as NSString)
             }
@@ -229,9 +247,13 @@ extension XMLRPCInterface {
 
     /// Asks `source` for the studies matching `filters` and retrieves them on
     /// a thread of their own, so the caller is answered once the query is.
-    /// Returns 0, -3 when nothing was found or the node could not be asked,
-    /// and -1 on an exception; the user is told about the last two.
-    private func retrieve(from source: [String: Any], filters: [(name: Any, value: Any)], retrieveMode: Int32) -> Int {
+    /// With `onlyIfNeeded`, a study whose instances the node counts are all
+    /// here is not retrieved. `followUp` opens or selects the first study once
+    /// images of it are here, on another thread. Returns 0, -3 when nothing
+    /// was found or the node could not be asked, and -1 on an exception; the
+    /// user is told about the last two.
+    private func retrieve(from source: [String: Any], filters: [(name: Any, value: Any)], retrieveMode: Int32,
+                          onlyIfNeeded: Bool = false, followUp: RISRequestRules.RetrieveFollowUp = .none) -> Int {
         let serverName = source["Description"] as? String ?? ""
         var requested: [String: Any] = [:]
         for filter in filters {
@@ -250,12 +272,24 @@ extension XMLRPCInterface {
             rootNode.setShowErrorMessage(false)
             rootNode.query(withValues: filters.map { NSDictionary(objects: [$0.value, $0.name], forKeys: ["value" as NSString, "name" as NSString]) })
 
-            let children = rootNode.children() ?? []
-            if !children.isEmpty {
-                let order = Self.objectsAndKeys([(UserDefaults.defaultAETitle(), "moveDestination"),
-                                                 (NSNumber(value: retrieveMode), "retrieveMode"), (children, "children")])
-                let handed = RetrieveOrder(interface: self, value: order)
-                self.startRetrieveThread(count: children.count) { handed.interface.threadRetrieve(handed.value) }
+            let found = rootNode.children() ?? []
+            if !found.isEmpty {
+                let children = onlyIfNeeded ? found.filter { self.isNeeded($0 as? DCMTKQueryNode) } : found
+                if !children.isEmpty {
+                    let order = Self.objectsAndKeys([(UserDefaults.defaultAETitle(), "moveDestination"),
+                                                     (NSNumber(value: retrieveMode), "retrieveMode"), (children, "children")])
+                    let handed = RetrieveOrder(interface: self, value: order)
+                    self.startRetrieveThread(count: children.count) { handed.interface.threadRetrieve(handed.value) }
+                } else {
+                    NSLog("XMLRPC Retrieve: every study found is whole here; nothing is retrieved")
+                }
+                if followUp != .none {
+                    let studies = found.compactMap { ($0 as? DCMTKQueryNode)?.uid() }
+                    let wait = RetrieveOrder(interface: self, value: (studies, serverName, filtersText))
+                    ActivityThread.startUnlisted(name: "XML-RPC open after a retrieve") { _ in
+                        wait.interface.follow(followUp, studies: wait.value.0, server: wait.value.1, filters: wait.value.2)
+                    }
+                }
                 code = 0
                 return
             }
@@ -271,6 +305,52 @@ extension XMLRPCInterface {
             return -1
         }
         return code
+    }
+
+    /// Whether a study the node found is retrieved when the request says only
+    /// if needed: the instances here against those the node counts.
+    private func isNeeded(_ study: DCMTKQueryNode?) -> Bool {
+        guard let uid = study?.uid(), let database = privateQueueDatabase(self.database) else { return true }
+        var local = 0
+        database.performBlockAndWait {
+            let here = database.objects(forEntity: "Study", predicate: NSPredicate(format: "studyInstanceUID == %@", uid), error: nil,
+                                        fetchLimit: 0, sortDescriptors: nil) ?? []
+            for case let study as DicomStudy in here { local += study.noFiles()?.intValue ?? 0 }
+        }
+        return RISRequestRules.retrieveIsNeeded(localInstances: local, reportedInstances: study?.numberImages()?.intValue ?? 0)
+    }
+
+    /// The `then` of a Retrieve: waits for a study of `studies` to have a
+    /// series of images here, with the wait DisplayStudy has for a study that
+    /// has not arrived yet (`arriving`), and opens it as DisplayStudy does,
+    /// or selects it in the database window. It gives up after the seconds
+    /// of the retrieve-then-open wait, 30 unless set, and says so. On a
+    /// thread of its own: the links that follow do not wait.
+    private func follow(_ followUp: RISRequestRules.RetrieveFollowUp, studies: [String], server: String, filters: String) {
+        autoreleasepool {
+            let seconds = max(1, PreferencesSource.process.preferences[NetworkPreferences.xmlrpcRetrieveOpenWaitSeconds])
+            let predicate = NSPredicate(format: "studyInstanceUID IN %@", studies)
+            var found: NSManagedObjectID?
+            if let database = privateQueueDatabase(self.database) {
+                database.performBlockAndWait {
+                    // The look does not throw: a fetch that fails finds nothing, and is made again.
+                    found = try? self.arriving(within: seconds, in: database) { () -> NSManagedObjectID? in
+                        let here = database.objects(forEntity: "Study", predicate: predicate, error: nil, fetchLimit: 0,
+                                                    sortDescriptors: nil) ?? []
+                        for case let study as DicomStudy in here where (study.imageSeries()?.count ?? 0) > 0 {
+                            return study.objectID
+                        }
+                        return nil
+                    }
+                }
+            }
+            guard let found else {
+                RISRequestAlert.report(RISRequestAlert.retrievedStudyNotHere(server: server, filters: filters, seconds: seconds), code: -3)
+                return
+            }
+            let action = followUp == .open ? #selector(openObjects(withIDs:)) : #selector(selectObjects(withIDs:))
+            performSelector(onMainThread: action, with: [found], waitUntilDone: false)
+        }
     }
 
     /// The retrieve of Retrieve and CMove, one study after the other, until
@@ -313,9 +393,9 @@ extension XMLRPCInterface {
     @objc(CMove:error:)
     public func cMove(_ paramDict: NSDictionary?, error: NSErrorPointer) -> NSDictionary? {
         Self.answering(error) {
-            let accessionNumber = RISRequestRules.accessionNumber(paramDict?.object(forKey: "accessionNumber"))
+            let accessionNumber = RISRequestRules.accessionNumber(Self.parameter(paramDict, "accessionNumber"))
             guard (accessionNumber as NSString).length > 0,
-                  let serverName = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "server")) else {
+                  let serverName = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "server")) else {
                 try Self.fail(400)
             }
 

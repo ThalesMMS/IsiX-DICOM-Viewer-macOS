@@ -48,6 +48,7 @@ SESSION_TIMEOUT = 4.0
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import isix_modules  # noqa: E402
+import former_sdk_objects
 
 if shutil.which('xcrun') is None:
     print('skipped: needs xcrun (swiftc, clang)', file=sys.stderr)
@@ -227,6 +228,8 @@ with tempfile.TemporaryDirectory(prefix='horos-smtp-809-') as tmp:
             run(['xcrun', 'clang', '-c', '-w', '-fno-objc-arc', '-DHOROS_BRIDGING_HEADER=1',
                  '-iquote', str(tmp), *includes, str(tmp / name), '-o', str(obj)])
             objects.append(str(obj))
+        # The SMTP keys SMTPClient.h declares extern, beside callbacks that call the N3 geometry, which is not here.
+        objects += [former_sdk_objects.nitrogen(tmp), former_sdk_objects.bezier_stubs(tmp)]
         target = ['-target', 'arm64-apple-macos15.0']
         run(['xcrun', 'swiftc', '-module-name', 'Horos', *target, '-import-objc-header', str(tmp / 'Bridging.h'),
              *includes, *isix_modules.module_flags('IsiXMail', tmp / 'modules', target),

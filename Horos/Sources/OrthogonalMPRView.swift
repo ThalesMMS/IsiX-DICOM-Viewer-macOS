@@ -185,6 +185,11 @@ public class OrthogonalMPRView: DCMView {
 
     private var thickSlabX: Int = 0
     private var thickSlabY: Int = 0
+    /// The rows of a reformatted view that the original view's slab fuses,
+    /// first and last: its horizontal band, where the window gives them. A
+    /// view that is only given counts (setThickSlabXY::) centres its bands
+    /// on the crossing.
+    var slabRows: ClosedRange<Int>? { didSet { if slabRows != oldValue { needsDisplay = true } } }
     private var _curWLWWMenu: String? = nil
     private var _curCLUTMenu: String? = nil
     private var _curOpacityMenu: String? = nil
@@ -641,7 +646,17 @@ public class OrthogonalMPRView: DCMView {
                 roiVertex2f(xCrossCenter + shift, 4000)
             }
 
-            if thickSlabY > 0 {
+            if let slabRows {
+                // The rows fused, from the top of the first to the bottom of the last: a row is one image of the series.
+                roiColor3f(0.0, 0.0, 1.0)
+                for edge in [Float(slabRows.lowerBound), Float(slabRows.upperBound + 1)] {
+                    let y = yCrossCenter + (edge - _crossPositionY) * scaleValue
+                    roiVertex2f(-4000, y)
+                    roiVertex2f(Float(Double(xCrossCenter) - 50.0), y)
+                    roiVertex2f(Float(Double(xCrossCenter) + 50.0), y)
+                    roiVertex2f(4000, y)
+                }
+            } else if thickSlabY > 0 {
                 shift = Float(Double(Float(thickSlabY)) / 2.0 * Double(scaleValue))
                 roiColor3f(0.0, 0.0, 1.0)
                 roiVertex2f(-4000, yCrossCenter - shift)

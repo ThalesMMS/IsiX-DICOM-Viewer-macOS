@@ -349,7 +349,7 @@ final class SourceList: NSObject, @MainActor HorosBonjourBrowserDelegate, @MainA
         if fileManager.fileExists(atPath: (appFolder as NSString).appendingPathComponent("DICOMDIR")) {
             addVolume(atPath: appFolder, kind: .generic)
         } else if fileManager.fileExists(atPath: (appFolder as NSString).appendingPathComponent("DICOMDIRPATH")) {
-            // Written by the OsiriX Lite launcher.
+            // A file beside the application with the path of the DICOMDIR, as the launcher of a burned disc writes it.
             let dicomdir = try? String(contentsOfFile: (appFolder as NSString).appendingPathComponent("DICOMDIRPATH"), encoding: .utf8)
             if let dicomdir, fileManager.fileExists(atPath: dicomdir) {
                 addVolume(atPath: (dicomdir as NSString).deletingLastPathComponent, kind: .generic)

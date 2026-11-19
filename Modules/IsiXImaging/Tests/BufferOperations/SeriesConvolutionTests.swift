@@ -134,6 +134,82 @@ private let kernels: [(weights: [Float], normalization: Float, size: Int)] = [
     }
 }
 
+/// The VR window's filter of the volume it kept after a change of plane is the
+/// 2D viewer's "apply on source", byte for byte.
+@Test func filterVolumeIsTheViewersApplyOnSource() {
+    for (width, height, depth) in [(7, 5, 4), (16, 11, 9), (3, 2, 2), (1, 1, 3)] {
+        for kernel in kernels {
+            for workers in [1, 3, ProcessInfo.processInfo.processorCount] {
+                let original = volume(width: width, height: height, depth: depth, seed: UInt64(width * 17 + depth))
+                var viewer = original, window = original
+                applyOnSource(&viewer, width: width, height: height, depth: depth, weights: kernel.weights,
+                              normalization: kernel.normalization, size: kernel.size) { base in
+                    let weights = kernel.weights.withUnsafeBufferPointer {
+                        SeriesConvolution.kernel(weights: $0.baseAddress!, normalization: kernel.normalization)
+                    }
+                    SeriesConvolution(workers: workers).filterAcrossSlices(base, width: width, height: height, depth: depth,
+                                                                           kernel: weights, size: kernel.size)
+                }
+                let filter = ConvolutionKernelBook.Kernel(size: kernel.size, normalization: kernel.normalization,
+                                                          weights: Array(kernel.weights.prefix(kernel.size * kernel.size)))
+                let done = window.withUnsafeMutableBytes {
+                    SeriesConvolution(workers: workers).filterVolume($0.baseAddress!, byteCount: $0.count, width: width, height: height,
+                                                                     depth: depth, kernel: filter, colour: false)
+                }
+                #expect(done)
+                let same = viewer.withUnsafeBytes { a in window.withUnsafeBytes { b in a.elementsEqual(b) } }
+                #expect(same, "\(width)×\(height)×\(depth), \(kernel.size)×\(kernel.size) /\(kernel.normalization), \(workers) workers")
+                #expect(window != original)
+            }
+        }
+    }
+}
+
+/// A colour volume: each slice in its own plane, as ARGB, and nothing across
+/// the slices nor on the first rows.
+@Test func filterVolumeOfColourFiltersEachSliceOnly() {
+    let width = 6, height = 5, depth = 3
+    var state: UInt64 = 7
+    let original: [UInt8] = (0..<(width * height * depth * 4)).map { _ in
+        state = state &* 6364136223846793005 &+ 1442695040888963407
+        return UInt8(truncatingIfNeeded: state >> 56)
+    }
+    let filter = ConvolutionKernelBook.Kernel(size: 3, normalization: 16, weights: [1, 2, 1, 2, 4, 2, 1, 2, 1])
+    var expected = original
+    expected.withUnsafeMutableBytes { buffer in
+        let convolution = filter.weights.withUnsafeBufferPointer {
+            ImageConvolution(weights: $0.baseAddress!, size: filter.size, normalization: filter.normalization)
+        }
+        for slice in 0..<depth {
+            let pixels = buffer.baseAddress! + slice * width * height * 4
+            let result = convolution.filtered(argb: UnsafeRawPointer(pixels), width: width, height: height)!
+            memcpy(pixels, result, width * height * 4)
+            free(result)
+        }
+    }
+    var window = original
+    let done = window.withUnsafeMutableBytes {
+        SeriesConvolution(workers: 2).filterVolume($0.baseAddress!, byteCount: $0.count, width: width, height: height, depth: depth,
+                                                   kernel: filter, colour: true)
+    }
+    #expect(done)
+    #expect(window == expected)
+    #expect(window != original)
+}
+
+/// A volume shorter than its slices is left as it is.
+@Test func filterVolumeRefusesAShortVolume() {
+    let original = volume(width: 4, height: 4, depth: 3, seed: 3)
+    var window = original
+    let filter = ConvolutionKernelBook.Kernel(size: 3, normalization: 9, weights: [Float](repeating: 1, count: 9))
+    let done = window.withUnsafeMutableBytes {
+        SeriesConvolution().filterVolume($0.baseAddress!, byteCount: $0.count - 4, width: 4, height: 4, depth: 3,
+                                         kernel: filter, colour: false)
+    }
+    #expect(!done)
+    #expect(window == original)
+}
+
 @Test func sharesCoverEveryItemOnce() {
     for workers in [1, 2, 3, 7, 16] {
         let convolution = SeriesConvolution(workers: workers)
@@ -180,5 +256,33 @@ private final class Counter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return stored
+    }
+}
+
+/// What a 2D viewer's "apply on source" and the 3D window's end with on a grey
+/// volume: the pass across the slices, then the first row of every slice at
+/// the edge value handed, and nothing else of the volume touched after it.
+@Test func aGreyVolumeEndsWithThePassAcrossItsSlicesAndItsEdgeRows() {
+    for (width, height, depth) in [(7, 5, 4), (3, 2, 2), (1, 1, 3)] {
+        for kernel in kernels {
+            let weights = kernel.weights.withUnsafeBufferPointer {
+                SeriesConvolution.kernel(weights: $0.baseAddress!, normalization: kernel.normalization)
+            }
+            let original = volume(width: width, height: height, depth: depth, seed: UInt64(width * 13 + depth))
+            var across = original, finished = original
+            across.withUnsafeMutableBufferPointer {
+                SeriesConvolution(workers: 3).filterAcrossSlices($0.baseAddress!, width: width, height: height, depth: depth,
+                                                                 kernel: weights, size: kernel.size)
+            }
+            finished.withUnsafeMutableBufferPointer {
+                SeriesConvolution(workers: 3).finishGreyVolume($0.baseAddress!, width: width, height: height, depth: depth,
+                                                               kernel: weights, size: kernel.size, edge: -7.5)
+            }
+            for slice in 0..<depth {
+                let start = slice * width * height
+                #expect(finished[start..<start + width].allSatisfy { $0 == -7.5 })
+                #expect(finished[(start + width)..<(start + width * height)] == across[(start + width)..<(start + width * height)])
+            }
+        }
     }
 }

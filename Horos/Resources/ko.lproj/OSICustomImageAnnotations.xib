@@ -214,7 +214,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="373">
-                                    <rect key="frame" x="215" y="71" width="41" height="17"/>
+                                    <rect key="frame" x="203" y="71" width="53" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="이름" id="570">
                                         <font key="font" metaFont="system"/>
@@ -357,7 +357,7 @@
                         </connections>
                     </customView>
                     <button id="495">
-                        <rect key="frame" x="196" y="643" width="108" height="18"/>
+                        <rect key="frame" x="196" y="643" width="110" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="기본값과 같음" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="582">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -368,7 +368,7 @@
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="502">
-                        <rect key="frame" x="577" y="642" width="104" height="18"/>
+                        <rect key="frame" x="577" y="642" width="105" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="방향" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="583">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

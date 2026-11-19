@@ -50,6 +50,9 @@
 //   (-drawCrossLines:... and -computeSliceIntersection:sliceFromTo:vector:origin:),
 //   which forward to their Swift bodies with a pointer to the first element.
 
+// The context of the former OpenGL drawing, as a plugin built for the SDK passes it: the
+// pointer type OpenGL gave it, declared here so that no header of OpenGL is read.
+struct _CGLContextObject;
 #import "DCMView.h"
 #import "Horos-Swift.h"
 
@@ -66,6 +69,22 @@
 - (void) drawCrossLines:(float[2][3]) sft perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half showPoint: (BOOL) showPoint;
 @end
 
+// The selectors of the former plug-in SDK that drew the cross lines in an
+// OpenGL context: their float[2][3] has no Swift spelling. The view draws
+// with Metal and has no such context, so they draw nothing and say so once.
+@interface DCMView (FormerOpenGLCrossLines)
+@end
+#define FORMER_GL [IsiXFormerSDKFacade inert: @"DCMView" selector: [@"-" stringByAppendingString: NSStringFromSelector(_cmd)] because: @"the image view draws with Metal"]
+@implementation DCMView (FormerOpenGLCrossLines)
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx withShift:(double) shift { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx withShift:(double) shift showPoint:(BOOL) showPoint { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx perpendicular:(BOOL) perpendicular { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx perpendicular:(BOOL) perpendicular withShift:(double) shift { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half { FORMER_GL; }
+- (void) drawCrossLines:(float[2][3]) sft ctx:(struct _CGLContextObject *) ctx perpendicular:(BOOL) perpendicular withShift:(double) shift half:(BOOL) half showPoint:(BOOL) showPoint { FORMER_GL; }
+@end
+
 #pragma mark - Globals
 
 BOOL OVERFLOWLINES = NO;
@@ -74,10 +93,24 @@ int CLUTBARS, MAXNUMBEROF32BITVIEWERS = 4, SOFTWAREINTERPOLATION_MAX, DISPLAYCRO
 __attribute__((used)) NSString * const HorosPasteboardType = @"com.opensource.horos";
 __attribute__((used)) NSString * const HorosPasteboardTypePlugin = @"com.opensource.horos.plugin";
 
+// The pasteboard type name of the Horos and OsiriX plugin SDK. A plugin built
+// for either looks the symbol up in the application's flat namespace when it
+// loads, without being rebuilt, and fails to load when it is not exported. The
+// SDK declared it without const, so it stays writable data.
+__attribute__((used)) NSString *pasteBoardOsiriX = @"OsiriX pasteboard";
+// The other pasteboard type names of that SDK, with the values it gave them.
+// The OsiriX SDK declared its two without const; the Horos names are const.
+__attribute__((used)) NSString *pasteBoardOsiriXPlugin = @"OsiriXPluginDataType";
+__attribute__((used)) NSString *OsirixPluginPboardUTI = @"com.opensource.osirix.plugin.uti";
+__attribute__((used)) NSString * const pasteBoardHoros = @"Horos pasteboard";
+__attribute__((used)) NSString * const HorosPboardUTI = @"com.opensource.horos.uti";
+__attribute__((used)) NSString * const pasteBoardHorosPlugin = @"HorosPluginDataType";
+__attribute__((used)) NSString * const HorosPluginPboardUTI = @"com.opensource.horos.plugin.uti";
+
 
 #pragma mark - Plane and segment arithmetic
 
-int intersect3D_SegmentPlane( float *P0, float *P1, float *Pnormal, float *Ppoint, float* resultPt )
+__attribute__((used)) int intersect3D_SegmentPlane( float *P0, float *P1, float *Pnormal, float *Ppoint, float* resultPt )
 {
     return [DCMView horosSegmentPlane: P0 : P1 : Pnormal : Ppoint : resultPt];
 }

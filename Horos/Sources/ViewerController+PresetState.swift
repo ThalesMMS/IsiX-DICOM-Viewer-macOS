@@ -10,54 +10,41 @@
 
 import AppKit
 
-/// The presets chosen in the menus (CLUT, convolution, window level, opacity, the CLUT to restore) and whether each popup was set.
-final class ViewerPresetState: @unchecked Sendable {
-    var curCLUTMenu: String?
-    var curConvMenu: String?
-    var curWLWWMenu: String?
-    var curOpacityMenu: String?
-    var backCurCLUTMenu: String?
-    var clutPopupSet: Bool = false
-    var convPopupSet: Bool = false
-    var wlwwPopupSet: Bool = false
-    var OpacityPopupSet: Bool = false
-}
-
 extension ViewerController {
     var horos_curCLUTMenu: String? {
-        get { presetState.curCLUTMenu }
-        set { presetState.curCLUTMenu = newValue }
+        get { _curCLUTMenu as String? }
+        set { _curCLUTMenu = newValue as NSString? }
     }
     var horos_curConvMenu: String? {
-        get { presetState.curConvMenu }
-        set { presetState.curConvMenu = newValue }
+        get { _curConvMenu as String? }
+        set { _curConvMenu = newValue as NSString? }
     }
     var horos_curWLWWMenu: String? {
-        get { presetState.curWLWWMenu }
-        set { presetState.curWLWWMenu = newValue }
+        get { _curWLWWMenu as String? }
+        set { _curWLWWMenu = newValue as NSString? }
     }
     var horos_curOpacityMenu: String? {
-        get { presetState.curOpacityMenu }
-        set { presetState.curOpacityMenu = newValue }
+        get { _curOpacityMenu as String? }
+        set { _curOpacityMenu = newValue as NSString? }
     }
     var horos_backCurCLUTMenu: String? {
-        get { presetState.backCurCLUTMenu }
-        set { presetState.backCurCLUTMenu = newValue }
+        get { _backCurCLUTMenu as String? }
+        set { _backCurCLUTMenu = newValue as NSString? }
     }
     var horos_clutPopupSet: Bool {
-        get { presetState.clutPopupSet }
-        set { presetState.clutPopupSet = newValue }
+        get { _clutPopupSet }
+        set { _clutPopupSet = newValue }
     }
     var horos_convPopupSet: Bool {
-        get { presetState.convPopupSet }
-        set { presetState.convPopupSet = newValue }
+        get { _convPopupSet }
+        set { _convPopupSet = newValue }
     }
     var horos_wlwwPopupSet: Bool {
-        get { presetState.wlwwPopupSet }
-        set { presetState.wlwwPopupSet = newValue }
+        get { _wlwwPopupSet }
+        set { _wlwwPopupSet = newValue }
     }
     var horos_OpacityPopupSet: Bool {
-        get { presetState.OpacityPopupSet }
-        set { presetState.OpacityPopupSet = newValue }
+        get { _OpacityPopupSet }
+        set { _OpacityPopupSet = newValue }
     }
 }

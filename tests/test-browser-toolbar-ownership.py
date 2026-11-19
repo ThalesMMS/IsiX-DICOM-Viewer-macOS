@@ -83,10 +83,10 @@ elif 'browser.horos_toolbar = toolbar' not in toolbar or re.search(r'passRetaine
 setter = block(access, 'var horos_toolbar: NSToolbar? {')
 if not setter:
     failures.append('BrowserController+StateAccess.swift has no toolbar accessor')
-elif 'set { windowState.toolbar = newValue }' not in setter or re.search(r'passRetained|Unmanaged', setter):
+elif 'set { _toolbar = newValue }' not in setter or re.search(r'passRetained|Unmanaged', setter):
     failures.append('the toolbar accessor does not store the toolbar in the window state alone')
-if '@objc var toolbar: NSToolbar?' not in state:
-    failures.append('the window state does not keep the toolbar in a strong property')
+if not re.search(r'^\s*nonisolated\(unsafe\) final var [^\n]*\b_toolbar: NSToolbar\?', code(read('Horos/Sources/BrowserController.swift')), re.M):
+    failures.append('the browser does not keep the toolbar in a strong field')
 
 # The MPEG-2 icon: a Swift image, released with the scope. -matrixNewIcon::
 # hands the icon to BrowserPreviewPane (BrowserPreviewPane.swift), which

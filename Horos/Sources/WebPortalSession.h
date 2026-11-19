@@ -48,3 +48,16 @@
 #else
 #import "Horos-Swift.h"
 #endif
+
+// Looked up by name by plugins built for Horos or OsiriX, which are not
+// rebuilt: defined once in Objective-C (FormerPluginSDK+CAPI.m), since a Swift
+// constant has no C symbol, and read from there by the Swift code too.
+// The cookie that carries the session id, and the keys of the values stored
+// for a session: the user's NSManagedObjectID and name, the dictionary of
+// tokens, the login challenge and the date of the last activity.
+extern NSString * const SessionCookieName;
+extern NSString * const SessionUserIDKey;
+extern NSString * const SessionUsernameKey;
+extern NSString * const SessionTokensDictKey;
+extern NSString * const SessionChallengeKey;
+extern NSString * const SessionLastActivityDateKey;

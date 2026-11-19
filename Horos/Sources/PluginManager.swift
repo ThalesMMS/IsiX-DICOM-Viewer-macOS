@@ -270,7 +270,8 @@ public final class PluginManager: NSObject {
     /// behind says the last run ended inside that plugin without being asked to.
     @objc public class func crashMarkerPath() -> String! {
         // Beside the plugins themselves, not in /tmp: that one is writable by
-        // everybody on the machine and shared by every Horos and OsiriX on it.
+        // everybody on the machine and shared by every application on it that
+        // used the same path.
         let directory = (PluginManager.userActivePluginsDirectoryPath()! as NSString).deletingLastPathComponent
         return PluginQuarantine.markerPath(inDirectory: directory, forBundle: Bundle.main.bundleIdentifier)
     }
@@ -367,13 +368,17 @@ public final class PluginManager: NSObject {
         roisMenu?.removeAllItems()
         othersMenu?.removeAllItems()
         dbMenu?.removeAllItems()
+        // The Report menu of the application's Plugins menu, which only
+        // version 1 plugins fill.
+        let reportMenu = PluginManager.reportMenu(beside: dbMenu)
+        reportMenu?.removeAllItems()
 
         // Plugins made for Horos or OsiriX declare their items in Info.plist
         // (MenuTitles, pluginType).
         PluginManager.addFormerPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu)
 
         // Version 1 plugins register their commands in code.
-        PluginManager.addIsiXPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu)
+        PluginManager.addIsiXPluginMenuItems(filtersMenu, roisMenu, othersMenu, dbMenu, reportMenu)
 
         // The app's own filters have no bundle to declare their items: without these, T1 Fit Map,
         // T2 Fit Map and ROI Enhancement were registered and unreachable from any menu.
@@ -431,6 +436,15 @@ public final class PluginManager: NSObject {
             dbMenu?.insertItem(item, at: 0)
         }
 
+        if let reportMenu, reportMenu.numberOfItems < 1 {
+            let item = NSMenuItem()
+            item.title = NSLocalizedString("No plugins available for this menu", comment: "")
+            item.target = self as AnyObject
+            item.action = NSSelectorFromString("noPlugins:")
+            reportMenu.insertItem(item, at: 0)
+        }
+
+        PluginManager.sortMenu(reportMenu)
         PluginManager.sortMenu(dbMenu)
         PluginManager.sortMenu(roisMenu)
         PluginManager.sortMenu(filtersMenu)
@@ -458,6 +472,7 @@ public final class PluginManager: NSObject {
         }
 
         let shortcutMenus = ObjC.array(upToFirstNil: [filtersMenu, roisMenu, othersMenu, dbMenu])
+        if let reportMenu { shortcutMenus.add(reportMenu) }
         if let fusionPluginsMenu = Registry.fusionPluginsMenu {
             shortcutMenus.add(fusionPluginsMenu)
         }
@@ -768,11 +783,27 @@ public final class PluginManager: NSObject {
         return Set(BundledPluginMigration.duplicatesLeftInside(entries).compactMap { ($0.path as NSString).resolvingSymlinksAndAliases() })
     }
 
+    /// What the loader records for the bundle at `path` when it refuses it
+    /// before opening it, or nil when it would go on to open it: its signature,
+    /// then what its files say (PluginInspector), as `loadPluginBundle` and
+    /// `loadIsiXPlugin` check them. The bundle is not opened. Protected mode,
+    /// which refuses every bundle alike, is not asked.
+    class func refusalBeforeOpening(bundleAt path: String) -> (state: String, reason: String)? {
+        var error: NSError? = nil
+        guard PluginManagerCAPISignatureAllowsLoading(path, &error) else {
+            return (NSLocalizedString("Blocked", comment: ""),
+                    ObjC.format(NSLocalizedString("The plugin signature is invalid: %@. Reinstall an intact copy from its author.", comment: ""),
+                                error?.localizedDescription))
+        }
+        let inspection = PluginInspector().inspect(bundleAt: URL(fileURLWithPath: path))
+        return inspection.isLoadable ? nil : (NSLocalizedString("Incompatible", comment: ""), inspection.summary)
+    }
+
     /// Records a bundle that does not load because another one of its name
-    /// does, with the reason the plugins list shows, and says so once.
-    private class func reportDuplicate(atPath path: String, reason: String) {
+    /// does, with the state and reason the plugins list shows, and says so once.
+    private class func reportDuplicate(atPath path: String, state: String = NSLocalizedString("Blocked", comment: ""), reason: String) {
         let name = (path as NSString).lastPathComponent
-        PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), NSLocalizedString("Blocked", comment: ""), reason)
+        PluginManagerCAPIRecordLoad((path as NSString?)?.resolvingAlias(), state, reason)
         NSLog("***** Multiple plugins: %@", name as NSString)
 
         var message = NSLocalizedString("Warning! Multiple instances of the same plugin have been found. Only one instance will be loaded. Check the Plugin Manager (Plugins menu) for multiple identical plugins.", comment: "")
@@ -780,6 +811,20 @@ public final class PluginManager: NSObject {
         message = (message as NSString).appendingFormat("\r\r%@", name as NSString) as String
 
         HorosAlertPanel.run(title: NSLocalizedString("Plugins", comment: ""), message: message, defaultButton: nil, alternateButton: nil, otherButton: nil)
+    }
+
+    /// Says that an entry of a plugins folder leads to no bundle: a symbolic
+    /// link whose target is gone, links that lead back to one another, or an
+    /// alias whose original is gone. One with a plugin's name has a row in the
+    /// plugins list, recorded here under the path that row is kept by, so that
+    /// the row says why nothing loaded.
+    private class func reportEntryThatLeadsNowhere(_ entry: String, destination: String?) {
+        NSLog("Won't load %@: it is a link or an alias to an item that no longer exists (%@)", entry as NSString, (destination ?? "-") as NSString)
+        guard PluginAdmission.isPluginBundle(entry) else { return }
+        let reason = destination.map {
+            String(format: NSLocalizedString("This plugin is a link or an alias to an item that no longer exists (%@). Reinstall the plugin or remove the link in Plugin Manager.", comment: "The item the link names"), $0)
+        } ?? NSLocalizedString("This plugin is a link or an alias to an item that no longer exists. Reinstall the plugin or remove the link in Plugin Manager.", comment: "")
+        PluginManagerCAPIRecordLoad((entry as NSString).resolvingAlias(), NSLocalizedString("Load failed", comment: ""), reason)
     }
 
     /// The rank of the folder a discovered bundle is in, for bundles of one
@@ -890,6 +935,11 @@ public final class PluginManager: NSObject {
                 // first, then the user's folder, the computer's, and the application's.
                 var folderRanks: [String: Int] = [:]
                 let dontLoadOtherWithTheseNames = NSMutableArray()
+                // What each entry offers to load (PluginFolderScan): an entry is a
+                // plugin by its own name, as in the plugins list, a bundle reached
+                // by two entries loads once, and one that leads nowhere is said
+                // and passed over, so that the rest of its folder still loads.
+                var scan = PluginFolderScan(isPlugin: PluginAdmission.isManaged)
 
                 for path in paths {
                     var stop = false
@@ -937,14 +987,23 @@ public final class PluginManager: NSObject {
 
                             for name in e {
                                 if (donotloadnames as NSArray?)?.contains(((name as! NSString).deletingPathExtension)) != true {
-                                    let resolved = ((path as! NSString).appendingPathComponent(name as! String) as NSString).resolvingSymlinksAndAliases()
-                                    if let resolved, duplicatesInsideApplication.contains(resolved) {
-                                        NSLog("Won't load %@ from inside the application: the user's plugins folder has this plugin", ObjC.arg(name))
-                                        continue
-                                    }
-                                    ObjC.add(pathsOfPluginsToLoad, resolved)
-                                    if let resolved, folderRanks[resolved] == nil {
+                                    let entry = (path as! NSString).appendingPathComponent(name as! String)
+                                    switch scan.judge(entryAt: entry) {
+                                    case .load(let resolved):
+                                        if duplicatesInsideApplication.contains(resolved) {
+                                            NSLog("Won't load %@ from inside the application: the user's plugins folder has this plugin", ObjC.arg(name))
+                                            continue
+                                        }
+                                        pathsOfPluginsToLoad.add(resolved)
                                         folderRanks[resolved] = PluginManager.folderRank(of: folder, userAndSystemFolders: folders)
+                                    case .sameBundle(_, let first):
+                                        NSLog("Won't load %@ from %@: it is the same bundle as %@", ObjC.arg(name), (folder ?? "the command line") as NSString, first as NSString)
+                                    case .leadsNowhere(let destination):
+                                        PluginManager.reportEntryThatLeadsNowhere(entry, destination: destination)
+                                    case .notAPlugin(let destination):
+                                        if let destination, PluginAdmission.isManaged(destination) {
+                                            NSLog("Won't load %@: %@, which leads to it, does not have the name of a plugin", destination as NSString, entry as NSString)
+                                        }
                                     }
                                 }
                             }
@@ -965,21 +1024,36 @@ public final class PluginManager: NSObject {
                 // declares it is refused by its inspection.
                 // One plugin under two bundles, as the installers of plugins made for
                 // Horos and OsiriX leave it (Thing.horosplugin and a newer
-                // Thing.osirixplugin): the higher version loads, whatever the order the
-                // folder lists them in and whatever their extensions (SameNamePlugins).
-                // The others are set aside here, each with the reason and both versions.
+                // Thing.osirixplugin): one this Mac can load before one it cannot (its
+                // signature and its files, as the loader checks them before opening a
+                // bundle), then the higher version, whatever the order the folder lists
+                // them in and whatever their extensions (SameNamePlugins). The others
+                // are set aside here, each with the reason and both versions; one set
+                // aside because it cannot load keeps the state and reason the loader
+                // would have recorded for it, and says which one loads instead.
                 let found = pathsOfPluginsToLoad.compactMap { $0 as? String }.filter { PluginAdmission.isManaged($0) }.map { path in
                     SameNamePlugins.Candidate(path: path, version: PluginBundleVersion.declared(byBundleAt: URL(fileURLWithPath: path)),
                                               folderRank: folderRanks[path] ?? Int.max)
                 }
-                for duplicate in SameNamePlugins.setAside(among: found) {
+                // Asked once for each bundle that shares its name with another.
+                var refusals: [String: (state: String, reason: String)] = [:]
+                let setAside = SameNamePlugins.setAside(among: found) { path in
+                    refusals[path] = PluginManager.refusalBeforeOpening(bundleAt: path)
+                    return refusals[path] == nil
+                }
+                for duplicate in setAside {
                     pathsOfPluginsToLoad.remove(duplicate.bundle.path)
-                    PluginManager.reportDuplicate(atPath: duplicate.bundle.path, reason: String(format: NSLocalizedString(
+                    let instead = String(format: NSLocalizedString(
                         "%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer.",
                         comment: "The plugin loaded, its version, and the version of the one set aside"),
                         (duplicate.preferred.path as NSString).lastPathComponent,
                         duplicate.preferred.version ?? NSLocalizedString("no version", comment: "A plugin that declares no version"),
-                        duplicate.bundle.version ?? NSLocalizedString("no version", comment: "A plugin that declares no version")))
+                        duplicate.bundle.version ?? NSLocalizedString("no version", comment: "A plugin that declares no version"))
+                    if let refusal = refusals[duplicate.bundle.path] {
+                        PluginManager.reportDuplicate(atPath: duplicate.bundle.path, state: refusal.state, reason: refusal.reason + " " + instead)
+                    } else {
+                        PluginManager.reportDuplicate(atPath: duplicate.bundle.path, reason: instead)
+                    }
                 }
 
                 let pending = pathsOfPluginsToLoad.compactMap { $0 as? String }.map { path -> LegacyPluginDeclaration.Pending in

@@ -6,7 +6,7 @@
 on mail_images(email_subject, default_address, image_count, new_files, new_captions, new_comments, cancel_string)
 	
 	try
-		-- Horos asks for Mail Automation consent before this handler runs.
+		-- The application asks for Mail Automation consent before this handler runs.
 		-- A bounded timeout avoids a silent hang if Mail never replies.
 		with timeout of 90 seconds
 		tell application "Mail"
@@ -28,7 +28,13 @@ on mail_images(email_subject, default_address, image_count, new_files, new_capti
 					set useSig to false
 				end try
 				repeat with image_idx from 1 to image_count
-					make new attachment at end with properties {file name:item image_idx of new_files}
+					-- The attachment and its caption are made in the content of the message.
+					-- Mail lets an application in the sandbox compose through the text of an
+					-- outgoing message, and refuses (-10004) what it makes in the message itself.
+					set this_file to item image_idx of new_files
+					tell content
+						make new attachment with properties {file name:this_file}
+					end tell
 					
 					set combined_caption to ""
 					
@@ -42,10 +48,21 @@ on mail_images(email_subject, default_address, image_count, new_files, new_capti
 						set combined_caption to (combined_caption & this_comment & return)
 					end if
 					set combined_caption to (return & combined_caption & return)
-					make new paragraph at end with data combined_caption
+					-- Mail lets an application in the sandbox attach to the content and
+					-- refuses the text it writes there (-10004): the draft then keeps its
+					-- attachments, without the lines between them.
+					try
+						tell content
+							make new paragraph at end with data combined_caption
+						end tell
+					on error caption_message number caption_number
+						if caption_number is not -10004 then error caption_message number caption_number
+					end try
 				end repeat
 				if image_count is 0 then
-					make new paragraph at beginning with data new_captions
+					tell content
+						make new paragraph at beginning with data new_captions
+					end tell
 				end if
 				if useSig is true then
 					set message signature to sig
@@ -55,7 +72,7 @@ on mail_images(email_subject, default_address, image_count, new_files, new_capti
 		end timeout
 		
 	on error error_message number error_number
-		-- Report failures to Horos; asking Finder to display them requires another permission.
+		-- Report failures to the application; asking Finder to display them requires another permission.
 		error error_message number error_number
 	end try
 	return 0

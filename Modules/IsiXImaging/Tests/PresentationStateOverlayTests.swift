@@ -50,6 +50,46 @@ struct PresentationStateOverlayTests {
         #expect(PresentationStateOverlay.magnification(sizeMode: "MAGNIFY", magnification: 2) == 2)
         #expect(PresentationStateOverlay.magnification(sizeMode: "MAGNIFY", magnification: 0) == nil)
         #expect(PresentationStateOverlay.magnification(sizeMode: "SCALE TO FIT", magnification: 2) == nil)
+        #expect(PresentationStateOverlay.fitsView(sizeMode: "SCALE TO FIT"))
+        #expect(!PresentationStateOverlay.fitsView(sizeMode: "MAGNIFY") && !PresentationStateOverlay.fitsView(sizeMode: "TRUE SIZE"))
+    }
+
+    /// A displayed area that begins before the image and ends past it
+    /// (PS 3.3 C.10.4), fitted to a view: its middle is the middle of the
+    /// view, from which the view's coordinates are counted, and none of it is
+    /// left out, however the image is turned or flipped.
+    @Test func aDisplayedAreaOutsideTheImageIsFramedWhole() {
+        let area = CGRect(x: -10, y: -1, width: 532, height: 258)
+        let image = ViewTransform.ImageExtent(width: 512, height: 256, pixelRatio: 1)
+        let size = CGSize(width: 800, height: 600), deg2rad = Double.pi / 180
+        for rotation: Float in [0, 90, 180, 270] {
+            for flips in [(false, false), (true, false), (false, true), (true, true)] {
+                let scale = ViewTransform.fitScale(viewSize: size, width: area.width, height: area.height, pixelRatio: 1,
+                                                   rotation: rotation, fallback: 1)
+                let origin = ViewTransform.openingOrigin(content: area, width: 512, height: 256, scale: scale, pixelRatio: 1)
+                var state = ViewportState()
+                state.scale = scale
+                state.rotation = rotation
+                state.xFlipped = flips.0
+                state.yFlipped = flips.1
+                state.origin = CGPoint(x: CGFloat(origin.x), y: CGFloat(origin.y))
+                func shown(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                    ViewTransform.imageToView(CGPoint(x: x, y: y), viewport: state, drawingSize: size, image: image, deg2rad: deg2rad)
+                }
+                let middle = shown(area.midX, area.midY)
+                #expect(abs(middle.x) < 0.01 && abs(middle.y) < 0.01, "rotation \(rotation), flips \(flips): \(middle)")
+                let corners = [shown(area.minX, area.minY), shown(area.maxX, area.minY), shown(area.minX, area.maxY), shown(area.maxX, area.maxY)]
+                #expect(corners.allSatisfy { abs($0.x) < 400.01 && abs($0.y) < 300.01 }, "rotation \(rotation): \(corners)")
+                // As large as the view allows: the area touches two opposite edges of it.
+                let xs = corners.map(\.x), ys = corners.map(\.y)
+                let touches = (xs.min()! < -399.99 && xs.max()! > 399.99) || (ys.min()! < -299.99 && ys.max()! > 299.99)
+                #expect(touches, "rotation \(rotation): \(corners)")
+            }
+        }
+        // Held to the image, the origin moved and the size stayed: the middle of that rectangle is not the area's.
+        let shifted = ViewTransform.openingOrigin(content: CGRect(x: 0, y: 0, width: 532, height: 258), width: 512, height: 256, scale: 1, pixelRatio: 1)
+        let kept = ViewTransform.openingOrigin(content: area, width: 512, height: 256, scale: 1, pixelRatio: 1)
+        #expect(kept.x - shifted.x == 10 && shifted.y - kept.y == 1)
     }
 
     @Test func theFramesOfAMissingReferenceAreListedOrAll() {

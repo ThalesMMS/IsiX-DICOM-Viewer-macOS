@@ -131,6 +131,34 @@ final class PreferencesFlippedView: NSView {
     override var isFlipped: Bool {
         return true
     }
+
+    /// The scroll view the pane is shown in. The window grows with the pane
+    /// only up to the screen's height; a pane taller than that (Locations, on
+    /// a screen of 1050 points) shows a vertical scroller, which tells that
+    /// there is more below and reaches it. A pane that fits shows none.
+    func enclosedInScrollView() -> NSScrollView {
+        let size = fittingSize
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: size.width, height: size.height))
+        scrollView.documentView = self
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.borderType = .noBorder
+        scrollView.backgroundColor = NSColor.windowBackgroundColor
+        scrollView.drawsBackground = true
+        scrollView.horizontalScrollElasticity = .none
+        scrollView.verticalScrollElasticity = .none
+        return scrollView
+    }
+
+    /// The width the window's content needs for a pane `paneSize` big shown
+    /// `visibleHeight` high: a scroller that takes room (the legacy style,
+    /// with a mouse or "Always" in the system settings) is added to the
+    /// pane's width, so that the pane's right edge is not covered.
+    static func contentWidth(forPane paneSize: NSSize, visibleHeight: CGFloat, scrollerStyle: NSScroller.Style) -> CGFloat {
+        guard paneSize.height > visibleHeight, scrollerStyle == .legacy else { return paneSize.width }
+        return paneSize.width + NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+    }
 }
 
 /// Window Controller for Preferences
@@ -151,6 +179,14 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     @IBOutlet @objc public private(set) var authView: SFHorosAuthorizationView!
 
     private var currentContextStorage: PreferencesWindowContext?
+
+    // scrollView and flippedDocumentView of an older header of the former
+    // Horos and OsiriX plugin SDK, each exported at its field's offset for
+    // the plugins built with it: the scroll view the selected pane is shown
+    // in and its document view, nil while the list of the panes is shown.
+    // Stored fields with the C declaration's type, never private, lazy, weak
+    // or observed.
+    final var scrollView: NSScrollView?, flippedDocumentView: NSView?
 
     /// What the search field holds, trimmed, and the index it reads.
     private var searchTerm = ""
@@ -451,10 +487,21 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
     public override func windowDidLoad() {
         super.windowDidLoad()
+        // Spanish and Italian have no copy of the window: its toolbar, "Show All"
+        // included, reads its texts from the catalog, as the panes' nibs do.
+        if let toolbar = window?.toolbar, CatalogTranslation.isNeeded(forNibNamed: windowNibName ?? "") {
+            CatalogTranslation.translate(toolbar, with: CatalogTranslation.mainCatalog)
+        }
         // The panes' grid is narrow: its title would push the search field off the toolbar.
         window?.titleVisibility = .hidden
+        // The grid shows first with no pane selected, which setCurrentContext(nil) takes for no change: the title
+        // the nib gives the window (English where the language has no copy of it) would stay until a pane was left.
+        window?.title = PreferencesWindowController.showAllTitle
         showAllAction(nil)
     }
+
+    /// The window's title while it shows every pane.
+    static var showAllTitle: String { NSLocalizedString("IsiX DICOM Viewer Preferences", comment: "") }
 
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
         // A context without a pane answered NSUnselectCancel (0), as it did.
@@ -534,7 +581,7 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
 
             // add new view
 
-            var title = NSLocalizedString("IsiX DICOM Viewer Preferences", comment: "")
+            var title = PreferencesWindowController.showAllTitle
             var newSize: NSSize
 
             if let context = context, let pane = context.pane {
@@ -551,21 +598,15 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
                 fview.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "|[cview]|", options: [], metrics: nil, views: ["cview": cview]))
                 fview.addConstraints(NSLayoutConstraint.constraints(withVisualFormat: "V:|[cview]|", options: [], metrics: nil, views: ["cview": cview]))
 
-                let sv = NSScrollView(frame: NSRect(x: 0, y: 0, width: fview.fittingSize.width, height: fview.fittingSize.height))
-                sv.documentView = fview
-
-                sv.hasHorizontalScroller = false
-                sv.borderType = .noBorder
-                sv.backgroundColor = NSColor.windowBackgroundColor
-                sv.drawsBackground = true
-                sv.horizontalScrollElasticity = .none
-                sv.verticalScrollElasticity = .none
-
-                window?.contentView = sv
+                flippedDocumentView = fview
+                scrollView = fview.enclosedInScrollView()
+                window?.contentView = scrollView
 
                 newSize = fview.fittingSize
             } else {
                 newSize = panesListView.frame.size
+                flippedDocumentView = nil
+                scrollView = nil
                 window?.contentView = panesListView
             }
 
@@ -608,7 +649,15 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
                                                  styleMask: window.styleMask).size
 
         let maxHeight = window.screen?.visibleFrame.size.height ?? 0
+        let scrollView = self.scrollView
+        var overflows = false
         if newSize.height > maxHeight {
+            overflows = true
+            let chrome = newSize.height - newContentSize.height
+            if let scrollView {
+                newSize.width += PreferencesFlippedView.contentWidth(forPane: newContentSize, visibleHeight: maxHeight - chrome,
+                                                                     scrollerStyle: scrollView.scrollerStyle) - newContentSize.width
+            }
             newSize.height = maxHeight
         }
 
@@ -617,6 +666,11 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
         let newFrame = NSRect(x: frame.origin.x, y: frame.origin.y + (frame.size.height - newSize.height), width: newSize.width, height: newSize.height)
 
         window.setFrame(newFrame, display: true, animate: true)
+
+        // Overlay scrollers only show while scrolling: flashed once, they tell that the pane goes on below.
+        if overflows {
+            scrollView?.flashScrollers()
+        }
     }
 
     @IBAction @objc(navigationAction:)
@@ -648,9 +702,8 @@ public final class PreferencesWindowController: NSWindowController, NSWindowDele
     // ------
 
     @objc public func reopenDatabase() {
-        let defaults = processGraph.preferences
-        defaults.set(defaults[DatabasePreferences.defaultDatabaseLocation], for: DatabasePreferences.databaseLocation)
-        defaults.set(defaults[DatabasePreferences.defaultDatabaseLocationURL], for: DatabasePreferences.databaseLocationURL)
+        // A default given at the launch keeps the launch's location and is not stored.
+        LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: processGraph.preferences)
         processGraph.currentBrowser?.resetToLocalDatabase()
     }
 }

@@ -38,6 +38,12 @@
 #import "NSUserDefaults+OsiriX.h"
 #import "NSUserDefaultsController+N2.h"
 
-// The OsiriX category, and the deprecated aliases of the keys and accessors of
-// NSUserDefaults (OsiriX) it kept for the plugins of the former API, are gone:
-// nothing calls them. This header still brings in the two it always imported.
+// The OsiriX category of NSUserDefaultsController is gone. The names the keys
+// of NSUserDefaults (OsiriX) had in the Horos and OsiriX plugin SDK stay
+// (NSUserDefaults+OsiriX.m): plugins built for it look them up by name.
+extern NSString* const OsirixBonjourSharingActiveFlagDefaultsKey;
+extern NSString* const OsirixBonjourSharingPasswordFlagDefaultsKey;
+extern NSString* const OsirixWebServerUsesWeasisDefaultsKey;
+extern NSString* const OsirixWadoServerActiveDefaultsKey;
+extern NSString* const OsirixWebServerPrefersFlashDefaultsKey;
+extern NSString* const OsirixWebServerPrefersCustomWebPagesKey;

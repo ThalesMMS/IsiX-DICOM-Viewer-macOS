@@ -81,6 +81,60 @@ import Testing
         #expect(SeriesSplitting.movieGroups(sliceLocations: interleaved) == [[0, 2, 4], [1, 3, 5]])
     }
 
+    /// `count` files of `frames` frames, file by file, as a series held in
+    /// several multi-frame files sorts its images: every file a volume at the
+    /// same slice locations.
+    private func volumes(_ count: Int, frames: Int) -> (files: [Int], frames: [Int], locations: [Float]) {
+        (files: (0..<count).flatMap { Array(repeating: $0, count: frames) }, frames: Array(repeating: frames, count: count * frames),
+         locations: (0..<count).flatMap { _ in (0..<frames).map { Float($0) * 2.5 } })
+    }
+
+    @Test func theFilesOfVolumesAreTimes() {
+        let four = volumes(4, frames: 12)
+        let groups = SeriesSplitting.fileGroups(files: four.files, frames: four.frames, sliceLocations: four.locations, maximum: 500)
+        #expect(groups == (0..<4).map { file in (0..<12).map { file * 12 + $0 } })
+        // The pass of the slice location gives the same times only because the files do not tie in this order.
+        #expect(SeriesSplitting.movieGroups(sliceLocations: four.locations) == groups)
+
+        let two = volumes(2, frames: 3)
+        #expect(SeriesSplitting.fileGroups(files: two.files, frames: two.frames, sliceLocations: two.locations, maximum: 500) == [[0, 1, 2], [3, 4, 5]])
+        // Files named by their path, in the order the images first reach them.
+        #expect(SeriesSplitting.fileGroups(files: ["9.dcm", "9.dcm", "2.dcm", "2.dcm"], frames: [2, 2, 2, 2], sliceLocations: [0, 1, 0, 1], maximum: 500)
+                == [[0, 1], [2, 3]])
+        // Images that came mixed are still the images of their file, in their order.
+        #expect(SeriesSplitting.fileGroups(files: ["a", "b", "a", "b"], frames: [2, 2, 2, 2], sliceLocations: [0, 0, 1, 1], maximum: 500) == [[0, 2], [1, 3]])
+    }
+
+    @Test func theFourDPlayerLimitsTheTimesOfFiles() {
+        let most = volumes(500, frames: 2)
+        #expect(SeriesSplitting.fileGroups(files: most.files, frames: most.frames, sliceLocations: most.locations, maximum: 500)?.count == 500)
+        let over = volumes(501, frames: 2)
+        #expect(SeriesSplitting.fileGroups(files: over.files, frames: over.frames, sliceLocations: over.locations, maximum: 500) == nil)
+        let two = volumes(2, frames: 3)
+        #expect(SeriesSplitting.fileGroups(files: two.files, frames: two.frames, sliceLocations: two.locations, maximum: 2) != nil)
+        #expect(SeriesSplitting.fileGroups(files: two.files, frames: two.frames, sliceLocations: two.locations, maximum: 1) == nil)
+    }
+
+    @Test func otherImagesAreNotCutByTheirFiles() {
+        // One multi-frame file.
+        let one = volumes(1, frames: 12)
+        #expect(SeriesSplitting.fileGroups(files: one.files, frames: one.frames, sliceLocations: one.locations, maximum: 500) == nil)
+        // Single-frame files, an image each.
+        #expect(SeriesSplitting.fileGroups(files: [0, 1, 2, 3], frames: [1, 1, 1, 1], sliceLocations: [0, 1, 2, 3], maximum: 500) == nil)
+        #expect(SeriesSplitting.fileGroups(files: [Int](), frames: [], sliceLocations: [], maximum: 500) == nil)
+        // Files of different numbers of frames.
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 0, 1, 1], frames: [3, 3, 3, 2, 2], sliceLocations: [0, 1, 2, 0, 1], maximum: 500) == nil)
+        // As many images of each file, but not all of the frames of one: unequal all the same.
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 0, 1, 1], frames: [3, 3, 3, 3, 3], sliceLocations: [0, 1, 2, 0, 1], maximum: 500) == nil)
+        // A single-frame file among them.
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 1, 1, 2], frames: [2, 2, 2, 2, 1], sliceLocations: [0, 1, 0, 1, 0], maximum: 500) == nil)
+        // Loops merged by hand: the frames of a file share a slice location.
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 0, 1, 1, 1], frames: [3, 3, 3, 3, 3, 3], sliceLocations: [0, 0, 0, 0, 0, 0], maximum: 500) == nil)
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 0, 1, 1, 1], frames: [3, 3, 3, 3, 3, 3], sliceLocations: [0, 1, 2, 0, 1, 1], maximum: 500) == nil)
+        // Lists that do not describe the same images.
+        #expect(SeriesSplitting.fileGroups(files: [0, 0, 1, 1], frames: [2, 2, 2], sliceLocations: [0, 1, 0, 1], maximum: 500) == nil)
+    }
+
     @Test func commentsCutWhatLocationsCannot() {
         #expect(SeriesSplitting.reparseGroups(sliceLocations: [5, 5, 5, 5], comments: [10, 20, 10, 20]) == [[0, 1], [2, 3]])
         #expect(SeriesSplitting.reparseGroups(sliceLocations: [5, 5, 5], comments: [0, 0, 0]) == [[0], [1], [2]])

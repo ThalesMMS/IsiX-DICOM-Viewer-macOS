@@ -140,7 +140,7 @@
             <rect key="frame" x="0.0" y="0.0" width="210" height="33"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="41">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="41" customClass="IsiXTipMatrix">
                     <rect key="frame" x="-1" y="-1" width="212" height="35"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="35"/>
@@ -209,7 +209,7 @@
             <rect key="frame" x="0.0" y="0.0" width="273" height="36"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="59">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="59" customClass="IsiXTipMatrix">
                     <rect key="frame" x="1" y="0.0" width="272" height="34"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="34"/>
@@ -695,11 +695,11 @@ Gw
             </view>
         </window>
         <customView id="280" userLabel="Shading">
-            <rect key="frame" x="0.0" y="0.0" width="178" height="43"/>
+            <rect key="frame" x="0.0" y="0.0" width="222" height="43"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="991" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="283">
-                    <rect key="frame" x="94" y="5" width="81" height="33"/>
+                    <rect key="frame" x="138" y="4" width="81" height="35"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="544">
                         <font key="font" metaFont="miniSystem"/>
                         <string key="title">Ambiente: 0,5
@@ -735,11 +735,11 @@ Especular: 0,6, 2,0</string>
                 </button>
             </subviews>
             <constraints>
-                <constraint firstAttribute="width" constant="178" id="vGn-9F-HpN"/>
+                <constraint firstAttribute="width" constant="222" id="vGn-9F-HpN"/>
                 <constraint firstAttribute="height" constant="43" id="2Xv-dN-y0I"/>
                 <constraint firstItem="282" firstAttribute="top" secondItem="280" secondAttribute="top" constant="6" id="CdP-mP-O27"/>
                 <constraint firstItem="283" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="282" secondAttribute="trailing" constant="5" id="I0i-Em-nfP"/>
-                <constraint firstItem="283" firstAttribute="top" secondItem="280" secondAttribute="top" constant="5" id="LWy-zP-3w4"/>
+                <constraint firstItem="283" firstAttribute="top" secondItem="280" secondAttribute="top" constant="4" id="LWy-zP-3w4"/>
                 <constraint firstItem="281" firstAttribute="top" secondItem="282" secondAttribute="bottom" constant="4" id="SEa-6u-oc0"/>
                 <constraint firstItem="281" firstAttribute="leading" secondItem="280" secondAttribute="leading" constant="5" id="a0W-mv-zs0"/>
                 <constraint firstItem="282" firstAttribute="leading" secondItem="280" secondAttribute="leading" constant="6" id="cRO-aJ-oiU"/>
@@ -969,8 +969,8 @@ Especular: 0,6, 2,0</string>
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -1007,8 +1007,8 @@ Especular: 0,6, 2,0</string>
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="50"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -1030,8 +1030,8 @@ Especular: 0,6, 2,0</string>
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="4"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
@@ -1054,8 +1054,8 @@ Especular: 0,6, 2,0</string>
                                 <attributedString key="attributedStringForZero">
                                     <fragment content="0.00"/>
                                 </attributedString>
-                                <decimal key="minimum" value="NaN"/>
-                                <decimal key="maximum" value="NaN"/>
+                                <decimal key="minimum" value="0"/>
+                                <decimal key="maximum" value="1"/>
                             </numberFormatter>
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>

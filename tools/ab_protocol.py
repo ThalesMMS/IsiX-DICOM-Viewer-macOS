@@ -68,7 +68,7 @@ def environment(root: Path | None = None) -> dict:
         "macos_build": _run_text(["/usr/bin/sw_vers", "-buildVersion"]),
         "xcode": " ".join(_run_text(["/usr/bin/xcrun", "xcodebuild", "-version"]).split()),
         "architecture": platform.machine(),
-        "workbench_head": _run_text(["/usr/bin/git", "-C", str(root), "rev-parse", "HEAD"]),
+        "checkout_head": _run_text(["/usr/bin/git", "-C", str(root), "rev-parse", "HEAD"]),
         "python": platform.python_version(),
     }
 

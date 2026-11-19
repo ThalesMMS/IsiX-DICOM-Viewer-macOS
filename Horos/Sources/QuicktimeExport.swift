@@ -98,6 +98,10 @@ public final class QuicktimeExport: NSObject {
     private var exportTypes: NSArray?
 
     @IBOutlet @objc var rateValue: NSTextField!
+    /// The slider of the frame rate in the accessory view. An instance variable
+    /// of the former Horos and OsiriX plugin SDK, in an older copy of its
+    /// header, exported at its offset, as the other outlets are.
+    @IBOutlet final var rateSlider: NSSlider?
 
     @IBOutlet @objc var view: NSView!
     @IBOutlet @objc var type: NSPopUpButton!

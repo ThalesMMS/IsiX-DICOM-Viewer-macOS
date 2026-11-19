@@ -1572,6 +1572,11 @@
                                     <action selector="cprViewer:" target="-1" id="14189"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Analyse des vaisseaux" image="MPR" tag="11" id="Vsl-An-Mnu">
+                                <connections>
+                                    <action selector="cprViewer:" target="-1" id="Vsl-An-MAc"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="MPR orthogonale 2D" image="orthogonalReslice" tag="8" id="13755">
                                 <connections>
                                     <action selector="orthogonalMPRViewer:" target="-1" id="13764"/>
@@ -2108,6 +2113,9 @@ CA
                             <menuItem title="Base de données" id="11712">
                                 <menu key="submenu" title="Base de données" id="11713"/>
                             </menuItem>
+                            <menuItem title="Compte rendu" id="isx-rp-itm" identifier="org.horos.menu.plugins.report">
+                                <menu key="submenu" title="Compte rendu" id="isx-rp-mnu"/>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="12990">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
@@ -2344,7 +2352,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="11242">
-                        <rect key="frame" x="22" y="68" width="33" height="17"/>
+                        <rect key="frame" x="6" y="68" width="52" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="URL :" id="13360">
                             <font key="font" metaFont="system"/>
@@ -2686,17 +2694,17 @@ Gw
                         <action selector="setSearchType:" target="898" id="11591"/>
                     </connections>
                 </menuItem>
-                <menuItem title="Commentaires 2" tag="8" id="14138">
+                <menuItem title="Comment. 2" tag="8" id="14138">
                     <connections>
                         <action selector="setSearchType:" target="898" id="14139"/>
                     </connections>
                 </menuItem>
-                <menuItem title="Commentaires 3" tag="9" id="14140">
+                <menuItem title="Comment. 3" tag="9" id="14140">
                     <connections>
                         <action selector="setSearchType:" target="898" id="14141"/>
                     </connections>
                 </menuItem>
-                <menuItem title="Commentaires 4" tag="10" id="14142">
+                <menuItem title="Comment. 4" tag="10" id="14142">
                     <connections>
                         <action selector="setSearchType:" target="898" id="14143"/>
                     </connections>
@@ -2841,7 +2849,7 @@ Gw
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="999" allowsCharacterPickerTouchBarItem="YES" id="11680">
-                        <rect key="frame" x="17" y="61" width="178" height="17"/>
+                        <rect key="frame" x="17" y="61" width="181" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Nom de cet album :" id="13377">
                             <font key="font" metaFont="system"/>
@@ -2862,7 +2870,7 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="11809" customClass="NSSecureTextField">
-                        <rect key="frame" x="92" y="60" width="236" height="22"/>
+                        <rect key="frame" x="108" y="60" width="220" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="13389">
                             <font key="font" metaFont="system"/>
@@ -2899,18 +2907,18 @@ Gw
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="11806">
-                        <rect key="frame" x="5" y="90" width="266" height="17"/>
+                        <rect key="frame" x="5" y="90" width="337" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Cette base de données est protégée par un mot de passe." id="13386">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Cette base de données est protégée par mot de passe." id="13386">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="11810">
-                        <rect key="frame" x="17" y="62" width="66" height="17"/>
+                        <rect key="frame" x="17" y="62" width="89" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Mot de passe :" id="13390">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Mot de passe:" id="13390">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3154,7 +3162,7 @@ Gw
                         </connections>
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14474">
-                        <rect key="frame" x="25" y="239" width="48" height="14"/>
+                        <rect key="frame" x="12" y="239" width="61" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Intervalle :" id="14499">
                             <font key="font" metaFont="smallSystem"/>
@@ -3174,7 +3182,7 @@ Gw
                         </connections>
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14476">
-                        <rect key="frame" x="38" y="215" width="35" height="14"/>
+                        <rect key="frame" x="31" y="215" width="42" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="De :" id="14497">
                             <font key="font" metaFont="smallSystem"/>
@@ -3183,7 +3191,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14477">
-                        <rect key="frame" x="28" y="168" width="45" height="14"/>
+                        <rect key="frame" x="6" y="168" width="70" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Trier par :" id="14496">
                             <font key="font" metaFont="smallSystem"/>
@@ -3227,7 +3235,7 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="14481">
-                        <rect key="frame" x="52" y="193" width="21" height="14"/>
+                        <rect key="frame" x="48" y="193" width="25" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="right" title="À :" id="14492">
                             <font key="font" metaFont="smallSystem"/>
@@ -3248,10 +3256,10 @@ Gw
                         </connections>
                     </textField>
                     <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="14483">
-                        <rect key="frame" x="78" y="123" width="324" height="58"/>
+                        <rect key="frame" x="78" y="123" width="340" height="58"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="163" height="18"/>
+                        <size key="cellSize" width="170" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Option" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14489">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -3353,7 +3361,7 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <scrollView horizontalLineScroll="0.0" horizontalPageScroll="0.0" verticalLineScroll="0.0" verticalPageScroll="0.0" hasVerticalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" verticalScrollElasticity="none" id="12804">
-                        <rect key="frame" x="35" y="188" width="584" height="130"/>
+                        <rect key="frame" x="35" y="188" width="539" height="130"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <clipView key="contentView" id="x65-cS-UGw">
                             <rect key="frame" x="1" y="1" width="582" height="128"/>
@@ -3389,10 +3397,10 @@ Gw
                         </scroller>
                     </scrollView>
                     <matrix verticalHuggingPriority="750" mode="highlight" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="12840">
-                        <rect key="frame" x="630" y="135" width="94" height="96"/>
+                        <rect key="frame" x="585" y="135" width="139" height="96"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="91" height="32"/>
+                        <size key="cellSize" width="136" height="32"/>
                         <buttonCell key="prototype" type="push" title="Tout" bezelStyle="rounded" alignment="center" borderStyle="border" tag="-1" inset="2" id="13443">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
@@ -3424,7 +3432,7 @@ Gw
                         </connections>
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="12836">
-                        <rect key="frame" x="12" y="326" width="433" height="17"/>
+                        <rect key="frame" x="12" y="326" width="489" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Plusieurs séries 3D sont contenues dans cette série. Quelle série ouvrir ?" id="13427">
                             <font key="font" metaFont="system"/>
@@ -3433,7 +3441,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <scrollView horizontalLineScroll="0.0" horizontalPageScroll="0.0" verticalLineScroll="0.0" verticalPageScroll="0.0" hasVerticalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" verticalScrollElasticity="none" id="12936">
-                        <rect key="frame" x="35" y="30" width="584" height="130"/>
+                        <rect key="frame" x="35" y="30" width="539" height="130"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <clipView key="contentView" id="q7Q-H8-RIB">
                             <rect key="frame" x="1" y="1" width="582" height="128"/>
@@ -3487,7 +3495,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button verticalHuggingPriority="750" tag="5" id="12950">
-                        <rect key="frame" x="30" y="3" width="139" height="28"/>
+                        <rect key="frame" x="30" y="3" width="163" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Ouvrir toutes les séries 4D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="5" inset="2" id="13430">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3498,7 +3506,7 @@ Gw
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="4" id="12951">
-                        <rect key="frame" x="30" y="161" width="139" height="28"/>
+                        <rect key="frame" x="30" y="161" width="163" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Ouvrir toutes les séries 3D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="13431">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3509,7 +3517,7 @@ Gw
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="4" id="14080">
-                        <rect key="frame" x="167" y="161" width="139" height="28"/>
+                        <rect key="frame" x="193" y="161" width="241" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Réindexer en 3D dans la base de données" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14081">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3520,7 +3528,7 @@ Gw
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="4" id="14083">
-                        <rect key="frame" x="167" y="3" width="139" height="28"/>
+                        <rect key="frame" x="193" y="3" width="241" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Réindexer en 4D dans la base de données" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -3550,9 +3558,9 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13807">
-                        <rect key="frame" x="27" y="112" width="425" height="17"/>
+                        <rect key="frame" x="27" y="112" width="475" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Ce fichier est protégé par mot de passe. Saisissez le mot de passe pour lire les images." id="13808">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Ce fichier est protégé par mot de passe. Saisissez-le pour lire les images." id="13808">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3571,9 +3579,9 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13809">
-                        <rect key="frame" x="35" y="56" width="66" height="17"/>
+                        <rect key="frame" x="11" y="56" width="90" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Mot de passe :" id="13810">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Mot de passe:" id="13810">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3634,9 +3642,9 @@ Gw
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13846">
-                        <rect key="frame" x="31" y="90" width="494" height="17"/>
+                        <rect key="frame" x="31" y="90" width="517" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Saisissez un mot de passe pour chiffrer les fichiers pour l'envoi de courriel (au moins 8 caractères) :" id="13855">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="Mot de passe pour chiffrer les fichiers du courriel (au moins 8 caractères) :" id="13855">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3655,9 +3663,9 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13850">
-                        <rect key="frame" x="35" y="58" width="66" height="17"/>
+                        <rect key="frame" x="35" y="58" width="89" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Mot de passe :" id="13851">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Mot de passe:" id="13851">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3692,7 +3700,7 @@ Gw
                         </connections>
                     </button>
                     <secureTextField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="13865">
-                        <rect key="frame" x="106" y="56" width="428" height="22"/>
+                        <rect key="frame" x="126" y="56" width="408" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <secureTextFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" drawsBackground="YES" usesSingleLineMode="YES" id="13866">
                             <font key="font" metaFont="system"/>
@@ -3885,16 +3893,16 @@ Gw
                         </view>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13902">
-                        <rect key="frame" x="17" y="425" width="618" height="17"/>
+                        <rect key="frame" x="17" y="425" width="790" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sélectionnez le(s) utilisateur(s) auquel(s) vous souhaitez envoyer un courriel de notification au sujet de l'examen/des examens sélectionnés:" id="13903">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sélectionnez les utilisateurs à qui envoyer un courriel de notification pour les examens sélectionnés :" id="13903">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13904">
-                        <rect key="frame" x="58" y="170" width="284" height="17"/>
+                        <rect key="frame" x="6" y="170" width="339" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Et/ou à un utilisateur temporaire, avec cet email:" id="13905">
                             <font key="font" metaFont="system"/>
@@ -3903,7 +3911,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13989">
-                        <rect key="frame" x="24" y="125" width="339" height="17"/>
+                        <rect key="frame" x="24" y="125" width="421" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Ajouter ce texte au courriel concernant les examens :" id="13990">
                             <font key="font" metaFont="system"/>
@@ -4176,7 +4184,7 @@ Gw
                         </view>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13931">
-                        <rect key="frame" x="17" y="335" width="495" height="17"/>
+                        <rect key="frame" x="17" y="335" width="790" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Sélectionnez le(s) utilisateur(s) auquel(s) vous souhaitez autoriser la consultation de l'examen sélectionné :" id="13962">
                             <font key="font" metaFont="system"/>
@@ -4265,9 +4273,9 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14369">
-                        <rect key="frame" x="81" y="61" width="221" height="14"/>
+                        <rect key="frame" x="6" y="61" width="296" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Temps estimé pour reconstruire votre base de données :" id="14391">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Temps estimé pour reconstruire la base :" id="14391">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4283,9 +4291,9 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14373">
-                        <rect key="frame" x="85" y="79" width="217" height="14"/>
+                        <rect key="frame" x="6" y="79" width="296" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Nombre de fichiers dans votre dossier de base de données :" id="14387">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Nombre de fichiers dans le dossier de la base :" id="14387">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4313,10 +4321,10 @@ Gw
                         <imageCell key="cell" refusesFirstResponder="YES" alignment="left" animates="YES" imageScaling="proportionallyDown" image="StartupDisk" id="14377"/>
                     </imageView>
                     <matrix verticalHuggingPriority="749" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="14380">
-                        <rect key="frame" x="59" y="108" width="198" height="38"/>
+                        <rect key="frame" x="59" y="108" width="291" height="38"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="197" height="18"/>
+                        <size key="cellSize" width="290" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Option" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14383">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -4606,7 +4614,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="reportURL"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="lockedStudy" width="50" minWidth="45" maxWidth="55" id="13047">
+                                                                <tableColumn identifier="lockedStudy" width="78" minWidth="78" maxWidth="78" id="13047">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Verrouiller">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4647,7 +4655,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="intervalSinceBirth"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="accessionNumber" editable="NO" width="119" minWidth="50" maxWidth="200" id="12005">
+                                                                <tableColumn identifier="accessionNumber" editable="NO" width="146" minWidth="50" maxWidth="200" id="12005">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Numéro d’accès">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4675,7 +4683,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="studyName"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="modality" editable="NO" width="65" minWidth="65" maxWidth="100" id="1226">
+                                                                <tableColumn identifier="modality" editable="NO" width="85" minWidth="65" maxWidth="100" id="1226">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Modalité">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4745,7 +4753,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="date"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="noFiles" editable="NO" width="50" minWidth="50" maxWidth="50" id="967">
+                                                                <tableColumn identifier="noFiles" editable="NO" width="58" minWidth="58" maxWidth="58" id="967">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# im">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4758,7 +4766,7 @@ Gw
                                                                     </textFieldCell>
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noFiles"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="noSeries" editable="NO" width="50" minWidth="50" maxWidth="50" id="14758">
+                                                                <tableColumn identifier="noSeries" editable="NO" width="70" minWidth="70" maxWidth="70" id="14758">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# séries">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4771,7 +4779,7 @@ Gw
                                                                     </textFieldCell>
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noSeries"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="dateAdded" editable="NO" width="130" minWidth="130" maxWidth="180" id="1291">
+                                                                <tableColumn identifier="dateAdded" editable="NO" width="132" minWidth="130" maxWidth="180" id="1291">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Date d'ajout">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4813,8 +4821,8 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="referringPhysician"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="performingPhysician" editable="NO" width="120" minWidth="40" maxWidth="400" id="11709">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Médecin réalisant l’examen">
+                                                                <tableColumn identifier="performingPhysician" editable="NO" width="125" minWidth="40" maxWidth="400" id="11709">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Médecin exécutant">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4855,7 +4863,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="albumsNames"/>
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="dateOfBirth" editable="NO" width="90" minWidth="90" maxWidth="140" id="11711">
+                                                                <tableColumn identifier="dateOfBirth" editable="NO" width="121" minWidth="90" maxWidth="140" id="11711">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Date de naissance">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4869,7 +4877,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="dateOfBirth"/>
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
-                                                                <tableColumn identifier="localstring" editable="NO" width="16" minWidth="15.703120231628418" maxWidth="16" id="1351">
+                                                                <tableColumn identifier="localstring" editable="NO" width="21" minWidth="21" maxWidth="21" id="1351">
                                                                     <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="∆">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -4882,7 +4890,7 @@ Gw
                                                                     </textFieldCell>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="comment2" width="100" minWidth="100" maxWidth="300" id="14132">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Commentaires 2">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Comment. 2">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4896,7 +4904,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="comment3" width="100" minWidth="100" maxWidth="300" id="14134">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Commentaires 3">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Comment. 3">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4910,7 +4918,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="comment4" width="100" minWidth="100" maxWidth="300" id="14136">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Commentaires 4">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Comment. 4">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -5232,7 +5240,7 @@ Gw
                                         </connections>
                                     </slider>
                                     <button horizontalCompressionResistancePriority="1000" id="1294">
-                                        <rect key="frame" x="568" y="2" width="40" height="20"/>
+                                        <rect key="frame" x="520" y="2" width="88" height="20"/>
                                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES"/>
                                         <buttonCell key="cell" type="check" title="Lecture" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13341">
                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

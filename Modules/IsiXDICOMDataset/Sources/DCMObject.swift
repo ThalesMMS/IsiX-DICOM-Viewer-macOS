@@ -67,11 +67,23 @@ public enum DCMCompressionQuality: Int32 {
 /// OsiriX looks them up by those names, in the application, without being
 /// rebuilt.
 @objc(DCMObject)
-public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
+public class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
 
-    @objc public private(set) var attributes: NSMutableDictionary! = NSMutableDictionary()
-    @objc public private(set) var transferSyntax: DCMTransferSyntax!
-    @objc public private(set) var specificCharacterSet: DICOMCharacterSet!
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each:
+    // stored fields with the type the C declaration has in memory, public so
+    // that the application's link reaches them, never private, constant, lazy,
+    // weak or observed. The attributes, the transfer syntax, the
+    // character set and the two flags are the properties below. The object
+    // asks the shared dictionaries when it needs them and keeps no pointer to
+    // them, nor a dictionary of its own: those three stay nil, unretained as
+    // the SDK's code left them.
+    @objc public internal(set) var attributes: NSMutableDictionary! = NSMutableDictionary()
+    @objc public internal(set) var transferSyntax: DCMTransferSyntax!
+    @objc public internal(set) var specificCharacterSet: DICOMCharacterSet!
+    public final unowned(unsafe) var dicomDict: NSDictionary?
+    public final unowned(unsafe) var sharedTagDictionary: AnyObject?
+    public final unowned(unsafe) var sharedTagForNameDictionary: AnyObject?
     @objc
     public internal(set) var pixelDataIsDecoded = false
     @objc public var isSequence = false
@@ -120,11 +132,21 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
     // made; an initializer here cannot answer another object, so the receiver
     // takes over what the reader made.
 
-    private convenience init?(taking read: DCMObject?) {
+    convenience init?(taking read: DCMObject?) {
         guard let read else { return nil }
         self.init(object: read)
         isSequence = read.isSequence
         // The Pixel Data asks its object for the geometry of the frames.
+        (attribute(withName: "PixelData") as? DCMPixelDataAttribute)?.dcmObject = self
+    }
+
+    /// Adds to this object what the reader made of more bytes of the same
+    /// dataset: its attributes, over those of the same tag, and its syntax
+    /// and character set.
+    func add(attributesOf read: DCMObject) {
+        attributes.addEntries(from: read.attributes as? [AnyHashable: Any] ?? [:])
+        transferSyntax = read.transferSyntax ?? transferSyntax
+        specificCharacterSet = read.specificCharacterSet ?? specificCharacterSet
         (attribute(withName: "PixelData") as? DCMPixelDataAttribute)?.dcmObject = self
     }
 
@@ -406,6 +428,7 @@ public final class DCMObject: NSObject, NSCopying, DICOMAttributeSource {
         write(to: url, with: ts, quality: quality, aet: "ISIX", atomically: flag)
     }
 
+    @objc(writeToURL:withTransferSyntax:quality:AET:atomically:)
     public func write(to url: URL, with ts: DCMTransferSyntax?, quality: Int32, aet: String?,
                       atomically flag: Bool) -> Bool {
         if url.isFileURL {

@@ -37,4 +37,9 @@
 
 #import <Cocoa/Cocoa.h>
 
-static NSString* const N2VirtualMethodException = @"N2VirtualMethodException";
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m, and not const, as the Horos and OsiriX plugin SDK
+// declared it: plugins built for it look the name up. Nothing writes it.
+extern NSString* N2VirtualMethodException NS_SWIFT_NONISOLATED_UNSAFE;

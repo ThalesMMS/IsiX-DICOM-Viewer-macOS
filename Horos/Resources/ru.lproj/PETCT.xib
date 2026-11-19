@@ -178,7 +178,7 @@
                             <rect key="frame" x="0.0" y="0.0" width="288" height="36"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <subviews>
-                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="39">
+                                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="39" customClass="IsiXTipMatrix">
                                     <rect key="frame" x="0.0" y="1" width="272" height="34"/>
                                     <autoresizingMask key="autoresizingMask"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

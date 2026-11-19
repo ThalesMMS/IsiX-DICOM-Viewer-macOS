@@ -107,8 +107,11 @@ private func sortedMaskRunValues(_ maskRuns: NSArray?) -> NSArray? {
 /// OSIROIMask+CAPI.m.
 @objc(OSIROIMask)
 public final class OSIROIMask: NSObject, NSCopying {
-    private var _maskRunsData: NSData?
-    private var _maskRuns: NSArray?
+    // Instance variables of the former Horos and OsiriX plugin SDK, exported
+    // at their offsets: the runs of the mask in each of their two forms, either
+    // made from the other when it is first asked for.
+    final var _maskRunsData: NSData?
+    final var _maskRuns: NSArray?
 
     private init(maskRuns: NSArray?, maskRunsData: NSData?) {
         _maskRuns = maskRuns

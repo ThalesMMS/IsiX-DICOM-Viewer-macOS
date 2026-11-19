@@ -61,9 +61,6 @@ fileprivate func pointerKey(_ view: NSView?) -> NSValue {
 public final class ThumbnailsListPanel: NSWindowController {
     /// The borrowed list, retained.
     @objc public private(set) var thumbnailsView: NSView?
-    /// Where the borrowed list came from. Not retained before; weak here, so a
-    /// superview that went away is nil rather than a dangling pointer.
-    private weak var superView: NSView?
     private var screen: Int
     /// The viewer the list belongs to, retained. Readonly in the former header.
     @objc public private(set) var viewer: ViewerController?
@@ -176,18 +173,37 @@ public final class ThumbnailsListPanel: NSWindowController {
         returnBorrowedList()
     }
 
-    /// Gives the borrowed list back to the view it came from and forgets its
-    /// viewer, leaving the window as it is: a list that is lent again at once
-    /// does not take the panel off the screen in between.
+    /// Gives the borrowed list back to its viewer and forgets the viewer,
+    /// leaving the window as it is: a list that is lent again at once does not
+    /// take the panel off the screen in between.
     public func returnBorrowedList() {
         if let borrowed = thumbnailsView {
             associatedScreen?.removeObject(forKey: pointerKey(borrowed))
-            if let superView = superView { superView.addSubview(borrowed) }
-            else { borrowed.removeFromSuperview() }
+            putBack(borrowed, of: viewer)
             thumbnailsView = nil
         }
-        superView = nil
         viewer = nil
+    }
+
+    /// Puts a list back in the dock of its viewer's window. The dock is asked
+    /// from the viewer: the view the list was in when it was lent can be the
+    /// content of another screen's panel, which goes away with that panel and
+    /// would take the list with it. A list with no dock to go back to leaves
+    /// this panel, and its viewer keeps it.
+    private func putBack(_ list: NSView, of owner: ViewerController?) {
+        if let dock = owner?.seriesListPresenter.listDock { dock.addSubview(list) }
+        else { list.removeFromSuperview() }
+    }
+
+    /// The panels of the other screens give `list` back. A list is in one
+    /// panel only: a second panel that took it from the first would leave two
+    /// panels answering for the same view.
+    private func takeBack(_ list: NSView) {
+        for i in 0..<ViewerWindowArranger.maximumScreens {
+            if let other = AppControllerCAPIThumbnailsListPanel(i), other !== self, other.thumbnailsView === list {
+                other.returnBorrowedList()
+            }
+        }
     }
 
     isolated deinit {
@@ -299,6 +315,10 @@ public final class ThumbnailsListPanel: NSWindowController {
 
             associatedScreen?.removeObject(forKey: pointerKey(thumbnailsView))
 
+            // Back to the closing window: a list left in this panel would stay
+            // under the next viewer's for as long as the panel lives.
+            if let borrowed = thumbnailsView { putBack(borrowed, of: viewer) }
+
             thumbnailsView = nil
 
             viewer = nil
@@ -350,19 +370,15 @@ public final class ThumbnailsListPanel: NSWindowController {
                     return
                 }
 
+                if let previous = self.thumbnailsView { self.putBack(previous, of: self.viewer) }
+
                 self.viewer = v
 
                 if self.thumbnailsView !== tb {
-                    // -addSubview: with nil does nothing, as the former message did.
-                    if let superView = self.superView, let previous = self.thumbnailsView {
-                        superView.addSubview(previous)
-                    }
-
                     self.thumbnailsView = tb
 
-                    self.superView = self.thumbnailsView?.superview
-
                     if let borrowed = self.thumbnailsView {
+                        self.takeBack(borrowed)
                         self.window?.contentView?.addSubview(borrowed)
                         borrowed.isHidden = false
                         borrowed.setFrameSize(borrowed.superview?.frame.size ?? NSZeroSize)

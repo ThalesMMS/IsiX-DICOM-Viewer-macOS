@@ -421,9 +421,13 @@ private func objcClassOf(_ object: Any?) -> AnyClass? {
 
             let report = Reports()
             // A template inside a folder of the templates menu is sent by its
-            // own item, which holds its path.
-            if sender is NSMenuItem, let template = ReportTemplateMenu.templateName(for: sender) {
-                report.setTemplateName(template)
+            // own item, which holds its path. Any other menu item that asks for
+            // a report holds none, and its title is not a template: the report
+            // is then made from the first template of the list.
+            if let item = sender as? NSMenuItem {
+                if item.representedObject is String, let template = ReportTemplateMenu.templateName(for: item) {
+                    report.setTemplateName(template)
+                }
             } else if let senderClass = objcClassOf(sender), let popUpClass = objcClassOf(browser.horos_reportTemplatesListPopUpButton),
                       ObjectIdentifier(senderClass) == ObjectIdentifier(popUpClass) {
                 report.setTemplateName(ReportTemplateMenu.templateName(for: sender))

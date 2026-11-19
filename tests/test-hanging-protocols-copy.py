@@ -67,7 +67,9 @@ with tempfile.TemporaryDirectory(prefix="horos-hanging-protocols-") as temporary
                                          # The pane's main-actor callbacks.
                                          source_path("MainActorCallbacks"),
                                          # Its W/L sheet ends through -orderOutAndEndSheet(returnCode:).
-                                         source_path("NSWindow+N2")], objects,
+                                         source_path("NSWindow+N2"),
+                                         # It loads its nib through instantiatePaneNib.
+                                         root / "Preference Panes/PaneCatalogTranslation.swift"], objects,
                                         Path(temporary) / "libHangingPane.dylib", bridging_header=bridging,
                                         include_dirs=(root / "Horos/Sources", root / "Nitrogen/Sources"),
                                         frameworks=("Cocoa", "PreferencePanes"),

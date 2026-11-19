@@ -57,6 +57,13 @@
 #ifndef NS_SWIFT_NONISOLATED
 #define NS_SWIFT_NONISOLATED
 #endif
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+// Whether the "Sync" button works between studies: the other displayed viewers
+// were not all of the key viewer's study when it was worked out. Read and
+// written on the main thread (ViewerController+CAPI.m).
+extern NS_SWIFT_UI_ACTOR BOOL SyncButtonBehaviorIsBetweenStudies;
 
 @class DCMView;
 @class HorosMPROpenDecision;

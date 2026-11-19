@@ -41,6 +41,7 @@ import AVFoundation
 import AppKit
 import IsiXDICOMDataset
 import IsiXDICOMFile
+import IsiXImaging
 import IsiXDatabase
 import IsiXPreferences
 
@@ -185,9 +186,15 @@ struct SelectionMovieExport: Sendable {
             return MainActor.assumeIsolated { progress.step() }
         }
 
+        /// Whether any series was written. The summary pages are made when one
+        /// was, whichever kind the last one is: a document leaves no images
+        /// behind, and the pages were skipped when the export ended with one.
+        var seriesWritten = false
+
         /// The images gathered for the previous series: a PDF for a document,
         /// a movie for several images, a JPEG for one.
         func writePreviousSeries(framesPerSecond fps: Int) {
+            if !imagesArray.isEmpty { seriesWritten = true }
             if let lastImage = imagesArray.last,
                let representation = lastImage.bestRepresentation(for: NSRect(x: 0, y: 0, width: lastImage.size.width, height: lastImage.size.height), context: nil, hints: nil) as? NSPDFImageRep {
                 let fullPath = ((previousPath ?? "") as NSString).appendingPathExtension("pdf") ?? ""
@@ -301,9 +308,15 @@ struct SelectionMovieExport: Sendable {
                         if let thumbnail {
                             let bitmapData = NSBitmapImageRep.representationOfImageReps(in: thumbnail.representations, using: .jpeg,
                                                                                        properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
+                            // A thumbnail with no bitmap of its own, as that of a
+                            // document, is drawn into one. The page is told of
+                            // the file only when it was written.
+                            let jpegData = bitmapData ?? thumbnail.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }?
+                                .representation(using: .jpeg, properties: [.compressionFactor: NSDecimalNumber(value: Float(0.9))])
                             let fullPath = tempPath + String(format: "_%d", uniqueSeriesID) + "_thumb.jpg"
-                            try? bitmapData?.write(to: URL(fileURLWithPath: fullPath), options: .atomic)
-                            Self.record(fullPath, relativeTo: path, seriesID: series?.id?.int32Value ?? 0, kind: "thumb", in: seriesPaths)
+                            if let jpegData, (try? jpegData.write(to: URL(fileURLWithPath: fullPath), options: .atomic)) != nil {
+                                Self.record(fullPath, relativeTo: path, seriesID: series?.id?.int32Value ?? 0, kind: "thumb", in: seriesPaths)
+                            }
                         }
                     }
 
@@ -365,7 +378,7 @@ struct SelectionMovieExport: Sendable {
 
             writePreviousSeries(framesPerSecond: fps)
 
-            if createHTML && !imagesArray.isEmpty {
+            if createHTML && seriesWritten {
                 let htmlExport = QTExportHTMLSummary()
                 htmlExport.setPatientsDictionary(htmlExportDictionary)
                 htmlExport.setPath(path)
@@ -393,14 +406,19 @@ struct SelectionMovieExport: Sendable {
             task.environment = ["DCMDICTPATH": resources.appendingPathComponent("/dicom.dic")]
             task.launchPath = resources.appendingPathComponent("/dsr2html")
             task.arguments = ["+X1", "--unknown-relationship", "--ignore-constraints", "--ignore-item-errors", "--skip-invalid-items", source, htmlPath]
-            task.launch()
-            while task.isRunning { Thread.sleep(forTimeInterval: 0.1) }
-            // -waitUntilExit would run the main run loop meanwhile.
-            task.interrupt()
+            // -waitUntilExit would run the main run loop meanwhile, and a wait
+            // without a deadline never returns from a helper that never ends.
+            // What a stopped helper had written is not a rendering; the report
+            // is left out, as when no XML is made.
+            var taskError: NSError?
+            if !HorosRunTaskUntilExit(task, EncapsulatedDocument.conversionTimeout, &taskError) {
+                NSLog("****** dsr2html failed: %@", taskError?.localizedDescription ?? "(null)")
+                try? files.removeItem(atPath: htmlPath)
+            }
         }
         let pdfPath = (htmlPath as NSString).appendingPathExtension("pdf") ?? ""
         if !files.fileExists(atPath: pdfPath) {
-            DecompressService.shared?.updateReportPDF(atPath: htmlPath, timeout: 10)
+            DecompressService.shared?.updateReportPDF(atPath: htmlPath, timeout: EncapsulatedDocument.renderingTimeout)
         }
         return (try? Data(contentsOf: URL(fileURLWithPath: pdfPath))).flatMap { NSImage(data: $0) }
     }

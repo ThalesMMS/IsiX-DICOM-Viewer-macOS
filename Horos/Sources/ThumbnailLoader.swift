@@ -70,8 +70,8 @@ struct ThumbnailRequest: @unchecked Sendable {
     let generation: UInt
     /// The thumbnail of a file that cannot be read.
     let notFound: NSImage
-    /// The preview's state, which keeps when the thumbnails were last shown.
-    let state: BrowserPreviewState
+    /// The browser, which keeps when the thumbnails were last shown.
+    let browser: BrowserController
 }
 
 /// What a load has made so far: a thumbnail for each image, and the frames
@@ -154,8 +154,8 @@ actor ThumbnailLoader {
                     if i != 0, let progress {
                         // Shown on a delayed basis only.
                         let now = Date.timeIntervalSinceReferenceDate
-                        if now - request.state.timeIntervalOfLastLoadIconsDisplayIcons > 0.5 {
-                            request.state.timeIntervalOfLastLoadIconsDisplayIcons = now
+                        if now - request.browser._timeIntervalOfLastLoadIconsDisplayIcons > 0.5 {
+                            request.browser._timeIntervalOfLastLoadIconsDisplayIcons = now
                             progress(batch)
                         }
                     }
@@ -260,7 +260,7 @@ actor ThumbnailLoader {
     }
 
     private func scaled(_ image: NSImage, to size: SeriesListPictureSize) -> NSImage {
-        if case .scaled(let factor) = size { return image.imageByScalingProportionallyUsingNSImage(Float(factor)) ?? image }
+        if case .scaled(let factor) = size { return image.imageByScalingProportionallyUsingNSImage(Float(factor)) }
         return image
     }
 

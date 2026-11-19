@@ -71,8 +71,16 @@ struct RetrieveInventoryRecord: Codable, Sendable, Equatable {
     /// Where the listing of the peer's instances stands when the transfer
     /// starts before it ends: in progress, confirmed, failed or cancelled;
     /// or not supported, when the node does not implement it and what was
-    /// asked for was retrieved whole, without error.
+    /// asked for was retrieved whole, without error. For a listing a DIMSE
+    /// retrieve made before its transfer, how it ended, as `RetrieveListing`
+    /// names it: confirmed, failed, not implemented, empty or cancelled.
     var discovery: String? = nil
+    /// The status the peer refused a C-FIND of the listing with, when
+    /// `discovery` is not implemented.
+    var listingStatus: Int? = nil
+    /// Set when the listing named no instance and the retrieve was judged
+    /// complete by the peer's own counters: what they were.
+    var completeness: RetrieveCountersVerdict? = nil
     /// Series the node's rules left out of the last attempt, by UID: their
     /// description and the rule. An intentional exclusion, not a failure.
     var excluded: [String: [String]]? = nil

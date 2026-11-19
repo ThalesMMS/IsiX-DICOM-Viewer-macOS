@@ -51,12 +51,23 @@ private func posixStat(_ path: UnsafePointer<CChar>?, _ s: UnsafeMutablePointer<
 /// <Horos/N2DirectoryEnumerator.h> are those of the former class.
 @objc(N2DirectoryEnumerator)
 public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
-    private var basepath: NSString?
-    private var currpath: NSString?
+    // The instance variables the header of an older Horos and OsiriX plugin
+    // SDK declared, which a plugin built with it binds by name when it loads:
+    // stored fields of this class with the type the C declaration has in
+    // memory, never private. The two paths, the two counts and the two options
+    // (_filesOnly and _recursive there) are the enumerator's own.
+    var basepath: NSString?
+    var currpath: NSString?
     /// The open folders, innermost last, with their path below basepath.
     private var dirs: [(dir: UnsafeMutablePointer<DIR>, subpath: NSString?)] = []
-    private var counter: UInt = 0
-    private var max: UInt = 0
+    /// DIRs of that header: the open folders as its class kept them, one array
+    /// for each, of the handle as an NSValue and then its path below basepath
+    /// when it has one. A copy of `dirs`, which each item read looks at:
+    /// written as a folder is opened and closed, and never read here. Nil
+    /// after -init, which opened nothing.
+    var DIRs: NSMutableArray?
+    var counter: UInt = 0
+    var max: UInt = 0
 
     /// Atomic in the former header; reads and writes of a BOOL are atomic here too.
     @objc public var filesOnly: Bool = false
@@ -69,6 +80,7 @@ public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
         currpath = nil
         basepath = path as NSString?
         recursive = true
+        DIRs = NSMutableArray()
         super.init()
 
         // opendir(NULL), for a nil path, opened nothing.
@@ -199,6 +211,7 @@ public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
 
     private func pushDIR(_ dir: UnsafeMutablePointer<DIR>, subpath p: NSString?) {
         dirs.append((dir, p))
+        DIRs?.add(p.map { [NSValue(pointer: dir), $0] as NSArray } ?? [NSValue(pointer: dir)] as NSArray)
     }
 
     private func dirAndSubpath(_ name: inout NSString?) -> UnsafeMutablePointer<DIR>? {
@@ -213,6 +226,7 @@ public final class N2DirectoryEnumerator: FileManager.DirectoryEnumerator {
     private func popDIR() {
         if let dir = dirs.popLast()?.dir {
             closedir(dir)
+            if let DIRs, DIRs.count > 0 { DIRs.removeLastObject() }
         }
     }
 }

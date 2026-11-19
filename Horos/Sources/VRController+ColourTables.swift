@@ -180,10 +180,17 @@ extension VRController {
         vrView?.getShadingValues(&sambient, &sdiffuse, &sspecular, &sspecularpower)
         if sambient != ambient || sdiffuse != diffuse || sspecular != specular || sspecularpower != specularpower {
             vrView?.setShadingValues(ambient, diffuse, specular, specularpower)
-            shadingValues?.stringValue = String(format: NSLocalizedString("Ambient: %2.2f\nDiffuse: %2.2f\nSpecular :%2.2f, %2.2f", comment: ""),
-                                                ambient, diffuse, specular, specularpower)
+            horosShowShadingValues(.init(ambient: ambient, diffuse: diffuse, specular: specular, specularPower: specularpower))
             vrView?.needsDisplay = true
         }
+    }
+
+    /// The shading values beside the Shading check box, written the same way
+    /// when the window opens, on Revert Series, for a shading preset and for a
+    /// change in the shading panel (ShadingValuesText.localized). The
+    /// endoscopy, a subclass, writes them through here too.
+    final func horosShowShadingValues(_ values: VolumeRenderingOpening.ShadingValues) {
+        shadingValues?.stringValue = ShadingValuesText.localized(values)
     }
 
     /// The shading preset whose values the view has, selected in the panel.
@@ -256,7 +263,7 @@ extension VRController {
     public override func applyOpacityString(_ str: String!) {
         guard let str else { return }
         horos_curOpacityMenu = str
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             vrView?.setOpacity([])
             NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: horos_curOpacityMenu, userInfo: nil)
             opacityPopup()?.menu?.item(at: 0)?.title = str
@@ -445,5 +452,15 @@ extension VRController {
             NSLog("**** Error: CLUT plist not found!")
         }
         NotificationCenter.default.post(name: .OsirixUpdateCLUTMenu, object: horos_curCLUTMenu, userInfo: nil)
+    }
+}
+
+extension ShadingValuesText {
+    /// The shading values in the user's language and region, as every 3D
+    /// window writes them beside its Shading check box (VR, endoscopy, MPR):
+    /// the catalog's text, two decimals and the region's decimal separator.
+    static func localized(_ values: VolumeRenderingOpening.ShadingValues) -> String {
+        string(values, template: NSLocalizedString("Ambient: %1$@\nDiffuse: %2$@\nSpecular: %3$@/%4$@",
+                                                   comment: "The shading values beside the Shading check box of the 3D windows, three short lines: the ambient, diffuse and specular coefficients, and after the slash the specular power; the numbers come written with the region's decimal separator"))
     }
 }

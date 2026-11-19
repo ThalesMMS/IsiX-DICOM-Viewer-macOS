@@ -157,16 +157,14 @@ nonisolated(unsafe) var helpersFreed = 0, stepsAfterActivity = 0
 final class ActivityHelper: NSObject, NSTableViewDelegate, NSTableViewDataSource {
     deinit { helpersFreed += 1 }
 }
-final class Outlets { var activityTableView: NSTableView? }
-final class State { var activityHelper: Any? }
 @MainActor final class BrowserController {
-    let windowOutlets = Outlets()
-    let windowState = State()
+    var activityTableViewOutlet: NSTableView?
+    var _activityHelper: AnyObject?
     init() {
         let table = NSTableView(frame: .zero)
         let helper = ActivityHelper()
-        windowOutlets.activityTableView = table
-        windowState.activityHelper = helper
+        activityTableViewOutlet = table
+        _activityHelper = helper
         table.delegate = helper
         table.dataSource = helper
     }
@@ -179,7 +177,7 @@ final class State { var activityHelper: Any? }
 @main struct Main {
     @MainActor static func main() {
         var browser: BrowserController? = BrowserController()
-        let table = browser!.windowOutlets.activityTableView!
+        let table = browser!.activityTableViewOutlet!
         browser = nil
         print("helper \(helpersFreed), controller 1, rest \(stepsAfterActivity), delegate \(table.delegate != nil || table.dataSource != nil ? "kept" : "cleared")")
     }

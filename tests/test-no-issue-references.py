@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Code, comments, scripts, tests, tools, resources, README and NOTICE do not
-cite issues of this project, by number (#770) or by link: the application,
+cite issues of this project, by number (#770), by the repository's name with a
+number and no owner (horos#770) or by link: the application,
 the preference panes, the print module, the internal modules, the plugin kits,
 the services, the extensions and the plugins alike.
 
@@ -32,10 +33,16 @@ ALLOWED_FILES = {'Binaries/Splash/releasenotes.html'}
 PATTERNS = [
     r'(?<![&\w/])#\d{2,4}(?!\w)',
     r'(?i)\bissues?[-_ /]#?\d{2,4}\b',
-    r'(?i)github\.com/ThalesMMS/(?:horos|horos-workbench)/(?:issues|pull)/\d+',
+    r'(?i)github\.com/ThalesMMS/horos(?:-[\w.]+)?/(?:issues|pull)/\d+',
+    # The number glued to the repository's name escapes the first pattern, which
+    # wants no word before the #. With an owner before it (owner/horos#531) it is
+    # another project's tracker and stays.
+    r'(?i)(?<![\w/.-])horos(?:-[\w.]+)?#\d{1,5}(?!\w)',
 ]
 
-command = ['git', '-C', str(root), 'grep', '-n', '-I', '-P', '-e', PATTERNS[0], '-e', PATTERNS[1], '-e', PATTERNS[2]]
+command = ['git', '-C', str(root), 'grep', '-n', '-I', '-P']
+for pattern in PATTERNS:
+    command += ['-e', pattern]
 if revision:
     command.append(revision)
 command += ['--', *SCOPE]

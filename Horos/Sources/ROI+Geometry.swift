@@ -331,7 +331,9 @@ extension ROI {
     @objc(MesureLength:pointA:pointB:)
     @discardableResult
     public func mesureLength(_ pixels: UnsafeMutablePointer<Float>?, pointA a: NSPoint, pointB b: NSPoint) -> Float {
-        return ROIPlanarGeometry.measureLength(from: a, to: b, spacingX: _pixelSpacingX, spacingY: _pixelSpacingY, pixels: pixels)
+        // On an ultrasound image each 2D region has a scale of its own.
+        let spacing = spacing(measuring: a, b)
+        return ROIPlanarGeometry.measureLength(from: a, to: b, spacingX: spacing.x, spacingY: spacing.y, pixels: pixels)
     }
 
     /// The length of a length ROI, in cm, or in pixels without pixel spacing.
@@ -367,6 +369,17 @@ extension ROI {
     @discardableResult
     @objc public func roiArea() -> Float {
         if _pixelSpacingX == 0 && _pixelSpacingY == 0 { return 0 }
+        // On an ultrasound image, with the scale of the 2D region that holds the ROI.
+        if hasUltrasoundRegions, let corners = ultrasoundAreaCorners {
+            let image = enterUltrasoundRegion(holding: corners.0, corners.1).image
+            defer { leaveUltrasoundRegion(image) }
+            return roiAreaWithOwnSpacing()
+        }
+        return roiAreaWithOwnSpacing()
+    }
+
+    /// The area in cm2 by the ROI's pixel spacing as it stands.
+    private func roiAreaWithOwnSpacing() -> Float {
         switch _type {
         case .tDynAngle, .tAxis, .tOPolygon, .tCPolygon, .tPencil:
             return Float(Double(area()) * _pixelSpacingX * _pixelSpacingY / 100.0)
@@ -380,6 +393,35 @@ extension ROI {
         default:
             return 0
         }
+    }
+
+    /// What tells one state of the ROI from another, for the viewer's undo:
+    /// its kind, shape, name and look. Not whether it is selected, nor the
+    /// lines of its label, which a draw writes and which differ before and
+    /// after one for the same ROI. Equal for a ROI and its copy; of use
+    /// within one run of the application only.
+    @objc public var editSignature: Int {
+        var hasher = Hasher()
+        hasher.combine(_type.rawValue)
+        for case let point as MyPoint in _points {
+            hasher.combine(point.x)
+            hasher.combine(point.y)
+        }
+        for value in [_rect.origin.x, _rect.origin.y, _rect.size.width, _rect.size.height] { hasher.combine(value) }
+        hasher.combine(_name)
+        hasher.combine(_comments)
+        for value in [_thickness, _opacity, offsetTextBox_x, offsetTextBox_y] { hasher.combine(value) }
+        for value in [color.red, color.green, color.blue] { hasher.combine(value) }
+        for flag in [fill, _locked, _selectable, _isAliased, _isSpline] { hasher.combine(flag) }
+        hasher.combine(_groupID)
+        if let volume = (self as? HorosVolumeLengthROI)?.volumeLengthDictionary() { hasher.combine(volume.description) }
+        if _type == .tPlain {
+            for value in [mask.width, mask.height, mask.upLeftX, mask.upLeftY, mask.downRightX, mask.downRightY] { hasher.combine(value) }
+            if let buffer = mask.buffer, mask.width > 0, mask.height > 0 {
+                hasher.combine(bytes: UnsafeRawBufferPointer(start: buffer, count: Int(mask.width) * Int(mask.height)))
+            }
+        }
+        return hasher.finalize()
     }
 
     /// The geometric centroid, in pixels.

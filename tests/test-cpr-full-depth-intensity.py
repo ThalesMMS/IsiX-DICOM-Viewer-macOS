@@ -123,6 +123,8 @@ with tempfile.TemporaryDirectory(prefix='horos-cpr-intensity-') as directory:
     # The mapper's own guard header, beside it; an older mapper may not include it.
     if '"VRRayCastZBufferGuard.h"' in (work / 'vtkHorosFixedPointVolumeRayCastMapper.cxx').read_text():
         (work / 'VRRayCastZBufferGuard.h').write_text(source('VRRayCastZBufferGuard.h'))
+    if '"VRRaySlabSampling.h"' in (work / 'vtkHorosFixedPointVolumeRayCastMapper.cxx').read_text():
+        (work / 'VRRaySlabSampling.h').write_text(source('VRRaySlabSampling.h'))
     (work / 'probe.cxx').write_text(code)
     compile(install, root, work / 'probe.cxx', work / 'probe', scene=True)
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0:halt_on_error=1')

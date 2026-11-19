@@ -27,15 +27,24 @@ import Testing
                        modality: String? = "CT", isRGB: Bool = false, suv: Bool = false, subtraction: Bool = false,
                        colourTable: String? = "No CLUT", orientation: [Float] = axial, keeps: Bool = false,
                        study: String? = "1.2", movieIndex: Int = 0, maxMovieIndex: Int = 0,
-                       hasView: Bool = true, lock: CGPoint? = nil) -> SettingsPropagation.Viewer {
+                       hasView: Bool = true, lock: CGPoint? = nil, zoomPan: CGPoint = .zero,
+                       lockZoomPan: CGPoint = .zero) -> SettingsPropagation.Viewer {
         SettingsPropagation.Viewer(
             windowLevel: hasView ? WindowLevelState(level: level, width: width) : nil,
             viewport: hasView ? ViewportState(scale: scale, origin: origin, rotation: rotation) : nil,
             pixelSpacing: pixelSpacing, image: rect.map { SettingsPropagation.Image(rect: $0, hasOrigin: true) },
             isRGB: isRGB, suvConverted: suv, modality: modality, subtraction: subtraction, colourTable: colourTable,
             orientation: orientation, keepsSettingsInSeries: keeps, studyInstanceUID: study,
-            movieIndex: movieIndex, maxMovieIndex: maxMovieIndex, seriesLockPan: lock)
+            movieIndex: movieIndex, maxMovieIndex: maxMovieIndex, seriesLockPan: lock, zoomPanOffset: zoomPan,
+            lockZoomPanOffset: lockZoomPan)
     }
+
+    /// Every setting but the zoom, which each viewer keeps.
+    static let zoomKept: SettingsPropagation.Preferences = {
+        var preferences = everything
+        preferences.copiesZoom = false
+        return preferences
+    }()
 
     static func plan(_ source: SettingsPropagation.Viewer, _ target: SettingsPropagation.Viewer,
                      preferences: SettingsPropagation.Preferences = everything, registered: Bool = false,
@@ -192,5 +201,230 @@ import Testing
         let plan = Self.plan(Self.viewer(movieIndex: 1, maxMovieIndex: 2, hasView: false), Self.viewer(level: 1, maxMovieIndex: 2))
         #expect(plan == PropagationPlan(movieIndex: 1))
         #expect(Self.plan(Self.viewer(), Self.viewer(hasView: false)) == PropagationPlan())
+    }
+
+    // MARK: - The zoom kept to each viewer
+
+    /// The rules as they were before the zoom kept to each viewer had a pan of
+    /// its own, word for word: what the zoom going on must still give.
+    static func formerPlan(_ rule: SettingsPropagation) -> PropagationPlan {
+        let source = rule.source, target = rule.target, preferences = rule.preferences
+        var plan = PropagationPlan()
+        if source.movieIndex != target.movieIndex && source.maxMovieIndex == target.maxMovieIndex && !rule.navigatorShown {
+            plan.movieIndex = source.movieIndex
+        }
+        guard preferences.propagates else { return plan }
+        if ViewerSynchronization.same(target.colourTable, source.colourTable) {
+            if preferences.copiesWindowLevel && rule.windowLevelPropagates,
+               let window = source.windowLevel, let other = target.windowLevel,
+               window.level != other.level || window.width != other.width {
+                plan.window = WindowLevelState(level: window.level, width: window.width)
+            }
+        }
+        let parallel = rule.normalsAngle < preferences.parallelPlaneTolerance
+        let keepsSettings = target.keepsSettingsInSeries && source.keepsSettingsInSeries
+        if parallel || preferences.alwaysPropagatesZoom {
+            if preferences.copiesZoom && !keepsSettings, let viewport = source.viewport, target.viewport != nil {
+                plan.scale = SettingsPropagation.scale(viewport.scale, pixelSpacing: source.pixelSpacing, otherPixelSpacing: target.pixelSpacing)
+            }
+        }
+        if parallel && !keepsSettings, let viewport = source.viewport, let targetViewport = target.viewport {
+            let sameStudy = ViewerSynchronization.same(source.studyInstanceUID, target.studyInstanceUID)
+            if preferences.copiesPan && (sameStudy || rule.registered) {
+                if let otherImage = target.image, let image = source.image, otherImage.rect.intersects(image.rect),
+                   otherImage.hasOrigin && image.hasOrigin, let originDelta = rule.originDelta {
+                    plan.origin = SettingsPropagation.pan(viewport.origin, delta: originDelta, scale: viewport.scale)
+                }
+            } else if preferences.copiesPan, let lock = source.seriesLockPan, let targetLock = target.seriesLockPan {
+                plan.origin = SettingsPropagation.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: lock,
+                                                      otherScale: plan.scale ?? targetViewport.scale, otherPixelSpacing: target.pixelSpacing,
+                                                      otherLock: targetLock)
+            }
+            if preferences.copiesRotation {
+                plan.rotation = viewport.rotation
+            }
+        }
+        return plan
+    }
+
+    @Test func withTheZoomGoingOnThePlanIsTheFormerOne() {
+        let views: [(scale: Float, origin: CGPoint)] = [(2, CGPoint(x: 10, y: 10)), (3.5, CGPoint(x: -37.25, y: 12.5)), (0, CGPoint(x: 4, y: 4)),
+                                                        (1.75, CGPoint(x: 3.5, y: -2.25))]
+        let spacings: [(Double, Double)] = [(0.5, 0.5), (0.7, 0.9), (0, 1), (1, 0.5)]
+        // The offsets each side's zooms kept, and those it had at the lock.
+        let offsets: [(CGPoint, CGPoint, CGPoint, CGPoint)] = [
+            (.zero, .zero, .zero, .zero),
+            (CGPoint(x: -10, y: 5), CGPoint(x: 3, y: -7.5), CGPoint(x: -4, y: 2.5), CGPoint(x: 6, y: 1))]
+        let locks: [(CGPoint?, CGPoint?)] = [(nil, nil), (CGPoint(x: 5, y: -3), CGPoint(x: 1, y: 2)), (CGPoint(x: 5, y: -3), nil)]
+        let rects: [CGRect?] = [CGRect(x: 0, y: 0, width: 100, height: 100), CGRect(x: 200, y: 0, width: 50, height: 50), nil]
+        var compared = 0
+        var differing: [String] = []
+        for always in [false, true] {
+            for copiesPan in [true, false] {
+                var preferences = Self.everything
+                preferences.alwaysPropagatesZoom = always
+                preferences.copiesPan = copiesPan
+                for study in ["1.2", "1.3"] {
+                    for registered in [false, true] {
+                        for (lock, targetLock) in locks {
+                            for source in views {
+                                for target in views.reversed() {
+                                    for (spacing, targetSpacing) in spacings {
+                                        for (offset, targetOffset, lockOffset, targetLockOffset) in offsets {
+                                            for orientation in [Self.axial, Self.coronal] {
+                                                for rect in rects {
+                                                    for delta in [CGPoint(x: 1, y: 2), CGPoint(x: -2.5, y: 1.25), nil] {
+                                                        let rule = SettingsPropagation(
+                                                            source: Self.viewer(scale: source.scale, origin: source.origin, pixelSpacing: spacing,
+                                                                                lock: lock, zoomPan: offset, lockZoomPan: lockOffset),
+                                                            target: Self.viewer(level: 1, scale: target.scale, origin: target.origin, rotation: 0,
+                                                                                pixelSpacing: targetSpacing, rect: rect, orientation: orientation,
+                                                                                study: study, lock: targetLock, zoomPan: targetOffset,
+                                                                                lockZoomPan: targetLockOffset),
+                                                            registered: registered, navigatorShown: false, originDelta: delta, preferences: preferences)
+                                                        if rule.plan() != Self.formerPlan(rule) { differing.append("\(rule)") }
+                                                        compared += 1
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #expect(compared > 10_000)
+        #expect(differing.isEmpty, "\(differing.count) plans differ, the first: \(differing.first ?? "")")
+    }
+
+    @Test func withTheZoomKeptThePanGoesInMillimetresAtTheOthersScale() {
+        // The source centres the point 5 of its pixels (0.5 mm) from its image's centre; the
+        // other's image is 1 and 2 of these pixels away. The other keeps its scale of 1 and its
+        // pixels of 1 mm: it centres the same point of the patient.
+        let source = Self.viewer(scale: 2, origin: CGPoint(x: 10, y: 10), pixelSpacing: 0.5)
+        let plan = Self.plan(source, Self.viewer(scale: 1, origin: .zero, pixelSpacing: 1), preferences: Self.zoomKept)
+        #expect(plan.scale == nil)
+        #expect(plan.origin == CGPoint(x: 3, y: 1.5))
+        // The former pan was the source's, at the source's scale: 12 and 6 points.
+        #expect(Self.formerPlan(SettingsPropagation(source: source, target: Self.viewer(scale: 1, origin: .zero, pixelSpacing: 1),
+                                                    registered: false, navigatorShown: false, originDelta: CGPoint(x: 1, y: 2),
+                                                    preferences: Self.zoomKept)).origin == CGPoint(x: 12, y: 6))
+        // At the scale the zoom would have given (4 points per millimetre on both), the pan is the one it gives.
+        let sameZoom = Self.viewer(scale: 4, origin: .zero, pixelSpacing: 1)
+        #expect(Self.plan(source, sameZoom, preferences: Self.zoomKept).origin == Self.plan(source, sameZoom).origin)
+        // A registered pair of different studies, too.
+        #expect(Self.plan(source, Self.viewer(scale: 1, origin: .zero, pixelSpacing: 1, study: "1.3"), preferences: Self.zoomKept,
+                          registered: true).origin == CGPoint(x: 3, y: 1.5))
+    }
+
+    @Test func aZoomSeenMovesTheOffsetAndAPanDoesNot() {
+        let start = SettingsPropagation.ZoomPan(scale: 1, origin: .zero)
+        // Zoomed to 2 on a point 20 points right and 10 down of the centre: the image pan moved by -10 and 5.
+        let zoomed = start.seen(scale: 2, origin: CGPoint(x: -20, y: 10), keepsZoomMoves: true)
+        #expect(zoomed == SettingsPropagation.ZoomPan(scale: 2, origin: CGPoint(x: -20, y: 10), offset: CGPoint(x: -10, y: 5)))
+        // Zoomed on the centre of the view: the image pan does not move.
+        #expect(zoomed.seen(scale: 4, origin: CGPoint(x: -40, y: 20), keepsZoomMoves: true).offset == CGPoint(x: -10, y: 5))
+        // Panned at the same scale: the user's pan, which goes on.
+        #expect(zoomed.seen(scale: 2, origin: CGPoint(x: -14, y: 6), keepsZoomMoves: true).offset == CGPoint(x: -10, y: 5))
+        // With the zoom going on, a zoom moves the other viewers with it: nothing is kept apart.
+        #expect(start.seen(scale: 2, origin: CGPoint(x: -20, y: 10), keepsZoomMoves: false)
+                == SettingsPropagation.ZoomPan(scale: 2, origin: CGPoint(x: -20, y: 10)))
+        // A view without a scale has no pan to compare.
+        #expect(SettingsPropagation.ZoomPan(scale: 0, origin: .zero).seen(scale: 2, origin: CGPoint(x: 8, y: 8), keepsZoomMoves: true).offset == .zero)
+        #expect(start.seen(scale: 0, origin: CGPoint(x: 8, y: 8), keepsZoomMoves: true).offset == .zero)
+        // Locked, the view notes its offset then, and keeps it through the zooms that follow.
+        let locked = zoomed.locked
+        #expect(locked.lockOffset == CGPoint(x: -10, y: 5))
+        #expect(locked.seen(scale: 4, origin: CGPoint(x: -20, y: 20), keepsZoomMoves: true)
+                == SettingsPropagation.ZoomPan(scale: 4, origin: CGPoint(x: -20, y: 20), offset: CGPoint(x: -5, y: 5), lockOffset: CGPoint(x: -10, y: 5)))
+    }
+
+    @Test func aZoomInOneViewerOfAStudyMovesNeitherViewerInEitherDirection() {
+        // A (0.5 mm pixels) and B (1 mm pixels) of one study, centred, at their own zooms.
+        var a = SettingsPropagation.ZoomPan(scale: 1, origin: .zero)
+        let b = Self.viewer(scale: 1.5, origin: .zero, pixelSpacing: 1)
+        func viewerA(_ origin: CGPoint) -> SettingsPropagation.Viewer {
+            Self.viewer(scale: a.scale, origin: origin, pixelSpacing: 0.5, zoomPan: a.offset)
+        }
+        func plan(_ source: SettingsPropagation.Viewer, _ target: SettingsPropagation.Viewer, delta: CGPoint = .zero) -> PropagationPlan {
+            Self.plan(source, target, preferences: Self.zoomKept, delta: delta)
+        }
+        // A is zoomed to 2 on a point off its centre: B stays where it is.
+        a = a.seen(scale: 2, origin: CGPoint(x: -20, y: 10), keepsZoomMoves: true)
+        #expect(plan(viewerA(a.origin), b).origin == .zero)
+        // Without the pan of A's zoom set apart, B followed the point A centres.
+        #expect(plan(Self.viewer(scale: 2, origin: a.origin, pixelSpacing: 0.5), b).origin == CGPoint(x: -7.5, y: 3.75))
+        // Then B hands its settings on (clicked, scrolled, resized): A stays zoomed where it is.
+        #expect(plan(b, viewerA(a.origin)).origin == a.origin)
+        // B panned 2 and -4 of its pixels (millimetres): A follows by as many millimetres, 4 and -8 of its pixels.
+        let panned = Self.viewer(scale: 1.5, origin: CGPoint(x: 3, y: -6), pixelSpacing: 1)
+        #expect(plan(panned, viewerA(a.origin)).origin == CGPoint(x: -12, y: -6))
+        // A panned 6 and -4 points at its zoom (1.5 and -1 mm): B follows by as many millimetres.
+        a = a.seen(scale: 2, origin: CGPoint(x: -14, y: 6), keepsZoomMoves: true)
+        #expect(a.offset == CGPoint(x: -10, y: 5))
+        #expect(plan(viewerA(a.origin), b).origin == CGPoint(x: 2.25, y: -1.5))
+    }
+
+    @Test func aZoomOffTheCentreRoundTripsBetweenImagesApart() {
+        // B's image is 2 and 4 of A's pixels (1 and 2 mm) from A's; each has zoomed on its own.
+        let a = Self.viewer(scale: 3, origin: CGPoint(x: -27, y: 15), pixelSpacing: 0.5, zoomPan: CGPoint(x: -6, y: 2))
+        let b = Self.viewer(scale: 1.25, origin: CGPoint(x: 5, y: -2.5), pixelSpacing: 1, zoomPan: CGPoint(x: 1, y: 3))
+        let toB = Self.plan(a, b, preferences: Self.zoomKept, delta: CGPoint(x: 2, y: 4))
+        let movedB = Self.viewer(scale: 1.25, origin: toB.origin ?? .zero, pixelSpacing: 1, zoomPan: CGPoint(x: 1, y: 3))
+        // What B takes, handed back, leaves A where it is.
+        #expect(Self.plan(movedB, a, preferences: Self.zoomKept, delta: CGPoint(x: -1, y: -2)).origin == CGPoint(x: -27, y: 15))
+        // And B again takes what it has.
+        #expect(Self.plan(a, movedB, preferences: Self.zoomKept, delta: CGPoint(x: 2, y: 4)).origin == movedB.viewport?.origin)
+    }
+
+    @Test func aZoomInOneOfTheLockedSeriesMovesNeitherInEitherDirection() {
+        // Locked at pans of 5 (0.5 mm pixels) and 1 (1 mm pixels); A then zoomed from 2 to 4 off its centre.
+        var a = SettingsPropagation.ZoomPan(scale: 2, origin: CGPoint(x: 10, y: 10))
+        a = a.seen(scale: 4, origin: CGPoint(x: 12, y: 16), keepsZoomMoves: true)
+        #expect(a.offset == CGPoint(x: -2, y: -1))
+        let lockA = CGPoint(x: 5, y: 5), lockB = CGPoint(x: 1, y: -1)
+        let viewerA = Self.viewer(scale: 4, origin: a.origin, pixelSpacing: 0.5, lock: lockA, zoomPan: a.offset)
+        let b = Self.viewer(scale: 1, origin: CGPoint(x: 1, y: -1), pixelSpacing: 1, study: "1.3", lock: lockB)
+        #expect(Self.plan(viewerA, b, preferences: Self.zoomKept).origin == CGPoint(x: 1, y: -1))
+        // Without the pan of A's zoom set apart, B followed the point A centres.
+        #expect(Self.plan(Self.viewer(scale: 4, origin: a.origin, pixelSpacing: 0.5, lock: lockA), b, preferences: Self.zoomKept).origin
+                == CGPoint(x: 0, y: -1.5))
+        // B hands its settings on: A stays where its zoom put it.
+        #expect(Self.plan(b, viewerA, preferences: Self.zoomKept).origin == CGPoint(x: 12, y: 16))
+        // B panned 2 of its pixels (2 mm): A follows by 2 mm, 4 of its pixels at its zoom of 4.
+        let panned = Self.viewer(scale: 1, origin: CGPoint(x: 3, y: -1), pixelSpacing: 1, study: "1.3", lock: lockB)
+        #expect(Self.plan(panned, viewerA, preferences: Self.zoomKept).origin == CGPoint(x: 28, y: 16))
+    }
+
+    @Test func aLockTakenAfterAKeptZoomIsThePanTheZoomGoingOnReads() {
+        // A (0.5 mm pixels) zoomed from 2 to 4 on a point 20 and 10 points off its centre, then the
+        // series were locked: A's lock is its pan then, -5 and 2.5 of its pixels, and so is its offset.
+        var a = SettingsPropagation.ZoomPan(scale: 2, origin: .zero)
+        a = a.seen(scale: 4, origin: CGPoint(x: -20, y: 10), keepsZoomMoves: true).locked
+        let lockA = SettingsPropagation.imagePan(a.origin, scale: a.scale)
+        #expect(lockA == CGPoint(x: -5, y: 2.5))
+        #expect(a.offset == lockA && a.lockOffset == lockA)
+        let c = Self.viewer(scale: 1, origin: CGPoint(x: 4, y: -2), pixelSpacing: 1, study: "1.3", lock: CGPoint(x: 4, y: -2))
+        func viewerA() -> SettingsPropagation.Viewer {
+            Self.viewer(scale: a.scale, origin: a.origin, pixelSpacing: 0.5, lock: lockA, zoomPan: a.offset, lockZoomPan: a.lockOffset)
+        }
+        // The zoom kept: C stays where it was locked.
+        #expect(Self.plan(viewerA(), c, preferences: Self.zoomKept).origin == CGPoint(x: 4, y: -2))
+        // The zoom going on, A not moved since the lock: the plan is the former one over the pans
+        // at the lock, and C keeps its locked framing at A's scale of 8 points per millimetre.
+        let zoomOn = SettingsPropagation(source: viewerA(), target: c, registered: false, navigatorShown: false,
+                                         originDelta: CGPoint(x: 1, y: 2), preferences: Self.everything)
+        #expect(zoomOn.plan() == Self.formerPlan(zoomOn))
+        #expect(zoomOn.plan().origin == CGPoint(x: 32, y: -16))
+        // A zoomed again, from 4 to 8 on another point: C still stays, and the zoom going on reads the lock as it was.
+        a = a.seen(scale: 8, origin: CGPoint(x: -30, y: 24), keepsZoomMoves: true)
+        #expect(a.offset == CGPoint(x: -3.75, y: 3) && a.lockOffset == lockA)
+        #expect(Self.plan(viewerA(), c, preferences: Self.zoomKept).origin == CGPoint(x: 4, y: -2))
+        let again = SettingsPropagation(source: viewerA(), target: c, registered: false, navigatorShown: false,
+                                        originDelta: CGPoint(x: 1, y: 2), preferences: Self.everything)
+        #expect(again.plan() == Self.formerPlan(again))
     }
 }

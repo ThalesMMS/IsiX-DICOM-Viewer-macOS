@@ -74,11 +74,65 @@ public enum LaunchPreferenceMigrations {
         }
     }
 
+    /// The character set of the queries: the Locations pane stored Thai as
+    /// "ISO_IR 1166", a term DICOM does not define, which the queries sent as
+    /// it was and encoded as Latin 1. The choice is kept, as "ISO_IR 166".
+    public static func correctQueryCharacterSet(in store: any PreferenceStore) {
+        guard !store.isGivenAsLaunchArgument(NetworkPreferences.queryCharacterSet),
+              store[NetworkPreferences.queryCharacterSet] == "ISO_IR 1166" else { return }
+        store.set("ISO_IR 166", for: NetworkPreferences.queryCharacterSet)
+    }
+
     /// The database opened is the default one: its kind and, for a database
     /// of its own folder, its URL, none when there is none.
-    public static func copyDefaultDatabaseLocation(in store: any PreferenceStore) {
-        store.set(store[DatabasePreferences.defaultDatabaseLocation], for: DatabasePreferences.databaseLocation)
-        store.set(store[DatabasePreferences.defaultDatabaseLocationURL], for: DatabasePreferences.databaseLocationURL)
+    ///
+    /// A default given as an argument of the launch is that launch's alone.
+    /// Copied among the user's own values, it would stay there after the
+    /// launch, and every launch given a location (the isolated development
+    /// application, the drivers of the checks) would overwrite the location
+    /// kept for the launches without arguments. It is not stored: answered,
+    /// by key, are the values this launch opens and was not given beside the
+    /// default, which the caller gives it for this launch only. A default
+    /// among the user's own values is copied as it always was.
+    @discardableResult
+    public static func copyDefaultDatabaseLocation(in store: any PreferenceStore) -> [String: Any] {
+        var forThisLaunch: [String: Any] = [:]
+        func copy<Value>(_ source: PreferenceKey<Value>, to target: PreferenceKey<Value>) {
+            guard store.isGivenAsLaunchArgument(source) else {
+                store.set(store[source], for: target)
+                return
+            }
+            if !store.isGivenAsLaunchArgument(target), let given = store.object(for: source) {
+                forThisLaunch[target.name] = given
+            }
+        }
+        copy(DatabasePreferences.defaultDatabaseLocation, to: DatabasePreferences.databaseLocation)
+        copy(DatabasePreferences.defaultDatabaseLocationURL, to: DatabasePreferences.databaseLocationURL)
+        return forThisLaunch
+    }
+
+    /// The location to open cannot be reached, as when its volume is not
+    /// mounted: the database of the Documents folder is opened instead, and
+    /// both the location opened and the default one become Documents.
+    ///
+    /// For a launch given its location as an argument, either the one opened
+    /// or the default one, that is the launch's alone, as for
+    /// `copyDefaultDatabaseLocation`: stored, Documents would replace the
+    /// location kept for the launches without arguments, and the argument
+    /// would still hide it from this launch. Nothing is stored then: answered,
+    /// by key, is Documents, which the caller gives this launch only. The
+    /// location of a launch without arguments is stored as it always was.
+    @discardableResult
+    public static func fallBackToDocumentsDatabase(in store: any PreferenceStore) -> [String: Any] {
+        let documents = 0
+        guard DatabasePreferences.location.isGivenAsLaunchArgument(in: store)
+                || DatabasePreferences.defaultLocation.isGivenAsLaunchArgument(in: store) else {
+            store.set(documents, for: DatabasePreferences.databaseLocation)
+            store.set(documents, for: DatabasePreferences.defaultDatabaseLocation)
+            return [:]
+        }
+        return [DatabasePreferences.databaseLocation.name: documents,
+                DatabasePreferences.defaultDatabaseLocation.name: documents]
     }
 
     /// What every launch starts from: no plugin environment yet, no 12-bit

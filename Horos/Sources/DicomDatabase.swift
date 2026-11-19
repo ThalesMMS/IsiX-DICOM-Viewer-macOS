@@ -159,18 +159,31 @@ final class DatabaseSlot: Sendable {
     }
 }
 
-/// The three C paths the DICOM listener reads: a zeroed buffer of 4096 bytes
-/// for each, as the former instance variables were, for the life of the database.
-final class DicomDatabaseListenerPaths {
+/// The three C paths the DICOM listener reads: 4096 bytes for each inside the
+/// database, the instance variables the former plugin SDK's header declared,
+/// zeroed when the database is made and there for as long as it lives.
+struct DicomDatabaseListenerPaths {
     static let capacity = 4096
-    let baseDirPath = DicomDatabaseListenerPaths.buffer()
-    let incomingDirPath = DicomDatabaseListenerPaths.buffer()
-    let tempDirPath = DicomDatabaseListenerPaths.buffer()
+    let baseDirPath: UnsafeMutablePointer<CChar>
+    let incomingDirPath: UnsafeMutablePointer<CChar>
+    let tempDirPath: UnsafeMutablePointer<CChar>
 
-    private static func buffer() -> UnsafeMutablePointer<CChar> {
-        let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: capacity)
-        buffer.initialize(repeating: 0, count: capacity)
-        return buffer
+    private static func offset(of name: String) -> Int {
+        guard let field = class_getInstanceVariable(DicomDatabase.self, name) else {
+            preconditionFailure("DicomDatabase keeps a path in its field \(name)")
+        }
+        return ivar_getOffset(field)
+    }
+
+    private static let offsets = (base: offset(of: "baseDirPathCStorage"), incoming: offset(of: "incomingDirPathCStorage"),
+                                  temp: offset(of: "tempDirPathCStorage"))
+
+    /// The three buffers inside `database`, which live as long as it does.
+    init(of database: DicomDatabase) {
+        let instance = UnsafeMutableRawPointer(Unmanaged.passUnretained(database).toOpaque())
+        baseDirPath = (instance + Self.offsets.base).assumingMemoryBound(to: CChar.self)
+        incomingDirPath = (instance + Self.offsets.incoming).assumingMemoryBound(to: CChar.self)
+        tempDirPath = (instance + Self.offsets.temp).assumingMemoryBound(to: CChar.self)
     }
 
     /// strncpy(buffer, path.fileSystemRepresentation, 4096), or "" for no path.
@@ -180,12 +193,6 @@ final class DicomDatabaseListenerPaths {
         } else {
             buffer[0] = 0
         }
-    }
-
-    deinit {
-        baseDirPath.deallocate()
-        incomingDirPath.deallocate()
-        tempDirPath.deallocate()
     }
 }
 
@@ -244,10 +251,23 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
 
     final var storedBaseDirPath: String?
     final var storedDataBaseDirPath: String?
+    // The instance variables of the former Horos and OsiriX plugin SDK are
+    // stored fields of this class, which a plugin reads and writes at the
+    // offset the application exports for each. These are the copies of the
+    // four paths and names, written with them and never read here, the three
+    // C paths of the listener, inside the object as the header declared them,
+    // and what has no state in the database (the index of the data files, the
+    // warning of the full volume, the last refusal, the thread of the
+    // conversions and the queues of the routing are other objects'): nil and NO.
+    final var _baseDirPath: NSString?, _dataBaseDirPath: NSString?, _name: NSString?, _sourcePath: NSString?
+    final var baseDirPathCStorage = IsiXDicomDatabaseDirectoryPath(), incomingDirPathCStorage = IsiXDicomDatabaseDirectoryPath()
+    final var tempDirPathCStorage = IsiXDicomDatabaseDirectoryPath()
+    final var _dataFileIndex: N2MutableUInteger?, _compressDecompressThread: Thread?, _lastImportRefusalSummary: NSString?
+    final var _routingSendQueues: NSMutableArray?, _routingLock: NSRecursiveLock?, _incomingImportSpaceWarningShown = false
     /// The name given, without the default -name makes of the path, which
     /// RemoteDicomDatabase overrides.
-    final var assignedName: String?
-    final var storedSourcePath: String?
+    final var assignedName: String? { didSet { _name = assignedName as NSString? } }
+    final var storedSourcePath: String? { didSet { _sourcePath = storedSourcePath as NSString? } }
     /// The numbers of the data files; a main database shares its own with its independent databases.
     final let dataFileAllocator: DataFileAllocator
     /// Held while files are compressed or decompressed; shared with the independent databases.
@@ -266,13 +286,13 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
     // DicomDatabase+Clean.swift: the main database shares it with its
     // independent databases.
     final var cleanLock: NSRecursiveLock?
-    final let listenerPaths = DicomDatabaseListenerPaths()
+    final var listenerPaths: DicomDatabaseListenerPaths { DicomDatabaseListenerPaths(of: self) }
     /// One import writes at a time; the main database shares it with its independent databases.
     final let databaseWriterGate: DatabaseWriterGate
     /// Set by the first deinit to run, once the database is out of the registry.
     final var leftRegistry = false
 
-    var timeOfLastModification: TimeInterval = 0
+    dynamic var timeOfLastModification: TimeInterval = 0   // dynamic: observed by what shows the database, written by an import from Swift
     var isReadOnly: Bool = false
     var hasPotentiallySlowDataAccess: Bool = false
 
@@ -329,13 +349,13 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
             DicomDatabaseObjC.logError("nil path", "+[DicomDatabase baseDirPathForMode:path:]")
             return nil
         }
-        let pathSeparated = path.components(separatedBy: "/")
-        if pathSeparated.count >= 3 {
-            let volPath = pathSeparated[0..<3].joined(separator: "/")
-            if path.hasPrefix("/Volumes/") && !FileManager.default.fileExists(atPath: volPath) {
-                return nil // not mounted
-            }
+        if path.hasPrefix("/Volumes/"), let volume = DatabaseVolume.volume(of: path), !FileManager.default.fileExists(atPath: volume) {
+            return nil // not mounted
         }
+
+        // Before first use is answered this is only the location it offers: nothing is made there nor said of it.
+        // The folder chosen is made as its database opens; choosing another one or quitting leaves none behind.
+        if DatabaseFirstUse.hasPendingChoice { return path }
 
         // Reopening a database that moved and creating one are different events,
         // and the folder that was chosen is not always the one that ends up
@@ -359,9 +379,9 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
         if let exception = HorosObjCException.caught({
             let defaults = PreferencesSource.process.preferences
             path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults[DatabasePreferences.location].mode), path: defaults[DatabasePreferences.location].folder)
-            if path == nil || !FileManager.default.fileExists(atPath: path!) { // STILL NOT AVAILABLE?? Use the default folder.. and reset this strange URL..
-                defaults.set(0, for: DatabasePreferences.databaseLocation)
-                defaults.set(0, for: DatabasePreferences.defaultDatabaseLocation)
+            // Not available: Documents, for this launch alone if given its location; not before first use is answered.
+            if !DatabaseFirstUse.hasPendingChoice && (path == nil || !FileManager.default.fileExists(atPath: path!)) {
+                ApplicationPreferencesSetup.fallBackToDocumentsDatabase()
                 path = self.baseDirPath(forMode: Int32(truncatingIfNeeded: defaults[DatabasePreferences.location].mode), path: defaults[DatabasePreferences.location].folder)
             }
         }) {
@@ -551,6 +571,7 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
 
         storedBaseDirPath = basePath
         storedDataBaseDirPath = dataBasePath
+        _baseDirPath = basePath as NSString?; _dataBaseDirPath = dataBasePath as NSString?
         databaseWriterGate = (main as? DicomDatabase)?.databaseWriterGate ?? DatabaseWriterGate()
         dataFileAllocator = (main as? DicomDatabase)?.dataFileAllocator ?? DataFileAllocator()
         importFeedbackLog = (main as? DicomDatabase)?.importFeedbackLog ?? ImportFeedbackLog()
@@ -611,8 +632,9 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
                 try? FileManager.default.moveItem(atPath: toBeIndexed, toPath: destination)
             }
 
-            // report templates
-            #if !MACAPPSTORE
+            // report templates, in every channel: the App Store build makes
+            // reports too, and a database it opens after the first launch's
+            // question, or anywhere but the default folder, gets them only here.
             #if !OSIRIX_LIGHT
 
             for rfn in ["ReportTemplate.rtf", "ReportTemplate.odt"] {
@@ -627,7 +649,6 @@ private final class DicomDatabaseDefaultActivation: NSObject, @unchecked Sendabl
             Reports.checkForPagesTemplate()
             Reports.checkForWordTemplates()
 
-            #endif
             #endif
 
             DatabaseTemplateInstaller(database: self).install()

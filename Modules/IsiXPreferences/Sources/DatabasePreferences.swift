@@ -50,6 +50,12 @@ public enum DatabasePreferences {
     public static let archiveReportsAndAnnotationsAsDICOMSR = PreferenceKey<Bool>("archiveReportsAndAnnotationsAsDICOMSR", registered: "1")
     public static let autoCleanCommentFilter = PreferenceKey<Bool>("AUTOCLEANINGCOMMENTS", registered: "0")
     public static let autoCleanCommentText = PreferenceKey<String?>("AUTOCLEANINGCOMMENTSTEXT", registered: "")
+    /// The most one import expands out of ZIP archives, the archives found
+    /// inside one included: megabytes, files, and how many archives an archive
+    /// may be inside of. No pane shows them.
+    public static let archiveExpansionLimitMegabytes = PreferenceKey<Int>("ArchiveExpansionLimitMegabytes", registered: "262144")
+    public static let archiveExpansionLimitFiles = PreferenceKey<Int>("ArchiveExpansionLimitFiles", registered: "2000000")
+    public static let archiveExpansionLimitNesting = PreferenceKey<Int>("ArchiveExpansionLimitNesting", registered: "4")
     public static let autoCleanByDate = PreferenceKey<Bool>("AUTOCLEANINGDATE", registered: "0")
     public static let autoCleanByDateOpened = PreferenceKey<Bool>("AUTOCLEANINGDATEOPENED", registered: "0")
     public static let autoCleanOpenedDays = PreferenceKey<String?>("AUTOCLEANINGDATEOPENEDDAYS", registered: "90")
@@ -70,6 +76,12 @@ public enum DatabasePreferences {
     /// Once a validated report's DICOM PDF is in the study, the report open in Pages is closed.
     public static let closePagesReportWhenValidated = PreferenceKey<Bool>("closePagesReportWhenValidated", registered: "1")
     public static let databaseColumns = PreferenceKey<[String: PropertyListValue]?>("COLUMNSDATABASE", registered: PreferenceDefault { _ in [String: Any]() })
+    /// The named arrangements of the study list's columns, in the order they were saved: each a name and its
+    /// columns by identifier with their widths, which IsiXDatabase's StudyListColumnPresets reads and writes.
+    public static let databaseColumnPresets = PreferenceKey<[PropertyListValue]?>("databaseColumnPresets")
+    /// The columns the study list shows, each a table of its identifier and its width, as the closing of the
+    /// database window keeps them and its opening shows them again.
+    public static let databaseColumnState = PreferenceKey<[PropertyListValue]?>("databaseColumns2")
     public static let combineProjectionSeries = PreferenceKey<Bool>("combineProjectionSeries", registered: "1")
     public static let combineProjectionSeriesMode = PreferenceKey<Bool>("combineProjectionSeriesMode", registered: "1")
     public static let commentFieldForAutoFill = PreferenceKey<String?>("commentFieldForAutoFill", registered: "comment")
@@ -232,11 +244,13 @@ public enum DatabasePreferences {
 
     /// Every key of this file.
     static let catalog: [any CataloguedPreference] = [
-        additionalImageSOPClasses, albumName, allowsDICOMEditing, archiveReportsAndAnnotationsAsDICOMSR,
+        additionalImageSOPClasses, albumName, allowsDICOMEditing, archiveExpansionLimitMegabytes,
+        archiveExpansionLimitFiles, archiveExpansionLimitNesting, archiveReportsAndAnnotationsAsDICOMSR,
         autoCleanCommentFilter, autoCleanCommentText, autoCleanByDate, autoCleanByDateOpened, autoCleanOpenedDays,
         autoCleanByDateProduced, autoCleanProducedDays, autoCleanDeletesOriginals, autoCleanCommentMode,
         autoCleanBySpace, autoCleanSpaceSize, autocleanSpaceMode, autoSelectSourceCDDVD, capitalizedString,
-        ejectsMediaAfterAutoCopy, closePagesReportWhenValidated, databaseColumns, combineProjectionSeries,
+        ejectsMediaAfterAutoCopy, closePagesReportWhenValidated, databaseColumns, databaseColumnPresets, databaseColumnState,
+        combineProjectionSeries,
         combineProjectionSeriesMode, commentFieldForAutoFill, commentsAutoFill, commentsAutoFillStudyLevel,
         commentsFromDICOMFiles, compressionResolutionLimit, compressionSettings, compressionSettingsLowRes,
         copyToDatabase, copyToDatabaseMode, databaseIndex, databaseLocation, databaseLocationURL,

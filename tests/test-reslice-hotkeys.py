@@ -207,8 +207,10 @@ with tempfile.TemporaryDirectory(prefix='horos-reslice-hotkeys-') as folder:
     (p / 'dispatch.swift').write_text(STANDINS.replace('DISPATCH', dispatch))
     # The pane's main-actor callbacks; the dispatch's commands are IsiXImaging's.
     imaging = isix_modules.module_flags('IsiXImaging', p / 'modules', ['-target', 'arm64-apple-macos26.0'])
+    # The pane loads its nib through instantiatePaneNib, beside the panes' folders.
     library = object_probe.swift_dylib([pane, pane.parent / 'HotKeyArrayController.swift', p / 'dispatch.swift',
-                                        source_path('MainActorCallbacks')], [],
+                                        source_path('MainActorCallbacks'),
+                                        pane.parent.parent / 'PaneCatalogTranslation.swift'], [],
                                        p / 'libHotKeysPane.dylib',
                                        bridging_header=bridging, frameworks=('Cocoa', 'PreferencePanes'),
                                        flags=imaging)

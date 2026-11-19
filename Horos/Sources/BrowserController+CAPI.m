@@ -59,6 +59,9 @@
 
 __attribute__((used)) NSString * const O2AlbumDragType = @"Osirix Album drag";
 __attribute__((used)) NSString * const O2PasteboardTypeDatabaseObjectXIDs = @"com.opensource.osirix.database.xids";
+// The drag type of the database objects in the Horos and OsiriX plugin SDK,
+// which plugins built for it look up by name; drags made here use the UTI above.
+__attribute__((used)) NSString * const O2DatabaseXIDsDragType = @"BrowserController.database.context.XIDs";
 
 void HorosBrowserRegisterLegacyDistributedBrowser(id browser)
 {

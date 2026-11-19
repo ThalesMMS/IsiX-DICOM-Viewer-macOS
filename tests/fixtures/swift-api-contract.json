@@ -708,12 +708,6 @@
         "header": "Nitrogen/Sources/NSFileManager+N2.h",
         "implementation": "Nitrogen/Sources/NSFileManager+N2.mm",
         "interface": "NSFileManager(N2)"
-      },
-      "removed": {
-        "-destinationOfAliasAtPath:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
-        "-findSystemFolderOfType:forDomain:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
-        "-sizeAtFSRef:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C.",
-        "-sizeAtPath:": "Called the File Manager on an FSRef, which Swift does not see, and stayed Objective-C for that; nothing in the application, its nibs or the public plugin API called it, so it left with that Objective-C."
       }
     },
     {
@@ -1231,12 +1225,6 @@
         "header": "Horos/Sources/AnonymizationTagsPopUpButton.h",
         "implementation": "Horos/Sources/AnonymizationTagsPopUpButton.mm",
         "interface": "AnonymizationTagsPopUpButton"
-      },
-      "removed": {
-        "-NS_UNAVAILABLE": "The former -selectedTag and -setSelectedTag: (declared NS_UNAVAILABLE, the word this record kept as their name): Objective-C could not call them and nothing else did; Swift cannot override NSPopUpButton's -selectedTag with an object, and the selected tag is selectedAttributeTag.",
-        "-setNS_UNAVAILABLE:": "The former -selectedTag and -setSelectedTag: (declared NS_UNAVAILABLE, the word this record kept as their name): Objective-C could not call them and nothing else did; Swift cannot override NSPopUpButton's -selectedTag with an object, and the selected tag is selectedAttributeTag.",
-        "-selectedDCMAttributeTag": "Renamed -selectedAttributeTag when the DICOM tag became the IsiXDICOMFile type and DCM.framework left: the name spoke of the framework class. Nothing outside the anonymization panel read it.",
-        "-setSelectedDCMAttributeTag:": "Renamed -setSelectedAttributeTag: with the getter."
       }
     },
     {
@@ -1489,10 +1477,6 @@
         "header": "Horos/Sources/O2DicomPredicateEditorView.h",
         "implementation": "Horos/Sources/O2DicomPredicateEditorView.m",
         "interface": "O2DicomPredicateEditorView"
-      },
-      "removed": {
-        "-DCMAttributeTag": "Renamed -attributeTag when DCM.framework left: the name spoke of the framework class. The view observes it for the tag key, and nothing outside the predicate editor read it.",
-        "-setDCMAttributeTag:": "Renamed -setAttributeTag: with the getter."
       }
     },
     {
@@ -1729,10 +1713,6 @@
         "header": "Horos/Sources/ROIManagerController.h",
         "implementation": "Horos/Sources/ROIManagerController.m",
         "interface": "ROIManagerController"
-      },
-      "removed": {
-        "-numberOfRowsInTableView:": "The ROI list is an NSOutlineView the controller builds in code (scope, groups by name, filters), with the outline view's data source methods; the xib no longer makes the controller the data source of its former table.",
-        "-tableView:objectValueForTableColumn:row:": "The ROI list is an NSOutlineView the controller builds in code (scope, groups by name, filters), with the outline view's data source methods; the xib no longer makes the controller the data source of its former table."
       }
     },
     {
@@ -2231,9 +2211,6 @@
         "header": "Horos/Sources/QuicktimeExport.h",
         "implementation": "Horos/Sources/QuicktimeExport.m",
         "interface": "QuicktimeExport"
-      },
-      "removed": {
-        "+CVPixelBufferFromNSImage:": "Kept for Swift only (@nonobjc, returning an Unmanaged +1 buffer): its Objective-C callers were the web portal's movie path and QuicktimeExport+CAPI.m, both Swift or gone since the portal moved to SwiftNIO."
       }
     },
     {
@@ -2324,10 +2301,6 @@
         "header": "Horos/Sources/SendController.h",
         "implementation": "Horos/Sources/SendController.m",
         "interface": "SendController"
-      },
-      "removed": {
-        "-releaseSelfWhenDone:": "The thread that waited for the send to end, to release the controller, left when the send moved to the send queue: the controller gives back its creator's reference once the request is queued. Nothing in the application, its nibs or the public plugin API sent it; the legacy plugin bridge has a SendController of its own.",
-        "-sendDICOMFilesOffis:": "The body of the send thread, which the send queue (DICOMSendQueue) and its activity transport replaced: the request is a typed value and each association runs on an activity thread. Nothing in the application, its nibs or the public plugin API sent it; the legacy plugin bridge has a SendController of its own."
       }
     },
     {
@@ -2414,10 +2387,6 @@
         "header": "Horos/Sources/NSError+OsiriX.h",
         "implementation": "Horos/Sources/NSError+OsiriX.mm",
         "interface": "NSError(OsiriX)"
-      },
-      "removed": {
-        "+osirixErrorWithCode:localizedDescriptionFormat:": "A variadic class method of the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and Swift cannot declare a variable argument list; +osirixErrorWithCode:...localizedDescription: takes the formatted text.",
-        "+osirixErrorWithCode:underlyingError:localizedDescriptionFormat:": "A variadic class method of the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and Swift cannot declare a variable argument list; +osirixErrorWithCode:...localizedDescription: takes the formatted text."
       }
     },
     {
@@ -2454,9 +2423,6 @@
         "header": "Horos/Sources/MutableArrayCategory.h",
         "implementation": "Horos/Sources/MutableArrayCategory.m",
         "interface": "NSMutableArray(MutableArrayCategory)"
-      },
-      "removed": {
-        "-shuffle": "Shuffled the array with rand() for the former plugin SDK: nothing in the application, its nibs or the public plugin API sends it, and the plugins that read that SDK no longer load."
       }
     },
     {
@@ -2503,9 +2469,6 @@
         "header": "Horos/Sources/WebPortalConnection.h",
         "implementation": "Horos/Sources/WebPortalConnection.mm",
         "interface": "WebPortalConnection"
-      },
-      "removed": {
-        "-asyncSocket": "The connection's AsyncSocket left with CocoaHTTPServer: the portal is served over SwiftNIO, and no caller read the socket."
       }
     },
     {
@@ -2998,23 +2961,6 @@
         "header": "Horos/Sources/PluginManagerController.h",
         "implementation": "Horos/Sources/PluginManagerController.m",
         "interface": "PluginManagerController"
-      },
-      "removed": {
-        "-availableHorosPlugins": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-availableOsiriXPlugins": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-changeHorosPluginWebView:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-changeOsiriXPluginWebView:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-downloadHorosPlugin:": "The Horos Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
-        "-downloadOsiriXPlugin:": "The OsiriX Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
-        "-generateAvailableHorosPluginsMenu": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-generateAvailableOsiriXPluginsMenu": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-loadSubmitPluginPage": "The Horos Plugins tab and its catalog left the Plugins Manager: the submission page was shown in the catalog's web view.",
-        "-setHorosPluginDownloadURL:": "The Horos Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
-        "-setHorosPluginURL:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-setOsiriXPluginDownloadURL:": "The OsiriX Plugins tab and its catalog left the Plugins Manager; updates of installed plugins download through -downloadPluginUpdate:.",
-        "-setOsiriXPluginURL:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-setURLforHorosPluginWithName:": "The Horos Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses.",
-        "-setURLforOsiriXPluginWithName:": "The OsiriX Plugins tab and its catalog left the Plugins Manager: the catalog only listed plugins of the former API, which the app refuses."
       }
     },
     {
@@ -3141,9 +3087,6 @@
         "header": "Horos/Sources/BrowserController+Sources.h",
         "implementation": "Horos/Sources/BrowserController+Sources.m",
         "interface": "BrowserController(Sources)"
-      },
-      "removed": {
-        "-findDBPath:dbFolder:": "Deprecated: the row of a local database by its path or its folder, which SourceList answers by the source. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it."
       }
     },
     {
@@ -3286,12 +3229,7 @@
         "interface": "AppController"
       },
       "removed": {
-        "-buildTilingAreaMenu": "Built the Screen Area menu beside the Rows and Columns menus; the tiling menus moved to ViewerWindowArranger, which builds it when -initTilingWindows installs them, and no known plugin called it.",
-        "-dbScreen": "The database window's screen when a screen is reserved for it; ViewerWindowArranger reads it where the viewers' screens are chosen, and nothing in the application, its nibs or a known plugin called it.",
-        "-runPreferencesUpdateCheck:": "The check half a second after a preference is written; the comparison moved to PreferenceChange (IsiXPreferences) and the answer to PreferenceChangeResponder, which schedules it itself, and nothing in the application, its nibs or a known plugin called it.",
-        "-startSTORESCP:": "The entry of the plain DICOM listener's thread; the listener's life cycle moved to DICOMListenerController, whose own thread runs the listener, and no known plugin called it.",
-        "-startSTORESCPTLS:": "The entry of the TLS DICOM listener's thread; the listener's life cycle moved to DICOMListenerController, whose own thread runs the listener, and no known plugin called it.",
-        "-tileWindows:windows:display2DViewerToolbar:displayThumbnailsList:": "The tiling itself, for a list of windows; the choice of the grid moved to ViewerTilingLayout (IsiXImaging) and the moving of the windows to ViewerWindowArranger, which -tileWindows: and -tile3DWindows: reach, and no known plugin called it."
+        "-buildTilingAreaMenu": "Built the Screen Area menu beside the Rows and Columns menus; the tiling menus moved to ViewerWindowArranger, which builds it when -initTilingWindows installs them, and no known plugin called it."
       }
     },
     {
@@ -3335,37 +3273,7 @@
         "interface": "BrowserController"
       },
       "removed": {
-        "+addFiles:toContext:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "+addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "+addFiles:toContext:toDatabase:onlyDICOM:notifyAddedFiles:parseExistingObject:dbFolder:generatedByOsiriX:mountedVolume:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-ROIsAndKeyImages:sameSeries:": "The images with ROIs and the key images of the selection, with whether they are of one series, which SelectionMarkedImages answers; -ROIsAndKeyImages: still gives the images. Only the browser asked for the series; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-addFiles:withRule:": "Deprecated: queued images for one routing rule beside the routing by hand, which SourceCopyJob does now. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-addFilesToDatabase:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:parseExistingObject:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-addFilesToDatabase:onlyDICOM:produceAddedFiles:parseExistingObject:context:dbFolder:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-addFilesToDatabase:onlyDICOM:safeRebuild:produceAddedFiles:": "Deprecated since the DicomDatabase transition and logged as such: a direct way into the index beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers these selectors with its own classes.",
-        "-buildAllThumbnails:": "The thumbnails missing from the database, made sixty at a time with the recovery of a study that crashed while they were made. Nothing in the application, its nibs, its timers or the plugin API version 1 called it, and no known plugin uses it.",
-        "-checkIncoming:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
-        "-checkIncomingNow:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
-        "-checkIncomingThread:": "Deprecated, a way of asking for the import beside the single entry. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
-        "-checkReportsDICOMSRConsistency": "Deprecated: the consistency of the reports with their structured reports is the database's rebuilding service. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-compressDICOMJPEG:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
-        "-decompressArrayOfFiles:work:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
-        "-decompressDICOMJPEG:": "Deprecated, for a folder the conversion of the database now serves itself. Nothing in the application, its nibs or the plugin API version 1 called it.",
-        "-distantStudiesForSmartAlbum:": "The studies the PACS On-Demand nodes find for a smart album, asked on the calling thread, which DatabaseAlbumCounter asks itself when it counts the album. Nothing else in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-findSeriesUID:":"The series of the browser's database by its UID, which read the database of the browser singleton; the outline and the plugin API version 1 find them through the database. Nothing in the application, its nibs or a known plugin called it.",
-        "-findStudyUID:": "The study of the browser's database by its UID, which read the database of the browser singleton; the outline and the plugin API version 1 find them through the database. Nothing in the application, its nibs or a known plugin called it.",
-        "-getNewFileDatabasePath:": "Deprecated: the path of a new file comes from the database that will index it. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
-        "-getNewFileDatabasePath:dbFolder:": "Deprecated: the path of a new file comes from the database that will index it. Nothing in the application, its nibs or the plugin API version 1 called it, and IsiXLegacyBridge answers it with its own class.",
-        "-matrixLoadIcons:": "The body of the thumbnail thread of the database preview, which ThumbnailLoader replaced. Only the browser started it; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-sendFilesToCurrentBonjourDB:": "Deprecated: sent files to the shared database the browser shows, which the Bonjour upload of the remote database does. Nothing in the application, its nibs or a known plugin called it.",
-        "-setBonjourDatabaseValue:value:forKey:": "Deprecated: wrote a value of an object of a shared database through its server, which RemoteDicomDatabase does itself. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-switchToDefaultDBIfNeeded": "Deprecated: the former name of -resetToDefaultDatabaseIfNecessary, which DatabaseOpener answers. Nothing in the application, its nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-toolbarAllowedItemIdentifiers:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-toolbarDefaultItemIdentifiers:": "A method of the database window's toolbar delegate, which BrowserToolbar is now. Only AppKit called it on the delegate; nothing in the nibs or the plugin API version 1 called it, and no known plugin uses it.",
-        "-writeDatabaseFilePromise:": "The body of the activity thread of a database drag's file promise, which DatabaseFilePromiseWriter runs on a thread of its own. Only the browser started it; nothing in its nibs or the plugin API version 1 called it, and no known plugin uses it."
+        "-writeDatabaseFilePromise:": "The body of the activity thread of a database drag's file promise, which DatabaseFilePromiseWriter runs on a thread of its own. Only the browser started it: the SDK of Horos did not have it, nothing in the browser's nibs called it and no known plugin uses it."
       }
     },
     {
@@ -5037,9 +4945,6 @@
         "header": "Horos/Sources/DCMView.h",
         "implementation": "Horos/Sources/DCMView.m",
         "interface": "DCMView"
-      },
-      "removed": {
-        "-loadTexturesCompute": "Declared by the former plugin SDK and never implemented by the application; the plugins that read that SDK no longer load, and nothing sends it."
       }
     },
     {
@@ -5411,7 +5316,9 @@
       "-setControlSize:",
       "-setForeColor:",
       "-setLayout:",
-      "-setMaxSize:"
+      "-setMaxSize:",
+      "-minSize",
+      "-setMinSize:"
     ],
     "NSAttributedString(Geometrics)": [
       "-heightForWidth:",
@@ -6096,9 +6003,7 @@
     "AnonymizationTagsPopUpButton": [
       "+tagsMenu",
       "+tagsMenuWithTarget:action:",
-      "-NS_UNAVAILABLE",
       "-selectedDCMAttributeTag",
-      "-setNS_UNAVAILABLE:",
       "-setSelectedDCMAttributeTag:"
     ],
     "AnonymizationPanelController": [
@@ -6170,7 +6075,9 @@
       "-setFormatAccordingToSettings",
       "-setToDate:",
       "-sizeWindowAccordingToSettings",
-      "-toDate"
+      "-toDate",
+      "-fromDate",
+      "-setFromDate:"
     ],
     "LogWindowController": [
       "-export:"
@@ -6200,7 +6107,13 @@
       "-leftTextFirstLine",
       "-setLeftTextFirstLine:",
       "-setTextColor:",
-      "-textColor"
+      "-textColor",
+      "-rightTextFirstLine",
+      "-setRightTextFirstLine:",
+      "-rightTextSecondLine",
+      "-setRightTextSecondLine:",
+      "-leftTextSecondLine",
+      "-setLeftTextSecondLine:"
     ],
     "ImageAndTextCell": [
       "-cellSize",
@@ -6243,7 +6156,6 @@
     ],
     "O2DicomPredicateEditorView": [
       "-DCMAttributeTag",
-      "-NS_UNAVAILABLE",
       "-codeStringTag",
       "-dateValue",
       "-editor",
@@ -6254,7 +6166,6 @@
       "-setCodeStringTag:",
       "-setDCMAttributeTag:",
       "-setDateValue:",
-      "-setNS_UNAVAILABLE:",
       "-setNumberValue:",
       "-setOperator:",
       "-setPredicate:",
@@ -6262,13 +6173,17 @@
       "-setTagsSortKey:",
       "-stringValue",
       "-tags",
-      "-tagsSortKey"
+      "-tagsSortKey",
+      "-within",
+      "-setWithin:"
     ],
     "O2DicomPredicateEditor": [
       "-inited",
       "-matchForPredicate:",
       "-reallyMatchForPredicate:",
-      "-setInited:"
+      "-setInited:",
+      "-dbMode",
+      "-setDbMode:"
     ],
     "O2DicomPredicateEditorCodeStrings": [
       "+codeStringsForTag:"
@@ -6731,7 +6646,8 @@
       "-reload:",
       "-roi",
       "-seriesName",
-      "-viewer"
+      "-viewer",
+      "-volumeField"
     ],
     "ShadingArrayController": [
       "-enableEditing",
@@ -6964,14 +6880,28 @@
       "-setReceivedData:",
       "-setShowErrorMessage:",
       "-setWADOBaseTotal:",
-      "-showErrorMessage"
+      "-showErrorMessage",
+      "-_abortAssociation",
+      "-set_abortAssociation:",
+      "-countOfSuccesses",
+      "-setCountOfSuccesses:",
+      "-WADOGrandTotal",
+      "-setWADOGrandTotal:",
+      "-totalData",
+      "-setTotalData:"
     ],
     "WADOXML": [
       "-getWADOUrls",
       "-parseURL:",
       "-setWadoURL:",
       "-studies",
-      "-wadoURL"
+      "-wadoURL",
+      "-studyInstanceUID",
+      "-setStudyInstanceUID:",
+      "-seriesInstanceUID",
+      "-setSeriesInstanceUID:",
+      "-SOPInstanceUID",
+      "-setSOPInstanceUID:"
     ],
     "Mailer": [
       "-runScript:",
@@ -7290,7 +7220,8 @@
       "-threadForRunLoopRef:",
       "-usesSSL",
       "-wadoEnabled",
-      "-weasisEnabled"
+      "-weasisEnabled",
+      "-runLoops"
     ],
     "WebPortalServer": [
       "-portal"
@@ -7685,7 +7616,8 @@
       "-move::",
       "-point",
       "-setPoint:",
-      "-y"
+      "-y",
+      "-x"
     ],
     "Point3D": [
       "+point",
@@ -7751,7 +7683,17 @@
       "-setWl:",
       "-viewUp",
       "-windowCenterY",
-      "-wl"
+      "-wl",
+      "-is4D",
+      "-setIs4D:",
+      "-viewAngle",
+      "-setViewAngle:",
+      "-ww",
+      "-setWw:",
+      "-LOD",
+      "-setLOD:",
+      "-windowCenterX",
+      "-setWindowCenterX:"
     ],
     "OrthogonalReslice": [
       "-axeReslice::",
@@ -8361,7 +8303,12 @@
       "-weasisBasePath",
       "-windowsTilingMenuColumns",
       "-wlwwMenu",
-      "-workspaceMenu"
+      "-workspaceMenu",
+      "-checkAllWindowsAreVisibleIsOff",
+      "-setCheckAllWindowsAreVisibleIsOff:",
+      "-filtersMenu",
+      "-recentStudiesMenu",
+      "-windowsTilingMenuRows"
     ],
     "MPRController": [
       "+angleBetweenVector:andPlane:",
@@ -8414,7 +8361,60 @@
       "-updateToolbarItems",
       "-updateViewsAccordingToFrame:",
       "-verticalSplit",
-      "-wlwwMenuItems"
+      "-wlwwMenuItems",
+      "-clippingRangeThickness",
+      "-setClippingRangeThickness:",
+      "-dcmInterval",
+      "-setDcmInterval:",
+      "-blendingPercentage",
+      "-setBlendingPercentage:",
+      "-dcmIntervalMin",
+      "-setDcmIntervalMin:",
+      "-dcmmN",
+      "-setDcmmN:",
+      "-clippingRangeMode",
+      "-setClippingRangeMode:",
+      "-mouseViewID",
+      "-setMouseViewID:",
+      "-dcmFrom",
+      "-setDcmFrom:",
+      "-dcmTo",
+      "-setDcmTo:",
+      "-dcmMode",
+      "-setDcmMode:",
+      "-dcmSeriesMode",
+      "-setDcmSeriesMode:",
+      "-dcmRotation",
+      "-setDcmRotation:",
+      "-dcmRotationDirection",
+      "-setDcmRotationDirection:",
+      "-dcmNumberOfFrames",
+      "-setDcmNumberOfFrames:",
+      "-dcmQuality",
+      "-setDcmQuality:",
+      "-dcmFormat",
+      "-setDcmFormat:",
+      "-curMovieIndex",
+      "-setCurMovieIndex:",
+      "-maxMovieIndex",
+      "-setMaxMovieIndex:",
+      "-LOD",
+      "-setLOD:",
+      "-lowLOD",
+      "-setLowLOD:",
+      "-dcmSameIntervalAndThickness",
+      "-setDcmSameIntervalAndThickness:",
+      "-displayMousePosition",
+      "-setDisplayMousePosition:",
+      "-blendingModeAvailable",
+      "-setBlendingModeAvailable:",
+      "-colorAxis1",
+      "-setColorAxis1:",
+      "-colorAxis2",
+      "-setColorAxis2:",
+      "-mprView1",
+      "-mprView2",
+      "-horizontalSplit"
     ],
     "MPRDCMView": [
       "-LOD",
@@ -8442,7 +8442,16 @@
       "-updateViewMPR:",
       "-updateViewMPROnLoading:",
       "-viewExport",
-      "-vrView"
+      "-vrView",
+      "-angleMPR",
+      "-setAngleMPR:",
+      "-fromIntervalExport",
+      "-setFromIntervalExport:",
+      "-toIntervalExport",
+      "-setToIntervalExport:",
+      "-displayCrossLines",
+      "-setDisplayCrossLines:",
+      "-rotateLines"
     ],
     "RemoteDicomDatabase": [
       "+databaseForLocation:port:name:update:",
@@ -8801,7 +8810,41 @@
       "-waitForRunningProcesses",
       "-willChangeContext",
       "-writeDatabaseFilePromise:",
-      "-writeMovie:name:"
+      "-writeMovie:name:",
+      "-DateTimeFormat",
+      "-DateOfBirthFormat",
+      "-TimeFormat",
+      "-TimeWithSecondsFormat",
+      "-is2DViewer",
+      "-currentDatabasePath",
+      "-localDatabasePath",
+      "-documentsDirectory",
+      "-cfixedDocumentsDirectory",
+      "-cfixedIncomingDirectory",
+      "-cfixedTempNoIndexDirectory",
+      "-searchString",
+      "-CDpassword",
+      "-setCDpassword:",
+      "-pathToEncryptedFile",
+      "-setPathToEncryptedFile:",
+      "-passwordForExportEncryption",
+      "-setPasswordForExportEncryption:",
+      "-temporaryNotificationEmail",
+      "-setTemporaryNotificationEmail:",
+      "-customTextNotificationEmail",
+      "-setCustomTextNotificationEmail:",
+      "-comparativePatientUID",
+      "-setComparativePatientUID:",
+      "-smartAlbumDistantName",
+      "-setSmartAlbumDistantName:",
+      "-distantStudyMessage",
+      "-setDistantStudyMessage:",
+      "-distantSearchString",
+      "-setDistantSearchString:",
+      "-fetchPredicate",
+      "-setFetchPredicate:",
+      "-distantTimeIntervalStart",
+      "-setDistantTimeIntervalStart:"
     ],
     "XMLController": [
       "+windowForViewer:",
@@ -8868,7 +8911,8 @@
       "-viewer",
       "-wlwwFrom:to:",
       "-zoomFrom:to:",
-      "-zoomPoint:withCenter:factor:"
+      "-zoomPoint:withCenter:factor:",
+      "-thumbnailWidth"
     ],
     "NavigatorWindowController": [
       "+navigatorWindowController",
@@ -9148,7 +9192,16 @@
       "-updateViewMPR:",
       "-updateViewMPROnLoading:",
       "-viewExport",
-      "-vrView"
+      "-vrView",
+      "-angleMPR",
+      "-setAngleMPR:",
+      "-fromIntervalExport",
+      "-setFromIntervalExport:",
+      "-toIntervalExport",
+      "-setToIntervalExport:",
+      "-displayCrossLines",
+      "-setDisplayCrossLines:",
+      "-rotateLines"
     ],
     "CPRStretchedView": [
       "-_setNeedsNewRequest",
@@ -9353,7 +9406,39 @@
       "-updateViewsAccordingToFrame:",
       "-verticalSplit",
       "-viewsPosition",
-      "-wlwwMenuItems"
+      "-wlwwMenuItems",
+      "-clippingRangeThickness",
+      "-setClippingRangeThickness:",
+      "-dcmIntervalMin",
+      "-setDcmIntervalMin:",
+      "-dcmIntervalMax",
+      "-setDcmIntervalMax:",
+      "-clippingRangeMode",
+      "-setClippingRangeMode:",
+      "-curMovieIndex",
+      "-setCurMovieIndex:",
+      "-maxMovieIndex",
+      "-setMaxMovieIndex:",
+      "-topTransverseView",
+      "-middleTransverseView",
+      "-LOD",
+      "-setLOD:",
+      "-lowLOD",
+      "-setLowLOD:",
+      "-displayMousePosition",
+      "-setDisplayMousePosition:",
+      "-colorAxis1",
+      "-setColorAxis1:",
+      "-colorAxis2",
+      "-setColorAxis2:",
+      "-mprView1",
+      "-mprView2",
+      "-horizontalSplit1",
+      "-horizontalSplit2",
+      "-curvedPathCreationMode",
+      "-setCurvedPathCreationMode:",
+      "-exportSliceInterval",
+      "-setExportSliceInterval:"
     ],
     "CPRView": [
       "-_setNeedsNewRequest",
@@ -9404,7 +9489,9 @@
       "-setVolumeData:",
       "-setWLWW::",
       "-volumeData",
-      "-waitUntilPixUpdate"
+      "-waitUntilPixUpdate",
+      "-rotation",
+      "-setRotation:"
     ],
     "DicomDatabase": [
       "+activeLocalDatabase",
@@ -9506,7 +9593,9 @@
       "-toBeIndexedDirPath",
       "-uniquePathForNewDataFileWithExtension:",
       "-updateStorageAvailabilityWarning",
-      "-waitForCompressThread"
+      "-waitForCompressThread",
+      "-name",
+      "-setName:"
     ],
     "EndoscopyViewer": [
       "-Apply2DCLUT:",
@@ -10271,7 +10360,31 @@
       "-whiteBackground",
       "-windowController",
       "-writeCopySettingsInSeriesForPixels:",
-      "-yFlipped"
+      "-yFlipped",
+      "-rectArray",
+      "-COPYSETTINGSINSERIES",
+      "-setCOPYSETTINGSINSERIES:",
+      "-flippedData",
+      "-setFlippedData:",
+      "-dcmPixList",
+      "-syncRelativeDiff",
+      "-setSyncRelativeDiff:",
+      "-studyColorR",
+      "-setStudyColorR:",
+      "-studyColorG",
+      "-setStudyColorG:",
+      "-xFlipped",
+      "-setXFlipped:",
+      "-scaleValue",
+      "-setScaleValue:",
+      "-pixelSpacing",
+      "-pixelSpacingX",
+      "-mouseXPos",
+      "-contextualMenuInWindowPosX",
+      "-curWW",
+      "-rows",
+      "-setRows:",
+      "-isKeyView"
     ],
     "OrthogonalMPRController": [
       "-ApplyCLUTString:",
@@ -10524,7 +10637,39 @@
       "-type",
       "-updateLabelFont",
       "-valid",
-      "-zPositions"
+      "-zPositions",
+      "-textureWidth",
+      "-textureDownRightCornerX",
+      "-textureDownRightCornerY",
+      "-textureUpLeftCornerX",
+      "-hidden",
+      "-setHidden:",
+      "-locked",
+      "-setLocked:",
+      "-isAliased",
+      "-setIsAliased:",
+      "-displayCMOrPixels",
+      "-setDisplayCMOrPixels:",
+      "-sliceThickness",
+      "-setSliceThickness:",
+      "-pixelSpacingX",
+      "-setPixelSpacingX:",
+      "-min",
+      "-setMin:",
+      "-max",
+      "-setMax:",
+      "-layerPixelSpacingX",
+      "-setLayerPixelSpacingX:",
+      "-textualBoxLine1",
+      "-setTextualBoxLine1:",
+      "-textualBoxLine2",
+      "-setTextualBoxLine2:",
+      "-textualBoxLine3",
+      "-setTextualBoxLine3:",
+      "-textualBoxLine4",
+      "-setTextualBoxLine4:",
+      "-textualBoxLine5",
+      "-setTextualBoxLine5:"
     ],
     "HorosVolumeLengthROI": [
       "+patientPoint:pix:",
@@ -10808,7 +10953,15 @@
       "-vtkRenderer",
       "-windowCenter",
       "-yaw:",
-      "-zoomMouseUp:"
+      "-zoomMouseUp:",
+      "-clipRangeActivated",
+      "-setClipRangeActivated:",
+      "-keep3DRotateCentered",
+      "-setKeep3DRotateCentered:",
+      "-dontResetImage",
+      "-setDontResetImage:",
+      "-lowResLODFactor",
+      "-setLowResLODFactor:"
     ]
   }
 }

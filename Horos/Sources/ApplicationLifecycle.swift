@@ -105,8 +105,14 @@ import IsiXStorage
     /// request, and it does not bring back the Query/Retrieve window left open
     /// at the last quit: the request never uses that window.
     private(set) var launchedForURL = false
-    private(set) var launchFinished = false
+    /// Whether the launch has ended, which `LaunchEnd` keeps with what waits for it.
+    var launchFinished: Bool { LaunchEnd.reached }
     private(set) var quitting = false
+    /// The stops before the process exits, the same for every orderly end.
+    private lazy var quit = makeQuit()
+    /// Whether the system is ending the session, which a quit asked for then
+    /// must not answer with a question.
+    private let sessionEndNotice = SessionEndNotice()
 
     init(controller: AppController, processGraph: ProcessGraph,
          preferences: any PreferenceStore = PreferencesSource.process.preferences) {
@@ -196,8 +202,14 @@ import IsiXStorage
 
         ApplicationPreferencesSetup.addPresets()
 
-        Reports.checkForWordTemplates()
-        Reports.checkForPagesTemplate()
+        // Not while first use is still to answer: the location may then be a
+        // Horos or OsiriX database, which the question says is left as it is,
+        // or a folder the user is about to replace. The database the answer
+        // opens gets its templates as it opens.
+        if !DatabaseFirstUse.hasPendingChoice {
+            Reports.checkForWordTemplates()
+            Reports.checkForPagesTemplate()
+        }
     }
 
     /// The processors, screens, versions and localization, in the log.
@@ -228,7 +240,8 @@ import IsiXStorage
     }
 
     /// The database's documents folder resolved from the preferences; nil
-    /// when it cannot be (a folder on a volume that is not mounted).
+    /// when it cannot be (a folder on a volume that is not mounted). Not made
+    /// while first use has still to answer: the answer may name another one.
     private static func resolvedDocumentsFolder(_ preferences: any PreferenceStore) -> String? {
         var path: String?
         if let exception = HorosObjCException.caught({
@@ -259,8 +272,9 @@ import IsiXStorage
                                                          path: preferences[DatabasePreferences.databaseLocationURL])
             }) {
                 _ = exception
-                preferences.set(0, for: DatabasePreferences.databaseLocation)
-                preferences.set(0, for: DatabasePreferences.defaultDatabaseLocation)
+                // The Documents folder instead, kept from now on, or for this
+                // launch alone when the launch was given its location.
+                ApplicationPreferencesSetup.fallBackToDocumentsDatabase()
             }
         }
 
@@ -379,14 +393,12 @@ import IsiXStorage
 
         controller.updateScreenParameters()
 
-        // The launch counter; its first value replaces FIRSTTIME.
-        if ApplicationPreferencesSetup.countLaunch() == 0 {
-            switch HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer Updates", comment: ""), message: NSLocalizedString("Would you like to activate automatic checking for updates?", comment: ""), defaultButton: NSLocalizedString("Yes", comment: ""), alternateButton: NSLocalizedString("No", comment: ""), otherButton: nil) {
-            case 0:
-                preferences.set("NO", forKey: ApplicationPreferences.checkHorosUpdates.name)
-            default:
-                break
-            }
+        // The launch counter; its first value replaces FIRSTTIME. The first
+        // launch of a new installation asks about the automatic checks before
+        // the first of them, and stores either answer.
+        if ApplicationPreferencesSetup.asksAboutUpdateChecks(launchCount: ApplicationPreferencesSetup.countLaunch()) {
+            let answer = HorosAlertPanel.runInformational(title: NSLocalizedString("IsiX DICOM Viewer Updates", comment: ""), message: NSLocalizedString("Would you like to activate automatic checking for updates?", comment: ""), defaultButton: NSLocalizedString("Yes", comment: ""), alternateButton: NSLocalizedString("No", comment: ""), otherButton: nil)
+            preferences.set(answer == HorosAlertPanel.defaultResponse, for: ApplicationPreferences.checkHorosUpdates)
         }
 
         // Checks for Bonjour enabled dicom servers. Most likely other copies of Horos
@@ -463,12 +475,8 @@ import IsiXStorage
         if ProtectedMode.isActive {
             ProtectedMode.skip("automatic update checks for the application and its plugins")
         } else {
-            // If Horos crashed before, the check looks for the release that may fix it.
-            let horosCrashed = (FileManager.default.tmpDirPath() as NSString).appendingPathComponent("HorosCrashed")
-            let crashed = FileManager.default.fileExists(atPath: horosCrashed)
-            if crashed { try? FileManager.default.removeItem(atPath: horosCrashed) }
             let updateCheckScheduler = controller.updateCheckScheduler
-            Task { await updateCheckScheduler.startAtLaunch(crashed: crashed) }
+            Task { await updateCheckScheduler.startAtLaunch() }
         }
         #endif
         DistributionChannel.configureMenu(NSApp.mainMenu)
@@ -496,7 +504,12 @@ import IsiXStorage
             Task { await ActivityThread.runUnlisted(name: "Preferences from URL") { OSIGeneralPreferencePanePref.addPreferences(from: url) } }
         }
 
-        launchFinished = true
+        // What was asked for during the launch and has a modal window is
+        // shown from now on, from the main run loop.
+        LaunchEnd.reach()
+        // Which application the system gives the links to: looked at now,
+        // with nothing modal, since a link may be what launched the app.
+        LinkSchemeStartupCheck(preferences: preferences).run()
         if preferences[ApplicationPreferences.isQueryWindowVisible] && !launchedForURL {
             if QueryController.current() == nil {
                 _ = QueryController(autoQuery: false)
@@ -562,66 +575,97 @@ import IsiXStorage
     // MARK: - Quitting
 
     /// The Quit command: the browser may refuse (a transfer under way), then
-    /// the rest of quitting.
+    /// the rest of quitting. The questions are put here, from the menu's
+    /// action, as they always were; a quit already under way is not asked again.
     func terminate(_ sender: Any?) {
-        if !(browser?.shouldTerminate(sender) ?? false) { return }
+        guard quit.agreeNow() else { return }
         finishTermination(sender)
     }
 
-    /// The rest of quitting, once the browser has agreed to it: the Query
-    /// window's visibility kept for the next launch, the import and the
-    /// listeners stopped, the background threads given ten seconds.
+    /// The rest of quitting, once the browser has agreed to it: AppKit asks
+    /// `shouldTerminate()`, which stops what has to stop and then lets it
+    /// terminate, without asking again.
     func finishTermination(_ sender: Any?) {
+        quit.agree()
+        NSApp.terminate(sender)
+        // Back here, the application goes on: AppKit never asked, or the
+        // request met a quit already under way.
+        quit.withdrawAgreement()
+    }
+
+    /// -applicationShouldTerminate:, which AppKit sends before every orderly
+    /// end: the Quit command, the Dock, a quit Apple event, the end of the
+    /// session. A quit that did not come through the Quit command used to go
+    /// straight to `exit()`, which destroys DCMTK's static loggers while the
+    /// listener thread reads them. Every route now gets the same stops, and
+    /// the reply after them (`OrderlyQuit`).
+    func shouldTerminate() -> NSApplication.TerminateReply {
+        switch quit.request(QuitRoute.current(notice: sessionEndNotice)) {
+        case .now: return .terminateNow
+        case .later: return .terminateLater
+        case .cancel: return .terminateCancel
+        }
+    }
+
+    private func makeQuit() -> OrderlyQuit {
+        let listener = processGraph.dicomListener
+        return OrderlyQuit(work: OrderlyQuit.Work(
+            // Before the database window exists the agreement has nothing to
+            // ask: a quit during the launch is not refused, whoever asks.
+            agrees: { [unowned self] asking in BrowserQuitAgreement(browser: self.browser).given(asking: asking) },
+            begin: { [unowned self] in self.beginQuitting() },
+            // The incoming import stops at its own gate: ThreadsManager may not
+            // list it yet, and an import left reading a file when exit()
+            // destroys DCMTK crashed quitting.
+            stopImports: { [unowned self] in self.processGraph.databaseIngest.stop() },
+            // exit() destroys DCMTK's static loggers while a listener thread
+            // that is still running reads them: the listener reads its abort
+            // only after waiting up to a second for an association, so a fixed
+            // half-second pause let quitting crash on the "DICOM Store-SCP" thread.
+            stopListeners: { deadline in listener.stopListeners(before: deadline) },
+            // Finished threads leave the list on the main thread, in a mode of
+            // the run loop that the wait for the reply does not run: they are
+            // taken out here, or the count would never fall.
+            cancelThreads: {
+                onMainRunLoopSync {
+                    ThreadsManager.default()?.cleanupFinishedThreads(nil)
+                    let threads = ThreadsManager.default()?.threads()?.compactMap { $0 as? Thread } ?? []
+                    for thread in threads where !thread.isCancelled {
+                        thread.cancel()
+                    }
+                    return threads.count
+                }
+            },
+            waitForImports: { deadline in IncomingImportGate.shared.waitUntilIdle(before: deadline) },
+            end: { [unowned self] in self.endQuitting() },
+            reply: { terminate in NSApp.reply(toApplicationShouldTerminate: terminate) },
+            fromMainRunLoop: { body in onMainRunLoop(body) },
+            log: { message in NSLog("******** %@", message as NSString) }))
+    }
+
+    /// The first step of quitting, once it is agreed: the Query window's
+    /// visibility kept for the next launch, and the windows out of the screen
+    /// while the stops are waited for.
+    private func beginQuitting() {
         // Quitting was asked for and agreed to. A plugin whose dialog is still
         // open, so that its code is on the stack, did not stop anything: its
-        // note goes now, before the waits below, and not only when the
-        // application terminates.
+        // note goes now, before the waits, and not only when the application
+        // terminates.
         PluginManager.endProtectForCrash()
 
         preferences.set(QueryController.current()?.window?.isVisible ?? false, for: ApplicationPreferences.isQueryWindowVisible)
         for window in NSApp.windows {
-            window.orderOut(sender)
+            window.orderOut(nil)
         }
+    }
 
-        // The incoming import stops at its own gate: ThreadsManager may not list
-        // it yet, and an import left reading a file when exit() destroys DCMTK
-        // crashed quitting.
-        processGraph.databaseIngest.stop()
-
-        // exit() destroys DCMTK's static loggers while a listener thread that
-        // is still running reads them: the listener reads its abort only after
-        // waiting up to a second for an association, so a fixed half-second
-        // pause let quitting crash on the "DICOM Store-SCP" thread.
-        if processGraph.dicomListener.stopListeners(before: Date(timeIntervalSinceNow: 10)) == false {
-            NSLog("******** DICOM listener still running after 10 s; quitting anyway")
-        }
-
-        let start = Date.timeIntervalSinceReferenceDate
-        while Date.timeIntervalSinceReferenceDate - start < 10 { // give declared background threads 10 secs to cancel
-            // Finished threads leave the list on the main run loop, which this
-            // loop does not run: the count never fell, and quitting always
-            // waited the full ten seconds.
-            ThreadsManager.default()?.cleanupFinishedThreads(nil)
-            let threads = ThreadsManager.default()?.threads()?.compactMap { $0 as? Thread } ?? []
-            if threads.isEmpty { break }
-            for thread in threads where !thread.isCancelled {
-                thread.cancel()
-            }
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-
-        if IncomingImportGate.shared.waitUntilIdle(before: Date(timeIntervalSinceNow: 10)) == false {
-            NSLog("******** incoming import still running after 10 s; quitting anyway")
-        }
-
+    /// The last step before AppKit is told to terminate.
+    private func endQuitting() {
         for window in NSApp.windows {
             window.close()
         }
 
         processGraph.preferences.synchronize()
-
-
-        NSApp.terminate(sender)
     }
 
     /// -applicationWillTerminate: the viewers closed, the threads cancelled,
@@ -712,7 +756,9 @@ import IsiXStorage
     // MARK: - The former plugins' dictionary of URL handlers
 
     /// Adds the dicom: URL scheme to the LaunchServices preferences when no
-    /// handler has it (a former SDK method, which nothing calls).
+    /// handler has it (a former SDK method, which nothing calls). The handler
+    /// written is the application that is running, under the identifier of
+    /// its own bundle: a build with another identifier names itself.
     static func checkForOsirixMimeType() {
         let path = ("~/Library/Preferences/com.apple.LaunchServices.plist" as NSString).expandingTildeInPath
         let stored = FileManager.default.contents(atPath: path)
@@ -721,13 +767,13 @@ import IsiXStorage
         if handlers?.contains(where: { ($0 as? [String: Any])?["LSHandlerURLScheme"] as? String == "dicom" }) ?? false {
             return
         }
-        guard let handlers else {
-            // -setObject:forKey: raised on the nil array it was given.
-            NSException(name: .invalidArgumentException, reason: "*** -[__NSDictionaryM setObject:forKey:]: object cannot be nil (key: LSHandlers)", userInfo: nil).raise()
-            return
-        }
+        // Without the file or its list of handlers there is nothing to add
+        // to: the system keeps the handlers elsewhere, and the method leaves
+        // them alone.
+        guard let handlers else { return }
+        guard let identifier = Bundle.main.bundleIdentifier else { return }
         var updated = stored ?? [:]
-        updated["LSHandlers"] = handlers + [["LSHandlerRoleAll": "thalesmms.isis.workstation" /* BUNDLE_IDENTIFIER */, "LSHandlerURLScheme": "dicom"]]
+        updated["LSHandlers"] = handlers + [["LSHandlerRoleAll": identifier, "LSHandlerURLScheme": "dicom"]]
         try? FileManager.default.removeItem(atPath: path)
         if let data = try? PropertyListSerialization.data(fromPropertyList: updated, format: .xml, options: 0) {
             try? data.write(to: URL(fileURLWithPath: path), options: .atomic)

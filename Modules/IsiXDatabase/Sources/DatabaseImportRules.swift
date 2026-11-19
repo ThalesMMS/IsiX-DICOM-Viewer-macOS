@@ -364,6 +364,8 @@ public enum ImportShortfall {
 /// one of the same Series Instance UID, as stored: a series that Reparse split
 /// keeps the UID of the original with RP-1, RP-2… after it, so a file of the
 /// original series read again makes a series of its own beside them.
+/// A multiframe volume indexed when each such file was a series of its own is
+/// found in that series, by the key it had then (staysInFormerSeries).
 public enum ImportMatching {
     /// Whether a file belongs to the patient of a study: the patient UIDs
     /// compare equal ignoring case, diacritics and width. A file without a
@@ -428,6 +430,20 @@ public enum ImportMatching {
                                                             id: (Series) -> String?) -> [Series] {
         guard ownSR, let wanted = id(series) else { return [series] }
         return [series] + studySeries.filter { $0 !== series && id($0) == wanted }
+    }
+
+    /// Whether a file is filed in the series of its former key and not in
+    /// the one of its key. A multiframe volume shares its series key with the
+    /// files of the same geometry; before, each such file had a key, and a
+    /// series, of its own. A database indexed then holds the file's rows in
+    /// the series of that former key, which names the file: the file stays
+    /// there, whether or not a series of the shared key exists by now, so
+    /// that reading it again adds neither rows nor a series, whatever the
+    /// order the files come in. `studyHolds` says whether the study has a
+    /// series of a key.
+    public static func staysInFormerSeries(formerKey: String?, studyHolds: (String) -> Bool) -> Bool {
+        guard let formerKey else { return false }
+        return studyHolds(formerKey)
     }
 
     /// `[string isEqualToString:other]`, NO for nil.

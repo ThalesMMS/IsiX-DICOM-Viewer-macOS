@@ -31,6 +31,37 @@ import Foundation
 // Foundation): Swift cannot catch one, and an exception crossing Swift frames
 // would end the process. Every guard names HorosObjCException, so each one
 // is counted where it stands.
+//
+// What a guard guarantees when `body` raises: the @catch of
+// +performBlock:error: takes the exception, the guard returns it and the
+// process goes on. What it does not: the Swift frames between the raise and
+// that @catch (those of `body` and of the Swift it called) are abandoned, not
+// unwound, because Swift emits no cleanup for an Objective-C exception. What
+// those frames still owned is never released (a leak bounded by what was in
+// use at the raise, once per exception caught), their `defer` blocks do not
+// run, and a lock they took stays taken. So `body` takes no lock and counts on
+// no `defer` across a call that can raise: the lock goes round the guard, as
+// synchronized(_:_:) does.
+//
+// Every guard goes through perform(_:), and none wraps `body` in
+// withoutActuallyEscaping. `body` does not escape, and both ways of handing
+// such a closure to Objective-C end by checking that nothing kept it: the
+// context made for the call must be referenced once again, or the runtime
+// stops the process. A reference an abandoned frame holds fails that check,
+// so a guard that has a frame of its own copying the closure between the
+// raise and the catch ends the process exactly when it catches something. A
+// guard through withoutActuallyEscaping and a C function with a context
+// pointer did: the Swift callback loads the closure from the pointer, which
+// retains it, calls it, and never reaches the release. The conversion to an
+// NS_NOESCAPE block has no such frame: the block's invoke function, written
+// by the compiler, calls the closure as the block holds it and retains
+// nothing, and `body` never sees the context that is checked.
+//
+// The price when nothing is raised is that context and the copy of the block:
+// two allocations, some 80 ns a call in an optimized build, which the handlers
+// of mouse and scroll events pay as every other guard does. A call that has to
+// cost less passes no closure: HorosObjCPerformFunction takes a C function and
+// a pointer to the plain values it reads, as the drag of a ROI does.
 extension HorosObjCException {
 
     /// The NSException that a failed perform(_:) carries in its error.
@@ -55,20 +86,6 @@ extension HorosObjCException {
     static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) {
         if let raised = caught(body) {
             handler(raised)
-        }
-    }
-
-    /// caught(_:) through HorosObjCPerformFunction and a context, without a
-    /// block or an NSError allocated each time: for the handlers of every mouse
-    /// event.
-    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? {
-        return withoutActuallyEscaping(body) { escapable in
-            var call = escapable
-            return withUnsafeMutablePointer(to: &call) { pointer in
-                HorosObjCPerformFunction({ context in
-                    context!.assumingMemoryBound(to: (() -> Void).self).pointee()
-                }, pointer)
-            }
         }
     }
 

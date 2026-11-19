@@ -10,6 +10,7 @@ import AppKit
  @IBOutlet var view: NSView!
  @IBOutlet var type: NSPopUpButton!
  @IBOutlet var rateValue: NSTextField!
+ @IBOutlet var rateSlider: NSSlider?
  @objc dynamic var exportFrameRate: Int = 10
  @IBAction func changeExportType(_ sender: Any?) {}
 }
@@ -31,6 +32,7 @@ import AppKit
                  "Movie accessory clips a control vertically")
    }
    let slider = view.subviews.compactMap { $0 as? NSSlider }.first!
+   precondition(owner.rateSlider === slider, "Movie rate slider is not connected to its outlet")
    let savedRate = UserDefaults.standard.object(forKey: "quicktimeExportRateValue") as? NSObject
    for rate in [10, 15, 2] {
     owner.exportFrameRate = rate

@@ -122,8 +122,18 @@ final class QueryWindowAutoRetrieveStarter: AutoRetrieveStarting {
     }
 
     func retrieveInventory(of study: AutoQueryStudy) async -> AutoQueryRetrieveInventory? {
-        guard let node = answers.node(of: study), let inventory = node.retrieveInventory,
-              inventory.matchesReportedCount(study.numberOfImages ?? 0) else { return nil }
+        guard let node = answers.node(of: study), let inventory = node.retrieveInventory else { return nil }
+        let reported = study.numberOfImages ?? 0
+        // A node that lists no series or instances: its counters judged the
+        // last retrieve complete. While it reports the same count and what
+        // arrived is still here, the study is here, whatever the files count:
+        // decided on the count alone, a study the node counts more instances
+        // in than it sends was retrieved again on every cycle.
+        if inventory.judgedByPeerCounters {
+            _ = node.refreshRetrieveInventory()
+            if let here = AutoQueryRetrieveInventory.judgedByPeerCounters(inventory, reported: reported) { return here }
+        }
+        guard inventory.matchesReportedCount(reported) else { return nil }
         _ = node.refreshRetrieveInventory()
         return AutoQueryRetrieveInventory(expected: inventory.expectedCount, imported: inventory.importedCount,
                                           isSatisfied: inventory.isSatisfied)

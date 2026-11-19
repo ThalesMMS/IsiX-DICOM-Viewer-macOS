@@ -4,7 +4,14 @@
     {
       "sha256": "072dd49bf89ac45d9e9fb1e1826f77606710e8434fcd00898595ed2aad6fcd19",
       "files": [
-        "Horos/Sources/O2DicomPredicateEditorDCMAttributeTag.swift"
+        "Horos/Sources/O2DicomPredicateEditorDCMAttributeTag.swift",
+        "Modules/IsiXDICOMDataset/Sources/DCMLimitedObject.swift",
+        "Horos/Sources/DCMWaveform.swift",
+        "Horos/Sources/GLString.swift",
+        "Horos/Sources/OpenGLScreenReader.swift",
+        "Horos/Sources/VTKStereoSRView.swift",
+        "Horos/Sources/VTKStereoVRView.swift",
+        "Horos/Sources/VTKView.swift"
       ]
     },
     {
@@ -92,6 +99,7 @@
         "Horos/Sources/BrowserController+Toolbar.swift",
         "Horos/Sources/BrowserController+ViewerOpening.swift",
         "Horos/Sources/BrowserController+Window.swift",
+        "Horos/Sources/BrowserQuitAgreement.swift",
         "Horos/Sources/BrowserController+ZIPExport.swift",
         "Horos/Sources/BrowserController.swift",
         "Horos/Sources/BrowserOutlets.swift",
@@ -846,7 +854,32 @@
         "Preference Panes/OSIPETPreferencePane/OSIPETPreferencePane.swift",
         "Preference Panes/OSIViewerPreferencePane/O2ScreensPrefsView.swift",
         "Preference Panes/OSIViewerPreferencePane/OSIViewerPreferencePanePref.swift",
-        "Preference Panes/OSIWebSharingPreferencePane/OSIWebSharingPreferencePanePref.swift"
+        "Preference Panes/OSIWebSharingPreferencePane/OSIWebSharingPreferencePanePref.swift",
+        "Horos/Sources/AsyncSocket.swift",
+        "Horos/Sources/DCMCalendarScript.swift",
+        "Horos/Sources/DCMTKPrintSCU.swift",
+        "Horos/Sources/DCMTKServiceClassUser.swift",
+        "Horos/Sources/DDKeychain.swift",
+        "Horos/Sources/DefaultsOsiriX.swift",
+        "Horos/Sources/DicomCompressor.swift",
+        "Horos/Sources/DCMTKStoreSCUOperation.swift",
+        "Horos/Sources/HTTPConnection.swift",
+        "Horos/Sources/HTTPDataResponse.swift",
+        "Horos/Sources/HTTPFileResponse.swift",
+        "Horos/Sources/HTTPServer.swift",
+        "Horos/Sources/MoveManager.swift",
+        "Nitrogen/Sources/ISO8601DateFormatter.swift",
+        "Nitrogen/Sources/JSON/SBJSON.swift",
+        "Nitrogen/Sources/JSON/SBJsonBase.swift",
+        "Nitrogen/Sources/JSON/SBJsonParser.swift",
+        "Nitrogen/Sources/JSON/SBJsonWriter.swift",
+        "Nitrogen/Sources/N2CSV.swift",
+        "Nitrogen/Sources/N2Connection.swift",
+        "Nitrogen/Sources/N2ConnectionListener.swift",
+        "Nitrogen/Sources/N2OpenGLViewWithSplitsWindow.swift",
+        "Nitrogen/Sources/N2Pair.swift",
+        "Nitrogen/Sources/N2Task.swift",
+        "Nitrogen/Sources/NSURL+N2.swift"
       ]
     },
     {
@@ -890,6 +923,7 @@
         "Horos/Sources/MutableArrayCategory.swift",
         "Horos/Sources/PluginFileFormatDecoder.swift",
         "Horos/Sources/PluginFilter.swift",
+        "Horos/Sources/ReportPluginFilter.swift",
         "Horos/Sources/SRController+Points.swift",
         "Horos/Sources/SRController+Toolbar.swift",
         "Horos/Sources/SRController.swift",
@@ -909,7 +943,17 @@
         "Modules/IsiXDICOMFile/Sources/ImportedText.swift",
         "Modules/IsiXDICOMFile/Sources/NonDICOMImportHeaders.swift",
         "Modules/IsiXDICOMFile/Sources/PatientUIDRule.swift",
-        "Modules/IsiXImaging/Sources/ViewerNavigation/PointSetRegistration.swift"
+        "Modules/IsiXImaging/Sources/ViewerNavigation/PointSetRegistration.swift",
+        "Horos/Sources/ContextCleaner.swift",
+        "Horos/Sources/DCMNetServiceDelegate.swift",
+        "Horos/Sources/ITK.swift",
+        "Horos/Sources/OsiriXSCPDataHandler.swift",
+        "Modules/IsiXDICOMDataset/Sources/DCMAttribute+DataContainer.swift",
+        "Modules/IsiXDICOMDataset/Sources/DCMDataContainer.swift",
+        "Modules/IsiXDICOMDataset/Sources/DCMObject+DataContainer.swift",
+        "Modules/IsiXDICOMDataset/Sources/DCMValueRepresentation.swift",
+        "Horos/Sources/Interpolation3D.swift",
+        "Horos/Sources/StringTexture.swift"
       ]
     },
     {

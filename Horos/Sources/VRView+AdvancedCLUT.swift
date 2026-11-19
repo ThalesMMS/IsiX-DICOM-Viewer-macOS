@@ -38,24 +38,27 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXVolumeRendering
 
 // The advanced CLUT of VRView: the colour and opacity curves of the CLUT
 // editor (CLUTOpacityView) as VTK's transfer functions. A Swift extension of
 // the class, with the same selectors.
 
-/// The curves and colours of an advanced CLUT as they are now: the CLUT editor
-/// changes its arrays in place, so the CLUT last applied is kept as a copy and
-/// compared with the next one value by value (NSValue points, NSColors).
-private func advancedCLUTSnapshot(_ clut: NSDictionary?) -> NSDictionary {
-    let curves = NSMutableArray()
-    for curve in (clut?.object(forKey: "curves") as? NSArray) ?? [] {
-        curves.add(NSArray(array: curve as? [Any] ?? []))
+/// The curves of an advanced CLUT (NSValue points: x the value, y the height)
+/// with the colour of each point; a point without a colour is black.
+private func advancedCLUTCurves(_ clut: NSDictionary?) -> [[AdvancedCLUTFunctions.Point]] {
+    let colours = clut?.object(forKey: "colors") as? [Any] ?? []
+    return (clut?.object(forKey: "curves") as? [Any] ?? []).enumerated().map { index, curve in
+        let points = curve as? [NSValue] ?? []
+        let pointColours = index < colours.count ? colours[index] as? [NSColor] ?? [] : []
+        return points.enumerated().map { pointIndex, value in
+            let point = value.pointValue
+            let colour = pointIndex < pointColours.count ? pointColours[pointIndex] : nil
+            return AdvancedCLUTFunctions.Point(value: Double(point.x), height: Double(point.y),
+                                               red: Double(colour?.redComponent ?? 0), green: Double(colour?.greenComponent ?? 0),
+                                               blue: Double(colour?.blueComponent ?? 0))
+        }
     }
-    let colors = NSMutableArray()
-    for pointColors in (clut?.object(forKey: "colors") as? NSArray) ?? [] {
-        colors.add(NSArray(array: pointColors as? [Any] ?? []))
-    }
-    return NSDictionary(objects: [curves, colors], forKeys: ["curves" as NSString, "colors" as NSString])
 }
 
 extension VRView {
@@ -66,44 +69,31 @@ extension VRView {
 
         horos_advancedCLUT = true
 
-        let curves = clut?.object(forKey: "curves") as? NSArray ?? NSArray()
-        let pointColors = clut?.object(forKey: "colors") as? NSArray ?? NSArray()
+        // The curves' values, and the volume's range, as the volume holds them;
+        // the opacity divided by the supersampling in volume rendering.
+        let functions = AdvancedCLUTFunctions(curves: advancedCLUTCurves(clut),
+                                              minimum: Double(horos_controller?.minimumValue() ?? 0),
+                                              maximum: Double(horos_controller?.maximumValue() ?? 0),
+                                              offset: Double(horos_OFFSET16), valueFactor: Double(horos_valueFactor),
+                                              opacityDivisor: renderingMode == 0 ? Double(horos_superSampling) : 1)
 
-        let clutSnapshot = advancedCLUTSnapshot(clut)
-
-        // -isEqual: of a dictionary is -isEqualToDictionary:, NO for nil.
-        guard !clutSnapshot.isEqual(horos_appliedCurves) || (horos_appliedResolution && !lowRes) else { return }
+        // What was last applied is compared as functions, not as curves: the
+        // same curves give other functions after a change of mode (the
+        // opacity's divisor) or of a 4D set's value map, and the editor changes
+        // its arrays in place.
+        guard functions != horos_appliedCLUT || (horos_appliedResolution && !lowRes) else { return }
 
         let vtk = horos_vtk
         vtk.removeAllColourPoints()
         vtk.removeAllOpacityPoints()
-
-        vtk.addOpacitySegment(from: Double(horos_controller?.minimumValue() ?? 0), value: 0.0,
-                                  to: Double(horos_controller?.maximumValue() ?? 0), value: 0.0)
-
-        let offset = Double(horos_OFFSET16), valueFactor = Double(horos_valueFactor)
-        for i in 0..<curves.count {
-            let aCurve = NSMutableArray(array: curves.object(at: i) as? [Any] ?? [])
-            let someColors = NSMutableArray(array: pointColors.object(at: i) as? [Any] ?? [])
-            for j in 0..<aCurve.count {
-                let point = (aCurve.object(at: j) as? NSValue)?.pointValue ?? .zero
-                let color = someColors.object(at: j) as? NSColor
-                vtk.addColourPoint(at: (offset + Double(point.x)) * valueFactor,
-                                     red: Double(color?.redComponent ?? 0), green: Double(color?.greenComponent ?? 0),
-                                     blue: Double(color?.blueComponent ?? 0))
-
-                var opacityAdapter: Float = 1
-                if renderingMode == 0 { // VR
-                    opacityAdapter = horos_superSampling
-                }
-
-                let o = Float(Double(point.y) * Double(point.y) / Double(opacityAdapter))
-
-                vtk.addOpacityPoint(at: (offset + Double(point.x)) * valueFactor, value: Double(o))
-            }
+        for node in functions.opacity {
+            vtk.addOpacityPoint(at: node.x, value: node.opacity)
+        }
+        for node in functions.colour {
+            vtk.addColourPoint(at: node.x, red: node.red, green: node.green, blue: node.blue)
         }
 
-        horos_appliedCurves = clutSnapshot as? [AnyHashable: Any]
+        horos_appliedCLUT = functions
         horos_appliedResolution = lowRes
 
         if lowRes {

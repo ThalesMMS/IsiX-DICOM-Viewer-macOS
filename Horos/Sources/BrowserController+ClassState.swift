@@ -221,13 +221,13 @@ extension BrowserController {
 
     /// The date formats of the browser, from any thread.
     nonisolated static func horos_currentBrowserTimeFormat() -> DateFormatter? {
-        return BrowserClassState.current?.windowState.TimeFormat
+        return BrowserClassState.current?._TimeFormat
     }
     nonisolated static func horos_currentBrowserTimeWithSecondsFormat() -> DateFormatter? {
-        return BrowserClassState.current?.windowState.TimeWithSecondsFormat
+        return BrowserClassState.current?._TimeWithSecondsFormat
     }
     nonisolated static func horos_currentBrowserDateTimeWithSecondsFormat() -> DateFormatter? {
-        return BrowserClassState.current?.windowState.DateTimeWithSecondsFormat
+        return BrowserClassState.current?._DateTimeWithSecondsFormat
     }
 
     /// The literal the local copy thread synchronizes on, and the copy of

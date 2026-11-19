@@ -312,7 +312,7 @@ public final class PreviewWindowPolicy: NSObject {
 /// The window a frame's own intensities suggest.
 ///
 /// Adapted from the sampled, background-rejecting calculation the origin added
-/// for MR previews. The workbench decodes into a rescaled float buffer, so
+/// for MR previews. This viewer decodes into a rescaled float buffer, so
 /// there is no slope/intercept step here: the values handed in are already the
 /// values the viewer measures. Nothing is written back — the buffer is read
 /// through a `const float *` and the quantitative pixels are untouched.

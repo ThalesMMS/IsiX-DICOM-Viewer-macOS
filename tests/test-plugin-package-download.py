@@ -254,6 +254,7 @@ enum PluginManager {
     let pluginManager = FixtureManager()
     var downloadStatusTextField: FixtureStatusField? = FixtureStatusField()
     var downloadStatusProgressIndicator: FixtureProgressIndicator? = FixtureProgressIndicator()
+    var downloadedFilePath: NSString?
     var refreshes = 0
     func refreshPluginList() { refreshes += 1 }
     func isZippedFile(atPath path: String) -> Bool { (path as NSString).pathExtension == "zip" }

@@ -276,7 +276,6 @@ typedef BOOL (^IsiXVTKMetalImageRenderer)(IsiXVTKVolumeView *view, BOOL fused);
 - (void)setRGBComponentsToColourFunction:(BOOL)colourFunction;
 - (void)removeAllOpacityPoints;
 - (void)addOpacityPointAt:(double)x value:(double)value;
-- (void)addOpacitySegmentFrom:(double)x1 value:(double)v1 to:(double)x2 value:(double)v2;
 - (void)removeAllColourPoints;
 - (void)addColourPointAt:(double)x red:(double)red green:(double)green blue:(double)blue;
 - (double)opacityAt:(double)x;

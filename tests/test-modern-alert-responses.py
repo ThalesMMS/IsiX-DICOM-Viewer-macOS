@@ -113,9 +113,9 @@ def swift_method(signature):
         end += 1
     return maintenance[start:end]
 
-# -shouldTerminate: is BrowserController+Window.swift; it runs against peers
-# with the real alert bridge (HorosAlertPanel.m).
-window_source = (root / 'Horos/Sources/BrowserController+Window.swift').read_text()
+# What -shouldTerminate: asks is BrowserQuitAgreement.swift; it runs against
+# peers with the real alert bridge (HorosAlertPanel.m).
+window_source = (root / 'Horos/Sources/BrowserQuitAgreement.swift').read_text()
 def window_method(signature):
     start = window_source.index(signature)
     opening = window_source.index('{', start)
@@ -168,9 +168,8 @@ enum DatabaseRebuildService { @MainActor static func waitForRebuildsBeforeQuitti
     }
     @objc func shouldTerminateCallback(_ timer: Timer!) {}
 }
-extension BrowserPeer {
+typealias BrowserController = BrowserPeer
 METHOD
-}
 MainActor.assumeIsolated {
     _ = NSApplication.shared
     let database = DatabasePeer()
@@ -181,15 +180,30 @@ MainActor.assumeIsolated {
         drainDuringAlert = scenario == 3
         answer = scenario == 1 ? .alertSecondButtonReturn : .alertFirstButtonReturn
         let before = browser.detached, calls = modalCalls
-        let result = browser.shouldTerminate(nil)
+        let result = BrowserQuitAgreement(browser: browser).given(asking: true)
         check(result == (scenario != 0), "result")
         check(browser.detached == before + (scenario != 0 ? 1 : 0), "detached")
         check(modalCalls == calls + (scenario != 2 ? 1 : 0), "asked")
     }
-    check(database.saves == 4, "saved")
-    print("PASS: actual Browser termination Cancel/Quit/no-threads/drained-thread guards")
+    // The end of the session puts no question: the operations are given up,
+    // as the Quit button answers, whatever the alert would have been told.
+    browser.database = database
+    threadCount = 2
+    drainDuringAlert = false
+    answer = .alertFirstButtonReturn
+    let before = browser.detached, calls = modalCalls
+    check(BrowserQuitAgreement(browser: browser).given(asking: false), "result without asking")
+    check(browser.detached == before + 1, "detached without asking")
+    check(modalCalls == calls, "asked at the end of the session")
+    check(database.saves == 5, "saved")
+    // Before the database window exists there is nothing to ask, close or save.
+    let asked = modalCalls
+    check(BrowserQuitAgreement(browser: nil).given(asking: true), "result with no database window")
+    check(BrowserQuitAgreement(browser: nil).given(asking: false), "result with no database window, not asking")
+    check(modalCalls == asked && database.saves == 5, "asked or saved with no database window")
+    print("PASS: actual Browser termination Cancel/Quit/no-threads/drained-thread guards, and no question at the end of the session")
 }
-'''.replace('METHOD', window_method('func shouldTerminate(_ sender: Any!) -> Bool'))
+'''.replace('METHOD', window_method('@MainActor struct BrowserQuitAgreement'))
 
 # The rebuild runs in Swift against peers; an Objective-C trampoline catches
 # the exception a refused rebuild raises, which Swift cannot.

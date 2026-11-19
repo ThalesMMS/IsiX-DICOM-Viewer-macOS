@@ -72,24 +72,39 @@ public protocol N2XMLRPCConnectionDelegate: NSObjectProtocol {
 /// peer. Made without one, it runs the calls made in this process, and what
 /// it writes goes nowhere.
 ///
+/// It descends from N2Connection, as it did in the plugin SDK of Horos and
+/// OsiriX: the status, the options and the messages every connection has
+/// (-writeData:, -address, -open, -close) are the base class's, and this class
+/// overrides what the XML-RPC exchange adds to them.
+///
 /// The request's HTTP framing, the reading of the method call, the values and
 /// the dispatch rules are in IsiXHTTPServer (XMLRPCHTTPRequest,
 /// XMLRPCMethodCall, XMLRPCValueCoder, XMLRPCDispatch); this class holds the
 /// connection's state and calls the delegate.
 @objc(N2XMLRPCConnection)
-open class N2XMLRPCConnection: NSObject {
+open class N2XMLRPCConnection: N2Connection {
+    // The instance variables of the former Horos and OsiriX plugin SDK
+    // (_delegate, _executed, _waitingToClose, _dontSpecifyStringType, _timeout
+    // and _doc): a plugin reads and writes each at the offset the application
+    // exports for it, so each is a stored field of this class with the type
+    // the C declaration has in memory, never private, lazy, weak or observed.
+    final var _delegate: NSObject?
+
     /// Answers the calls; retained, as the former property was.
-    @objc public var delegate: N2XMLRPCConnectionDelegate?
+    @objc public var delegate: N2XMLRPCConnectionDelegate? {
+        get { _delegate as? N2XMLRPCConnectionDelegate }
+        set { _delegate = newValue as? NSObject }
+    }
     /// Strings go out without `<string>`, as the interface's clients expect.
     @objc public var dontSpecifyStringType = false
     /// The request document being handled, once its body has been parsed.
-    @objc public private(set) var requestDocument: XMLDocument?
+    @objc public internal(set) var requestDocument: XMLDocument?
 
-    private var executed = false
-    private var waitingToClose = false
+    final var executed = false
+    final var waitingToClose = false
     /// The deadline's timer; set and cleared under `lock`, as the former
     /// @synchronized blocks did, since close() may come from another thread.
-    private var timeout: Timer?
+    final var timeout: Timer?
     private let lock = NSLock()
 
     /// How long a connection may stay open, from open() to its answer.
@@ -99,9 +114,12 @@ open class N2XMLRPCConnection: NSObject {
         super.init()
     }
 
-    /// The peer, for the access rules; nil for a call made in this process.
-    @objc open var address: String? {
-        nil
+    /// The initializer the SDK's listener made a connection with, and the one
+    /// its other initializers come to. The base class has no streams to open
+    /// and leaves the connection closed.
+    public override init!(address: Any!, port: Int, tls tlsFlag: Bool, is: InputStream!, os: OutputStream!) {
+        super.init(address: address, port: port, tls: tlsFlag, is: `is`, os: os)
+        closeOnRemoteClose = true
     }
 
     @objc(N2XMLRPCOptions)
@@ -116,19 +134,23 @@ open class N2XMLRPCConnection: NSObject {
     // MARK: Lifetime
 
     /// Starts the deadline, on the current thread's run loop.
-    @objc dynamic open func open() {
+    open override func open() {
         lock.withLock {
             timeout?.invalidate()
             timeout = Timer.scheduledTimer(timeInterval: Self.deadline, target: self,
                                            selector: #selector(timeoutDidFire(_:)), userInfo: nil, repeats: false)
         }
+
+        super.open()
     }
 
-    @objc dynamic open func close() {
+    open override func close() {
         lock.withLock {
             timeout?.invalidate()
             timeout = nil
         }
+
+        super.close()
     }
 
     @objc(timeout:)
@@ -141,14 +163,11 @@ open class N2XMLRPCConnection: NSObject {
 
     // MARK: Transport
 
-    /// Sends `data` to the peer. The connection itself has none: a subclass
-    /// that carries the bytes overrides it.
-    @objc(writeData:)
-    dynamic open func write(_ data: Data) {
-    }
+    // -writeData: is N2Connection's: the connection itself has no peer to send
+    // to, and a subclass that carries the bytes overrides it.
 
     /// What was written has left: the connection closes after its answer.
-    @objc dynamic open func connectionFinishedSendingData() {
+    open override func connectionFinishedSendingData() {
         if waitingToClose {
             close()
         }
@@ -159,8 +178,7 @@ open class N2XMLRPCConnection: NSObject {
     /// Everything received so far, each time more arrives. The request is
     /// handled once: as soon as its header is complete it is judged, and once
     /// the body Content-Length announces is there it is answered.
-    @objc(handleData:)
-    dynamic open func handle(_ data: NSMutableData) {
+    open override func handle(_ data: NSMutableData) {
         if executed { return }
 
         guard let request = XMLRPCHTTPRequest(received: data as Data) else { return }
@@ -169,6 +187,15 @@ open class N2XMLRPCConnection: NSObject {
         // dispatched. A refused request costs one response and nothing else.
         if !shouldHandleRequest(request.message, version: request.version) {
             executed = true
+            return
+        }
+
+        // A body longer than a call can be is refused as soon as it is
+        // announced, or once that much of it has arrived, and never kept.
+        if XMLRPCRequestLimits.bodyIsTooLong(contentLengthField: request.contentLengthField, received: request.body?.count ?? 0) {
+            executed = true
+            NSLog("--- XML-RPC request from %@ refused: its body is longer than a call's may be", (address ?? "(null)") as NSString)
+            writeStatus(413, headers: nil, version: request.version)
             return
         }
 
@@ -362,6 +389,27 @@ open class N2XMLRPCConnection: NSObject {
     /// document is a fault.
     private func writeDocument(_ document: String, version: String) {
         writeResponse(XMLRPCHTTPResponse.document(document, version: version))
+    }
+
+    /// The two selectors of the plugin SDK of Horos and OsiriX around a
+    /// request already parsed by the caller: the request is handled as the
+    /// bytes it is, and the response sent as -writeResponse: sends it, taking
+    /// the reference the caller hands over.
+    @objc(handleRequest:)
+    public func legacyHandleRequest(_ request: CFHTTPMessage?) {
+        guard let request, let serialized = CFHTTPMessageCopySerializedMessage(request)?.takeRetainedValue() else { return }
+        handle(NSMutableData(data: serialized as Data))
+    }
+
+    @objc(writeAndReleaseResponse:)
+    public func legacyWriteAndReleaseResponse(_ response: CFHTTPMessage?) {
+        guard let response else { return }
+        writeResponse(response)
+        // The caller hands its reference over, as the selector's name says. The
+        // parameter is a plain reference, not an Unmanaged one, which the
+        // generated Objective-C interface would qualify with an ownership a
+        // Core Foundation type does not take.
+        Unmanaged.passUnretained(response).release()
     }
 
     /// Sends the response and closes once it has left.

@@ -48,20 +48,31 @@ import AppKit
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(CPRClusterView) @usableFromInline
 final class CPRClusterView: NSView {
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class, never private, lazy, weak
+    // or observed; the outlets lay the views out when one changes. A view a
+    // plugin writes directly is laid out with the next frame.
+    var _mainView: NSView?, _topView: NSView?, _middleView: NSView?, _bottomView: NSView?
+
     @IBOutlet @objc var mainView: NSView? {
-        didSet { if mainView !== oldValue { updateClusterViewFrames() } }
+        get { _mainView }
+        set { if newValue !== _mainView { _mainView = newValue; updateClusterViewFrames() } }
     }
 
     @IBOutlet @objc var topView: NSView? {
-        didSet { if topView !== oldValue { updateClusterViewFrames() } }
+        get { _topView }
+        set { if newValue !== _topView { _topView = newValue; updateClusterViewFrames() } }
     }
 
     @IBOutlet @objc var middleView: NSView? {
-        didSet { if middleView !== oldValue { updateClusterViewFrames() } }
+        get { _middleView }
+        set { if newValue !== _middleView { _middleView = newValue; updateClusterViewFrames() } }
     }
 
     @IBOutlet @objc var bottomView: NSView? {
-        didSet { if bottomView !== oldValue { updateClusterViewFrames() } }
+        get { _bottomView }
+        set { if newValue !== _bottomView { _bottomView = newValue; updateClusterViewFrames() } }
     }
 
     override var frame: NSRect {

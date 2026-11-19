@@ -3,6 +3,13 @@
 
 All interaction happens through the UI. LLDB reads the uploaded shared Metal
 textures and production capture output without driving UI. Captures remain local.
+
+The verifier only accepts a capture of an active application. A first LLDB
+attach therefore asks the application to activate, when the capture's own
+synthetic guard holds, and detaches, so that its event loop handles the
+activation; the capturer waits a bounded time for it to come to the front and
+settle. The capture's snapshot then reads [NSApp isActive], and a snapshot of
+an inactive application is refused with nothing saved.
 """
 import argparse
 import json
@@ -10,7 +17,50 @@ import hashlib
 from pathlib import Path
 import re
 import subprocess
+import time
 import uuid
+
+ACTIVATION_WAIT_SECONDS = 3
+# Becoming active redraws the windows and synchronizes the other viewers on the
+# application's run loop: the capture stops the process only after that.
+ACTIVATION_SETTLE_SECONDS = 1
+ACTIVATION_ATTACH_SECONDS = 60
+
+
+def inactive_refusal(state, pid):
+    """Why a capture snapshot must not be saved for inactivity, or None."""
+    if state.get('applicationActive'):
+        return None
+    return (f'Refused: the application (pid {pid}) was not active in the capture snapshot, although it was asked '
+            'to activate. Another application may keep the front; bring the viewer to the front and capture again. '
+            'No capture was saved.')
+
+
+def wait_until_front(pid, seconds):
+    """Whether LaunchServices reports the process in front within `seconds`; the snapshot still decides."""
+    asn = re.compile(r'ASN:0x[0-9a-f]+-0x[0-9a-f]+')
+    deadline = time.monotonic() + seconds
+
+    def lsappinfo(*arguments):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            output = subprocess.run(['lsappinfo', *arguments], capture_output=True, text=True,
+                                    stdin=subprocess.DEVNULL, timeout=remaining).stdout
+        except (OSError, subprocess.SubprocessError):
+            return None
+        match = asn.search(output)
+        return match.group() if match else None
+
+    mine = None
+    while time.monotonic() < deadline:
+        mine = mine or lsappinfo('find', f'pid={pid}')
+        if mine and lsappinfo('front') == mine:
+            return True
+        time.sleep(0.1)
+    return False
+
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
@@ -29,7 +79,9 @@ prefix = (args.output/args.label).resolve()
 if prefix.with_suffix('.json').exists():
     parser.error('Capture already exists; choose a new label to preserve evidence')
 staged = prefix.with_suffix('.'+uuid.uuid4().hex+'.partial')
-expression = r'''
+# The one synthetic viewer of the series, on the main thread of the isolated host;
+# the activation and the capture both act only when it holds.
+guard = r'''
 id a111Owner=nil; int a111Matches=0;
 for (id candidate in (NSArray*)(id)[(id)objc_getClass("ViewerController") get2DViewers]) {
  NSString *a111SeriesName=(id)[(NSObject*)candidate valueForKeyPath:@"currentSeries.name"];
@@ -43,7 +95,14 @@ for (id a111View in a111Views) {
  NSString *a111Patient=(id)[(NSObject*)a111Vc valueForKeyPath:@"currentStudy.patientID"];
  if (![@[@"QA-A111-ONLY",@"LOCAL-FUSION-CT-PT"] containsObject:a111Patient]) a111Synthetic=NO;
 }
-if (a111Synthetic) {
+'''
+expression = r'''
+BOOL a111Active=(BOOL)[(NSApplication*)NSApp isActive];
+''' + guard + r'''
+/* Inactive: only the state goes out, for the refusal; no capture file is written. */
+if (a111Synthetic && !a111Active)
+ [[NSJSONSerialization dataWithJSONObject:@{@"applicationActive":@NO} options:0 error:nil]writeToFile:OUTPUT atomically:YES];
+if (a111Synthetic && a111Active) {
  NSRect a111Bounds=[(NSView*)a111Main bounds];
  NSRect a111Backing=[(NSView*)a111Main convertRectToBacking:a111Bounds];
  NSMutableDictionary *a111State=[NSMutableDictionary dictionaryWithDictionary:@{
@@ -54,7 +113,7 @@ if (a111Synthetic) {
   @"blendingFactor":[(NSObject*)a111Main valueForKey:@"blendingFactor"],
   @"blendingMode":[(NSObject*)a111Main valueForKey:@"blendingMode"],
   @"blendingClutMode":[[NSUserDefaults standardUserDefaults] stringForKey:@"PET Clut Mode"] ?: @"",
-  @"applicationActive":@([(NSApplication*)NSApp isActive]),
+  @"applicationActive":@(a111Active),
   @"keyWindow":[(NSApplication*)NSApp keyWindow].title ?: @""
  }];
  NSMutableArray *a111Layers=[NSMutableArray array];
@@ -163,18 +222,59 @@ if (a111Synthetic) {
  }
 }
 '''
-expression = expression.replace('BUNDLE','@'+json.dumps(args.bundle_id)).replace('TITLE','@'+json.dumps(args.title_prefix)).replace('PREFIX','@'+json.dumps(str(prefix))).replace('OUTPUT','@'+json.dumps(str(staged)))
+def fill(text):
+    return text.replace('BUNDLE','@'+json.dumps(args.bundle_id)).replace('TITLE','@'+json.dumps(args.title_prefix)).replace('PREFIX','@'+json.dumps(str(prefix))).replace('OUTPUT','@'+json.dumps(str(staged)))
+
+
+def one_line(text):
+    return 'expression -l objc++ -- { '+' '.join(fill(text).splitlines())+' }'
+
+
+def discard():
+    """Remove what a refused or failed capture of this label wrote; its LLDB commands and log stay."""
+    layer = re.compile(re.escape(args.label)+r'-layer-\d+\.(f32|u8|volume\.f32|rgba|texture\.raw|texture\.f32)')
+    for path in [staged, prefix.with_suffix('.bgra'), *(path for path in args.output.iterdir() if layer.fullmatch(path.name))]:
+        path.unlink(missing_ok=True)
+
+
+def attach(*arguments, timeout=None):
+    return subprocess.run(['xcrun','lldb','--batch','-p',str(args.pid),*arguments],capture_output=True,text=True,
+                          stdin=subprocess.DEVNULL,timeout=timeout)
+
+
 commands = prefix.with_suffix('.lldb')
 commands.write_text('expression -l objc++ -- @import AppKit\nexpression -l objc++ -- @import Metal\nexpression -l objc++ -- @import ObjectiveC\n'
-                    'expression -l objc++ -- { '+' '.join(expression.splitlines())+' }\nprocess detach --keep-stopped false\n')
+                    +one_line(expression)+'\nprocess detach --keep-stopped false\n')
 if args.prepare_only:
     print('Prepared commands only (no capture):',commands)
     raise SystemExit(0)
-result = subprocess.run(['xcrun','lldb','--batch','-p',str(args.pid),'-s',str(commands)],capture_output=True,text=True)
-prefix.with_suffix('.lldb.log').write_text(result.stdout+result.stderr)
+# Activation is handled by the application's own event loop, so it is asked for
+# in an attach of its own; the capture's attach then finds it settled.
+activation = guard+'''
+if (a111Synthetic && !(BOOL)[(NSApplication*)NSApp isActive]) (void)[(NSApplication*)NSApp activateIgnoringOtherApps:YES];
+'''
+try:
+    activated = attach('-o','expression -l objc++ -- @import AppKit','-o','expression -l objc++ -- @import ObjectiveC',
+                       '-o',one_line(activation),'-o','process detach --keep-stopped false',timeout=ACTIVATION_ATTACH_SECONDS)
+    log, failure = activated.stdout+activated.stderr, activated.returncode and f'LLDB exited with {activated.returncode}'
+except subprocess.TimeoutExpired as expired:
+    log = ''.join(part.decode(errors='replace') if isinstance(part,bytes) else part for part in (expired.stdout or '',expired.stderr or ''))
+    failure = f'LLDB did not finish within {ACTIVATION_ATTACH_SECONDS} s'
+if failure:
+    prefix.with_suffix('.lldb.log').write_text(log)
+    raise SystemExit(f'Could not ask the application to activate ({failure}); no capture was saved; inspect the local LLDB log')
+if wait_until_front(args.pid, ACTIVATION_WAIT_SECONDS):
+    time.sleep(ACTIVATION_SETTLE_SECONDS)
+result = attach('-s',str(commands))
+prefix.with_suffix('.lldb.log').write_text(log+result.stdout+result.stderr)
 if result.returncode or not staged.exists():
-    raise SystemExit('Capture failed or synthetic guard refused it; inspect the local LLDB log')
+    discard()
+    raise SystemExit('Capture failed or synthetic guard refused it; no capture was saved; inspect the local LLDB log')
 state = json.loads(staged.read_text())
+refusal = inactive_refusal(state, args.pid)
+if refusal:
+    discard()
+    raise SystemExit(refusal)
 paths = [prefix.with_suffix('.bgra')]
 for layer in state['layers']:
     paths += list(args.output.glob(layer['prefix']+'.*'))

@@ -6,6 +6,13 @@ oracle independently interpolates scalar samples in float64, quantizes the CLUT,
 and composites fusion alpha. It also checks all calibrated source voxels against
 the analytic phantom. Windowed transfer/filter inputs are separately compared
 with host vImage resampling; that comparison does not validate the transfer curve.
+
+Scalar float samples are interpolated as the renderer that drew the capture did.
+With the host's software interpolation on, the current planar fragment receives
+the samples one texel each and draws them with its bounded cubic (bounded_cubic);
+a capture from before it holds them enlarged by vImage (Lanczos, in the samples'
+units) and drawn bilinear, and keeps that model. --current-renderer refuses that
+enlargement: a capture of today's application must show the bounded cubic.
 """
 import argparse
 import ctypes
@@ -17,6 +24,8 @@ import uuid
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+# The Metal capture of tools/capture-native-planar-presentation.py.
+CAPTURE_API = 'horosPlanarPixelsWidth:height:inverted:+uploaded-texture'
 
 
 def french_palette():
@@ -30,7 +39,7 @@ def french_palette():
 
 def check_case(state, case):
     """Acceptance intent is supplied separately; observed flags cannot define it."""
-    modern = state.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:+uploaded-texture'
+    modern = state.get('captureAPI') == CAPTURE_API
     assert state['metalEnabled'] == (modern or case != 'gray-control'), 'Wrong requested renderer'
     assert bool(state['fallback']) == (not modern and case != 'gray-control'), 'Missing/unexpected explicit fallback'
     assert state['blendingMode'] == 0
@@ -126,11 +135,57 @@ def interpolate(texture, px, py, image_width, image_height):
             +sample(0,1)*(1-fx)*fy+sample(1,1)*fx*fy)
 
 
-def interpolation_interval(texture, px, py, dx, dy, iw, ih):
+def catmull_rom(t):
+    """Catmull-Rom weights of the texels at offsets -1, 0, 1, 2 for a fraction
+    t: (0, 1, 0, 0) at t = 0, so texel centres come back exactly."""
+    t2 = t*t
+    t3 = t2*t
+    return (-.5*t3+t2-.5*t, 1.5*t3-2.5*t2+1, -1.5*t3+2*t2+.5*t, .5*t3-.5*t2)
+
+
+def bounded_cubic(texture, px, py, image_width, image_height, level, width):
+    """The planar fragment's high-quality interpolation of scalar float samples.
+
+    The samples go up one texel each. Each of the 4 x 4 texels around the
+    sample is first held within the window, whose bounds swap for a negative
+    width; Catmull-Rom weighs them, and the result is kept within the four
+    texels a linear sample reads. Texel reads are clamped to the edge.
+    """
+    th, tw = texture.shape
+    low, high = sorted((level-width/2, level+width/2))
+    x, y = px*tw/image_width-.5, py*th/image_height-.5
+    x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
+    wx, wy = catmull_rom(x-x0), catmull_rom(y-y0)
+    total, inner = 0., []
+    for j in range(4):
+        rows = np.clip(y0-1+j, 0, th-1)
+        row = 0.
+        for i in range(4):
+            texel = np.clip(texture[rows, np.clip(x0-1+i, 0, tw-1)].astype(np.float64), low, high)
+            row = row+wx[i]*texel
+            if i in (1, 2) and j in (1, 2):
+                inner.append(texel)
+        total = total+wy[j]*row
+    return np.clip(total, np.minimum.reduce(inner), np.maximum.reduce(inner))
+
+
+def bounded_cubic_slack(level, width):
+    """Eight float32 ULPs of the window's larger bound. The fragment holds every
+    texel within the window before weighing it, so the rounding of its float
+    sums scales with the window, not with the value, which can be near zero."""
+    return float(np.spacing(np.float32(max(abs(level-width/2), abs(level+width/2)))))*8
+
+
+def interpolation_interval(texture, px, py, dx, dy, iw, ih, sample=interpolate, jumps=False):
     """Extrema include any texel-centre knot crossed by the interval.
 
     Between knots bilinear extrema are at corners. The declared coordinate
     interval is smaller than one texel, hence at most one interior knot per axis.
+    With jumps, the sample may be discontinuous at a knot: the bounded cubic
+    is, where the four texels that bound it change. Each piece is then also
+    read at its end, a billionth of a texel before the knot. Within a piece the
+    bounded cubic is smooth, and over an interval this small its curvature moves
+    an extremum away from these points by far less than the slack on the value.
     """
     th, tw = texture.shape
     assert np.max(2*dx*tw/iw) < 1 and np.max(2*dy*th/ih) < 1
@@ -138,7 +193,10 @@ def interpolation_interval(texture, px, py, dx, dy, iw, ih):
     knot_y = (np.ceil((py-dy)*th/ih-.5)+.5)*ih/th
     xs = [px-dx, np.clip(knot_x,px-dx,px+dx), px+dx]
     ys = [py-dy, np.clip(knot_y,py-dy,py+dy), py+dy]
-    values = [interpolate(texture,x,y,iw,ih) for x in xs for y in ys]
+    if jumps:
+        xs.append(np.clip(knot_x-1e-9*iw/tw,px-dx,px+dx))
+        ys.append(np.clip(knot_y-1e-9*ih/th,py-dy,py+dy))
+    values = [sample(texture,x,y,iw,ih) for x in xs for y in ys]
     return np.minimum.reduce(values), np.maximum.reduce(values)
 
 
@@ -170,11 +228,12 @@ def convolve(source, layer):
     return result.astype(np.float32)
 
 
-def verify(path, case=None):
+def verify(path, case=None, current=False):
     state = json.loads(path.read_text())
     if case is not None:
         check_case(state,case)
-    modern = state.get('captureAPI') == 'horosPlanarPixelsWidth:height:inverted:+uploaded-texture'
+    modern = state.get('captureAPI') == CAPTURE_API
+    assert modern or not current, 'The current renderer is captured by the Metal capture only'
     assert state['applicationActive']
     if modern:
         assert state['captureError'] == 0 and state['rowOrder'] == 'bottom-up', 'Invalid Metal readback'
@@ -188,7 +247,9 @@ def verify(path, case=None):
     predicted = []
     mask = np.ones((h,w), dtype=bool)
     checked_voxels = 0
+    models = []
     for layer_index, layer in enumerate(state['layers']):
+        cubic = False
         if not modern:
             assert not layer['legacyFailure']
         texture_format = layer['texturePixelFormat'] if modern else layer['textureFormat']
@@ -244,16 +305,29 @@ def verify(path, case=None):
                       if mode in (1,2,3) else raw)
             if layer['hasFilter']:
                 source = convolve(source, layer)
+            # The current fragment interpolates the host's float samples itself
+            # when the host interpolates in software: they go up one texel each.
+            # An enlarged upload is the former vImage enlargement, drawn bilinear.
+            cubic = modern and layer['softwareInterpolation'] and source.shape == texture.shape
+            assert cubic or not (current and layer['softwareInterpolation']), \
+                f'Float samples uploaded enlarged to {tw}x{th}: the former Lanczos path, not the current renderer'
             upload = resample(source, (th,tw)) if source.shape != texture.shape else source
             # Convolution may sum in a different order in vImage.
             tolerance = np.abs(np.spacing(upload))*8 if layer['hasFilter'] else 0
             assert np.all(np.abs(texture-upload)<=tolerance), 'Physical scalar upload differs'
         px, py = coordinates(layer, w, h)
         mask &= fixed_mask(layer, px, py)
-        value = interpolate(texture,px,py,iw,ih)
+        if cubic:
+            def sample(texture, x, y, iw, ih, level=layer['level'], width=layer['widthWindow']):
+                return bounded_cubic(texture, x, y, iw, ih, level, width)
+            models.append('bounded cubic')
+        else:
+            sample = interpolate
+            models.append('bilinear' if texture.shape == (ih, iw) else f'bilinear over {tw}x{th} upload')
+        value = sample(texture,px,py,iw,ih)
         # The host's coordinate conversion, GL vertices and texture varyings
         # are float32 too. Propagate their declared eight-ULP interval through
-        # bilinear sampling instead of applying a bound only to final intensity.
+        # the interpolation instead of applying a bound only to final intensity.
         dx = np.abs(np.spacing((px*tw/iw).astype(np.float32)).astype(np.float64))*8*iw/tw
         dy = np.abs(np.spacing((py*th/ih).astype(np.float32)).astype(np.float64))*8*ih/th
         if 'subpixelBits' in state:
@@ -266,8 +340,9 @@ def verify(path, case=None):
             p = layer['screenToPixel']
             dx += quantum*(abs(p[2]-p[0])/w+abs(p[4]-p[0])/h)
             dy += quantum*(abs(p[3]-p[1])/w+abs(p[5]-p[1])/h)
-        lower, upper = interpolation_interval(texture,px,py,dx,dy,iw,ih)
-        slack = np.abs(np.spacing(value.astype(np.float32)).astype(np.float64))*8
+        lower, upper = interpolation_interval(texture,px,py,dx,dy,iw,ih,sample,jumps=cubic)
+        slack = (bounded_cubic_slack(layer['level'],layer['widthWindow']) if cubic
+                 else np.abs(np.spacing(value.astype(np.float32)).astype(np.float64))*8)
         palette = np.fromfile(str(prefix)+'.rgba', dtype=np.uint8).reshape(256,4)
         if case is not None and not gray_palette:
             assert np.array_equal(palette[:,:3],french_palette()), 'Captured palette is not the expected French CLUT'
@@ -322,7 +397,8 @@ def verify(path, case=None):
                 difference = np.max(np.abs(observed-composite),axis=1)
                 error = np.minimum(error,np.where(valid_primary&valid_secondary,difference,np.inf))
     assert not (error>1).any(), f'{(error>1).sum()} pixels disagree, max {error.max()}'
-    print(f'{path.stem}: {mask.sum()} native pixels, {checked_voxels} exact calibrated voxels, max channel error {error.max():.3f}')
+    print(f'{path.stem}: {mask.sum()} native pixels, {checked_voxels} exact calibrated voxels, '
+          f'max channel error {error.max():.3f}; {", ".join(models)}')
     return int(mask.sum()), checked_voxels
 
 
@@ -330,6 +406,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('captures', type=Path, nargs='+')
     parser.add_argument('--case', help='Explicit expected mode, e.g. pt-mean or fusion-gray')
+    parser.add_argument('--current-renderer', action='store_true',
+                        help='the captures come from the current application: refuse float samples '
+                             'uploaded enlarged, the former Lanczos path, where software interpolation is on')
     args = parser.parse_args()
-    results = [verify(path,args.case) for path in args.captures]
+    results = [verify(path,args.case,args.current_renderer) for path in args.captures]
     print(f'PASS: {len(results)} captures, {sum(p for p,v in results)} pixels, {sum(v for p,v in results)} calibrated voxels')

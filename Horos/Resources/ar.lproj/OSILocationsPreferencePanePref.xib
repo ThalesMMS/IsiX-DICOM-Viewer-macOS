@@ -63,7 +63,7 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="106">
-                                    <rect key="frame" x="168" y="10" width="194" height="22"/>
+                                    <rect key="frame" x="168" y="10" width="241" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="UTF8 (Unicode): ISO_IR 192" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="143" id="328">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -72,9 +72,9 @@
                                             <items>
                                                 <menuItem title="UTF8 (Unicode): ISO_IR 192" state="on" id="143"/>
                                                 <menuItem title="الأوروبية الغربية: ISO_IR 100" tag="1" id="110"/>
-                                                <menuItem title="الأوروبية الغربية: ISO_IR 101" tag="2" id="108"/>
-                                                <menuItem title="الأوروبية الغربية: ISO_IR 109" tag="3" id="109"/>
-                                                <menuItem title="الأوروبية الوسطى: ISO_IR 110" tag="4" id="136"/>
+                                                <menuItem title="الأوروبية الوسطى: ISO_IR 101" tag="2" id="108"/>
+                                                <menuItem title="الأوروبية الجنوبية: ISO_IR 109" tag="3" id="109"/>
+                                                <menuItem title="الأوروبية الشمالية: ISO_IR 110" tag="4" id="136"/>
                                                 <menuItem title="اللغة العربية: ISO_IR 127" tag="5" id="139"/>
                                                 <menuItem title="الكيريلي: ISO_IR 144" tag="6" id="141"/>
                                                 <menuItem title="اللغة اليونانية: ISO_IR 126" tag="7" id="140"/>
@@ -158,7 +158,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Port" width="50" minWidth="50" maxWidth="60" id="105">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="الميناء">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="المنفذ">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -220,7 +220,7 @@
                                                             <binding destination="283" name="selectedTag" keyPath="arrangedObjects.retrieveMode" id="536"/>
                                                         </connections>
                                                     </tableColumn>
-                                                    <tableColumn identifier="Send" width="40" minWidth="40" maxWidth="55" id="322">
+                                                    <tableColumn identifier="Send" width="45" minWidth="40" maxWidth="55" id="322">
                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="أرسل">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -539,7 +539,7 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="WADOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c2-col">
+                                                    <tableColumn identifier="WADOPath" width="93" minWidth="30" maxWidth="1000" id="W99-c2-col">
                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="طريق WADO">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -552,7 +552,7 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="QIDOPath" width="70" minWidth="30" maxWidth="1000" id="W99-c3-col">
+                                                    <tableColumn identifier="QIDOPath" width="87" minWidth="30" maxWidth="1000" id="W99-c3-col">
                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="طريق QIDO">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -589,7 +589,7 @@
                                                             <font key="font" metaFont="smallSystem"/>
                                                         </buttonCell>
                                                     </tableColumn>
-                                                    <tableColumn identifier="RetrieveSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c6-col">
+                                                    <tableColumn identifier="RetrieveSyntax" width="138" minWidth="60" maxWidth="300" id="W99-c6-col">
                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="استعادة النص">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -619,7 +619,7 @@
                                                         </textFieldCell>
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
-                                                    <tableColumn identifier="Send" width="40" minWidth="40" maxWidth="40" id="W99-c8-col">
+                                                    <tableColumn identifier="Send" width="45" minWidth="45" maxWidth="45" id="W99-c8-col">
                                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="أرسل">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -906,7 +906,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <button verticalHuggingPriority="750" id="259">
-                                    <rect key="frame" x="626" y="5" width="165" height="28"/>
+                                    <rect key="frame" x="626" y="5" width="166" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="إضافة مسار محلي" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1093,7 +1093,7 @@
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" id="539">
-                        <rect key="frame" x="47" y="166" width="78" height="17"/>
+                        <rect key="frame" x="33" y="166" width="92" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="منفذ WADO:" id="540">
                             <font key="font" metaFont="system"/>
@@ -1102,7 +1102,7 @@
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1071">
-                        <rect key="frame" x="50" y="141" width="75" height="17"/>
+                        <rect key="frame" x="18" y="141" width="107" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="تشفير:" id="1072">
                             <font key="font" metaFont="system"/>
@@ -1111,7 +1111,7 @@
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="583">
-                        <rect key="frame" x="46" y="193" width="80" height="17"/>
+                        <rect key="frame" x="20" y="193" width="106" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="مسار WADO:" id="584">
                             <font key="font" metaFont="system"/>
@@ -1148,7 +1148,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="545">
-                        <rect key="frame" x="21" y="60" width="105" height="17"/>
+                        <rect key="frame" x="6" y="60" width="121" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="صيغة الاسترجاع:" id="548">
                             <font key="font" metaFont="system"/>
@@ -1157,7 +1157,7 @@
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="550">
-                        <rect key="frame" x="129" y="54" width="261" height="26"/>
+                        <rect key="frame" x="128" y="54" width="273" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="JPEG LS بدون خسائر" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="13" imageScaling="proportionallyDown" inset="2" selectedItem="ppX-DQ-T9z" id="551">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1224,7 +1224,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1106">
-                        <rect key="frame" x="23" y="88" width="103" height="17"/>
+                        <rect key="frame" x="6" y="88" width="123" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="كلمة مرور HTTP:" id="1115">
                             <font key="font" metaFont="system"/>
@@ -1233,7 +1233,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="1107">
-                        <rect key="frame" x="19" y="115" width="107" height="17"/>
+                        <rect key="frame" x="2" y="115" width="127" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم مستخدم HTTP:" id="1114">
                             <font key="font" metaFont="system"/>
@@ -1317,7 +1317,7 @@ Gw
                         </connections>
                     </button>
                     <button id="706">
-                        <rect key="frame" x="18" y="472" width="198" height="18"/>
+                        <rect key="frame" x="18" y="472" width="216" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="تمكين الاتصالات TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="707">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1369,7 +1369,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <button verticalHuggingPriority="750" id="996">
-                                    <rect key="frame" x="298" y="14" width="61" height="17"/>
+                                    <rect key="frame" x="294" y="14" width="77" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="يختار" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="997">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1485,7 +1485,7 @@ Gw
                                     </scroller>
                                 </scrollView>
                                 <button id="788">
-                                    <rect key="frame" x="15" y="12" width="122" height="18"/>
+                                    <rect key="frame" x="6" y="12" width="132" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="ملف المعلمات DH" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1527,7 +1527,7 @@ Gw
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" id="1095">
-                                    <rect key="frame" x="122" y="37" width="96" height="17"/>
+                                    <rect key="frame" x="122" y="37" width="104" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="roundRect" title="إزالة جميعها" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="1096">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1550,7 +1550,7 @@ Gw
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" id="903">
-                                    <rect key="frame" x="15" y="44" width="89" height="14"/>
+                                    <rect key="frame" x="15" y="44" width="91" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="شهادة الأقران:" id="904">
                                         <font key="font" metaFont="smallSystem"/>
@@ -1570,7 +1570,7 @@ Gw
                                     </connections>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="907">
-                                    <rect key="frame" x="108" y="44" width="62" height="15"/>
+                                    <rect key="frame" x="108" y="44" width="98" height="15"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="تجاهل" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="2" imageScaling="proportionallyDown" inset="2" selectedItem="912" id="908">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1588,7 +1588,7 @@ Gw
                                     </connections>
                                 </popUpButton>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="999" verticalCompressionResistancePriority="1000" id="1069">
-                                    <rect key="frame" x="111" y="14" width="251" height="22"/>
+                                    <rect key="frame" x="111" y="14" width="260" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" title="عند اختيار &quot;تحقق&quot; أو &quot;تطلب&quot;، يتم اختبار الشهادة من الزملاء ضد جميع الشهادات الموثوق بها من Keychain." id="1070">
                                         <font key="font" metaFont="miniSystem"/>

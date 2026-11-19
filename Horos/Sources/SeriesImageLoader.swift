@@ -185,6 +185,74 @@ private struct DecodedSlices: @unchecked Sendable {
     let slices: [DCMPix]
 }
 
+/// The decoding of the slices of a series, for whoever reads them from their
+/// files: the load of a 2D viewer (SeriesImageLoader) and a 3D window that
+/// reads its volume again. A series that is not compressed, or that is on a
+/// disc, is decoded one slice after the other, so that a file of several
+/// frames is parsed once and probed for memory by one decoder at a time; a
+/// compressed one on as many decoders as SeriesLoadRules gives for the
+/// processors.
+enum SeriesDecoding {
+
+    /// Decodes `slices`, reporting the share decoded to `progress` and taking
+    /// no new slice once it is cancelled. Returns when the slices being
+    /// decoded are done: they write into the volume storage their owner keeps.
+    static func decode(_ slices: [DCMPix], progress: SeriesLoadProgress? = nil) {
+        if isDecodedConcurrently(slices.first?.srcFile) {
+            decodeConcurrently(slices, progress: progress)
+        } else {
+            decodeInOrder(slices, progress: progress)
+        }
+    }
+
+    /// Whether the series `file` is the first file of is compressed and not on
+    /// a disc; a file that cannot be asked is not.
+    private static func isDecodedConcurrently(_ file: String?) -> Bool {
+        var compressed: ObjCBool = false
+        if let exception = HorosObjCException.caught({
+            DicomFile.isDICOMFile(file, compressed: &compressed)
+            if compressed.boolValue && BrowserController.isItCD(file) {
+                compressed = false
+            }
+        }) {
+            _N2LogExceptionImpl(exception, false, "-[SeriesImageLoader load:]")
+        }
+        return compressed.boolValue
+    }
+
+    /// One slice after the other, the share decoded reported at most every
+    /// 0.3 s; the slice being decoded when the load is cancelled is the last.
+    private static func decodeInOrder(_ slices: [DCMPix], progress: SeriesLoadProgress?) {
+        var lastReport: TimeInterval = 0
+        for (index, pix) in slices.enumerated() {
+            if progress?.isCancelled == true { return }
+            pix.checkLoad()
+            let now = Date.timeIntervalSinceReferenceDate
+            if now - lastReport > 0.3 {
+                progress?.report(SeriesLoadRules.decodedShare(decoded: index + 1, of: slices.count))
+                lastReport = now
+            }
+        }
+    }
+
+    /// Every slice on as many decoders as SeriesLoadRules gives for the
+    /// processors, each taking the next slice not taken.
+    private static func decodeConcurrently(_ slices: [DCMPix], progress: SeriesLoadProgress?) {
+        let decoders = SeriesLoadRules.compressedDecoders(processors: ProcessInfo.processInfo.processorCount)
+        let cursor = DecodeCursor()
+        let work = DecodedSlices(slices: slices)
+        DispatchQueue.concurrentPerform(iterations: min(decoders, slices.count)) { _ in
+            while true {
+                let taken = cursor.next.wrappingAdd(1, ordering: .relaxed).oldValue
+                guard taken < work.slices.count, progress?.isCancelled != true else { return }
+                autoreleasepool { work.slices[taken].checkLoad() }
+                let decoded = cursor.decoded.wrappingAdd(1, ordering: .relaxed).newValue
+                progress?.report(SeriesLoadRules.decodedShare(decoded: decoded, of: work.slices.count))
+            }
+        }
+    }
+}
+
 /// The loader of one viewer's series, an actor on a serial queue of its own,
 /// so that a long decode never holds a thread of Swift concurrency and a
 /// viewer waiting on the main thread for its series (-checkEverythingLoaded)
@@ -219,23 +287,7 @@ actor SeriesImageLoader {
         progress.began()
         if progress.isCancelled { return nil }
 
-        var compressed: ObjCBool = false
-        if let exception = HorosObjCException.caught({
-            let firstPix = request.frames.first?.first
-            DicomFile.isDICOMFile(firstPix?.srcFile, compressed: &compressed)
-            if compressed.boolValue && BrowserController.isItCD(firstPix?.srcFile) {
-                compressed = false
-            }
-        }) {
-            _N2LogExceptionImpl(exception, false, "-[SeriesImageLoader load:]")
-        }
-
-        let slices = request.frames.flatMap { $0 }
-        if compressed.boolValue {
-            decodeConcurrently(slices, progress: progress)
-        } else {
-            decodeInOrder(slices, progress: progress)
-        }
+        SeriesDecoding.decode(request.frames.flatMap { $0 }, progress: progress)
         if progress.isCancelled { return nil }
         progress.report(1)
 
@@ -245,40 +297,6 @@ actor SeriesImageLoader {
             if progress.isCancelled { return nil }
         }
         return SeriesLoadResult(request: request, openingContentBounds: bounds)
-    }
-
-    /// One slice after the other, the share decoded reported at most every
-    /// 0.3 s; the slice being decoded when the load is cancelled is the last.
-    private func decodeInOrder(_ slices: [DCMPix], progress: SeriesLoadProgress) {
-        var lastReport: TimeInterval = 0
-        for (index, pix) in slices.enumerated() {
-            if progress.isCancelled { return }
-            pix.checkLoad()
-            let now = Date.timeIntervalSinceReferenceDate
-            if now - lastReport > 0.3 {
-                progress.report(SeriesLoadRules.decodedShare(decoded: index + 1, of: slices.count))
-                lastReport = now
-            }
-        }
-    }
-
-    /// Every slice on as many decoders as SeriesLoadRules gives for the
-    /// processors, each taking the next slice not taken. A cancelled load
-    /// takes no new slice, and this returns only when the slices being decoded
-    /// are done: they write into the volume storage the request keeps.
-    private func decodeConcurrently(_ slices: [DCMPix], progress: SeriesLoadProgress) {
-        let decoders = SeriesLoadRules.compressedDecoders(processors: ProcessInfo.processInfo.processorCount)
-        let cursor = DecodeCursor()
-        let work = DecodedSlices(slices: slices)
-        DispatchQueue.concurrentPerform(iterations: min(decoders, slices.count)) { _ in
-            while true {
-                let taken = cursor.next.wrappingAdd(1, ordering: .relaxed).oldValue
-                guard taken < work.slices.count, !progress.isCancelled else { return }
-                autoreleasepool { work.slices[taken].checkLoad() }
-                let decoded = cursor.decoded.wrappingAdd(1, ordering: .relaxed).newValue
-                progress.report(SeriesLoadRules.decodedShare(decoded: decoded, of: work.slices.count))
-            }
-        }
     }
 
     /// The envelope of each list of `lists` whose frames are loaded and share

@@ -80,7 +80,7 @@ private func logException(message: String, function: String, exception: String, 
 
 /// The N2LogException and N2LogExceptionWithStackTrace macros: the exception's
 /// name, the function and the exception, with its stack trace when logStack.
-@_cdecl("_N2LogExceptionImpl") @implementation
+@_cdecl("_N2LogExceptionImpl") @implementation @usableFromInline
 func _N2LogExceptionImpl(_ e: NSException!, _ logStack: Bool, _ pf: UnsafePointer<CChar>!) {
     logException(message: e.map { $0.name.rawValue } ?? "(null)", function: cString(pf),
                  exception: e?.description ?? "(null)",
@@ -90,8 +90,20 @@ func _N2LogExceptionImpl(_ e: NSException!, _ logStack: Bool, _ pf: UnsafePointe
 /// The message and the stack of the calling thread. The Objective-C raised and
 /// caught an exception to take that stack; the frames are now the caller's
 /// own, from this function up.
-@_cdecl("N2LogStackTraceMessage") @implementation
+@_cdecl("N2LogStackTraceMessage") @implementation @usableFromInline
 func N2LogStackTraceMessage(_ message: String!) {
     logException(message: message ?? "(null)", function: "", exception: "",
                  stackTrace: NSException.stackTrace(ofReturnAddresses: Thread.callStackReturnAddresses))
+}
+
+/// The frame of a rectangle and the coordinates of a point, as the debugging
+/// helpers of the former plugin SDK wrote them.
+@_cdecl("RectString") @implementation @usableFromInline
+func RectString(_ r: NSRect) -> String? {
+    String(format: "[%f,%f,%f,%f]", r.origin.x, r.origin.y, r.size.width, r.size.height)
+}
+
+@_cdecl("PointString") @implementation @usableFromInline
+func PointString(_ p: NSPoint) -> String? {
+    String(format: "[%f,%f]", p.x, p.y)
 }

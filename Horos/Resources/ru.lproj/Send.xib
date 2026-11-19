@@ -11,7 +11,6 @@
                 <outlet property="keyImageMatrix" destination="31" id="63"/>
                 <outlet property="newServerList" destination="108" id="114"/>
                 <outlet property="numberImagesTextField" destination="36" id="40"/>
-                <outlet property="sendSCU" destination="82" id="83"/>
                 <outlet property="syntaxListOffis" destination="11" id="45"/>
                 <outlet property="window" destination="5" id="41"/>
             </connections>
@@ -156,14 +155,14 @@ Gw
                                     <menuItem title="Только Implicit Little Endian" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 без потерь" tag="1" id="67"/>
-                                    <menuItem title="JPEG 2000 с потерями - хорошее качество" tag="2" id="71"/>
-                                    <menuItem title="JPEG 2000 с потерями - среднее качество" tag="3" id="72"/>
-                                    <menuItem title="JPEG 2000 с потерями - низкое качество" tag="4" id="73"/>
+                                    <menuItem title="JPEG 2000 с потерями - хорошее" tag="2" id="71"/>
+                                    <menuItem title="JPEG 2000 с потерями - среднее" tag="3" id="72"/>
+                                    <menuItem title="JPEG 2000 с потерями - низкое" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
                                     <menuItem title="JPEG LS без потерь" tag="13" id="148"/>
-                                    <menuItem title="JPEG LS с потерями - хорошее качество" tag="14" id="149"/>
-                                    <menuItem title="JPEG LS с потерями - среднее качество" tag="15" id="150"/>
-                                    <menuItem title="JPEG LS с потерями - низкое качество" tag="16" id="151"/>
+                                    <menuItem title="JPEG LS с потерями - хорошее" tag="14" id="149"/>
+                                    <menuItem title="JPEG LS с потерями - среднее" tag="15" id="150"/>
+                                    <menuItem title="JPEG LS с потерями - низкое" tag="16" id="151"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="117"/>
                                     <menuItem title="JPEG без потерь" tag="5" id="16"/>
                                 </items>
@@ -183,7 +182,7 @@ Gw
                     </textField>
                     <button misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="90">
                         <rect key="frame" x="181" y="59" width="253" height="18"/>
-                        <buttonCell key="cell" type="check" title="Включать ROI, комментарии, отчеты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
+                        <buttonCell key="cell" type="check" title="Включать ROI, комментарии, отчёты, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

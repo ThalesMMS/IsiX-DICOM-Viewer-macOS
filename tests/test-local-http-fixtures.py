@@ -10,7 +10,11 @@ Checked here:
 
 * no fixture of `tools/` and no test builds `http.server.HTTPServer` or
   `ThreadingHTTPServer` itself; they use `local_http`, which binds through
-  `socketserver.TCPServer`;
+  `socketserver.TCPServer`. The application has a class named `HTTPServer` too,
+  the one of the plugin SDK, and a Swift driver that makes it to put it under
+  test builds no fixture: `let server: HTTPServer = HTTPServer()` is a
+  declaration of Swift, which no line of Python is, with none of the arguments
+  the stock class cannot be made without;
 * with `socket.getfqdn` replaced by a five-second wait, a `ThreadingLocalHTTPServer`
   is listening and answering in under two seconds, and `http.server`'s own server
   takes the whole wait;
@@ -27,6 +31,10 @@ failures = []
 
 # The stock classes, not the local ones: ThreadingLocalHTTPServer ends in the same word.
 DIRECT = re.compile(r'(?<![A-Za-z_])(?:http\.server\.)?(?:Threading)?HTTPServer\s*\(')
+# The application's class in a Swift driver: declared with `let` or `var`, which
+# Python does not have, and made with no argument, where the stock class takes
+# its address and its handler. Anything else on the line is still looked at.
+APPLICATION_CLASS = re.compile(r'(?<![A-Za-z_])(?:let|var)\s+\w+\s*(?::\s*HTTPServer\s*)?=\s*HTTPServer\s*\(\s*\)')
 for folder in ('tools', 'tests'):
     for path in sorted((root / folder).glob('*.py')):
         if path.name == 'local_http.py' or path.name == Path(__file__).name:
@@ -35,7 +43,7 @@ for folder in ('tools', 'tests'):
         for number, line in enumerate(text.splitlines(), 1):
             if line.lstrip().startswith(('#', '@interface ')):
                 continue
-            if DIRECT.search(line):
+            if DIRECT.search(APPLICATION_CLASS.sub('', line)):
                 failures.append(f'{folder}/{path.name}:{number} builds its own HTTP server: {line.strip()} '
                                 f'(use local_http, which does not resolve the host)')
         if 'getfqdn' in text:

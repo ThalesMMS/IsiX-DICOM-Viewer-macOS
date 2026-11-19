@@ -403,22 +403,18 @@ final class Recorder {
     var cellSize: NSSize { get { .zero } set { rec("\(name) cellSize \(f3(Double(newValue.width))) \(f3(Double(newValue.height)))") } }
 }
 
-final class WindowOutlets: @unchecked Sendable {
-    let albumTable: Recorder? = Recorder("albums")
-    let sourcesTableView: Recorder? = Recorder("sources")
-    let databaseOutline: Recorder? = Recorder("studyList")
-    let comparativeTable: Recorder? = Recorder("history")
-    let activityTableView: Recorder? = Recorder("activity")
-    let oMatrix: Recorder? = Recorder("thumbnails")
-}
-
 enum BrowserClassState {
     nonisolated(unsafe) static var horizontalHistory = false
     nonisolated(unsafe) static var defaultFolderSizeForDB: Int32 = 0
 }
 
 final class BrowserController: NSObject, @unchecked Sendable {
-    let windowOutlets = WindowOutlets()
+    let _albumTable: Recorder? = Recorder("albums")
+    let _sourcesTableView: Recorder? = Recorder("sources")
+    let _databaseOutline: Recorder? = Recorder("studyList")
+    let _comparativeTable: Recorder? = Recorder("history")
+    let activityTableViewOutlet: Recorder? = Recorder("activity")
+    let _oMatrix: Recorder? = Recorder("thumbnails")
 
     class func replaceNotAdmitted(_ name: NSString!) -> NSMutableString! {
         let s = NSMutableString()

@@ -55,6 +55,10 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKConditionKind) {
     IsiXDCMTKConditionKindException,
     /// DIMSE_BADMESSAGE: what a C-STORE that was not accepted ends on.
     IsiXDCMTKConditionKindBadMessage,
+    /// DIMSE_NODATAAVAILABLE: a wait in non-blocking mode ended with nothing
+    /// received. On the listener's side, the peer began a message and sent no
+    /// more of it, with the connection open.
+    IsiXDCMTKConditionKindNoDataAvailable,
 };
 
 /// The errors callers make themselves, for a condition the operation did not

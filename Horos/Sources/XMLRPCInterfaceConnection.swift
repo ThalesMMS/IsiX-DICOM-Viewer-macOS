@@ -40,6 +40,7 @@
 import Foundation
 import IsiXHTTPServer
 import IsiXPreferences
+import SystemConfiguration
 
 /// A connection of the XML-RPC interface, on its own thread. The SwiftNIO
 /// listener (XMLRPCListener.swift) hands it the bytes received and sends what
@@ -127,6 +128,29 @@ final class XMLRPCInterfaceConnection: N2XMLRPCConnection, XMLRPCServerConnectio
         let authorization = CFHTTPMessageCopyHeaderFieldValue(request, "Authorization" as CFString)?.takeRetainedValue() as String?
         let policy = XMLRPCAccessPolicy.policy(from: PreferencesSource.process.preferences)
         let peer = (address ?? "(null)") as NSString
+
+        // First of all, what a page open in a browser sends is not answered,
+        // whoever the peer is: a page on this Mac calls from this Mac, which
+        // the rules below answer without a credential. Nothing is shown: a
+        // page could ask again and again.
+        let method = CFHTTPMessageCopyRequestMethod(request)?.takeRetainedValue() as String?
+        let webPage = XMLRPCWebPageRequest.refusal(
+            method: method,
+            field: { CFHTTPMessageCopyHeaderFieldValue(request, $0 as CFString)?.takeRetainedValue() as String? },
+            peerIsThisComputer: XMLRPCServerAccess.isLocalAddress(address),
+            isOwnHost: XMLRPCServerAccess.isOwnHost)
+        if let webPage {
+            switch webPage {
+            case .notAPost(let method):
+                NSLog("--- XML-RPC request from %@ refused: %@ is not a POST", peer, LogText.shape(of: method) as NSString)
+            case .fromWebPage(let field):
+                NSLog("--- XML-RPC request from %@ refused: a web page sent it (it carries %@)", peer, field as NSString)
+            case .foreignHost(let host):
+                NSLog("--- XML-RPC request from %@ refused: it was sent to a host that is not this Mac (%@)", peer, LogText.shape(of: host) as NSString)
+            }
+            writeStatus(webPage.status, headers: webPage.status == 405 ? ["Allow": "POST"] : nil, version: version)
+            return false
+        }
         let credentialSent = (authorization as NSString?)?.length ?? 0 > 0
 
         switch policy.decision(peerAddress: address, authorization: authorization) {
@@ -224,5 +248,32 @@ final class XMLRPCInterfaceConnection: N2XMLRPCConnection, XMLRPCServerConnectio
         if let number = value as? NSNumber { return number.boolValue }
         if let string = value as? NSString { return string.boolValue }
         return false
+    }
+}
+
+extension XMLRPCServerAccess {
+    /// This Mac's names, in lower case and without a final dot: the host name,
+    /// and the local (Bonjour) name with and without `.local`. Read once: a
+    /// call that reaches this Mac under a name given to it later is answered
+    /// under its address or `localhost` until the application starts again.
+    static let ownHostNames: Set<String> = {
+        var names: Set<String> = []
+        func add(_ name: String?) {
+            guard var name = name?.lowercased(), !name.isEmpty else { return }
+            while name.hasSuffix(".") { name.removeLast() }
+            names.insert(name)
+        }
+        add(ProcessInfo.processInfo.hostName)
+        if let local = SCDynamicStoreCopyLocalHostName(nil) as String? {
+            add(local)
+            add(local + ".local")
+        }
+        return names
+    }()
+
+    /// Whether a request made on this Mac names this Mac in its `Host`:
+    /// `localhost`, one of its names, or one of its addresses.
+    static func isOwnHost(_ host: String) -> Bool {
+        XMLRPCWebPageRequest.isOwnHost(host, names: ownHostNames) { isLocalAddress($0) }
     }
 }

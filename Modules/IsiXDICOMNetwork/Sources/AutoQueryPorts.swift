@@ -55,6 +55,18 @@ public struct AutoQueryRetrieveInventory: Hashable, Sendable {
         self.imported = imported
         self.isSatisfied = isSatisfied
     }
+
+    /// What an earlier retrieve found of a study whose node lists no series
+    /// or instances, when the node's counters judged it complete and that
+    /// still stands for the `reported` count: everything that arrived, all of
+    /// it here. Nil when the counters did not judge it, the node reports
+    /// another count now, or an instance that was here has gone: the study is
+    /// then decided on as one without an inventory.
+    public static func judgedByPeerCounters(_ inventory: RetrieveInventory, reported: Int) -> AutoQueryRetrieveInventory? {
+        guard inventory.standsByPeerCounters(reported: reported) else { return nil }
+        let here = inventory.localUniqueCount
+        return AutoQueryRetrieveInventory(expected: here, imported: here, isSatisfied: true)
+    }
 }
 
 /// Runs the queries of the automatic query: the C-FIND of one instance, and

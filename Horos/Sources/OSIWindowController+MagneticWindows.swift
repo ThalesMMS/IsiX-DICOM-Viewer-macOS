@@ -161,6 +161,14 @@ extension OSIWindowController {
 
     // MARK: - The drop check
 
+    /// A 2D viewer repeats the frame and the flag of a move in two fields of
+    /// its own, where plugins built with an older header of the former SDK
+    /// read them.
+    private func copyMoveStateToViewer() {
+        guard let viewer = self as? ViewerController else { return }
+        (viewer._savedWindowsFrame, viewer._windowIsMovedByTheUser) = (savedWindowsFrame, windowIsMovedByTheUser)
+    }
+
     @objc(scheduleMagneticDropCheck)
     private func scheduleMagneticDropCheck() {
         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(magneticDropCheck), object: nil)
@@ -171,6 +179,7 @@ extension OSIWindowController {
     private func cancelMagneticDropCheck() {
         NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(magneticDropCheck), object: nil)
         windowIsMovedByTheUser = false
+        copyMoveStateToViewer()
     }
 
     @objc(magneticDropCheck)
@@ -182,6 +191,7 @@ extension OSIWindowController {
         // A closed or hidden window, or one that stopped being magnetic, ends the move without snapping.
         if magneticWindowActivated == false || (self.window?.isVisible ?? false) == false {
             windowIsMovedByTheUser = false
+            copyMoveStateToViewer()
             return
         }
 
@@ -191,6 +201,7 @@ extension OSIWindowController {
         }
 
         windowIsMovedByTheUser = false
+        copyMoveStateToViewer()
 
         if OSIWindowControllerFlags.dontEnterMagneticFunctions == false {
             applyMagnetsAfterUserMove()
@@ -209,6 +220,7 @@ extension OSIWindowController {
                 windowIsMovedByTheUser = true
                 scheduleMagneticDropCheck()
             }
+            copyMoveStateToViewer()
         }
     }
 
@@ -251,6 +263,7 @@ extension OSIWindowController {
                         AppController.resizeWindow(withAnimation: window, newSize: savedWindowsFrame)
 
                         savedWindowsFrame = frame
+                        copyMoveStateToViewer()
 
                         AppController.resizeWindow(withAnimation: theWindow, newSize: frame)
 

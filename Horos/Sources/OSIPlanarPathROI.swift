@@ -50,9 +50,13 @@ import IsiXROI
 /// its mask are made by OSIROIVolumeGeometry, from IsiXROI's rules.
 @objc(OSIPlanarPathROI)
 public final class OSIPlanarPathROI: OSIROI {
-    private let _osiriXROI: ROI?
-    private var _bezierPath: N3MutableBezierPath?
-    private let _plane: N3Plane
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    var _osiriXROI: ROI?
+    var _bezierPath: N3MutableBezierPath?
+    var _plane: N3Plane
 
     /// The ROI of `roi`, an outlined 2D ROI drawn on the slice whose pix
     /// space `pixToDICOMTransfrom` carries to patient space; nil for another

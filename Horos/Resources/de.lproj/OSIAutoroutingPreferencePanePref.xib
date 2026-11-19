@@ -189,7 +189,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="240">
-                        <rect key="frame" x="96" y="707" width="45" height="17"/>
+                        <rect key="frame" x="84" y="707" width="57" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Name:" id="295">
                             <font key="font" metaFont="system"/>
@@ -198,7 +198,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="241">
-                        <rect key="frame" x="18" y="672" width="123" height="17"/>
+                        <rect key="frame" x="18" y="672" width="125" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Zielserver:" id="296">
                             <font key="font" metaFont="system"/>
@@ -207,7 +207,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="242">
-                        <rect key="frame" x="65" y="620" width="76" height="17"/>
+                        <rect key="frame" x="45" y="620" width="96" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Kommentare:" id="297">
                             <font key="font" metaFont="system"/>
@@ -264,10 +264,10 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="cgo-5W-eDP">
-                                    <rect key="frame" x="17" y="14" width="111" height="75"/>
+                                    <rect key="frame" x="17" y="14" width="121" height="75"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="113" height="18"/>
+                                    <size key="cellSize" width="121" height="18"/>
                                     <size key="intercellSpacing" width="4" height="10"/>
                                     <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" inset="2" id="rv3-AX-uHl">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -294,7 +294,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </connections>
                                 </matrix>
                                 <datePicker verticalHuggingPriority="750" id="TkK-vl-zGB">
-                                    <rect key="frame" x="125" y="13" width="72" height="22"/>
+                                    <rect key="frame" x="142" y="13" width="72" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <datePickerCell key="cell" controlSize="small" borderStyle="bezel" alignment="left" id="t9Y-Fb-Xbr">
                                         <font key="font" metaFont="smallSystem"/>
@@ -307,7 +307,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </datePickerCell>
                                 </datePicker>
                                 <datePicker verticalHuggingPriority="750" id="9yh-Nz-Vxv">
-                                    <rect key="frame" x="225" y="13" width="72" height="22"/>
+                                    <rect key="frame" x="242" y="13" width="72" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <datePickerCell key="cell" controlSize="small" borderStyle="bezel" alignment="left" id="O3X-Vf-dcu">
                                         <font key="font" metaFont="smallSystem"/>
@@ -320,7 +320,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </datePickerCell>
                                 </datePicker>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="qPp-Ci-P4x">
-                                    <rect key="frame" x="201" y="15" width="17" height="17"/>
+                                    <rect key="frame" x="216" y="15" width="24" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="bis" id="q2s-tw-CXS">
                                         <font key="font" metaFont="system"/>
@@ -329,16 +329,16 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="A1s-iz-Pta">
-                                    <rect key="frame" x="119" y="73" width="108" height="14"/>
+                                    <rect key="frame" x="142" y="73" width="170" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="(Sofort ausgeführt)" id="vgl-j1-4iF">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="(Sofort ausgeführt)" id="vgl-j1-4iF">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" id="VQw-qa-a5J">
-                                    <rect key="frame" x="125" y="42" width="31" height="19"/>
+                                    <rect key="frame" x="142" y="42" width="31" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="right" title="2" placeholderString="Stunden Verzögerung" drawsBackground="YES" id="kWE-DJ-Pvw">
                                         <numberFormatter key="formatter" formatterBehavior="default10_4" usesGroupingSeparator="NO" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="42" id="eRh-JS-yeJ">
@@ -351,7 +351,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="vUG-2c-cTZ">
-                                    <rect key="frame" x="160" y="43" width="46" height="17"/>
+                                    <rect key="frame" x="175" y="43" width="65" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Stunde(n)" id="fIv-C3-1Ee">
                                         <font key="font" metaFont="system"/>
@@ -373,7 +373,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="320">
-                                    <rect key="frame" x="15" y="56" width="110" height="17"/>
+                                    <rect key="frame" x="6" y="56" width="126" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Vorherige Studien:" id="321">
                                         <font key="font" metaFont="system"/>
@@ -382,7 +382,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="KBA-Tq-J9o">
-                                    <rect key="frame" x="15" y="85" width="110" height="17"/>
+                                    <rect key="frame" x="6" y="85" width="127" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Nur Bilder:" id="JGf-Uo-XMf">
                                         <font key="font" metaFont="system"/>
@@ -391,7 +391,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="r1J-pa-vP9">
-                                    <rect key="frame" x="21" y="148" width="102" height="17"/>
+                                    <rect key="frame" x="6" y="148" width="127" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Datenbankfilter:" id="Dof-zb-xan">
                                         <font key="font" metaFont="system"/>
@@ -409,9 +409,9 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="254">
-                                    <rect key="frame" x="472" y="116" width="80" height="16"/>
+                                    <rect key="frame" x="467" y="116" width="95" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="IsiX DICOM Viewer-Tabellen" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="305">
+                                    <buttonCell key="cell" type="push" title="Tabellen" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="305">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>
@@ -420,7 +420,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </connections>
                                 </button>
                                 <button verticalHuggingPriority="750" tag="1" id="255">
-                                    <rect key="frame" x="472" y="140" width="80" height="16"/>
+                                    <rect key="frame" x="472" y="140" width="85" height="16"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="push" title="SQL-Syntax" bezelStyle="rounded" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="306">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -431,7 +431,7 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="286">
-                                    <rect key="frame" x="33" y="135" width="88" height="11"/>
+                                    <rect key="frame" x="6" y="135" width="127" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="(Ebene der Bildtabelle)" id="308">
                                         <font key="font" metaFont="miniSystem"/>
@@ -440,12 +440,12 @@ Drücken Sie die Rückschritttaste, um eine Weiterleitung zu löschen</string>
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="287">
-                                    <rect key="frame" x="25" y="98" width="98" height="33"/>
+                                    <rect key="frame" x="6" y="103" width="127" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" id="309">
                                         <font key="font" metaFont="miniSystem"/>
                                         <string key="title" base64-UTF8="YES">
-RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
+TGVlcmVyIEZpbHRlciBsZWl0ZXQD4oCoQUxMRSBCaWxkZXIgd2VpdGVyCg
 </string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -460,7 +460,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </buttonCell>
                                 </button>
                                 <button id="bVi-cA-dMr">
-                                    <rect key="frame" x="135" y="84" width="374" height="18"/>
+                                    <rect key="frame" x="135" y="84" width="427" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Nur DICOM-Objekte mit Pixeldaten senden (Bilder)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="kJb-vd-Pan">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -471,7 +471,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="323">
-                                    <rect key="frame" x="27" y="18" width="98" height="36"/>
+                                    <rect key="frame" x="6" y="18" width="126" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Für jede Studie zusätzlich senden, falls in der Datenbank vorhanden:" id="334">
                                         <font key="font" metaFont="miniSystem"/>
@@ -480,7 +480,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </textFieldCell>
                                 </textField>
                                 <button id="324">
-                                    <rect key="frame" x="144" y="11" width="200" height="18"/>
+                                    <rect key="frame" x="144" y="11" width="253" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="mit derselben Studienbeschreibung" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -488,7 +488,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </buttonCell>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" id="325">
-                                    <rect key="frame" x="134" y="49" width="238" height="26"/>
+                                    <rect key="frame" x="134" y="49" width="320" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Vorherige Studie nicht senden" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="329" id="326">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -524,7 +524,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     <rect key="frame" x="17" y="13" width="534" height="64"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="523" height="18"/>
+                                    <size key="cellSize" width="534" height="18"/>
                                     <size key="intercellSpacing" width="4" height="5"/>
                                     <buttonCell key="prototype" type="radio" title="Radio" imagePosition="left" alignment="left" inset="2" id="360">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -536,7 +536,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Erzeugte Daten (Status, Kommentare, Befunde, Schlüsselbilder, Sekundäraufnahmen usw.)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" baseWritingDirection="leftToRight" tag="1" inset="2" id="358">
+                                            <buttonCell type="radio" title="Erzeugte Daten (Status, Kommentare, Befunde, Schlüsselbilder usw.)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" baseWritingDirection="leftToRight" tag="1" inset="2" id="358">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -564,7 +564,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="339">
-                                    <rect key="frame" x="15" y="42" width="49" height="17"/>
+                                    <rect key="frame" x="6" y="42" width="62" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Fehler:" id="340">
                                         <font key="font" metaFont="system"/>
@@ -573,7 +573,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="352">
-                                    <rect key="frame" x="15" y="13" width="48" height="17"/>
+                                    <rect key="frame" x="6" y="13" width="67" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Prüfen:" id="353">
                                         <font key="font" metaFont="system"/>
@@ -582,7 +582,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="341">
-                                    <rect key="frame" x="75" y="37" width="213" height="26"/>
+                                    <rect key="frame" x="75" y="37" width="295" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="5 Versuche alle 30 Sekunden" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" imageScaling="proportionallyDown" inset="2" selectedItem="344" id="342">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -600,7 +600,7 @@ RWluIGxlZXJlciBGaWx0ZXIgbGVpdGV0IEFMTEUgQmlsZGVyIHdlaXRlci4K
                                     </popUpButtonCell>
                                 </popUpButton>
                                 <button id="354">
-                                    <rect key="frame" x="75" y="12" width="394" height="18"/>
+                                    <rect key="frame" x="75" y="12" width="487" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="C-FIND senden, um Vorhandensein der Studie am Ziel zu prüfen" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="355">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

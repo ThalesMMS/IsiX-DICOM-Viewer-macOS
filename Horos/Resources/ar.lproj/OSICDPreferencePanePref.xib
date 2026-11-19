@@ -53,7 +53,7 @@
                                         <binding destination="173" name="value" keyPath="values.autoSelectSourceCDDVD" id="212"/>
                                     </connections>
                                 </button>
-                                <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
+                                <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102" customClass="IsiXTipMatrix">
                                     <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -65,11 +65,11 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="جميع ملفات DICOM المتاحة على القرص (طريقة المسح) ، بغض النظر عن ملف DICOMDIR (بطيئة)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="استخدم DICOMDIR على الوسائط لحمل الصور." inset="2" id="99">
+                                            <buttonCell type="radio" title="جميع ملفات DICOM المتاحة على القرص (طريقة المسح) ، بغض النظر عن ملف DICOMDIR (بطيئة)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="فحص الإعلام للعثور على جميع صور DICOM." inset="2" id="99">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="الملفات المدرجة في ملف DICOMDIR (أسرع)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="فحص الإعلام للعثور على جميع صور DICOM." tag="1" inset="2" id="110">
+                                            <buttonCell type="radio" title="الملفات المدرجة في ملف DICOMDIR (أسرع)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="استخدم DICOMDIR على الوسائط لحمل الصور." tag="1" inset="2" id="110">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>

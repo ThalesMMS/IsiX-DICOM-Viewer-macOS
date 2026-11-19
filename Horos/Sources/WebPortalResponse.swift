@@ -115,8 +115,11 @@ private func append(_ string: NSString?, to ret: NSMutableString) {
 
 // MARK: - WebPortalResponse
 
+/// A response of the web portal: the SDK's HTTPDataResponse, whose body is
+/// the data set or the page's template evaluated with the response's tokens,
+/// with the header fields and the status the page gives it.
 @objc(WebPortalResponse)
-public final class WebPortalResponse: NSObject, HTTPServerResponse {
+public final class WebPortalResponse: HTTPDataResponse {
 
     /// Weak: the connection owns the response.
     @objc public private(set) weak var wpc: WebPortalConnection?
@@ -127,8 +130,6 @@ public final class WebPortalResponse: NSObject, HTTPServerResponse {
     @objc public var templateString: String!
     private var statusCodeValue: Int32 = 0
     private var tokensStorage: NSMutableDictionary?
-    private var dataStorage: Data?
-    private var readOffset: UInt64 = 0
 
     /// The former `httpHeaders` property: the dictionary callers add header
     /// fields to.
@@ -142,6 +143,13 @@ public final class WebPortalResponse: NSObject, HTTPServerResponse {
         portal = iwpc?.portal
         mutableHTTPHeaders = NSMutableDictionary(capacity: 4)
         super.init()
+    }
+
+    /// The initializer of HTTPDataResponse: a response of no connection,
+    /// whose body is `data`.
+    public override init!(data: Data!) {
+        mutableHTTPHeaders = NSMutableDictionary(capacity: 4)
+        super.init(data: data)
     }
 
     @objc(setSessionId:)
@@ -200,44 +208,9 @@ public final class WebPortalResponse: NSObject, HTTPServerResponse {
         }
     }
 
-    // MARK: HTTPServerResponse
-
-    // The engine reads the data as set: the getter above, which evaluates the
-    // template, has already run when the connection chose to send it.
-
-    var contentLength: UInt64 {
-        UInt64(dataStorage?.count ?? 0)
-    }
-
-    var offset: UInt64 {
-        get { readOffset }
-        set { readOffset = newValue }
-    }
-
-    func readData(ofLength length: Int) -> Data? {
-        let body = dataStorage ?? Data()
-        let start = Int(min(readOffset, UInt64(body.count)))
-        let count = min(length, body.count - start)
-        readOffset = UInt64(start + count)
-        return body.subdata(in: body.startIndex + start ..< body.startIndex + start + count)
-    }
-
-    var isDone: Bool {
-        readOffset == contentLength
-    }
-
-    var isChunked: Bool { false }
-
-    var responseHeaderFields: [(String, String)] {
-        var fields: [(String, String)] = []
-        for case let (name as String, value as String) in mutableHTTPHeaders ?? NSMutableDictionary() {
-            fields.append((name, value))
-        }
-        return fields
-    }
-
-    func connectionDidClose() {
-    }
+    // The engine reads the body through HTTPDataResponse, as the data set:
+    // the getter above, which evaluates the template, has already run when
+    // the connection chose to send it. It sends -httpHeaders with it.
 
     @objc public var tokens: NSMutableDictionary! {
         if tokensStorage == nil {

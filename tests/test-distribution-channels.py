@@ -14,6 +14,59 @@ import process_graph_stand_in
 root = Path(__file__).resolve().parents[1]
 sources = root / 'Horos/Sources'
 
+
+def store_lines(text):
+    """The lines of a source that are not directives, each with whether the App Store build compiles it."""
+    conditions, lines = [], []
+    for line in text.splitlines():
+        directive = line.strip()
+        if directive.startswith('#if'):
+            conditions.append({'MACAPPSTORE': True, '!MACAPPSTORE': False}.get(directive[3:].strip()))
+        elif directive.startswith('#elseif'):
+            conditions[-1] = None
+        elif directive.startswith('#else'):
+            conditions[-1] = None if conditions[-1] is None else not conditions[-1]
+        elif directive.startswith('#endif'):
+            conditions.pop()
+        else:
+            lines.append((line, all(condition is not False for condition in conditions)))
+    return lines
+
+
+# A source that `#if !MACAPPSTORE` leaves out of the App Store build as a whole
+# declares types that build does not have. Any other source names them only
+# where the same condition leaves the line out too: one use outside it and the
+# App Store build no longer compiles, while every other build still does.
+declaration = re.compile(r'^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:public|internal|fileprivate|private|final|open|indirect)\s+)*'
+                         r'(?:class|struct|enum|actor|protocol)\s+(\w+)')
+texts = {path: store_lines(path.read_text(encoding='utf-8')) for path in sorted(sources.glob('*.swift'))}
+left_out = {}
+for path, lines in texts.items():
+    code = [line for line, compiled in lines if compiled and line.strip() and not line.strip().startswith('//')
+            and not line.startswith('import ')]
+    if not code:
+        for line, _ in lines:
+            for name in declaration.findall(line):
+                left_out[name] = path.name
+assert {'UpdateInstaller', 'UpdateFeedClient'} <= set(left_out), sorted(left_out)
+names = re.compile(r'(?<![\w.])(%s)\b' % '|'.join(map(re.escape, sorted(left_out))))
+uses = sorted('%s:%s names %s, which %s keeps out of the App Store build' % (path.name, name, name, left_out[name])
+              for path, lines in texts.items()
+              for line, compiled in lines if compiled
+              for name in names.findall(line.split('//')[0]))
+assert not uses, '\n'.join(uses)
+print('App Store sources passed: %d types left out of the build, named nowhere it compiles' % len(left_out))
+
+# The instance variables exported for the plugins of the former SDK are fields
+# of classes the App Store build compiles in a shorter form, without them: the
+# linker's response file is a setting of the channel, which that build empties.
+aliases = '-Wl,@$(SRCROOT)/Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp'
+pbxproj = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
+assert aliases not in pbxproj and pbxproj.count('"$(HOROS_LEGACY_PLUGIN_IVAR_ALIASES)",') == 2
+assert 'HOROS_LEGACY_PLUGIN_IVAR_ALIASES = %s\n' % aliases in (root / 'Horos/Horos.xcconfig').read_text()
+assert 'HOROS_LEGACY_PLUGIN_IVAR_ALIASES =\n' in (root / 'Horos/Configuration/AppStore.xcconfig').read_text()
+print('plugin instance variables passed: exported by the direct channel alone')
+
 with tempfile.TemporaryDirectory(prefix='distribution-channels-') as temporary:
     work = Path(temporary)
     stub = work / 'PluginManagerController.swift'

@@ -173,8 +173,28 @@ func valuesKeyPath(_ key: String!) -> String! {
 }
 
 /// The observation of a preference through NSUserDefaultsController's values
-/// proxy. Swift only: no Objective-C file observes through it.
+/// proxy, and its reading, writing and binding by a key of the proxy: the
+/// application observes through it, and plugins built for Horos and OsiriX
+/// send the other three.
 extension NSObject {
+    @objc(valueForValuesKey:)
+    func value(forValuesKey key: String!) -> Any? {
+        value(forKeyPath: valuesKeyPath(key))
+    }
+
+    @objc(setValue:forValuesKey:)
+    func setValue(_ value: Any?, forValuesKey key: String!) {
+        setValue(value, forKeyPath: valuesKeyPath(key))
+    }
+
+    @objc(bind:toObject:withValuesKey:options:)
+    func bind(_ binding: String!, toObject observable: Any!, withValuesKey key: String!, options: [String: Any]?) {
+        guard let binding, let observable else { return }
+        var bindingOptions: [NSBindingOption: Any] = [:]
+        for (name, value) in options ?? [:] { bindingOptions[NSBindingOption(rawValue: name)] = value }
+        bind(NSBindingName(binding), to: observable, withKeyPath: valuesKeyPath(key), options: options == nil ? nil : bindingOptions)
+    }
+
     @objc(addObserver:forValuesKey:options:context:)
     func addObserver(_ observer: NSObject, forValuesKey key: String, options: NSKeyValueObservingOptions,
                      context: UnsafeMutableRawPointer?) {

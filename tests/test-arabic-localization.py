@@ -87,6 +87,12 @@ for path in sources:
                     return base64.b64decode(text+'='*((-len(text))%4)).decode('utf8')
                 return node.text
             assert decoded(ar) == arabic[decoded(en)], (path.name, en.text)
+# One word for a term, the Viewers pane's: a series is سلسلة (مسلسل is a television serial), a viewer is عارض
+# (مشاهد is a spectator; مشاهدة, viewing, stays where something is viewed).
+for key, value in arabic.items():
+    assert 'مسلسل' not in value and 'المشاهدين' not in value, f'Wrong Arabic term in {key!r}: {value!r}'
+    assert not (re.search('viewer', key, re.I) and re.search(r'المشاهد(?!ة)', value)), f'Viewer in {key!r}: {value!r}'
+assert arabic['Viewer'] == 'العارض' and arabic['Series Name:'] == 'اسم السلسلة:'
 assert arabic['Cancel'] == 'إلغاء'
 assert arabic['File'] == 'ملف'
 assert arabic['Database'] == 'قاعدة البيانات'

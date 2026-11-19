@@ -164,8 +164,8 @@ FINAL = {
                                      "não existe mais"),
     "DMGS": (VERIFIED, "DMG dos estudos selecionados; sem DICOMDIR, porque o app não traz dcmmkdir; correções à mão: "
                        "categoria do app e pasta de saída"),
-    "Fusion Angio-CT tool": (LACKING, "a função: o filterImage do plugin é vazio e a subtração CT-angio estava no código "
-                                      "do próprio OsiriX"),
+    "Fusion Angio-CT tool": (LACKING, "a função: o `filterImage` do plugin é vazio; a subtração CT-angio ficava no "
+                                      "aplicativo hospedeiro"),
     "MATLAB": (LACKING, "o MATLAB Engine (engine.h, libeng, libmx) de uma instalação do MATLAB, e o alvo \"MATLAB "
                         "Plugin\" no conversor, que escolhe o alvo \"Unsupported\""),
     "PetSpectFusion": (LACKING, "fusão de viewers (blendWithViewer:blendingType:, setRegisteredViewer:), zoom "

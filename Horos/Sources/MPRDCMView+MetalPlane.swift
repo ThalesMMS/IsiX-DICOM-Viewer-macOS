@@ -8,6 +8,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
+import os
 import AppKit
 import IsiXImaging
 import ObjectiveC
@@ -74,6 +75,15 @@ extension MPRDCMView {
 
     /// The outcome of a plane, for the window's reason and the view's notice.
     private func recordMetalPlane(reason: String?, controller: MPRController?) {
+        // Once for each reason, in the log: a report of this window says which path drew its planes.
+        // The reason names sizes and settings, nothing of the exam, so the log may show it.
+        // Every opening logs one: its first planes are asked while the projection and the slab are
+        // set, before the camera is posed, with axes that are still collinear. Those requests
+        // cannot be left out, each view takes its camera from them, and the plane that follows
+        // the pose is resliced.
+        if let reason, reason != controller?.metalHost.fallbackReason {
+            os_log("3D MPR: a plane is left to VTK, not resliced by Metal: %{public}@", reason)
+        }
         controller?.metalHost.fallbackReason = reason
         horosSetPlanarFallbackReason(reason)
     }
@@ -140,7 +150,7 @@ extension MPRDCMView {
                     // series. The linear one above stays the pixels; this one is only drawn.
                     let thickness = Float(vrView.getClippingRangeThicknessInMm())
                     if MPRPlaneRules.drawsCubicDisplayPlane(preference: controller.horosMPRCubicDisplay(), fused: fused != nil,
-                                                            thickness: thickness),
+                                                            thickness: thickness, thinEnd: controller.thickSlabThinEnd),
                        let display = Self.floats(w * h) {
                         do {
                             try reslicer.reslice(origin: geometry.origin, orientation: geometry.orientation, spacing: geometry.spacing,

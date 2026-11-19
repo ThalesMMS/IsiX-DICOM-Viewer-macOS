@@ -146,7 +146,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sources import class_text  # noqa: E402
 
 roi = class_text('ROI')
-copy = roi[roi.index('public func copyROI(with zone: NSZone?) -> ROI? {'):]
+copy = roi[re.search(r'public (?:dynamic )?func copyROI\(with zone: NSZone\?\) -> ROI\? \{', roi).start():]
 copy = copy[:copy.index('\n    }\n')]
 if 'c._originalIndexForAlias = _originalIndexForAlias' not in copy:
     failures.append('a ROI copy forgets the image its alias was made on')
@@ -220,7 +220,6 @@ enum HorosObjCException {
     @discardableResult
     static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
     static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
-    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
     @discardableResult
     static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
     @discardableResult

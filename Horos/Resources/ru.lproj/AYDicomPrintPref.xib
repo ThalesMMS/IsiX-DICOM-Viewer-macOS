@@ -41,7 +41,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="748" id="100">
-                                    <rect key="frame" x="15" y="141" width="115" height="26"/>
+                                    <rect key="frame" x="10" y="141" width="132" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Стандарт 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -93,7 +93,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="339">
-                                    <rect key="frame" x="15" y="72" width="75" height="26"/>
+                                    <rect key="frame" x="15" y="72" width="114" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Белый" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="341" id="374">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -110,7 +110,7 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="749" id="343">
-                                    <rect key="frame" x="15" y="29" width="75" height="26"/>
+                                    <rect key="frame" x="15" y="29" width="114" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Белый" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="346" id="375">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -150,7 +150,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="119">
-                                    <rect key="frame" x="15" y="141" width="100" height="26"/>
+                                    <rect key="frame" x="8" y="141" width="138" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Альбомная" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="121" id="376">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -167,21 +167,21 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="159">
-                                    <rect key="frame" x="148" y="141" width="136" height="26"/>
+                                    <rect key="frame" x="148" y="141" width="167" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="10 дюймов х 12 дюймов" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
+                                    <popUpButtonCell key="cell" type="push" title="10 х 12 дюймов" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="171" id="387">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="160">
                                             <items>
-                                                <menuItem title="8 дюймов х 10 дюймов" id="167"/>
+                                                <menuItem title="8 х 10 дюймов" id="167"/>
                                                 <menuItem title="8,5 х 11 дюймов" tag="1" id="161"/>
-                                                <menuItem title="10 дюймов х 12 дюймов" state="on" tag="2" id="171"/>
-                                                <menuItem title="10 дюймов х 14 дюймов" tag="3" id="169"/>
-                                                <menuItem title="11 дюймов х 14 дюймов" tag="4" id="163"/>
-                                                <menuItem title="11 дюймов х 17 дюймов" tag="5" id="165"/>
+                                                <menuItem title="10 х 12 дюймов" state="on" tag="2" id="171"/>
+                                                <menuItem title="10 х 14 дюймов" tag="3" id="169"/>
+                                                <menuItem title="11 х 14 дюймов" tag="4" id="163"/>
+                                                <menuItem title="11 х 17 дюймов" tag="5" id="165"/>
                                                 <menuItem title="14 х 14 дюймов" tag="6" id="162"/>
-                                                <menuItem title="14 дюймов х 17 дюймов" tag="7" id="172"/>
+                                                <menuItem title="14 х 17 дюймов" tag="7" id="172"/>
                                                 <menuItem title="24 см х 24 см" tag="8" id="170"/>
                                                 <menuItem title="24 см х 30 см" tag="9" id="164"/>
                                                 <menuItem title="A4" tag="10" id="166"/>
@@ -194,7 +194,7 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="137">
-                                    <rect key="frame" x="15" y="98" width="95" height="26"/>
+                                    <rect key="frame" x="15" y="98" width="128" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Магазин" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -238,7 +238,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="133">
-                                    <rect key="frame" x="15" y="52" width="57" height="26"/>
+                                    <rect key="frame" x="15" y="52" width="86" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="YES" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="136" id="382">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -294,7 +294,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="143">
-                                    <rect key="frame" x="148" y="98" width="100" height="26"/>
+                                    <rect key="frame" x="148" y="98" width="144" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="REPLICATE" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="3" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="385">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -325,7 +325,7 @@
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="204">
-                                    <rect key="frame" x="15" y="141" width="67" height="26"/>
+                                    <rect key="frame" x="15" y="141" width="105" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Низкий" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="206" id="393">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -343,15 +343,15 @@
                                     </connections>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="199">
-                                    <rect key="frame" x="15" y="98" width="98" height="26"/>
+                                    <rect key="frame" x="6" y="98" width="133" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Бумага" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="202" id="392">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Другие виды" id="200">
                                             <items>
-                                                <menuItem title="Синяя плёнка" id="201"/>
-                                                <menuItem title="Прозрачная плёнка" tag="1" id="203"/>
+                                                <menuItem title="Синяя" id="201"/>
+                                                <menuItem title="Прозрачная" tag="1" id="203"/>
                                                 <menuItem title="Бумага" state="on" tag="2" id="202"/>
                                             </items>
                                         </menu>

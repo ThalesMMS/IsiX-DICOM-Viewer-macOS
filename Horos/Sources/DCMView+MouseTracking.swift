@@ -106,7 +106,7 @@ extension DCMView {
         let modifierFlags = NSApplication.shared.currentEvent?.modifierFlags ?? []
         let eventLocationInView = self.convert(eventLocationInWindow, from: nil)
 
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
             self.deleteLens()
 
             BrowserController.updateActivity()
@@ -143,7 +143,7 @@ extension DCMView {
 
             DCMView.horos_static_drawLock?.lock()
 
-            inputLogException(HorosObjCException.caughtWithoutAllocation {
+            inputLogException(HorosObjCException.caught {
                 self.readPixelsUnderMouse(eventLocationInWindow, inView: eventLocationInView, modifierFlags: modifierFlags)
             }, "-[DCMView mouseMovedInView:]")
 
@@ -317,7 +317,7 @@ extension DCMView {
     @objc(sync3DPosition)
     public dynamic func sync3DPosition() {
         guard let curDCM = self.curDCM, self.horos_curImage >= 0,
-              !inputBeyondLast(self.horos_curImage, self.horos_dcmPixList?.count ?? 0),
+              !inputBeyondLast(Int(self.horos_curImage), self.horos_dcmPixList?.count ?? 0),
               let dcmPixList = self.horos_dcmPixList else { return }
         var location: [Float] = [0, 0, 0]
 

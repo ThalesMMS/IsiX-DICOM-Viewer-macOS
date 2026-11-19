@@ -77,6 +77,9 @@ public struct IsiXCapability: RawRepresentable, Hashable, Sendable, CustomString
     /// Answering XML-RPC methods of the plugin's own through the application's
     /// XML-RPC interface.
     public static let xmlRPC = IsiXCapability(rawValue: "xmlrpc")
+    /// Commands in the Report menu of the application's plugins
+    /// (`IsiXCommand.Placement.report`).
+    public static let report = IsiXCapability(rawValue: "report")
 }
 
 /// The plugin's identity, as its Info.plist declares it.

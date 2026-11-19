@@ -160,13 +160,23 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     // MARK: - The former instance variables
 
     /// _delegate: assigned, not retained.
-    private unowned(unsafe) var _delegate: CPRViewDelegate? = nil
+    private unowned(unsafe) var _delegate: CPRViewDelegate? = nil {
+        didSet { if oldValue !== _delegate { host?._delegate = _delegate } }
+    }
 
-    private var _volumeData: CPRVolumeData? = nil
-    private var _generator: CPRGenerator? = nil
+    private var _volumeData: CPRVolumeData? = nil {
+        didSet { if oldValue !== _volumeData { host?._volumeData = _volumeData } }
+    }
+    private var _generator: CPRGenerator? = nil {
+        didSet { if oldValue !== _generator { host?._generator = _generator } }
+    }
 
-    private var _curvedPath: CPRCurvedPath? = nil
-    private var _displayInfo: CPRDisplayInfo? = nil
+    private var _curvedPath: CPRCurvedPath? = nil {
+        didSet { if oldValue !== _curvedPath { host?._curvedPath = _curvedPath } }
+    }
+    private var _displayInfo: CPRDisplayInfo? = nil {
+        didSet { if oldValue !== _displayInfo { host?._displayInfo = _displayInfo } }
+    }
 
     private var _planes: NSMutableDictionary? = nil
     private var _slabThicknesses: NSMutableDictionary? = nil
@@ -174,35 +184,65 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
     private var _planeRuns: NSMutableDictionary? = nil
     private var _planeColors: NSMutableDictionary? = nil
 
-    private var _clippingRangeMode: CPRViewClippingRangeMode = 0
+    private var _clippingRangeMode: CPRViewClippingRangeMode = 0 {
+        didSet { if oldValue != _clippingRangeMode { host?._clippingRangeMode = _clippingRangeMode } }
+    }
 
-    private var _curvedVolumeData: CPRVolumeData? = nil
+    private var _curvedVolumeData: CPRVolumeData? = nil {
+        didSet { if oldValue !== _curvedVolumeData { host?._curvedVolumeData = _curvedVolumeData } }
+    }
 
-    private var _lastRequest: CPRStraightenedGeneratorRequest? = nil
+    private var _lastRequest: CPRStraightenedGeneratorRequest? = nil {
+        didSet { if oldValue !== _lastRequest { host?._lastRequest = _lastRequest } }
+    }
     private var _straightenedSession: CPRStraightenedSession? = nil
-    private var _generatedHeight: CGFloat = 0
+    private var _generatedHeight: CGFloat = 0 {
+        didSet { if oldValue != _generatedHeight { host?._generatedHeight = _generatedHeight } }
+    }
 
-    private var _draggingTransverse = false
-    private var _draggingTransverseSpacing = false
-    private var _clickedNode = false
+    private var _draggingTransverse = false {
+        didSet { if oldValue != _draggingTransverse { host?._draggingTransverse = _draggingTransverse } }
+    }
+    private var _draggingTransverseSpacing = false {
+        didSet { if oldValue != _draggingTransverseSpacing { host?._draggingTransverseSpacing = _draggingTransverseSpacing } }
+    }
+    private var _clickedNode = false {
+        didSet { if oldValue != _clickedNode { host?._clickedNode = _clickedNode } }
+    }
     /// The display info stores on what plane and where in 3D the mouse position
     /// dots are, but we want to cache where the dots should be drawn in this view.
-    private var _mousePlanePointsInPix: NSMutableDictionary? = nil
+    private var _mousePlanePointsInPix: NSMutableDictionary? = nil {
+        didSet { if oldValue !== _mousePlanePointsInPix { host?._mousePlanePointsInPix = _mousePlanePointsInPix } }
+    }
 
-    private var _editingCurvedPathCount: Int = 0
+    private var _editingCurvedPathCount: Int = 0 {
+        didSet { if oldValue != _editingCurvedPathCount { host?._editingCurvedPathCount = _editingCurvedPathCount } }
+    }
 
-    private var _drawAllNodes = false
+    private var _drawAllNodes = false {
+        didSet { if oldValue != _drawAllNodes { host?._drawAllNodes = _drawAllNodes } }
+    }
 
     /// Synchronous new image requests are generated in drawRect, but code that
     /// handles the new image calls setNeedsDisplay, so this variable is used to
     /// short circuit setNeedsDisplay while the image is being generated.
-    private var _processingRequest = false
-    private var _needsNewRequest = false
+    private var _processingRequest = false {
+        didSet { if oldValue != _processingRequest { host?._processingRequest = _processingRequest } }
+    }
+    private var _needsNewRequest = false {
+        didSet { if oldValue != _needsNewRequest { host?._needsNewRequest = _needsNewRequest } }
+    }
 
-    private var _displayCrossLines = false
-    private var _displayTransverseLines = false
+    private var _displayCrossLines = false {
+        didSet { if oldValue != _displayCrossLines { host?._displayCrossLines = _displayCrossLines } }
+    }
+    private var _displayTransverseLines = false {
+        didSet { if oldValue != _displayTransverseLines { host?.displayTransverseLinesOfSDK = _displayTransverseLines } }
+    }
 
-    private var stanStringAttrib: NSMutableDictionary? = nil
+    private var stanStringAttrib: NSMutableDictionary? = nil {
+        didSet { if oldValue !== stanStringAttrib { host?.stanStringAttrib = stanStringAttrib } }
+    }
 
     /// [self windowController], a CPRController.
     private var cprWindowController: CPRController? {
@@ -485,6 +525,90 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
                 cprWindowController?.updateToolbarItems()
             }
         }
+    }
+
+    // The curved MPR view that hosts this view keeps, for the instance
+    // variables that older copies of the SDK's headers declare there, copies
+    // of this view's state. The view shown writes each where its own state
+    // changes (the observers of the fields above and the calls below), and
+    // all of them when it is put in that view.
+
+    /// The curved MPR view, while this view is the one it shows.
+    private var host: CPRView? { superview as? CPRView }
+
+    func copyState(to host: CPRView) {
+        host._delegate = _delegate
+        host._volumeData = _volumeData
+        host._curvedVolumeData = _curvedVolumeData
+        host._generator = _generator
+        host._curvedPath = _curvedPath
+        host._displayInfo = _displayInfo
+        host._clippingRangeMode = _clippingRangeMode
+        host._lastRequest = _lastRequest
+        host._generatedHeight = _generatedHeight
+        host._draggingTransverse = _draggingTransverse
+        host._draggingTransverseSpacing = _draggingTransverseSpacing
+        host._clickedNode = _clickedNode
+        host._mousePlanePointsInPix = _mousePlanePointsInPix
+        host._editingCurvedPathCount = _editingCurvedPathCount
+        host._drawAllNodes = _drawAllNodes
+        host._processingRequest = _processingRequest
+        host._needsNewRequest = _needsNewRequest
+        host._displayCrossLines = _displayCrossLines
+        host.displayTransverseLinesOfSDK = _displayTransverseLines
+        host.stanStringAttrib = stanStringAttrib
+        copyPlanes(to: host)
+        copySlabThicknesses(to: host)
+        copyPlaneColors(to: host)
+        copyAllLines(to: host)
+    }
+
+    private func copyPlanes(to host: CPRView) {
+        func plane(_ name: String) -> N3Plane { (_planes?.object(forKey: name) as? NSValue)?.n3PlaneValue() ?? N3Plane() }
+        host._orangePlane = plane("orange")
+        host._purplePlane = plane("purple")
+        host._bluePlane = plane("blue")
+    }
+
+    private func copySlabThicknesses(to host: CPRView) {
+        func thickness(_ name: String) -> CGFloat { CGFloat((_slabThicknesses?.object(forKey: name) as? NSNumber)?.doubleValue ?? 0) }
+        host._orangeSlabThickness = thickness("orange")
+        host._purpleSlabThickness = thickness("purple")
+        host._blueSlabThickness = thickness("blue")
+    }
+
+    private func copyPlaneColors(to host: CPRView) {
+        host._orangePlaneColor = _planeColors?.object(forKey: "orange") as? NSColor
+        host._purplePlaneColor = _planeColors?.object(forKey: "purple") as? NSColor
+        host._bluePlaneColor = _planeColors?.object(forKey: "blue") as? NSColor
+    }
+
+    /// The runs and the vertical lines kept for one plane, its top or its
+    /// bottom: written when they are computed and when they are discarded.
+    private func copyLines(named name: String, to host: CPRView) {
+        let lines = _verticalLines?.object(forKey: name) as? NSArray, runs = _planeRuns?.object(forKey: name) as? NSArray
+        switch name {
+        case "orange": host._orangeVericalLines = lines; host._orangePlaneRuns = runs
+        case "orangeTop": host._orangeTopVericalLines = lines; host._orangeTopPlaneRuns = runs
+        case "orangeBottom": host._orangeBottomVericalLines = lines; host._orangeBottomPlaneRuns = runs
+        case "purple": host._purpleVericalLines = lines; host._purplePlaneRuns = runs
+        case "purpleTop": host._purpleTopVericalLines = lines; host._purpleTopPlaneRuns = runs
+        case "purpleBottom": host._purpleBottomVericalLines = lines; host._purpleBottomPlaneRuns = runs
+        case "blue": host._blueVericalLines = lines; host._bluePlaneRuns = runs
+        case "blueTop": host._blueTopVericalLines = lines; host._blueTopPlaneRuns = runs
+        case "blueBottom": host._blueBottomVericalLines = lines; host._blueBottomPlaneRuns = runs
+        default: break
+        }
+    }
+
+    private func copyLines(ofPlane planeName: String, to host: CPRView) {
+        copyLines(named: planeName, to: host)
+        copyLines(named: planeName + "Top", to: host)
+        copyLines(named: planeName + "Bottom", to: host)
+    }
+
+    private func copyAllLines(to host: CPRView) {
+        for planeName in ["orange", "purple", "blue"] { copyLines(ofPlane: planeName, to: host) }
     }
 
     // The properties of the class extension.
@@ -1140,23 +1264,23 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
 
                     if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                         cprWindowController?.roiGetInfo(self)
-                    } else if cprFrameZoomed.boolValue == false {
+                    } else if frameZoomed.boolValue == false {
                         let frame1 = windowController?.mprView1?.frame ?? NSZeroRect
                         let frame3 = windowController?.mprView3?.frame ?? NSZeroRect
-                        cprSplitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
-                        cprSplitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
-                        cprSplitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
+                        splitPosition.0 = cInt32(Double(frame1.origin.x + frame1.size.width))  // vert
+                        splitPosition.1 = cInt32(Double(frame1.origin.y + frame1.size.height)) // hori12
+                        splitPosition.2 = cInt32(Double(frame3.origin.y + frame3.size.height)) // horiz2
 
-                        cprFrameZoomed = ObjCBool(true)
+                        frameZoomed = ObjCBool(true)
 
                         windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                         windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                     } else {
-                        cprFrameZoomed = ObjCBool(false)
-                        windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
-                        windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
-                        windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
+                        frameZoomed = ObjCBool(false)
+                        windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
+                        windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
+                        windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
 
                         windowController?.mprView1?.restoreCamera()
                         windowController?.mprView1?.camera?.forceUpdate = true
@@ -1924,12 +2048,14 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
             planeRuns = self._runs(forPlane: plane, verticalLineIndexes: &vertialLines)
             _verticalLines?.setValue(vertialLines, forKey: planeFullName)
             _planeRuns?.setValue(planeRuns, forKey: planeFullName)
+            if let host { copyLines(named: planeFullName, to: host) }
         }
     }
 
     private func _clearAllPlanes() {
         _verticalLines?.removeAllObjects()
         _planeRuns?.removeAllObjects()
+        if let host { copyAllLines(to: host) }
     }
 
     // The proxies of +resolveInstanceMethod:. Sent under their own selector they
@@ -1980,6 +2106,10 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         _planeRuns?.removeObject(forKey: planeName.appending("Bottom"))
 
         _planes?.setValue(NSValue(n3Plane: plane), forKey: planeName as String)
+        if let host {
+            copyPlanes(to: host)
+            copyLines(ofPlane: planeName as String, to: host)
+        }
         self.needsDisplay = true
     }
 
@@ -2000,6 +2130,10 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         _verticalLines?.removeObject(forKey: planeName)
         _planeRuns?.removeObject(forKey: planeName)
         _slabThicknesses?.setValue(NSNumber(value: Double(thickness)), forKey: planeName as String)
+        if let host {
+            copySlabThicknesses(to: host)
+            copyLines(named: planeName as String, to: host)
+        }
         self.needsDisplay = true
     }
 
@@ -2018,6 +2152,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         planeName = selectorName.replacingCharacters(in: NSMakeRange(0, 4), with: selectorName.substring(with: NSMakeRange(3, 1)).lowercased()) as NSString
         planeName = planeName.substring(to: planeName.length - 11) as NSString
         _planeColors?.setValue(color, forKey: planeName as String)
+        if let host { copyPlaneColors(to: host) }
         self.needsDisplay = true
     }
 
@@ -2028,6 +2163,7 @@ public final class CPRStraightenedView: DCMView, @MainActor CPRGeneratorDelegate
         planeName = selectorName.substring(to: selectorName.length - 10)
         if _planeColors?.value(forKey: planeName) == nil {
             _planeColors?.setValue(NSColor(deviceRed: 1, green: 1, blue: 1, alpha: 1), forKey: planeName)
+            if let host { copyPlaneColors(to: host) }
         }
         return _planeColors?.value(forKey: planeName) as? NSColor
     }

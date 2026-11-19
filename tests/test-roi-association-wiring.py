@@ -81,7 +81,7 @@ if apply.find('add(toUndoQueue:') < apply.find('plan.canApply == false'):
     fail('undo is queued before the association plan is accepted')
 if 'displayedIndex: displayed' not in apply or 'imageView().curImage' not in apply:
     fail('applyAssociationItems does not tell the planner which image is displayed')
-if 'HorosROILabelPresentation' in apply or 'ROILabelPresentation' in apply or 'stringTex' in apply:
+if 'HorosROILabelPresentation' in apply or 'ROILabelPresentation' in apply or 'stringTex' in apply or 'textString' in apply:
     fail('association import must not touch the ROI label matrix')
 
 append = work[work.index('static func append('):

@@ -10,21 +10,47 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
-// Temporary LaunchServices setup for the URL scheme's native validation; not part of Horos.
-// No argument: read the handler. One bundle identifier: explicitly set it.
-// Save both output lines before changing it; restore and compare after testing.
+// Temporary LaunchServices setup for the native validation of the link schemes; not part of the application.
+//   handler                         read the handler of horos://
+//   handler BUNDLE-ID               set the handler of horos:// by identifier
+//   handler SCHEME                  read the handler of isix://, horos:// or osirix://
+//   handler SCHEME BUNDLE-ID        set it by identifier
+//   handler SCHEME /PATH/TO/X.app   set it to that copy of an application
+// Each run ends by printing the identifier and the path of the handler, or "none" twice.
+// Save both output lines of every scheme before changing one; restore and compare after testing.
 import AppKit
 import CoreServices
 
-precondition(CommandLine.arguments.count <= 2, "usage: handler [bundle-identifier]")
-if CommandLine.arguments.count == 2 {
-    let status = LSSetDefaultHandlerForURLScheme("horos" as CFString,
-                                                CommandLine.arguments[1] as CFString)
-    precondition(status == noErr, "setting handler failed: \(status)")
+let schemes = ["isix", "horos", "osirix"]
+var arguments = Array(CommandLine.arguments.dropFirst())
+var scheme = "horos"
+if let first = arguments.first, schemes.contains(first.lowercased()) {
+    scheme = first.lowercased()
+    arguments.removeFirst()
 }
-guard let application = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "horos://test")!),
-      let identifier = Bundle(url: application)?.bundleIdentifier else {
-    fatalError("No registered horos:// handler; do not change it without a restoration plan")
+precondition(arguments.count <= 1, "usage: handler [isix|horos|osirix] [bundle-identifier | /path/to/Application.app]")
+
+if let target = arguments.first {
+    if target.hasPrefix("/") {
+        precondition(FileManager.default.fileExists(atPath: target), "no application at \(target)")
+        let done = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var failure: (any Error)?
+        NSWorkspace.shared.setDefaultApplication(at: URL(fileURLWithPath: target), toOpenURLsWithScheme: scheme) { error in
+            failure = error
+            done.signal()
+        }
+        done.wait()
+        if let failure { fatalError("setting the handler of \(scheme):// failed: \(failure)") }
+    } else {
+        let status = LSSetDefaultHandlerForURLScheme(scheme as CFString, target as CFString)
+        precondition(status == noErr, "setting the handler of \(scheme):// failed: \(status)")
+    }
 }
-print(identifier)
-print(application.path)
+if let application = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "\(scheme)://test")!) {
+    print(Bundle(url: application)?.bundleIdentifier ?? "none")
+    print(application.path)
+} else {
+    // A scheme with no handler is a state to record too: isix:// before the first build that declares it.
+    print("none")
+    print("none")
+}

@@ -53,12 +53,20 @@ failures = []
 tree = files()
 project = read('Horos.xcodeproj/project.pbxproj')
 
-GONE = ('GLString', 'StringTexture', 'NSFont_OpenGL', 'OpenGLScreenReader', 'VTKView', 'VTKStereo', 'StereoVision')
-for name in GONE:
-    left = [f for f in tree if f.split('/')[0] in ('Horos', 'Nitrogen', 'NSFont_OpenGL') and re.search(r'(^|/)%s[^/]*\.(h|m|mm|swift)$' % name, f)]
+# GLString, StringTexture, OpenGLScreenReader, VTKView and the VTK stereo views
+# are classes of the plugin SDK of Horos and OsiriX: a plugin built for it
+# looks them up by name, so each exists again, a header and a Swift file that
+# keep the name and the selectors and draw nothing. What stays gone is their
+# Objective-C and Objective-C++ implementations, which were the OpenGL code;
+# the scan below reads the new files like any other source.
+FACADES = ('GLString', 'StringTexture', 'OpenGLScreenReader', 'VTKView', 'VTKStereo')
+GONE = ('NSFont_OpenGL', 'StereoVision')
+for name in FACADES + GONE:
+    kinds = 'm|mm' if name in FACADES else 'h|m|mm|swift'
+    left = [f for f in tree if f.split('/')[0] in ('Horos', 'Nitrogen', 'NSFont_OpenGL') and re.search(r'(^|/)%s[^/]*\.(%s)$' % (name, kinds), f)]
     if left:
         failures.append('%s is still in the tree: %s' % (name, ', '.join(left[:3])))
-    if re.search(r'\b%s\w*\.(h|m|mm)\b' % name, project):
+    if re.search(r'\b%s\w*\.(%s)\b' % (name, 'm|mm' if name in FACADES else 'h|m|mm'), project):
         failures.append('the project still lists %s' % name)
 if 'OpenGL.framework' in project:
     failures.append('OpenGL.framework is still linked')

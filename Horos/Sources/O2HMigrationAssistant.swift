@@ -83,6 +83,22 @@ public final class O2HMigrationAssistant: NSWindowController {
             return
         }
 
+        // While the application is launching, the assistant waits for the
+        // end of the launch and is then shown from the main run loop: its
+        // window is modal, and the browser asks for it while the main nib
+        // loads, before the link that launched the application has been
+        // handed over, which would wait for an answer with it.
+        let browser: BrowserController? = browserController
+        if LaunchEnd.keeps("O2HMigrationAssistant", { O2HMigrationAssistant.showStartupAssistantIfNeeded(browser) }) {
+            return
+        }
+
+        showStartupAssistantIfNeeded(browserController)
+    }
+
+    /// The assistant itself, when the folder of the former application's
+    /// database is there: modal, unless the application is hidden.
+    private class func showStartupAssistantIfNeeded(_ browserController: BrowserController?) {
         //Open Assistant if OsiriX is installed
         if O2HMigrationAssistant.isOsiriXInstalled() {
             //Launch the assistant

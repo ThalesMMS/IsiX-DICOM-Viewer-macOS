@@ -220,6 +220,16 @@ public final class AlbumCatalog<ID: Hashable & Sendable>: Sendable {
         return AlbumNaming.uniqueName(for: requested, existing: existing)
     }
 
+    /// The default albums a database lacks. A default album is named in the
+    /// language the application ran in when it was made, which need not be
+    /// the one it runs in now: `names` gives the names a default album has in
+    /// every language, and one that is there under any of them is not made
+    /// again.
+    public static func missingDefaultAlbums(among existing: Set<String>,
+                                            names: (String) -> Set<String>) -> [(name: String, predicate: String?)] {
+        defaultAlbums.filter { names($0.name).union([$0.name]).isDisjoint(with: existing) }
+    }
+
     /// The albums a new database is given: their names, which the app
     /// localizes, and the filters of the smart ones (nil for an album).
     public static var defaultAlbums: [(name: String, predicate: String?)] { [

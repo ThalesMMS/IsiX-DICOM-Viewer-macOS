@@ -65,6 +65,7 @@ enum dbObjectSelection {oAny,oMiddle,oFirstForFirst};
 
 extern NSString * const __deprecated O2AlbumDragType; // was used to mark dragging pasteboards destinated to the Sources list in the Database window, we now make the list accept O2PasteboardTypeDatabaseObjectXIDs instead
 extern NSString * const O2PasteboardTypeDatabaseObjectXIDs;
+extern NSString * const O2DatabaseXIDsDragType;
 
 #ifdef __cplusplus
 extern "C" {

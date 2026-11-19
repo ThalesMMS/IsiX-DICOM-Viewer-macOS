@@ -32,12 +32,21 @@ protocol HTTPServerResponse: AnyObject {
     func connectionDidClose()
 }
 
+/// A response that makes its body as it is sent: while it says so, a read that
+/// gives no bytes means that they are not there yet, and the engine waits for
+/// `responseHasAvailableData()` instead of closing the connection.
+protocol HTTPServerDeferredResponse: AnyObject {
+    var waitsForData: Bool { get }
+}
+
 /// What a connection's application code (the web portal's page code) does with
 /// each step of a request. Everything here runs on the connection's worker
 /// thread, one request at a time.
 protocol HTTPConnectionEngineDelegate: AnyObject {
     /// Whether `method` is served at `path`.
     func supportsMethod(_ method: String!, atPath path: String!) -> Bool
+    /// The header announces a body of this many bytes, which follows in pieces.
+    func prepareForBody(withSize contentLength: UInt64)
     /// A piece of the request body: pieces of `HTTPServerLimits.portalRequestBodyPiece`
     /// bytes, the last one shorter.
     func processDataChunk(_ data: Data!)
@@ -51,6 +60,19 @@ protocol HTTPConnectionEngineDelegate: AnyObject {
     func httpServerResponse(forMethod method: String, uri path: String) -> HTTPServerResponse?
     /// Answers a request that has no response, through `engine.sendErrorResponse`.
     func handleResourceNotFound()
+    /// Answers a request that cannot be read or announces a body it may not
+    /// have, normally through `engine.answerInvalidRequest()`. `data` is nil.
+    func handleInvalidRequest(_ data: Data!)
+    /// Answers a method that is not served, normally through `engine.answerUnknownMethod`.
+    func handleUnknownMethod(_ method: String!)
+    /// Answers a request of another HTTP version than 1.1, normally through
+    /// `engine.answerVersionNotSupported`.
+    func handleVersionNotSupported(_ version: String!)
+    /// The bytes of a response's head, normally `engine.serializedHead(of:)`,
+    /// which adds the fields every response has.
+    func preprocessResponse(_ response: CFHTTPMessage!) -> Data!
+    /// The bytes of an answer sent through `engine.sendErrorResponse`, as above.
+    func preprocessErrorResponse(_ response: CFHTTPMessage!) -> Data!
     /// The connection is closed; called once, last.
     func connectionDidDie()
 }
@@ -111,15 +133,21 @@ final class HTTPConnectionEngine: @unchecked Sendable {
                                          isSupported: supported) {
         case .badRequest:
             rejected = true
-            NSLog("HTTP Server: Error 400 - Bad Request")
-            sendErrorResponse(status: 400, headers: [("Content-Length", "0"), ("Connection", "close")], body: nil, closeAfter: true)
+            delegate?.handleInvalidRequest(nil)
         case .methodNotAllowed:
             rejected = true
-            NSLog("HTTP Server: Error 405 - Method Not Allowed: %@", method)
-            sendErrorResponse(status: 405, headers: [("Content-Length", "0"), ("Connection", "close")], body: nil, closeAfter: true)
-        case .noBody, .readBody:
+            delegate?.handleUnknownMethod(method)
+        case .readBody(let length):
+            delegate?.prepareForBody(withSize: length)
+        case .noBody:
             break
         }
+    }
+
+    /// A request the decoder could not read: the delegate answers it as an
+    /// invalid one.
+    func refuseUnreadableRequest() {
+        delegate?.handleInvalidRequest(nil)
     }
 
     func receiveBodyPiece(_ piece: Data) {
@@ -156,8 +184,7 @@ final class HTTPConnectionEngine: @unchecked Sendable {
         guard let request, let delegate else { return }
         let version = CFHTTPMessageCopyVersion(request).takeRetainedValue() as String
         guard version == (kCFHTTPVersion1_1 as String) else {
-            NSLog("HTTP Server: Error 505 - Version Not Supported: %@", version)
-            sendErrorResponse(status: 505, headers: [("Content-Length", "0")], body: nil, closeAfter: false)
+            delegate.handleVersionNotSupported(version)
             return
         }
         if delegate.isPasswordProtected(path) && !delegate.isAuthenticated() {
@@ -171,6 +198,24 @@ final class HTTPConnectionEngine: @unchecked Sendable {
         send(response)
     }
 
+    /// 400: the request is invalid; the connection closes after the answer.
+    func answerInvalidRequest() {
+        NSLog("HTTP Server: Error 400 - Bad Request")
+        sendErrorResponse(status: 400, headers: [("Content-Length", "0"), ("Connection", "close")], body: nil, closeAfter: true)
+    }
+
+    /// 405: the method is not served; the connection closes after the answer.
+    func answerUnknownMethod(_ method: String) {
+        NSLog("HTTP Server: Error 405 - Method Not Allowed: %@", method)
+        sendErrorResponse(status: 405, headers: [("Content-Length", "0"), ("Connection", "close")], body: nil, closeAfter: true)
+    }
+
+    /// 505: the request is not HTTP/1.1; the connection is kept.
+    func answerVersionNotSupported(_ version: String) {
+        NSLog("HTTP Server: Error 505 - Version Not Supported: %@", version)
+        sendErrorResponse(status: 505, headers: [("Content-Length", "0")], body: nil, closeAfter: false)
+    }
+
     /// An answer whose body is already known, headed with the date.
     func sendErrorResponse(status: Int, headers: [(String, String)], body: Data?, closeAfter: Bool) {
         guard !dead else { return }
@@ -178,11 +223,10 @@ final class HTTPConnectionEngine: @unchecked Sendable {
         for (name, value) in headers {
             CFHTTPMessageSetHeaderFieldValue(message, name as CFString, value as CFString)
         }
-        addStandardFields(to: message)
         if let body {
             CFHTTPMessageSetBody(message, body as CFData)
         }
-        let data = CFHTTPMessageCopySerializedMessage(message)?.takeRetainedValue() as Data? ?? Data()
+        let data = delegate?.preprocessErrorResponse(message) ?? Data()
         write(data, deadline: true) { [self] in
             if closeAfter {
                 closeConnection()
@@ -192,12 +236,20 @@ final class HTTPConnectionEngine: @unchecked Sendable {
         }
     }
 
-    private func addStandardFields(to message: CFHTTPMessage) {
+    /// The bytes of `message` with the fields every answer has: the date,
+    /// Accept-Ranges, and those of the response being sent, which replace the
+    /// message's own.
+    func serializedHead(of message: CFHTTPMessage) -> Data {
+        Self.serializedHead(of: message, responseFields: response?.responseHeaderFields ?? [])
+    }
+
+    static func serializedHead(of message: CFHTTPMessage, responseFields: [(String, String)]) -> Data {
         CFHTTPMessageSetHeaderFieldValue(message, "Date" as CFString, HTTPDateHeader.string() as CFString)
         CFHTTPMessageSetHeaderFieldValue(message, "Accept-Ranges" as CFString, "bytes" as CFString)
-        for (name, value) in response?.responseHeaderFields ?? [] {
+        for (name, value) in responseFields {
             CFHTTPMessageSetHeaderFieldValue(message, name as CFString, value as CFString)
         }
+        return CFHTTPMessageCopySerializedMessage(message)?.takeRetainedValue() as Data? ?? Data()
     }
 
     private func send(_ response: HTTPServerResponse) {
@@ -233,8 +285,7 @@ final class HTTPConnectionEngine: @unchecked Sendable {
                 CFHTTPMessageSetHeaderFieldValue(message, "Content-Length" as CFString, "\(contentLength)" as CFString)
             }
         }
-        addStandardFields(to: message)
-        let head = CFHTTPMessageCopySerializedMessage(message)?.takeRetainedValue() as Data? ?? Data()
+        let head = delegate?.preprocessResponse(message) ?? Data()
 
         let headOnly = method == "HEAD" || (!isChunked && contentLength == 0)
         bodyFinished = headOnly
@@ -277,7 +328,7 @@ final class HTTPConnectionEngine: @unchecked Sendable {
                     return
                 }
                 guard let data = response.readData(ofLength: Int(min(left, UInt64(available)))), !data.isEmpty else {
-                    abandonResponse()
+                    waitOrAbandon(response)
                     return
                 }
                 writeBody(data)
@@ -290,7 +341,7 @@ final class HTTPConnectionEngine: @unchecked Sendable {
                     if isChunked && response.isDone {
                         finishBody(with: Data(HTTPChunkedFraming.footer.dropFirst(2)), deadline: true)
                     } else {
-                        abandonResponse()
+                        waitOrAbandon(response)
                     }
                     return
                 }
@@ -331,6 +382,18 @@ final class HTTPConnectionEngine: @unchecked Sendable {
     private func abandonResponse() {
         bodyFinished = true
         closeConnection()
+    }
+
+    /// A read gave no bytes: a response that makes its body as it goes is
+    /// asked again once it has some; any other is abandoned.
+    private func waitOrAbandon(_ response: HTTPServerResponse) {
+        if (response as? HTTPServerDeferredResponse)?.waitsForData == true { return }
+        abandonResponse()
+    }
+
+    /// The response being sent has more of its body to give.
+    func responseHasAvailableData() {
+        continueSending()
     }
 
     private func responseDone() {
@@ -488,9 +551,7 @@ final class HTTPConnectionChannelHandler: ChannelInboundHandler, RemovableChanne
             if phase == .waitingForHead || phase == .receiving, let engine {
                 phase = .closing
                 engine.worker.perform {
-                    NSLog("HTTP Server: Error 400 - Bad Request")
-                    engine.sendErrorResponse(status: 400, headers: [("Content-Length", "0"), ("Connection", "close")],
-                                             body: nil, closeAfter: true)
+                    engine.refuseUnreadableRequest()
                 }
                 return
             }

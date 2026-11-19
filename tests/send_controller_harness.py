@@ -305,6 +305,13 @@ extension AppController {
 
 // The members the process graph makes for the application; never reached here.
 @MainActor final class BrowserWindowGraph {}
+// The copies the send hands the browser for the plugins of an older SDK; no browser here.
+enum BrowserOlderInstanceVariables {
+    @MainActor static func sendSheetLoaded(_ window: NSWindow?, keyImages: NSMatrix?, syntaxes: NSPopUpButton?, count: NSTextField?,
+                                           of graph: BrowserWindowGraph?) {}
+    @MainActor static func send(files: [Any]?, of graph: BrowserWindowGraph?) {}
+    @MainActor static func send(destination: [AnyHashable: Any]?, of graph: BrowserWindowGraph?) {}
+}
 @MainActor final class DICOMListenerController {
     nonisolated init(processGraph: ProcessGraph) {}
     nonisolated var isSessionInactive: Bool { false }

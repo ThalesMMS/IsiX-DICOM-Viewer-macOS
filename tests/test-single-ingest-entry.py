@@ -175,6 +175,10 @@ EXCEPTIONS = {
         ({'incoming': 3}, 'the deprecated -INCOMINGPATH that the plugin API keeps, by its Objective-C name, its '
                           'declaration and the path it asks of the storage module; it hands a plugin the path, the '
                           'app does not call it, and it neither lists, reads nor writes the folder'),
+    ('Horos/Sources/BrowserState.swift', 'show'):
+        ({'incoming': 1}, "the copy of the database's C path of the folder into the two instance variables that "
+                          'older headers of the former plugin SDK declared for it inside the browser, where a '
+                          'plugin reads them; it neither lists, reads nor writes the folder'),
     ('Horos/Sources/RemoteDicomDatabase.swift', 'initiateImportFilesFromIncomingDirUnlessAlreadyImporting'):
         ({'incoming': 1}, 'the override of a shared database, which asks the single entry for a pass '
                           'only when its own folder holds files'),

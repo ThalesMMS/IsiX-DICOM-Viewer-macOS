@@ -227,16 +227,26 @@ extension BrowserComparativeStudies: SeriesMenuBrowsing {
         preferences = processGraph.preferences
     }
 
-    /// The series of each time point of the viewer.
-    func viewerSeries(checkingNil: Bool) -> NSMutableArray {
+    /// The series of each time point of the viewer. A time point whose list
+    /// of files is empty (the window is closing, its series left the
+    /// database) has no series and is left out; so is, with `checkingNil`,
+    /// one whose first file has no series. The place of a series in the list
+    /// is therefore not always its time point: `listed` is told the time
+    /// point of each series, in the order of the list.
+    func viewerSeries(checkingNil: Bool, listed: ((_ timePoint: Int) -> Void)? = nil) -> NSMutableArray {
         let viewerSeries = NSMutableArray()
         for i in 0..<Int(viewer.horos_maxMovieIndex) {
-            let series = (viewer.horos_fileList(at: i)?.object(at: 0) as? DicomImage)?.series
+            let files = viewer.horos_fileList(at: i)
+            let first = files?.firstObject
+            if files != nil, first == nil { continue }
+            let series = (first as? DicomImage)?.series
             if checkingNil {
-                if let series { viewerSeries.add(series) }
+                guard let series else { continue }
+                viewerSeries.add(series)
             } else {
                 viewerArrayAdd(series, to: viewerSeries)
             }
+            listed?(i)
         }
         return viewerSeries
     }
@@ -420,7 +430,8 @@ extension SeriesMenuPresenter {
         var noStudy = false
         var read = Read()
         if let e = HorosObjCException.caught({
-            let curImage = viewer.horos_fileList(at: 0)?.object(at: 0) as? DicomImage
+            // No file at the first time point is no study: the menu stays empty.
+            let curImage = viewer.horos_fileList(at: 0)?.firstObject as? DicomImage
 
             guard let study = curImage?.series?.study else {
                 noStudy = true
@@ -645,15 +656,12 @@ extension SeriesMenuPresenter {
     func loadSelectedSeries(_ chosen: Any?, rightClick: Bool) {
         var series: AnyObject? = chosen as AnyObject?
         if let s = series as? DicomStudy {
-            let seriesArray = s.imageSeriesContainingPixels(true) as NSArray?
-            if (seriesArray?.count ?? 0) != 0 {
-                series = seriesArray?.object(at: 0) as AnyObject?
-            } else {
-                return
-            }
+            guard let first = (s.imageSeriesContainingPixels(true) as NSArray?)?.firstObject else { return }
+            series = first as AnyObject
         }
 
-        let viewerSeries = viewerSeries(checkingNil: true)
+        var timePoints: [Int] = []
+        let viewerSeries = viewerSeries(checkingNil: true) { timePoints.append($0) }
 
         let modifiers = NSApplication.shared.currentEvent?.modifierFlags ?? []
 
@@ -675,7 +683,7 @@ extension SeriesMenuPresenter {
                         processGraph.appController?.checkAllWindowsAreVisible(viewer, makeKey: true)
                     }
 
-                    for i in 0..<NSScreen.screens.count {
+                    for i in 0..<ViewerWindowArranger.maximumScreens {
                         AppControllerCAPIThumbnailsListPanel(i)?.setThumbnailsView(nil, viewer: nil)
                     }
 
@@ -719,12 +727,12 @@ extension SeriesMenuPresenter {
                         }
                     }
                 }
-            } else if series !== (viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.object(at: 0) as? DicomImage)?.series {
-                // Select it in 4D.
+            } else if series !== (viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.firstObject as? DicomImage)?.series {
+                // Select it in 4D, at its own time point.
                 let idx = viewerSeries.index(of: series as Any)
 
                 if idx != NSNotFound {
-                    viewer.setMovieIndex(Int16(truncatingIfNeeded: idx))
+                    viewer.setMovieIndex(Int16(truncatingIfNeeded: timePoints[idx]))
                     viewer.propagateSettings()
                 }
             } else {
@@ -739,7 +747,9 @@ extension SeriesMenuPresenter {
         var series = (sender?.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as AnyObject?
 
         if let s = series as? DicomStudy {
-            series = (s.imageSeries() as NSArray?)?.object(at: 0) as AnyObject?
+            // A study without a series of images has nothing to show.
+            guard let first = (s.imageSeries() as NSArray?)?.firstObject else { return }
+            series = first as AnyObject
 
             for i in viewer.horos_seriesPopupMenu?.menu?.items ?? [] {
                 if series === (i.representedObject as? O2ViewerThumbnailsMatrixRepresentedObject)?.object as AnyObject? {

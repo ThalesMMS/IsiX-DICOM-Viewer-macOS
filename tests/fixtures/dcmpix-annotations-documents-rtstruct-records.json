@@ -1351,8 +1351,7 @@
    ],
    "external": 0,
    "log": [
-    "exception NSInvalidArgumentException: launch path not accessible",
-    "---- sr-missing.dcm carries no Pixel Data element; it is shown empty",
+    "****** dsr2html failed: The file “dsr2html” doesn’t exist.",
     "not able to load the image : <folder>/sr-missing.dcm"
    ],
    "notAbleToLoad": true,
@@ -1392,8 +1391,7 @@
    "events": [],
    "external": 1,
    "log": [
-    "exception NSInvalidArgumentException: launch path not accessible",
-    "---- sr-missing.dcm carries no Pixel Data element; it is shown empty",
+    "****** dsr2html failed: The file “dsr2html” doesn’t exist.",
     "not able to load the image : <folder>/sr-missing.dcm"
    ],
    "notAbleToLoad": true,

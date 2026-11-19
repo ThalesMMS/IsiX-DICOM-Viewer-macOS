@@ -19,8 +19,17 @@ against the built application and its generated Horos-Swift.h:
   header declared and that the class no longer declares;
 - the executable exports _OBJC_CLASS_$_Name.
 
-The former plugin SDK (Horos.framework, which published these headers) is gone
-since the plugin API version 1; "published" in an entry is historical.
+The binary surface of the plugin SDK of Horos and OsiriX, which published
+these headers, is contract again since 2 November 2026: a plugin built for it
+is loaded without being rebuilt and sends these selectors by name.
+tests/test-legacy-plugin-abi.py checks that surface against the built bundle,
+and "removed" does not take a member out of it: the two records agree. A
+removed member that, written "Class -selector" or "Class +selector" with the
+class a category extends, is an item of "selectors" or of "used_outside_sdk"
+of tests/legacy-plugin-abi.json fails here, unless that registry lists it as
+missing; and it lists a selector the SDK of Horos had only while a class the
+member needs is missing, and none a known plugin sends. Such a member comes
+back as a thin facade that forwards to the type that does the work now.
 
 An entry with "block" is a block of methods of a class that stays Objective-C,
 moved to a Swift extension: each of its "selectors" is declared by the
@@ -32,7 +41,8 @@ every member of the class's former interface is still declared, by the class,
 one of its categories or the generated interface.
 
 --generated FILE checks against another generated header, which is how a
-removed selector is shown to fail.
+removed selector is shown to fail, and --contract FILE against another record,
+which is how a member of the SDK recorded as removed is shown to fail.
 """
 import argparse
 import json
@@ -45,6 +55,7 @@ root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--products', type=Path, default=root / 'build/Build/Products/Debug')
 parser.add_argument('--generated', type=Path)
+parser.add_argument('--contract', type=Path, default=root / 'tests/fixtures/swift-api-contract.json')
 args = parser.parse_args()
 if args.generated is None:
     # script/build_and_run.sh leaves the intermediates under build/Build, or
@@ -58,7 +69,20 @@ generated = args.generated
 if not generated.is_file() or not app.is_dir():
     print('skipped: needs a built IsiX DICOM Viewer.app (script/build_and_run.sh): --products DIR', file=sys.stderr)
     raise SystemExit(2)
-registry = json.loads((root / 'tests/fixtures/swift-api-contract.json').read_text())
+registry = json.loads(args.contract.read_text())
+abi = json.loads((root / 'tests/legacy-plugin-abi.json').read_text())
+ABI_MISSING = set(abi['missing'])
+
+
+def sdk_member_removed(cls, member):
+    """The failure for a removed member that the registry of the former SDK's surface requires, or None."""
+    key = f'{cls} {member}'
+    for section in ('selectors', 'used_outside_sdk'):
+        if key in abi[section] and f'{section} {key}' not in ABI_MISSING:
+            return (f'{cls}: {member} is recorded as removed but is in {section} of tests/legacy-plugin-abi.json and not in its '
+                    f'missing list: a plugin of the former Horos/OsiriX SDK sends it, keep it as a facade')
+    return None
+
 swift_header = generated.read_text(errors='replace')
 exported = subprocess.run(['nm', '-gU', str(app / 'Contents/MacOS/IsiX DICOM Viewer')], capture_output=True, text=True).stdout
 
@@ -79,17 +103,38 @@ def members(declarations):
             signature = re.sub(r'\([^()]*\)', ' ', signature)
         parts = re.findall(r'(\w*)\s*:\s*\w+', signature)
         found.add((kind, ''.join(p + ':' for p in parts) if parts else signature.split()[0]))
-    for attributes, name in re.findall(r'@property\s*(\([^)]*\))?[^;]*?\b(\w+)\s*;', text):
+    for attributes, declaration in re.findall(r'@property\s*(\([^)]*\))?([^;]*);', text):
+        # A property nothing may call (NS_UNAVAILABLE) is not a member.
+        if re.search(r'\b(?:NS_UNAVAILABLE|API_UNAVAILABLE|SWIFT_UNAVAILABLE)\b', declaration):
+            continue
         getter = re.search(r'getter\s*=\s*(\w+)', attributes or '')
         # Swift renames a property whose name is a C++ keyword (`operator` of
         # O2DicomPredicateEditorView) and keeps the selectors in getter=
         # and setter=.
         setter = re.search(r'setter\s*=\s*(\w+:)', attributes or '')
         kind = '+' if 'class' in (attributes or '') else '-'
-        found.add((kind, getter.group(1) if getter else name))
-        if 'readonly' not in (attributes or ''):
-            found.add((kind, setter.group(1) if setter else 'set' + name[0].upper() + name[1:] + ':'))
+        for name in property_names(declaration):
+            found.add((kind, getter.group(1) if getter else name))
+            if 'readonly' not in (attributes or ''):
+                found.add((kind, setter.group(1) if setter else 'set' + name[0].upper() + name[1:] + ':'))
     return found
+
+
+def property_names(declaration):
+    """The names a @property declares: one, or several after one type (`NSString *a, *b`)."""
+    block = re.search(r'\(\s*\^\s*(?:_Nullable\s+|_Nonnull\s+)?(\w+)\s*\)', declaration)
+    if block:
+        return [block.group(1)]
+    text = declaration
+    while re.search(r'<[^<>]*>|\([^()]*\)', text):
+        text = re.sub(r'<[^<>]*>|\([^()]*\)', ' ', text)
+    names = []
+    for part in text.split(','):
+        words = [word for word in re.findall(r'\w+', part)
+                 if not re.fullmatch(r'__deprecated|__unused|NS_\w+|API_\w+|SWIFT_\w+|_Nullable|_Nonnull|_Null_unspecified|__\w+', word)]
+        if words:
+            names.append(words[-1])
+    return names
 
 
 def interface(text, name, marker):
@@ -215,6 +260,8 @@ for entry in registry['classes']:
         for member, reason in entry.get('removed', {}).items():
             kind, selector = member[0], member[1:]
             removed.add((kind, selector))
+            if sdk_member_removed(base, member):
+                failures.append(sdk_member_removed(base, member))
             if (kind, selector) not in old:
                 failures.append(f'{name}: {member} is recorded as removed but the former category did not declare it')
             if (kind, selector) in new:
@@ -264,6 +311,8 @@ for entry in registry['classes']:
     for member, reason in entry.get('removed', {}).items():
         kind, selector = member[0], member[1:]
         removed.add((kind, selector))
+        if sdk_member_removed(name, member):
+            failures.append(sdk_member_removed(name, member))
         if (kind, selector) not in old:
             failures.append(f'{name}: {member} is recorded as removed but the former header did not declare it')
         if (kind, selector) in new:

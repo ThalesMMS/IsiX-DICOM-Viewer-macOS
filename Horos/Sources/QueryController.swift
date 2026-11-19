@@ -70,6 +70,14 @@ import IsiXPreferences
 /// As before, a controller keeps itself alive: the countdown of its scheduler
 /// keeps the scheduler's ports, which keep the window, as the one-second timer
 /// did, and +currentQueryController answers it.
+///
+/// The state is also the instance variables of the former Horos and OsiriX
+/// plugin SDK: a plugin built for it reads and writes each at the offset the
+/// application exports, so each is a stored field of this class with the C
+/// declaration's type, never private, lazy, weak or observed; a plugin's
+/// write calls no setter. Where the window's code wants a Swift value or an
+/// object that is never nil, an accessor of the former name answers it from
+/// the field.
 @objc(QueryController)
 public final class QueryController: NSWindowController, NSWindowDelegate, NSOutlineViewDelegate, NSMenuItemValidation,
                                     NSSplitViewDelegate, AutoQueryCountdownDisplay {
@@ -119,26 +127,52 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     // MARK: State
 
     /// The attributes of the DICOM dictionary, for the custom field's menu.
-    var dicomFields: [CIADICOMField] = []
+    var dicomFields: [CIADICOMField] {
+        get { _DICOMFieldsArray as? [CIADICOMField] ?? [] }
+        set { _DICOMFieldsArray = newValue as NSArray }
+    }
+    final var _DICOMFieldsArray: NSArray?
     /// The DICOM nodes of the window, bound to the sources table.
-    @objc public var sourcesArray = NSMutableArray()
+    @objc public var sourcesArray: NSMutableArray {
+        get { QueryController.madeIfNil(&_sourcesArray) }
+        set { _sourcesArray = newValue }
+    }
+    final var _sourcesArray: NSMutableArray? = NSMutableArray()
     @objc public var DatabaseIsEdited = false
-    let pressedKeys = NSMutableString()
+    /// The letters typed in the results to select a patient.
+    var pressedKeys: NSMutableString { QueryController.madeIfNil(&_pressedKeys) }
+    final var _pressedKeys: NSMutableString? = NSMutableString()
     /// What the window does after a pause: forget the typed letters, read
     /// what of the results is here, refresh once the database is quiet, open
     /// a retrieved item once it has arrived.
     let deferredCalls = DeferredCalls()
     /// The studies shown, in the order of the outline.
-    var resultArray = NSMutableArray()
-    var queryArrayPrefs = NetworkPreferences.querySources.name
+    var resultArray: NSMutableArray {
+        get { QueryController.madeIfNil(&_resultArray) }
+        set { _resultArray = newValue }
+    }
+    final var _resultArray: NSMutableArray? = NSMutableArray()
+    /// The preference that keeps the sources of this window.
+    var queryArrayPrefs: String {
+        get { _queryArrayPrefs as String? ?? NetworkPreferences.querySources.name }
+        set { _queryArrayPrefs = newValue as NSString }
+    }
+    final var _queryArrayPrefs: NSString? = NetworkPreferences.querySources.name as NSString
     var checkAndViewTry: Int32 = 0
     /// The query manager of the last query asked, kept for the threads that
     /// run it. Reachable by KVC as queryManager, as the former instance
     /// variable was.
     @objc nonisolated var queryManager: QueryArrayController? {
         get { workers.queryManager }
-        set { workers.queryManager = newValue }
+        set {
+            workers.queryManager = newValue
+            _queryManager = newValue
+        }
     }
+    /// The same manager for a plugin that reads the instance variable: a copy
+    /// without a retain, written with it, since the threads' own is under
+    /// their lock.
+    nonisolated(unsafe) final unowned(unsafe) var _queryManager: QueryArrayController?
     var autoQueryValue = false
     /// Whether the window observes the preferences: only a controller that
     /// loaded its window adds the observers, and removing one that was never
@@ -146,7 +180,9 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     var observesPreferences = false
     var queryButtonPressed = false
     var designedMinimumSize = NSSize.zero
-    @objc nonisolated public let autoQueryLock = NSRecursiveLock()
+    @objc nonisolated public var autoQueryLock: NSRecursiveLock { QueryController.madeIfNil(&_autoQueryLock) }
+    /// Taken by the threads that query, off the main actor.
+    nonisolated(unsafe) final var _autoQueryLock: NSRecursiveLock? = NSRecursiveLock()
     /// The retrieves of this window under way, which its automatic retrieve
     /// counts before starting another.
     nonisolated let retrieves = RetrieveMoveQueue()
@@ -180,6 +216,56 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     var localSnapshotGeneration = 0
     /// What the workers read of the window, copied on the main thread.
     nonisolated var windowState: QueryWindowState { workers.windowState }
+
+    /// The object a field keeps, made again when a plugin stored nil where
+    /// the window's code expects one.
+    nonisolated private static func madeIfNil<Kept: NSObject>(_ field: inout Kept?) -> Kept {
+        if let kept = field { return kept }
+        let made = Kept()
+        field = made
+        return made
+    }
+
+    // MARK: Instance variables of the former plugin SDK without state here
+
+    // What the SDK declared and the window no longer keeps: kept with the
+    // exact type, at 0, NO and nil, read by nothing here. The countdowns, the
+    // timer and the count of the retrieves are the scheduler's and the
+    // retrieve queue's; whether a C-FIND runs and the answers shown while it
+    // does are under the lock of the threads' state; the filters and the
+    // instances of the automatic query are Swift values; the two images, the
+    // key of the last query, the studies downloaded, the custom field and the
+    // set of the threads have no counterpart. The class releases the four it
+    // released before (the timer, the filters, the instances, the threads).
+    final var _autoQueryRemainingSecs = IsiXQueryControllerCountdowns()
+    final var _QueryTimer: Timer?, _queryFilters: NSMutableArray?, _autoQRInstances: NSMutableArray?, _performingQueryThreads: NSMutableSet?
+    final unowned(unsafe) var _Realised3: NSImage?, _Realised2: NSImage?, _currentQueryKey: NSString?, _customDICOMField: NSString?
+    final unowned(unsafe) var _temporaryCFindResultArray: NSMutableArray?, _downloadedStudies: NSMutableArray?
+    final var _performingCFind = false, _avoidQueryControllerDeallocReentry = false, _firstServerRealtimeResults = false
+    final var _numberOfRunningRetrieve = 0, _lastTemporaryCFindResultUpdate: TimeInterval = 0
+    /// What -autoRefreshQueryResults was when the window was made or was last
+    /// set to: the value itself is in the preferences.
+    final var _autoRefreshQueryResults = 0
+
+    // What only older headers of the SDK declared, each exported at its
+    // field's offset for the plugins built with such a header. Six are
+    // copies, written and never read here: the filters of the date, the time
+    // and the modality, made as the SDK made them when the date choice and
+    // the modalities are set (the window itself queries with Swift values);
+    // the studies being retrieved with the number of images of each, which
+    // are the process's (RetrieveInTransfer), in the dictionary it keeps
+    // equal to its own; and the UIDs of the local studies among the results
+    // with the time they were read, written with each local snapshot.
+    final var _dateQueryFilter: QueryFilter?, _timeQueryFilter: QueryFilter?, _modalityQueryFilter: QueryFilter?
+    final var _previousAutoRetrieve: NSMutableDictionary? = RetrieveInTransfer.ofOlderSDK, _studyArrayInstanceUID: NSArray?
+    final var _lastComputeStudyArrayInstanceUID: TimeInterval = 0
+    // Four have nothing behind them and stay NO, 0 and nil, never retained:
+    // the snapshot of the local studies keeps values and object IDs, no list
+    // of the studies themselves; the retrieves in progress are values of the
+    // retrieve queue, in no dictionary; a C-ECHO answers its caller; and the
+    // list is refreshed with no time kept.
+    final unowned(unsafe) var _activeMoves: NSMutableDictionary?, _studyArrayCache: NSArray?
+    final var _echoSuccess = false, _lastListRefresh: TimeInterval = 0
 
     // The current windows, kept by their own timer.
     private static weak var currentWindow: QueryController?
@@ -232,6 +318,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
         autoQueryValue = autoQR
         queryArrayPrefs = (autoQR ? NetworkPreferences.autoQuerySources : NetworkPreferences.querySources).name
+        _autoRefreshQueryResults = autoRefreshQueryResults
 
         if let saved = preferences.object(forKey: queryArrayPrefs) as? NSArray {
             sourcesArray = saved.mutableCopy() as? NSMutableArray ?? NSMutableArray()
@@ -249,6 +336,10 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             setDateQuery(dateFilterMatrix)
 
             QueryController.currentWindow = self
+            // The browser's copy of its Query and Retrieve window, for a
+            // plugin built with an older header of the former SDK:
+            // unretained, so taken back as the window closes.
+            processGraph?.browserWindow?.browser._queryController = self
             window?.title = NSLocalizedString("DICOM Query/Retrieve", comment: "")
 
             // Only the nodes that retrieve with C-MOVE are affected; a WADO node
@@ -355,11 +446,10 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
             Task { await scheduler.stop() }
         }
 
-        if autoQueryValue {
-            if QueryController.currentAutomaticWindow === self { QueryController.currentAutomaticWindow = nil }
-        } else if QueryController.currentWindow === self {
-            QueryController.currentWindow = nil
-        }
+        // The browser's copy is an unretained pointer, which must not outlive
+        // the window. The two current windows need nothing here: they are
+        // weak references, which already read nil when this runs.
+        if let browser = processGraph?.browserWindow?.browser, browser._queryController === self { browser._queryController = nil }
     }
 
     // MARK: The current windows
@@ -390,6 +480,7 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         }
         set {
             preferences.set(newValue, for: autoQueryValue ? NetworkPreferences.autoQueryRefreshSetting : NetworkPreferences.queryRefreshSetting)
+            _autoRefreshQueryResults = newValue
         }
     }
 

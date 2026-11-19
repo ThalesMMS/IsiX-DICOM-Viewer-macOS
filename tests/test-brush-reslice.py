@@ -434,16 +434,25 @@ if '- (BOOL) setOrientation: (int) newOrientationTool' in viewer:
     ]
 else:
     orientation = source_text('ViewerController+Orientation')
-    set_orientation = orientation[orientation.index('    func setOrientation(_ newOrientationTool: Int32) -> Bool {'):]
+    # -setOrientation: is the façade of ViewerPlaneChange, whose change(to:)
+    # holds the viewer as `viewer`.
+    facade = orientation[orientation.index('    func setOrientation(_ newOrientationTool: Int32) -> Bool {'):]
+    facade = facade[:facade.index('\n    }\n')]
+    set_orientation = orientation[orientation.index('    func change(to newOrientationTool: Int32) -> Bool {'):]
     set_orientation = set_orientation[:set_orientation.index('\n    }\n')]
     reslice = source_text('ViewerController+Reslice')
     process_reslice = reslice[reslice.index('    func processReslice(_ directionm: Int, _ newViewer: Bool) -> Bool {'):]
-    capture = set_orientation.find('let brushes = BrushReslice.capture(from: self)')
+    capture = set_orientation.find('let brushes = BrushReslice.capture(from: viewer)')
+    reorient = orientation[orientation.index('    fileprivate func reorient(_ change: SeriesReorientation, newViewer: Bool) -> Bool {'):]
+    reorient = reorient[:reorient.index('\n    }\n')]
     checks = [
-        (0 <= capture < set_orientation.find('succeed = processReslice(change.resliceDirection, newViewer)'),
+        ('ViewerPlaneChange(viewer: self).change(to: newOrientationTool)' in facade, '-setOrientation: makes the change of plane'),
+        (0 <= capture < set_orientation.find('succeed = viewer.reorient(change, newViewer: newViewer)')
+         and 'let succeed = processReslice(change.resliceDirection, newViewer)' in reorient,
          'the brushes are taken before the reslice'),
-        (re.search(r'horos_currentOrientationTool = Int16\(truncatingIfNeeded: newOrientationTool\)\s*brushes\?\.applyLater\(to: self\)',
-                   set_orientation) is not None,
+        (re.search(r'viewer\.horos_currentOrientationTool = Int16\(truncatingIfNeeded: newOrientationTool\)\s*'
+                   r'brushes\?\.applyLater\(to: viewer\)', set_orientation) is not None
+         and re.search(r'if !succeed \{.*?return succeed\s*\}\s*viewer\.horos_currentOrientationTool =', set_orientation, re.S) is not None,
          'given back after the flips and rotations, off the main thread, only when the reslice succeeded'),
         ('let brushes = newViewer ? BrushReslice.capture(from: self) : nil' in process_reslice
          and 'brushes?.apply(to: reslicedViewer)' in process_reslice, 'a new viewer gets them from -processReslice::'),

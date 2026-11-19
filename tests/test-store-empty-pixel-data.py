@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A stored object that declares an image and carries empty Pixel Data is refused.
 
-An OsiriX MD with a full disk served C-GET sub-operations whose Pixel Data had
+A PACS with a full disk served C-GET sub-operations whose Pixel Data had
 length zero: CT and CR that declare 512 x 512 or 2320 x 2828 and hold no
 picture. Horos stored and indexed them, and the retrieve inventory counted them
 as received, so the query window showed the study as complete. The store

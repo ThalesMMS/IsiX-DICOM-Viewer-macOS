@@ -128,11 +128,20 @@ public struct SettingsPropagation: Sendable {
         /// Where it was panned when the series of different studies were
         /// locked, in pixels of its image (`imagePan`); nil when it is not locked.
         public var seriesLockPan: CGPoint?
+        /// How far the zooms kept to it have moved its pan, in pixels of its
+        /// image (ZoomPan's offset). Read only when the zoom does not go on.
+        public var zoomPanOffset: CGPoint
+        /// What that offset was when the series were locked (ZoomPan's
+        /// lockOffset): the zooms kept since the lock moved its pan by the
+        /// difference. Read only between locked series when the zoom does not
+        /// go on.
+        public var lockZoomPanOffset: CGPoint
 
         public init(windowLevel: WindowLevelState?, viewport: ViewportState?, pixelSpacing: Double, image: Image?,
                     isRGB: Bool, suvConverted: Bool, modality: String?, subtraction: Bool, colourTable: String?,
                     orientation: [Float], keepsSettingsInSeries: Bool, studyInstanceUID: String?,
-                    movieIndex: Int, maxMovieIndex: Int, seriesLockPan: CGPoint? = nil) {
+                    movieIndex: Int, maxMovieIndex: Int, seriesLockPan: CGPoint? = nil, zoomPanOffset: CGPoint = .zero,
+                    lockZoomPanOffset: CGPoint = .zero) {
             self.windowLevel = windowLevel
             self.viewport = viewport
             self.pixelSpacing = pixelSpacing
@@ -148,6 +157,8 @@ public struct SettingsPropagation: Sendable {
             self.movieIndex = movieIndex
             self.maxMovieIndex = maxMovieIndex
             self.seriesLockPan = seriesLockPan
+            self.zoomPanOffset = zoomPanOffset
+            self.lockZoomPanOffset = lockZoomPanOffset
         }
     }
 
@@ -158,8 +169,9 @@ public struct SettingsPropagation: Sendable {
     public var registered: Bool
     /// Whether the 4D navigator is open: it moves the frames itself.
     public var navigatorShown: Bool
-    /// The distance, in millimetres, between the target's image and the
-    /// source's (DCMPix's originDeltaBetween:And:); nil without both images.
+    /// The shift from the centre of the source's image to the centre of the
+    /// target's, in pixels of the source's image (DCMPix's
+    /// originDeltaBetween:And:); nil without both images.
     public var originDelta: CGPoint?
     public var preferences: Preferences
 
@@ -209,13 +221,37 @@ public struct SettingsPropagation: Sendable {
                 // Overlapping images only: not the left and right limbs of one study.
                 if let otherImage = target.image, let image = source.image, otherImage.rect.intersects(image.rect),
                    otherImage.hasOrigin && image.hasOrigin, let originDelta {
-                    plan.origin = Self.pan(viewport.origin, delta: originDelta, scale: viewport.scale)
+                    if preferences.copiesZoom {
+                        plan.origin = Self.pan(viewport.origin, delta: originDelta, scale: viewport.scale)
+                    } else {
+                        // The other keeps its zoom: the point this view centres
+                        // goes on in millimetres, at the other's scale, and the
+                        // pan that each one's own zooms moved stays where it is.
+                        // `originDelta` is in pixels of this image, its vertical
+                        // part against the pan's, as in `pan(_:delta:scale:)`.
+                        let from = CGPoint(x: source.zoomPanOffset.x - originDelta.x, y: source.zoomPanOffset.y + originDelta.y)
+                        plan.origin = Self.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: from,
+                                               otherScale: targetViewport.scale, otherPixelSpacing: target.pixelSpacing,
+                                               otherLock: target.zoomPanOffset)
+                    }
                 }
             } else if preferences.copiesPan, let lock = source.seriesLockPan, let targetLock = target.seriesLockPan {
                 // Patient coordinates cannot be compared between studies: the
                 // pan follows from the alignment the user locked them at.
-                plan.origin = Self.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: lock,
-                                       otherScale: plan.scale ?? targetViewport.scale, otherPixelSpacing: target.pixelSpacing, otherLock: targetLock)
+                if preferences.copiesZoom {
+                    plan.origin = Self.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: lock,
+                                           otherScale: plan.scale ?? targetViewport.scale, otherPixelSpacing: target.pixelSpacing, otherLock: targetLock)
+                } else {
+                    // Each keeps its zoom, and the pan its zooms moved since
+                    // the lock. The locks are the pans as they were, which the
+                    // zoom going on reads again.
+                    let from = CGPoint(x: lock.x + source.zoomPanOffset.x - source.lockZoomPanOffset.x,
+                                       y: lock.y + source.zoomPanOffset.y - source.lockZoomPanOffset.y)
+                    let to = CGPoint(x: targetLock.x + target.zoomPanOffset.x - target.lockZoomPanOffset.x,
+                                     y: targetLock.y + target.zoomPanOffset.y - target.lockZoomPanOffset.y)
+                    plan.origin = Self.pan(viewport.origin, scale: viewport.scale, pixelSpacing: source.pixelSpacing, lock: from,
+                                           otherScale: targetViewport.scale, otherPixelSpacing: target.pixelSpacing, otherLock: to)
+                }
             }
             if preferences.copiesRotation {
                 plan.rotation = viewport.rotation
@@ -265,24 +301,27 @@ public struct SettingsPropagation: Sendable {
         return scale
     }
 
-    /// The other view's pan: this view's, moved by the distance between the two
-    /// images' origins (`delta`, in millimetres) at this view's scale.
+    /// The other view's pan when it takes this view's zoom: this view's, moved
+    /// by the shift between the centres of the two images (`delta`, in pixels
+    /// of this view's image) at this view's scale.
     public static func pan(_ origin: CGPoint, delta: CGPoint, scale: Float) -> CGPoint {
         let x = delta.x * CGFloat(scale), y = delta.y * CGFloat(scale)
         return CGPoint(x: origin.x + x, y: origin.y - y)
     }
 
-    /// A view's pan in pixels of its image, which a change of zoom leaves as
-    /// it is; zero for a view without a scale.
+    /// A view's pan in pixels of its image, which a zoom centred on the view
+    /// leaves as it is; zero for a view without a scale.
     public static func imagePan(_ origin: CGPoint, scale: Float) -> CGPoint {
         guard scale != 0 else { return .zero }
         return CGPoint(x: origin.x / CGFloat(scale), y: origin.y / CGFloat(scale))
     }
 
-    /// The other view's pan between locked series: its pan at the lock, moved
-    /// as far as this view has moved since its own, the same distance in
-    /// millimetres when both views know their pixel spacing and the same number
-    /// of pixels otherwise. Nil from a view without a scale.
+    /// The other view's pan relative to this one's, at the other's scale: its
+    /// pan at `otherLock`, moved as far as this view has moved from `lock`
+    /// (image pans), the same distance in millimetres when both views know
+    /// their pixel spacing and the same number of pixels otherwise. Between
+    /// locked series the locks are their pans at the lock. Nil from a view
+    /// without a scale.
     public static func pan(_ origin: CGPoint, scale: Float, pixelSpacing: Double, lock: CGPoint,
                            otherScale: Float, otherPixelSpacing: Double, otherLock: CGPoint) -> CGPoint? {
         guard scale != 0 else { return nil }
@@ -290,6 +329,55 @@ public struct SettingsPropagation: Sendable {
         let pan = imagePan(origin, scale: scale)
         return CGPoint(x: ((pan.x - lock.x) * ratio + otherLock.x) * CGFloat(otherScale),
                        y: ((pan.y - lock.y) * ratio + otherLock.y) * CGFloat(otherScale))
+    }
+
+    /// What the settings last saw of a view's zoom and pan, and how far the
+    /// zooms kept to it have moved its pan. A zoom that is not centred on the
+    /// view (on the mouse, or on the image's centre) moves the point the view
+    /// centres. When the zoom does not go on, the pan that goes between
+    /// viewers leaves that move out: a zoom moves no other viewer, and the pan
+    /// of another viewer does not take a zoomed one back. Only a pan at the
+    /// same scale goes on. A fresh one, offsets at zero, is a view aligned
+    /// with the others as the zoom going on aligns it.
+    public struct ZoomPan: Sendable, Equatable {
+        /// The view's scale and pan when the settings last went from or to it.
+        public var scale: Float
+        public var origin: CGPoint
+        /// The pan its own zooms have moved, in pixels of its image.
+        public var offset: CGPoint
+        /// The offset when the series of different studies were locked: the
+        /// lock keeps the pan as it was, which the zoom going on reads, and the
+        /// zooms kept since moved it by `offset - lockOffset`.
+        public var lockOffset: CGPoint
+
+        public init(scale: Float, origin: CGPoint, offset: CGPoint = .zero, lockOffset: CGPoint = .zero) {
+            self.scale = scale
+            self.origin = origin
+            self.offset = offset
+            self.lockOffset = lockOffset
+        }
+
+        /// The view seen again at `scale` and `origin`. When its zoom changed
+        /// since and `keepsZoomMoves` (the zoom does not go on), what its pan
+        /// moved goes into the offset; a pan at the same scale stays out of it.
+        /// A view without a scale has no pan to compare.
+        public func seen(scale: Float, origin: CGPoint, keepsZoomMoves: Bool) -> ZoomPan {
+            var seen = ZoomPan(scale: scale, origin: origin, offset: offset, lockOffset: lockOffset)
+            if keepsZoomMoves && scale != self.scale && scale != 0 && self.scale != 0 {
+                let before = SettingsPropagation.imagePan(self.origin, scale: self.scale)
+                let after = SettingsPropagation.imagePan(origin, scale: scale)
+                seen.offset = CGPoint(x: offset.x + after.x - before.x, y: offset.y + after.y - before.y)
+            }
+            return seen
+        }
+
+        /// The view as the series are locked: the zooms kept from now on
+        /// move the pan from the lock.
+        public var locked: ZoomPan {
+            var locked = self
+            locked.lockOffset = offset
+            return locked
+        }
     }
 }
 

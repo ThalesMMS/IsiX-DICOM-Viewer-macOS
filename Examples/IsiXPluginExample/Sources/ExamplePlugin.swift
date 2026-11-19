@@ -46,6 +46,12 @@ public final class ExamplePlugin: IsiXPlugin, CustomStringConvertible {
                                          placement: .imageFilters, requirement: .viewer)) { [weak self] invocation in
             try self?.negate(invocation)
         }
+        // In Plugins > Report, which needs the `report` capability: an
+        // application without that menu refuses the plugin and says why.
+        try context.register(IsiXCommand(id: "report-image", title: "IsiX Example: Report Image",
+                                         placement: .report, requirement: .viewer)) { [weak self] invocation in
+            try self?.inspect(invocation)
+        }
         observation = try context.observe([.viewerWillClose, .sliceChanged, .roiChanged]) { [weak self] event in
             self?.handle(event)
         }

@@ -277,6 +277,7 @@ NS_SWIFT_NAME(SeriesListLayout)
 + (CGFloat) thicknessForPlacement:(HorosSeriesListPlacement)placement thumbnailWidth:(CGFloat)width thumbnailHeight:(CGFloat)height
     NS_SWIFT_NAME(thickness(for:thumbnailWidth:thumbnailHeight:));
 + (NSView*) imagePaneOfSplitView:(NSSplitView*)splitView placement:(HorosSeriesListPlacement)placement NS_SWIFT_NAME(imagePane(of:placement:));
++ (NSView*) dockOfSplitView:(NSSplitView*)splitView placement:(HorosSeriesListPlacement)placement NS_SWIFT_NAME(dock(of:placement:));
 + (CGFloat) listThicknessForDividerPosition:(CGFloat)position inSplitView:(NSSplitView*)splitView placement:(HorosSeriesListPlacement)placement
     NS_SWIFT_NAME(listThickness(forDividerPosition:in:placement:));
 + (CGFloat) dividerPositionForListThickness:(CGFloat)thickness inSplitView:(NSSplitView*)splitView placement:(HorosSeriesListPlacement)placement
@@ -975,6 +976,7 @@ BOOL harnessListVisible;
 static long harnessCells = 0;
 
 @implementation HorosSeriesListLayout
++ (NSView*) dockOfSplitView:(NSSplitView*)splitView placement:(HorosSeriesListPlacement)placement { return nil; }
 + (HorosSeriesListPlacement) storedPlacementIn:(NSUserDefaults*)defaults { return [defaults integerForKey: @"HorosSeriesListPlacement"]; }
 + (void) placeScrollView:(NSScrollView*)scrollView inSplitView:(NSSplitView*)splitView floating:(BOOL)floating visible:(BOOL)visible
           thumbnailWidth:(CGFloat)width placement:(HorosSeriesListPlacement)placement {
@@ -2579,8 +2581,12 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
             temporary = ('@MainActor enum TemporaryPreferenceWork {\n'
                          '    static func during<Value: PreferenceValue>(_ key: PreferenceKey<Value>, at value: Value, silently: Bool = false, _ work: () -> Void) {\n'
                          '        TemporaryPreferenceHolds.standard.during(key, at: value, work)\n    }\n}\n')
+        # The loops over the series list panels reach every panel, the spare one
+        # too (test-thumbnail-list-outlives-panels.py). The code compared here reached the
+        # panels of the screens: the stand-in keeps that reach, so that the rest compares.
+        panels = 'enum ViewerWindowArranger { static var maximumScreens: Int { NSScreen.screens.count } }\n'
         (swift / 'Helpers.swift').write_text('import AppKit\n' + ('import IsiXPreferences\n' if temporary else '')
-                                             + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows + dropped + temporary)
+                                             + panels + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows + dropped + temporary)
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []
         for module in MODULES:

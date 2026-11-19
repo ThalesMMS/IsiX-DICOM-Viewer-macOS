@@ -119,7 +119,8 @@ enum NonInteractiveKeychainRead {
     }
 
     private static func allowed(_ service: String, _ account: String) -> Bool {
-        (["org.horosproject.DICOMweb.credentials", "org.horosproject.DICOMweb.oidc-tokens"].contains(service)
+        (["org.horosproject.DICOMweb.credentials", "org.horosproject.DICOMweb.oidc-tokens",
+          "org.horosproject.horos.webportal.mailserver"].contains(service)
             && !account.isEmpty && account.utf8.count <= 1024)
             || (service == "org.horosproject.horos.xmlrpc" && account == "server")
     }

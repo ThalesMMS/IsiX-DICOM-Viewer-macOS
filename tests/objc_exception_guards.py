@@ -3,9 +3,13 @@
 Horos/Sources/HorosObjCException+Guards.swift holds every guard the Swift of
 the app puts where the Objective-C had @try or @synchronized
 (HorosObjCException.caught, .synchronized, .logged, .raisingToCaller,
-.throwing, .caughtWithoutAllocation). A harness that builds
+.throwing). A harness that builds
 HorosObjCException.m takes the real extension with source(); one that does not
 takes STAND_IN, which runs each body without catching what it raises.
+
+.caughtWithoutAllocation was a guard of the event handlers until it was found
+to end the process when it caught: the sources of a revision that had it still
+call it, so STAND_IN keeps its name and source() can still leave it out.
 """
 from pathlib import Path
 import re

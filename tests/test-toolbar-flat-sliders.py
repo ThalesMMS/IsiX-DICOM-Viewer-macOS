@@ -68,7 +68,11 @@ for name, sliders in toolbar_sliders.items():
         for slider in sliders:
             at = next(i for i, line in enumerate(lines) if '<slider ' in line and f'id="{slider}"' in line)
             cell = next(line for line in lines[at:at + 8] if '<sliderCell' in line)
-            assert 'customClass="HorosCellSlider"' in lines[at] and 'customClass="HorosCellSliderCell"' in cell, \
+            # The CPR's Thick Slab is the MPR's slider, a HorosCellSlider with its ruler.
+            # The orthogonal MPR's Thick Slab is the 2D viewer's slider, a HorosCellSlider too.
+            expected = ('HorosMPRThickSlabSlider' if (name, slider) == ('CPR.xib', '663')
+                        else 'HorosThickSlabSlider' if (name, slider) == ('OrthogonalMPR.xib', '145') else 'HorosCellSlider')
+            assert f'customClass="{expected}"' in lines[at] and 'customClass="HorosCellSliderCell"' in cell, \
                 f'{xib}: toolbar slider {slider} is a stock NSSlider'
 
 code = r'''

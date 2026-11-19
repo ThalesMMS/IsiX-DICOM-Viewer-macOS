@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 import IsiXPreferences
 import UniformTypeIdentifiers
 
@@ -179,15 +180,9 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         xCrossCenter = (self.crossPositionX() - Float(pwidth / 2)) * scaleValue
         yCrossCenter = (self.crossPositionY() - Float(pheight / 2)) * scaleValue
 
-        // normalization of FOCAL VECTOR
-        var vectNorm = Float(sqrt(pow(Double(_focalShiftX), 2) + pow(Double(_focalShiftY) / self.pixelSpacingX * self.pixelSpacingY, 2)))
-        var maxSize = Float(maxFocalLength)
-        vectNorm = (vectNorm == 0) ? 1.0 : vectNorm
-        maxSize = (vectNorm == 0) ? 0.0 : maxSize
-        maxSize = (vectNorm > maxSize) ? maxSize : vectNorm
-        let normalizationFactor = maxSize / vectNorm
-
-        //normalizationFactor = 1.0;
+        // The handle of the focal point, from the cross: the focal shift is in pixels of the image, drawn at the view's scale.
+        let handle = EndoscopyNavigation.focalHandle(shift: (Float(_focalShiftX), Float(_focalShiftY)), scale: scaleValue,
+                                                     pixelAspect: Float(self.pixelSpacingY / self.pixelSpacingX), maximumLength: Float(maxFocalLength))
 
         roiPushMatrix()
 
@@ -213,8 +208,8 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         roiBegin(GL_LINES)
         roiVertex2f(xCrossCenter, yCrossCenter)
 
-        var cfocalShiftX = Float(_focalShiftX)
-        var cfocalShiftY = Float(_focalShiftY)
+        var cfocalShiftX = handle.x * scaleValue
+        var cfocalShiftY = handle.y * scaleValue
 
         if self.xFlipped {
             cfocalShiftX = Float(Double(cfocalShiftX) * -1.0)
@@ -224,16 +219,16 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
             cfocalShiftY = Float(Double(cfocalShiftY) * -1.0)
         }
 
-        roiVertex2f(xCrossCenter + cfocalShiftX * normalizationFactor,
-                    yCrossCenter + cfocalShiftY * normalizationFactor)	//*[self pixelSpacingY]/[self pixelSpacingX]
+        roiVertex2f(xCrossCenter + cfocalShiftX,
+                    yCrossCenter + cfocalShiftY)	//*[self pixelSpacingY]/[self pixelSpacingX]
         roiEnd()
 
         // draw a point at the end of FOCAL POINT vector (handle to move the vector)
         roiPointSize(Float(2.0 * Double(near) * backingScaleFactor))
         roiBegin(GL_POINTS)
 
-        roiVertex2f(xCrossCenter + cfocalShiftX * normalizationFactor,
-                    yCrossCenter + cfocalShiftY * normalizationFactor)	//*[self pixelSpacingY]/[self pixelSpacingX]
+        roiVertex2f(xCrossCenter + cfocalShiftX,
+                    yCrossCenter + cfocalShiftY)	//*[self pixelSpacingY]/[self pixelSpacingX]
         roiEnd()
         roiPointSize(Float(1.0 * backingScaleFactor))
 
@@ -293,18 +288,11 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
 
     /// Whether the point is on the handle at the end of the focal vector.
     private func onFocalHandle(_ mouseLocStart: NSPoint) -> Bool {
-        // normalization of focal vector
-        var vectNorm = Float(sqrt(pow(Double(_focalShiftX), 2) + pow(Double(_focalShiftY) / self.pixelSpacingX * self.pixelSpacingY, 2)))
-        var maxSize = Float(maxFocalLength)
-        vectNorm = (vectNorm == 0) ? 1.0 : vectNorm
-        maxSize = (vectNorm == 0) ? 0.0 : maxSize
-        maxSize = (vectNorm > maxSize) ? maxSize : vectNorm
-
-        let normalizationFactor = maxSize / vectNorm
         let scaleFactor = self.horos_scaleValue
-
-        var sX = Float(_focalShiftX)
-        var sY = Float(_focalShiftY)
+        let handle = EndoscopyNavigation.focalHandle(shift: (Float(_focalShiftX), Float(_focalShiftY)), scale: scaleFactor,
+                                                     pixelAspect: Float(self.pixelSpacingY / self.pixelSpacingX), maximumLength: Float(maxFocalLength))
+        var sX = handle.x
+        var sY = handle.y
 
         if self.xFlipped {
             sX = Float(Double(sX) * -1.0)
@@ -318,8 +306,8 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         let nearScaled = Float(near) / scaleFactor
         let x = Double(mouseLocStart.x), y = Double(mouseLocStart.y)
 
-        if (x > Double(crossPositionX + sX * normalizationFactor / scaleFactor - nearScaled) && x < Double(crossPositionX + sX * normalizationFactor / scaleFactor + nearScaled)) &&
-            (y > Double(crossPositionY + sY * normalizationFactor / scaleFactor - nearScaled) && y < Double(crossPositionY + sY * normalizationFactor / scaleFactor + nearScaled)) {
+        if (x > Double(crossPositionX + sX - nearScaled) && x < Double(crossPositionX + sX + nearScaled)) &&
+            (y > Double(crossPositionY + sY - nearScaled) && y < Double(crossPositionY + sY + nearScaled)) {
             return true
         }
 
@@ -380,7 +368,6 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
         let mouseLocStart = self.imagePoint(theEvent)
 
         if self.onFocalHandle(mouseLocStart) {
-            let scaleFactor = self.horos_scaleValue
             var keepOn = true
             while keepOn {
                 theEvent = self.window?.nextEvent(matching: [.leftMouseUp, .leftMouseDragged, .periodic])
@@ -389,8 +376,9 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
 
                 switch theEvent?.type {
                 case .leftMouseDragged?:
-                    _focalShiftX = cLong((Double(mouseLoc.x) - Double(self.crossPositionX())) * Double(scaleFactor))
-                    _focalShiftY = cLong((Double(mouseLoc.y) - Double(self.crossPositionY())) * Double(scaleFactor))
+                    // In pixels of the image, as the camera gives the shift and the navigation reads it.
+                    _focalShiftX = cLong(Double(mouseLoc.x) - Double(self.crossPositionX()))
+                    _focalShiftY = cLong(Double(mouseLoc.y) - Double(self.crossPositionY()))
 
                     self.setFocalShiftX(_focalShiftX)
                     self.setFocalShiftY(_focalShiftY)
@@ -598,7 +586,7 @@ public final class EndoscopyMPRView: OrthogonalMPRView {
 
         email = Mailer()
 
-        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: path)
+        email.mailShowingFailure(image: path)
     }
 
     @objc(exportJPEG:)

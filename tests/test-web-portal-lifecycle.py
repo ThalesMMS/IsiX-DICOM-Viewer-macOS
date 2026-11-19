@@ -152,9 +152,14 @@ enum WebServerIdentity {
 }
 final class WebPortalServer: NSObject {
     weak var portal: WebPortal!
+    // The portal configures its server through the setters of HTTPServer, the
+    // server's superclass; an earlier revision set these three properties.
     var type: String?
     var txtRecord: [String: String] = [:]
     var port: UInt16 = 0
+    func setType(_ value: String!) { type = value }
+    func setTXTRecord(_ dict: [AnyHashable: Any]!) { txtRecord = dict as? [String: String] ?? [:] }
+    func setPort(_ value: UInt16) { port = value }
     var tlsIdentity: HTTPServerTLSIdentity?
     override init() { servers += 1 }
     func start() throws { throw HTTPServerListener.BindFailure(errnoCode: 48) }

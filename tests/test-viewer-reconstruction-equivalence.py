@@ -325,6 +325,10 @@ extern NSInteger informationalResponse;
 @interface CPRController : Window3DController
 - (nullable id) initWithDCMPixList:(NSMutableArray*) pix filesList:(NSMutableArray*) files volumeData:(id) volume viewerController:(ViewerController*) viewer fusedViewerController:(ViewerController*) fusedViewer;
 - (void) addMoviePixList:(NSMutableArray*) pix :(id) vData;
+// Vessel Analysis, which the current tree's launcher turns on for its own tag only.
+@property (nonatomic, readonly) BOOL isInVesselAnalysis;
+- (void) beginVesselAnalysis;
+- (void) endVesselAnalysis;
 @end
 
 @interface ITKSegmentation3DController : NSWindowController
@@ -841,6 +845,9 @@ static int created;
     return self;
 }
 - (void) addMoviePixList:(NSMutableArray*) pix :(id) vData { Record([NSString stringWithFormat: @"%@ addMoviePixList %@ %@", Name(self), Name(pix), Name(vData)]); }
+- (BOOL) isInVesselAnalysis { return NO; }
+- (void) beginVesselAnalysis { Record([NSString stringWithFormat: @"%@ beginVesselAnalysis", Name(self)]); }
+- (void) endVesselAnalysis { Record([NSString stringWithFormat: @"%@ endVesselAnalysis", Name(self)]); }
 @end
 
 @implementation ITKSegmentation3DController {

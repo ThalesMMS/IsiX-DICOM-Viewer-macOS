@@ -170,6 +170,12 @@ expect(consent.kind, .appleEventsDenied, "consent-required is a denial")
 expect(consent.errorNumber, -1744, "consent uses errAEEventWouldRequireUserConsent")
 if !consent.message.contains("-1744") { fail("consent-required must include error -1744: \(consent.message)") }
 
+for (name, read) in [("log.csv", true), ("LOG.CSV", true), ("log.txt", true), ("log", true),
+                     ("log.numbers", false), ("log.xlsx", false), ("log.csv.numbers", false)] {
+    expect(SurgicalProcedureImport.isDelimitedTextLog(at: URL(fileURLWithPath: "/tmp/" + name)), read,
+           "delimited text is told by the extension alone: \(name)")
+}
+
 do {
     _ = try SurgicalProcedureImport.parseCSV("")
     fail("empty file must throw")

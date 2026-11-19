@@ -130,6 +130,14 @@ public final class CPRTransverseView: DCMView {
 
     private var stanStringAttrib: NSMutableDictionary? = nil
 
+    /// An instance variable that only older copies of the headers of the
+    /// former Horos and OsiriX plugin SDK declare, kept at the offset the
+    /// application exports for it: the generator of the sections. The view
+    /// asks CPRGenerator for each section synchronously and keeps no
+    /// generator, so this stays nil unless a plugin stores one, which the
+    /// view then releases with itself.
+    var _generator: CPRGenerator? = nil
+
     // The former -dealloc only released _volumeData, _generatedVolumeData,
     // _curvedPath, _displayInfo, _lastRequest and stanStringAttrib: Swift
     // releases these properties.
@@ -398,21 +406,21 @@ public final class CPRTransverseView: DCMView {
 
             if self.roiTool(tool) && self.click(inROI: tempPt) != nil {
                 self.cprController?.roiGetInfo(self)
-            } else if cprFrameZoomed.boolValue == false {
-                cprSplitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0)))	// vert
-                cprSplitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0)))	// hori12
-                cprSplitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0)))	// horiz2
+            } else if frameZoomed.boolValue == false {
+                splitPosition.0 = cInt32(Double((windowController?.mprView1?.frame.origin.x ?? 0) + (windowController?.mprView1?.frame.size.width ?? 0)))	// vert
+                splitPosition.1 = cInt32(Double((windowController?.mprView1?.frame.origin.y ?? 0) + (windowController?.mprView1?.frame.size.height ?? 0)))	// hori12
+                splitPosition.2 = cInt32(Double((windowController?.mprView3?.frame.origin.y ?? 0) + (windowController?.mprView3?.frame.size.height ?? 0)))	// horiz2
 
-                cprFrameZoomed = ObjCBool(true)
+                frameZoomed = ObjCBool(true)
 
                 windowController?.verticalSplit?.setPosition(windowController?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                 windowController?.horizontalSplit1?.setPosition(windowController?.horizontalSplit1?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
                 windowController?.horizontalSplit2?.setPosition(windowController?.horizontalSplit2?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
             } else {
-                cprFrameZoomed = ObjCBool(false)
-                windowController?.verticalSplit?.setPosition(CGFloat(cprSplitPosition.0), ofDividerAt: 0)
-                windowController?.horizontalSplit1?.setPosition(CGFloat(cprSplitPosition.1), ofDividerAt: 0)
-                windowController?.horizontalSplit2?.setPosition(CGFloat(cprSplitPosition.2), ofDividerAt: 0)
+                frameZoomed = ObjCBool(false)
+                windowController?.verticalSplit?.setPosition(CGFloat(splitPosition.0), ofDividerAt: 0)
+                windowController?.horizontalSplit1?.setPosition(CGFloat(splitPosition.1), ofDividerAt: 0)
+                windowController?.horizontalSplit2?.setPosition(CGFloat(splitPosition.2), ofDividerAt: 0)
             }
         } else {
             super.mouseDown(with: event)

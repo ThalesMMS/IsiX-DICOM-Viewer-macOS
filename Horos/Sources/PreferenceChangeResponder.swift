@@ -134,6 +134,7 @@ final class PreferenceChangeResponder {
                     view.needsDisplay = true
                 }
             }
+            processGraph.currentBrowser?.horos_imageView?.needsDisplay = true
         }
         if change.lengthPresentation {
             NotificationCenter.default.post(name: Notification.Name(LengthPresentation.changedNotification), object: nil)

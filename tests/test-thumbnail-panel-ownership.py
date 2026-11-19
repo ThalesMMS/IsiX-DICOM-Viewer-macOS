@@ -4,7 +4,8 @@
 ThumbnailsListPanel is Swift: the methods (and the file's
 associatedScreen dictionary and its key) are taken from the Swift source
 (tests/sources.py). The former manual retain/release is ARC there: the probe
-viewer checks, as it is released, that the list is back in its own view."""
+viewer checks, as it is released, that the list is back in its own view: the
+dock the panel asks the viewer for."""
 from pathlib import Path
 import subprocess,sys,tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -17,39 +18,42 @@ import AppKit
 func check(_ c: Bool, _ what: String) { if !c { print("failed: \(what)"); exit(1) } }
 var viewerDeallocs = 0, windowHides = 0
 GLOBALS
-final class ViewerProbe: NSObject {
- var parent: NSView?
+@MainActor final class SeriesListPresenter { weak var listDock: NSView? }
+enum ViewerWindowArranger { static let maximumScreens = 10 }
+@MainActor func AppControllerCAPIThumbnailsListPanel(_ index: Int) -> ThumbnailsListPanel? { nil }
+@MainActor final class ViewerController: NSObject {
+ let seriesListPresenter = SeriesListPresenter()
+ var parent: NSView? { didSet { seriesListPresenter.listDock = parent } }
  weak var expected: NSView?
- deinit { check(expected?.superview === parent, "expected.superview==parent"); viewerDeallocs += 1 }
+ isolated deinit { check(expected?.superview === parent, "expected.superview==parent"); viewerDeallocs += 1 }
 }
 final class ThumbnailsListNSWindow: NSObject {
  func hideForReconfiguration() { windowHides += 1 }
 }
 let sharedWindow = ThumbnailsListNSWindow()
-@MainActor final class PanelProbe: NSObject {
+@MainActor final class ThumbnailsListPanel: NSObject {
  var thumbnailsView: NSView?
- weak var superView: NSView?
- var viewer: ViewerProbe?
+ var viewer: ViewerController?
  var isWindowLoaded: Bool { return true }
  var window: AnyObject? { return sharedWindow }
 METHODS
 }
-@MainActor func attach(_ thumbnail: NSView) -> PanelProbe {
- let panel = PanelProbe(); let viewer = ViewerProbe(); viewer.parent = NSView(); viewer.expected = thumbnail
- panel.viewer = viewer; panel.superView = viewer.parent; panel.thumbnailsView = thumbnail
+@MainActor func attach(_ thumbnail: NSView) -> ThumbnailsListPanel {
+ let panel = ThumbnailsListPanel(); let viewer = ViewerController(); viewer.parent = NSView(); viewer.expected = thumbnail
+ panel.viewer = viewer; panel.thumbnailsView = thumbnail
  associatedScreen!.setObject(1, forKey: pointerKey(thumbnail))
  return panel
 }
 MainActor.assumeIsolated { autoreleasepool {
  associatedScreen = NSMutableDictionary(); let thumbnail = NSView(), floatingContent = NSView()
- floatingContent.addSubview(thumbnail); var panel: PanelProbe? = attach(thumbnail)
+ floatingContent.addSubview(thumbnail); var panel: ThumbnailsListPanel? = attach(thumbnail)
  // In the process's own argument domain: the persistent defaults of a bare
  // executable named "test" are shared with every harness of that name.
  UserDefaults.standard.setVolatileDomain(["UseFloatingThumbnailsList": false], forName: UserDefaults.argumentDomain)
- panel!.prepareForScreenReconfiguration(); check(viewerDeallocs == 1, "viewerDeallocs==1"); check(panel!.viewer == nil && panel!.thumbnailsView == nil && panel!.superView == nil, "detached"); check(associatedScreen!.count == 0, "associatedScreen.count==0")
+ panel!.prepareForScreenReconfiguration(); check(viewerDeallocs == 1, "viewerDeallocs==1"); check(panel!.viewer == nil && panel!.thumbnailsView == nil, "detached"); check(associatedScreen!.count == 0, "associatedScreen.count==0")
  panel!.prepareForScreenReconfiguration(); panel = nil; check(viewerDeallocs == 1, "idempotent")
  floatingContent.addSubview(thumbnail); panel = attach(thumbnail); panel = nil; check(viewerDeallocs == 2 && associatedScreen!.count == 0, "deinit cleanup")
- panel = PanelProbe(); panel = nil; check(viewerDeallocs == 2, "empty panel"); check(windowHides == 5, "windowHides==5")
+ panel = ThumbnailsListPanel(); panel = nil; check(viewerDeallocs == 2, "empty panel"); check(windowHides == 5, "windowHides==5")
  print("PASS: view returned before owner release; disabled-preference detach, idempotence, deinit cleanup and empty panels")
 } }
 '''.replace('GLOBALS',globals_).replace('METHODS',methods)

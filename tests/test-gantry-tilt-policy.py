@@ -79,10 +79,18 @@ else:
     recorded = 'GantryTiltPolicy.setCorrected(degrees: viewerController.horos_titledGantryDegrees, for: viewerController)' in correction
 if not recorded:
     failures.append('a corrected series is not recorded')
+# The correction leaves the slices without their interval: it is worked out
+# again before a 3D window is made on them, or the window takes the slice
+# thickness for it, after an alert.
+if 'p.sliceInterval = 0' in correction:
+    closed = correction.find('viewerController.endWaitWindow(w)')
+    again = correction.find('if corrected { _ = viewerController.computeInterval() }')
+    if closed < 0 or again < closed or 'corrected = true' not in correction:
+        failures.append('a corrected series is left without its slice interval')
 if '!viewer.titledGantry' not in policy:
     failures.append('a reverted series still says it is corrected')
 navigation = (root / 'Horos/Sources/ViewerController+StudyNavigation.swift').read_text()
-revert = navigation[navigation.index('    func revert() {'):navigation.index('    func revertUnlessPostprocessed()')]
+revert = navigation[navigation.index('    func revert() -> Bool {'):navigation.index('    func revertUnlessPostprocessed()')]
 if 'corrected.removeObject(forKey: viewer)' not in policy or 'GantryTiltPolicy.clearCorrection(of: viewer)' not in revert:
     failures.append('a series read from its files again keeps its correction recorded')
 if 'GantryTiltCorrectionPolicy' not in defaults:

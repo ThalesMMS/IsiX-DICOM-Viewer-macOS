@@ -93,7 +93,7 @@ import IsiXPreferences
                 if let imageView = viewer.horos_imageView {
                     let current = imageView.dcmPixList?.object(at: Int(imageView.curImage)) as? DCMPix
                     imageView.syncRelativeDiff = Float((current?.sliceLocation ?? 0) - Double(sliceLocation))
-                    Self.recordLockPan(of: imageView, in: sync)
+                    recordLockPan(of: imageView)
                 }
                 item?.image = NSImage.toolbarImageNamed(Self.syncLockItemImage)
                 viewer.horos_imageView?.syncSeriesIndex = 0
@@ -126,12 +126,16 @@ import IsiXPreferences
         for viewer in registry.displayedViewers {
             viewer.settingsPropagator.syncItem?.image = NSImage.toolbarImageNamed(syncLockItemImage)
             viewer.horos_imageView?.syncSeriesIndex = 0
-            if let imageView = viewer.horos_imageView { recordLockPan(of: imageView, in: sync) }
+            if let imageView = viewer.horos_imageView { viewer.settingsPropagator.recordLockPan(of: imageView) }
         }
     }
 
-    /// Takes where `view` is panned as its place in the alignment being locked.
-    private static func recordLockPan(of view: DCMView, in sync: ViewerSyncState) {
+    /// Takes where `view` is panned as its place in the alignment being
+    /// locked, which the zoom going on reads. When the zoom does not go on,
+    /// the pan only follows from what its own zooms moved after the lock,
+    /// from the offset noted now.
+    private func recordLockPan(of view: DCMView) {
+        sync.setZoomPan(seeZoomPan(of: view, preferences: propagationPreferences).locked, of: view)
         sync.setLockPan(SettingsPropagation.imagePan(view.origin, scale: view.scaleValue), of: view)
     }
 
@@ -178,6 +182,7 @@ import IsiXPreferences
         let betweenStudies = !others.isEmpty && ViewerSynchronization.syncsBetweenWorlds(
             world(of: viewer), others: others.map(world(of:)), usesFrameOfReference: preferences[ViewerPreferences.useFrameofReferenceUID])
         sync.betweenStudies = betweenStudies
+        for displayed in others + [viewer] { displayed._SyncButtonBehaviorIsBetweenStudies = betweenStudies }
 
         if ViewerSynchronization.resetsSeriesLock(betweenStudies: betweenStudies, wasBetweenStudies: wasBetweenStudies) {
             let app = processGraph.appController
@@ -225,6 +230,7 @@ import IsiXPreferences
         }
         let modality = viewer.modality()
         let locked = sync.betweenStudies && sync.seriesLocked && view?.syncSeriesIndex != -1
+        let zoomPan = view.flatMap { sync.zoomPan(of: $0) }
         return SettingsPropagation.Viewer(
             windowLevel: windowLevel,
             viewport: view.map { ViewportState(scale: $0.scaleValue, origin: $0.origin, rotation: $0.rotation) },
@@ -234,7 +240,50 @@ import IsiXPreferences
             modality: modality, subtraction: viewer.subtractionActivated(), colourTable: viewer.curCLUTMenu(),
             orientation: orientation(), keepsSettingsInSeries: DCMView.noPropagateSettingsInSeries(forModality: modality),
             studyInstanceUID: viewer.studyInstanceUID(), movieIndex: movieIndex, maxMovieIndex: maxMovieIndex,
-            seriesLockPan: locked ? view.map { sync.lockPan(of: $0) } : nil)
+            seriesLockPan: locked ? view.map { sync.lockPan(of: $0) } : nil,
+            zoomPanOffset: zoomPan?.offset ?? .zero, lockZoomPanOffset: zoomPan?.lockOffset ?? .zero)
+    }
+
+    /// Notes `view` as the settings see it now. When the zoom does not go on,
+    /// the pan that a change of its zoom moved since they last went from or to
+    /// it goes into its offset (ZoomPan), which the pan going between viewers
+    /// leaves out.
+    /// `view` framed afresh, its pan put back to the image's centre with a new
+    /// scale (Scale to Fit, Actual Size, the fit on opening or resizing): no
+    /// pan its own zooms moved before is kept, and the new pan goes between
+    /// viewers as a pan. Seen as a zoom, the centring stayed out of the pan
+    /// that goes on, and two series opened and tiled side by side showed
+    /// different points.
+    func reframed(_ view: DCMView) {
+        sync.setZoomPan(SettingsPropagation.ZoomPan(scale: view.scaleValue, origin: view.origin), of: view)
+    }
+
+    /// `change`, a framing the user asks for in `view` (Scale to Fit, Actual
+    /// Size, the zoom tool's double click): seen as that view's own zoom, as
+    /// any change of its scale is, and not as a fresh framing.
+    func zoomedAlone(_ view: DCMView, _ change: () -> Void) {
+        let before = sync.zoomPan(of: view)
+        change()
+        if let before { sync.setZoomPan(before, of: view) }
+    }
+
+    /// `view` framed afresh (`reframed(_:)`) when a 2D viewer shows it.
+    static func reframed(_ view: DCMView) {
+        (view.windowController() as? ViewerController)?.settingsPropagator.reframed(view)
+    }
+
+    /// `change` as `view`'s own zoom (`zoomedAlone(_:_:)`) in a 2D viewer, as it is elsewhere.
+    static func zoomedAlone(_ view: DCMView, _ change: () -> Void) {
+        guard let viewer = view.windowController() as? ViewerController else { return change() }
+        viewer.settingsPropagator.zoomedAlone(view, change)
+    }
+
+    @discardableResult
+    private func seeZoomPan(of view: DCMView, preferences: SettingsPropagation.Preferences) -> SettingsPropagation.ZoomPan {
+        let seen = sync.zoomPan(of: view)?.seen(scale: view.scaleValue, origin: view.origin, keepsZoomMoves: !preferences.copiesZoom)
+            ?? SettingsPropagation.ZoomPan(scale: view.scaleValue, origin: view.origin)
+        sync.setZoomPan(seen, of: view)
+        return seen
     }
 
     /// What `other` takes from this viewer, on the image it shows now.
@@ -269,12 +318,16 @@ import IsiXPreferences
     /// series locked across studies) and rotation. A fused viewer passes them on to its fusion.
     func propagateSettings(to other: ViewerController) {
         let preferences = propagationPreferences
+        // What each view's own zooms moved since the settings last saw it.
+        if let view = viewer.imageView() { seeZoomPan(of: view, preferences: preferences) }
+        if let otherView = other.imageView() { seeZoomPan(of: otherView, preferences: preferences) }
         var plan = plan(for: other, preferences: preferences)
 
         // The frame first: the rest is worked out on the image the other
         // viewer shows once it is there.
         if let movieIndex = plan.movieIndex {
             other.setMovieIndex(Int16(truncatingIfNeeded: movieIndex))
+            if let otherView = other.imageView() { seeZoomPan(of: otherView, preferences: preferences) }
             plan = self.plan(for: other, preferences: preferences)
         }
 
@@ -283,6 +336,18 @@ import IsiXPreferences
             if let scale = plan.scale { otherView.scaleValue = scale }
             if let origin = plan.origin { otherView.origin = origin }
             if let rotation = plan.rotation { otherView.rotation = rotation }
+
+            // The other is where the settings put it. With the zoom going on
+            // the two views are aligned again: neither keeps a pan its own
+            // zooms moved, nor the one it had at a lock.
+            let aligned = preferences.copiesZoom && plan.origin != nil
+            if aligned, let view = viewer.imageView() {
+                sync.setZoomPan(SettingsPropagation.ZoomPan(scale: view.scaleValue, origin: view.origin), of: view)
+            }
+            var otherZoomPan = (aligned ? nil : sync.zoomPan(of: otherView)) ?? SettingsPropagation.ZoomPan(scale: 0, origin: .zero)
+            otherZoomPan.scale = otherView.scaleValue
+            otherZoomPan.origin = otherView.origin
+            sync.setZoomPan(otherZoomPan, of: otherView)
         }
 
         if let fusion = other.blending() {

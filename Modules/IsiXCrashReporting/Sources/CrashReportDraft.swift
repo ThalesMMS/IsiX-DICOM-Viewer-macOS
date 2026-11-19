@@ -11,12 +11,17 @@
 import Foundation
 
 /// What a crash report says, in a few lines: the version and architecture
-/// that crashed, the exception and the top of the crashed thread.
+/// that crashed, the exception and the top of the crashed thread. When an
+/// Objective-C exception nobody caught ended the application, the crashed
+/// thread only says that; what raised it is the exception's own name, reason
+/// and backtrace, which are kept too.
 ///
 /// Only names are kept: images by their file name, functions by their
 /// symbol. Paths, the process's arguments and application-specific messages,
 /// which can name a patient's files, are left out; the report itself, which
-/// has them, only leaves the computer if the user attaches it.
+/// has them, only leaves the computer if the user attaches it. The one
+/// message kept is the reason of the exception, after `CrashReportText` took
+/// out of it what can name a file, a folder or the user.
 public struct CrashSummary: Equatable, Sendable {
     public var version: String?
     public var build: String?
@@ -26,12 +31,20 @@ public struct CrashSummary: Equatable, Sendable {
     public var termination: String?
     /// "image  symbol + offset", the crashed thread's first frames.
     public var frames: [String] = []
+    /// The name of the Objective-C exception that ended the application.
+    public var exceptionName: String?
+    /// What the exception said, cleaned of paths, file names and user names.
+    public var exceptionReason: String?
+    /// The first frames of where the exception was raised, as `frames`.
+    public var exceptionFrames: [String] = []
 
-    /// At most this many frames of the crashed thread.
+    /// At most this many frames of the crashed thread, and as many of the
+    /// exception's backtrace.
     public static let frameLimit = 15
 
     public init(version: String? = nil, build: String? = nil, architecture: String? = nil, operatingSystem: String? = nil,
-                exception: String? = nil, termination: String? = nil, frames: [String] = []) {
+                exception: String? = nil, termination: String? = nil, frames: [String] = [],
+                exceptionName: String? = nil, exceptionReason: String? = nil, exceptionFrames: [String] = []) {
         self.version = version
         self.build = build
         self.architecture = architecture
@@ -39,14 +52,18 @@ public struct CrashSummary: Equatable, Sendable {
         self.exception = exception
         self.termination = termination
         self.frames = frames
+        self.exceptionName = exceptionName
+        self.exceptionReason = exceptionReason
+        self.exceptionFrames = exceptionFrames
     }
 
-    /// The summary of a report's contents, .ips or .crash text.
-    public static func of(report data: Data) -> CrashSummary {
+    /// The summary of a report's contents, .ips or .crash text. `userNames`
+    /// are taken out of the exception's reason wherever they appear.
+    public static func of(report data: Data, userNames: [String] = CrashReportText.localUserNames) -> CrashSummary {
         if let parts = CrashReportFinder.parts(ofReport: data) {
-            return of(header: parts.header, body: parts.body ?? [:])
+            return of(header: parts.header, body: parts.body ?? [:], userNames: userNames)
         }
-        return of(text: String(decoding: data, as: UTF8.self))
+        return of(text: String(decoding: data, as: UTF8.self), userNames: userNames)
     }
 
     static func string(_ value: Any?) -> String? {
@@ -55,7 +72,50 @@ public struct CrashSummary: Equatable, Sendable {
         return nil
     }
 
-    static func of(header: [String: Any], body: [String: Any]) -> CrashSummary {
+    /// "image  symbol + offset" of the first frames of a thread or of an
+    /// exception's backtrace of an .ips report.
+    static func frameLines(_ frames: [Any], images: [Any]) -> [String] {
+        var lines: [String] = []
+        for frame in frames.prefix(frameLimit) {
+            guard let frame = frame as? [String: Any] else { continue }
+            var image = "???"
+            if let index = (frame["imageIndex"] as? NSNumber)?.intValue, index >= 0, index < images.count,
+               let name = string((images[index] as? [String: Any])?["name"]) {
+                image = name
+            }
+            let place: String
+            if let symbol = string(frame["symbol"]) {
+                place = "\(symbol) + \(string(frame["symbolLocation"]) ?? "0")"
+            } else {
+                place = "image offset \(string(frame["imageOffset"]) ?? "?")"
+            }
+            lines.append("\(image)  \(place)")
+        }
+        return lines
+    }
+
+    /// The image and the symbol of a frame's line of a text report,
+    /// "0   libsystem_kernel.dylib  0x00000001 __pthread_kill + 8", without
+    /// the frame number and the address. An image's name can have spaces: it
+    /// ends where the address begins, after spaces or tabs.
+    static func frameLine(ofTextLine line: String) -> String? {
+        let fields = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
+        guard fields.count >= 4 else { return nil }
+        func isAddress(_ field: Substring) -> Bool {
+            field.hasPrefix("0x") && field.count > 2 && field.dropFirst(2).allSatisfy(\.isHexDigit)
+        }
+        if let address = fields.indices.dropFirst(2).first(where: { isAddress(fields[$0]) }), address + 1 < fields.count {
+            return "\(fields[1..<address].joined(separator: " "))  \(fields[(address + 1)...].joined(separator: " "))"
+        }
+        return "\(fields[1])  \(fields[3...].joined(separator: " "))"
+    }
+
+    private mutating func setException(name: String?, reason: String?, userNames: [String]) {
+        exceptionName = name.flatMap { CrashReportText.cleaned($0, userNames: userNames, limit: CrashReportText.nameLimit) }
+        exceptionReason = reason.flatMap { CrashReportText.cleaned($0, userNames: userNames) }
+    }
+
+    static func of(header: [String: Any], body: [String: Any], userNames: [String] = []) -> CrashSummary {
         var summary = CrashSummary()
         summary.version = string(header["app_version"])
         summary.build = string(header["build_version"])
@@ -77,44 +137,57 @@ public struct CrashSummary: Equatable, Sendable {
         let images = body["usedImages"] as? [Any] ?? []
         if let faulting = (body["faultingThread"] as? NSNumber)?.intValue, faulting >= 0, faulting < threads.count,
            let frames = (threads[faulting] as? [String: Any])?["frames"] as? [Any] {
-            for frame in frames.prefix(frameLimit) {
-                guard let frame = frame as? [String: Any] else { continue }
-                var image = "???"
-                if let index = (frame["imageIndex"] as? NSNumber)?.intValue, index >= 0, index < images.count,
-                   let name = string((images[index] as? [String: Any])?["name"]) {
-                    image = name
+            summary.frames = frameLines(frames, images: images)
+        }
+        // An exception nobody caught: its backtrace, and its name and reason
+        // from the fields of their own or, in reports without them, from the
+        // line a library left in the application-specific information.
+        summary.exceptionFrames = frameLines(body["lastExceptionBacktrace"] as? [Any] ?? [], images: images)
+        // An exception the application framework ends the application on
+        // leaves no such backtrace, and neither name nor reason: where it
+        // was raised is the first of the backtraces kept as text.
+        if summary.exceptionFrames.isEmpty, let backtrace = (body["asiBacktraces"] as? [Any])?.first as? String {
+            summary.exceptionFrames = Array(backtrace.components(separatedBy: .newlines)
+                .compactMap { frameLine(ofTextLine: $0.trimmingCharacters(in: .whitespaces)) }.prefix(frameLimit))
+        }
+        let described = body["exceptionReason"] as? [String: Any] ?? [:]
+        var information: [String] = []
+        if let asi = body["asi"] as? [String: Any] {
+            for library in asi.keys.sorted() {
+                for text in asi[library] as? [Any] ?? [] {
+                    information += (text as? String ?? "").components(separatedBy: .newlines)
                 }
-                let place: String
-                if let symbol = string(frame["symbol"]) {
-                    place = "\(symbol) + \(string(frame["symbolLocation"]) ?? "0")"
-                } else {
-                    place = "image offset \(string(frame["imageOffset"]) ?? "?")"
-                }
-                summary.frames.append("\(image)  \(place)")
             }
         }
+        let said = CrashReportText.exception(inApplicationInformation: information)
+        summary.setException(name: string(described["name"]) ?? said.name,
+                             reason: string(described["composed_message"]) ?? said.reason, userNames: userNames)
         return summary
     }
 
     /// A .crash text report: the lines that say the same, and the crashed
     /// thread's frames without their addresses' images' paths.
-    static func of(text: String) -> CrashSummary {
+    static func of(text: String, userNames: [String] = []) -> CrashSummary {
+        enum Section { case none, crashedThread, information, exceptionBacktrace }
         var summary = CrashSummary()
-        var inCrashedThread = false
+        var section = Section.none
+        var information: [String] = []
         for line in text.components(separatedBy: .newlines) {
-            if inCrashedThread {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.isEmpty || summary.frames.count == frameLimit {
-                    inCrashedThread = false
-                    continue
-                }
-                // "0   libsystem_kernel.dylib  0x00000001 __pthread_kill + 8": the
-                // image and the symbol, without the frame number and address.
-                let fields = trimmed.split(separator: " ", omittingEmptySubsequences: true)
-                if fields.count >= 4 {
-                    summary.frames.append("\(fields[1])  \(fields[3...].joined(separator: " "))")
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            switch section {
+            case .crashedThread, .exceptionBacktrace:
+                let count = section == .crashedThread ? summary.frames.count : summary.exceptionFrames.count
+                if trimmed.isEmpty || count == frameLimit {
+                    section = .none
+                } else if let frame = frameLine(ofTextLine: trimmed) {
+                    if section == .crashedThread { summary.frames.append(frame) } else { summary.exceptionFrames.append(frame) }
                 }
                 continue
+            case .information:
+                if trimmed.isEmpty { section = .none } else { information.append(trimmed) }
+                continue
+            case .none:
+                break
             }
             func value(_ label: String) -> String? {
                 line.hasPrefix(label) ? line.dropFirst(label.count).trimmingCharacters(in: .whitespaces) : nil
@@ -134,9 +207,15 @@ public struct CrashSummary: Equatable, Sendable {
             } else if let termination = value("Termination Reason:") {
                 summary.termination = termination
             } else if line.hasPrefix("Thread "), line.contains("Crashed:") {
-                inCrashedThread = true
+                section = .crashedThread
+            } else if line.hasPrefix("Application Specific Information:") {
+                section = .information
+            } else if line.hasPrefix("Application Specific Backtrace") || line.hasPrefix("Last Exception Backtrace:") {
+                section = summary.exceptionFrames.isEmpty ? .exceptionBacktrace : .none
             }
         }
+        let said = CrashReportText.exception(inApplicationInformation: information)
+        summary.setException(name: said.name, reason: said.reason, userNames: userNames)
         return summary
     }
 
@@ -150,6 +229,28 @@ public struct CrashSummary: Equatable, Sendable {
         if let exception { lines.append("Exception: " + exception) }
         if let termination { lines.append("Termination: " + termination) }
         return lines
+    }
+
+    /// The exception nobody caught, as the mail and the issue show it: its
+    /// name and reason in one line, then the first frames of its backtrace.
+    /// Empty when the report has no such exception.
+    public func exceptionLines(frameLimit: Int = CrashSummary.frameLimit) -> [String] {
+        let title = [exceptionName, exceptionReason].compactMap { $0 }.joined(separator: ": ")
+        return (title.isEmpty ? [] : [title]) + exceptionFrames.prefix(max(frameLimit, 0))
+    }
+
+    /// The whole summary as plain text, as the window and the mail show it:
+    /// its lines, the exception nobody caught and then the crashed thread.
+    public var text: String {
+        var text = lines.joined(separator: "\n")
+        let exception = exceptionLines()
+        if !exception.isEmpty {
+            text += "\n\nUncaught exception:\n" + exception.joined(separator: "\n")
+        }
+        if !frames.isEmpty {
+            text += "\n\nCrashed thread:\n" + frames.joined(separator: "\n")
+        }
+        return text
     }
 }
 
@@ -185,21 +286,42 @@ public struct CrashReportDraft: Equatable, Sendable {
 
     public var mailBody: String {
         var body = "\(applicationName) quit unexpectedly. The crash report is attached: \(report.lastPathComponent).\n\n"
-        body += summary.lines.joined(separator: "\n")
-        if !summary.frames.isEmpty {
-            body += "\n\nCrashed thread:\n" + summary.frames.joined(separator: "\n")
-        }
+        body += summary.text
         return body + "\n\nWhat was I doing when it happened:\n\n"
     }
 
+    /// The title of the issue: the kind of crash and the version. Every
+    /// exception nobody caught ends the application the same way, so the
+    /// exception's name tells one from another; its reason, which can say
+    /// anything, stays in the body.
     public var issueTitle: String {
-        "Crash: " + ([summary.exception, summary.version.map { "in \($0)" }].compactMap { $0 }.joined(separator: " ")
+        let what = [summary.exception, exceptionTypeName].compactMap { $0 }.joined(separator: ", ").nonEmpty
+        return "Crash: " + ([what, summary.version.map { "in \($0)" }].compactMap { $0 }.joined(separator: " ")
             .nonEmpty ?? "\(applicationName) quit unexpectedly")
+    }
+
+    /// The exception's name when it is the name of a type: one word of
+    /// ASCII letters, digits, "_" and ".", as NSRangeException. Whoever
+    /// raises an exception names it freely, and a name that is a sentence
+    /// can carry what the reason carries: that one stays out of the title.
+    private var exceptionTypeName: String? {
+        guard let name = summary.exceptionName, let first = name.unicodeScalars.first,
+              first == "_" || (first.isASCII && first.properties.isAlphabetic) else { return nil }
+        let isWord = name.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && (scalar.properties.isAlphabetic || ("0"..."9").contains(scalar) || scalar == "_" || scalar == ".")
+        }
+        return isWord ? name : nil
     }
 
     public func issueBody(frameLimit: Int = CrashSummary.frameLimit) -> String {
         var body = "**What happened**\n\n\(applicationName) quit unexpectedly.\n\n**What I was doing**\n\n\n\n**Crash summary**\n\n"
         body += summary.lines.map { "- " + $0 }.joined(separator: "\n")
+        // What raised the exception comes first: the crashed thread of such
+        // a report only shows the frameworks ending the application.
+        let exception = summary.exceptionLines(frameLimit: frameLimit)
+        if !exception.isEmpty {
+            body += "\n\nUncaught exception:\n\n```\n" + exception.joined(separator: "\n") + "\n```"
+        }
         let frames = summary.frames.prefix(frameLimit)
         if !frames.isEmpty {
             body += "\n\nCrashed thread:\n\n```\n" + frames.joined(separator: "\n") + "\n```"
@@ -210,9 +332,10 @@ public struct CrashReportDraft: Equatable, Sendable {
     }
 
     /// The new-issue page of the public repository, filled in; frames are
-    /// dropped from the end until it fits GitHub's limit.
+    /// dropped from the end, of the crashed thread and of the exception
+    /// alike, until it fits GitHub's limit.
     public var issueURL: URL {
-        var limit = summary.frames.count
+        var limit = max(summary.frames.count, summary.exceptionFrames.count)
         while true {
             var components = URLComponents(string: "https://github.com/\(CrashReportDraft.repository)/issues/new")!
             components.queryItems = [URLQueryItem(name: "title", value: issueTitle),

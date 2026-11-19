@@ -53,8 +53,6 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
     @IBOutlet @objc var partnersWebView: WKWebView!
     @IBOutlet @objc var releaseNotesWebView: WKWebView!
 
-    private var timerIn: Timer?
-    private var timerOut: Timer?
     private var versionType: Int32 = 0
 
     /// The navigation delegate of the three web views, which hold it weakly.
@@ -116,8 +114,6 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
                 //theURLRequest = [NSURLRequest requestWithURL:theURL];
                 //[mf loadRequest:theURLRequest];;
             }
-
-            self.window?.level = .floating
         }
     }
 
@@ -148,7 +144,12 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         switchVersion(self)
 
         self.window?.delegate = self
-        self.window?.alphaValue = 0.0
+        // A window of information, not a palette: it stays when the
+        // application is left for another, at the level of the other windows,
+        // and opens on the desktop in use, over a window in full screen too.
+        self.window?.hidesOnDeactivate = false
+        self.window?.level = .normal
+        self.window?.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
     }
 
     @IBAction @objc(switchVersion:)
@@ -194,9 +195,25 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         super.showWindow(sender)
     }
 
+    private static var saidTheWindowIsMissing = false
+
+    /// Shows the window, opaque, in front and key, the application active.
+    ///
+    /// It used to open transparent and fade in by a timer of the run loop's
+    /// default mode: with the run loop in another mode the window stayed on
+    /// screen at no opacity, where choosing About seemed to do nothing.
     @objc(affiche)
     public func affiche() {
-        timerIn = Timer.scheduledTimer(timeInterval: 0.02, target: self, selector: #selector(fadeIn(_:)), userInfo: nil, repeats: true)
+        guard let window = self.window else {
+            if !Self.saidTheWindowIsMissing {
+                Self.saidTheWindowIsMissing = true
+                NSLog("Horos: the About window could not be loaded from %@.nib", self.windowNibName ?? "its")
+            }
+            return
+        }
+        window.alphaValue = 1.0
+        NSApp.activate()
+        window.makeKeyAndOrderFront(self)
     }
 
     /// The former -init loaded SplashQtz when useQuartz() said so; it always
@@ -214,38 +231,23 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         super.init(coder: coder)
     }
 
+    /// The window closes at once. It used to refuse, and close when a timer
+    /// had faded it out.
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
-        timerIn?.invalidate()
-        timerIn = nil
-
-        // Set up our timer to periodically call the fade: method.
-        timerOut = Timer.scheduledTimer(timeInterval: 0.02, target: self, selector: #selector(fade(_:)), userInfo: nil, repeats: true)
-        // Don't close just yet.
-        return false
+        return true
     }
 
+    /// The former fade-out and fade-in steps, each a tick of a timer: the
+    /// window now closes and opens at once. The selectors stay for whoever
+    /// sends them.
     @objc(fade:)
     func fade(_ theTimer: Timer!) {
-        if (self.window?.alphaValue ?? 0) > 0.0 {
-            self.window?.alphaValue = (self.window?.alphaValue ?? 0) - 0.1
-        } else {
-            timerOut?.invalidate()
-            timerOut = nil
-
-            self.window?.close()
-        }
+        self.window?.close()
     }
 
     @objc(fadeIn:)
     func fadeIn(_ theTimer: Timer!) {
-        if (self.window?.alphaValue ?? 0) < 1.0 {
-            self.window?.alphaValue = (self.window?.alphaValue ?? 0) + 0.1
-        } else {
-            timerIn?.invalidate()
-            timerIn = nil
-
-            self.window?.alphaValue = 1.0
-        }
+        self.window?.alphaValue = 1.0
     }
 
     /// The link under the version: this fork's page. The selector is the one

@@ -56,6 +56,7 @@ def source(path):
 
 BRIDGE = r'''
 #import <Cocoa/Cocoa.h>
+#import "LegacyPluginIvarStorage.h"
 #import "DICOMExport.h"
 #import "IsiXDCMTKFile.h"
 #import "HorosObjCException.h"

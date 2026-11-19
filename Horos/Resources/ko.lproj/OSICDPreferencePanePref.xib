@@ -53,23 +53,23 @@
                                         <binding destination="173" name="value" keyPath="values.autoSelectSourceCDDVD" id="212"/>
                                     </connections>
                                 </button>
-                                <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102">
+                                <matrix horizontalHuggingPriority="396" verticalHuggingPriority="750" horizontalCompressionResistancePriority="998" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="102" customClass="IsiXTipMatrix">
                                     <rect key="frame" x="17" y="35" width="615" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     <size key="cellSize" width="614" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
-                                    <buttonCell key="prototype" type="radio" title="DICOMDIR 파일에 인덱싱된 파일" imagePosition="left" alignment="left" state="on" toolTip="DICOMDIR을 사용하여 영상을로드합니다." tag="1" inset="2" id="gZ3-mY-LlL">
+                                    <buttonCell key="prototype" type="radio" title="DICOMDIR 파일에 인덱싱된 파일" imagePosition="left" alignment="left" state="on" toolTip="DICOMDIR을 사용하여 영상을 로드합니다." tag="1" inset="2" id="gZ3-mY-LlL">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="디스크의 모든 DICOM 파일 (스캔 모드), DICOMDIR 파일 무시 (느림)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="DICOMDIR을 사용하여 영상을로드합니다." inset="2" id="99">
+                                            <buttonCell type="radio" title="디스크의 모든 DICOM 파일 (스캔 모드), DICOMDIR 파일 무시 (느림)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="미디어를 스캔하여 모든 DICOM 영상을 찾습니다." inset="2" id="99">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="DICOMDIR 파일에 인덱스된 파일 (더 빠름)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="미디어를 스캔하여 모든 DICOM 영상을 찾습니다." tag="1" inset="2" id="110">
+                                            <buttonCell type="radio" title="DICOMDIR 파일에 인덱스된 파일 (더 빠름)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" toolTip="DICOMDIR을 사용하여 영상을 로드합니다." tag="1" inset="2" id="110">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>

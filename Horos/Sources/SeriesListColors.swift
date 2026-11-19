@@ -20,8 +20,12 @@ import AppKit
 /// appearance. Each now has a dark shade there, as light as the title allows.
 @objc(HorosSeriesListColors)
 public final class SeriesListColors: NSObject {
-    /// A series shown in this viewer (red).
-    @objc public static let shown = dynamic(light: (252 / 255, 177 / 255, 141 / 255), dark: (0.55, 0.18, 0.10))
+    /// A series shown in this viewer: the blue of the current study, the
+    /// colour the frames and the numbers of the list already use, as a tint.
+    /// The frame of the study is drawn on this fill in the same hue, so the
+    /// fill keeps away from it in lightness: paler than the frame in the
+    /// light appearance, darker in the dark one.
+    @objc public static let shown = dynamic(light: (0.81, 0.90, 1.00), dark: (0.10, 0.22, 0.45))
     /// A series fused with this viewer's (green).
     @objc public static let fused = dynamic(light: (195 / 255, 249 / 255, 145 / 255), dark: (0.16, 0.40, 0.12))
     /// A series of another study (grey).

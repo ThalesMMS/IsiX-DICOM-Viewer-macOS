@@ -127,6 +127,7 @@ extension BrowserController {
             horos_timeIntervalEnd = nil
         case .custom:
             let panel = CustomIntervalPanel.sharedCustomIntervalPanel()
+            BrowserOlderInstanceVariables.customIntervalPanel(panel, readBy: self)
             horos_timeIntervalStart = (panel?.fromDate as NSDate?)?.copy() as? Date
             horos_timeIntervalEnd = (panel?.toDate as NSDate?)?.copy() as? Date
         case .unchanged:

@@ -67,8 +67,7 @@ public final class OSI3DPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSI3DPreferencePanePref", bundle: nil)
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSI3DPreferencePanePref", topLevelObjects: &topLevelObjects)
 
         // mainView is declared nonnull, but a missing nib left it nil and the
         // preferences window reports that pane instead of showing it.

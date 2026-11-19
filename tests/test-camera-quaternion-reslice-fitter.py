@@ -502,6 +502,35 @@ case "reslice-free":
     if let wrong = wrongRows(r, columns: [2, 3]) { fail("the reslice from the new cache has wrong rows: \(wrong)") }
     print("releasing the cache while it filled waited for the fill; the cache came back and reads right")
 
+case "reslice-last-column":
+    // A slab at the last column takes it: the end of the range is past the last column.
+    let list = makeVolume()
+    let r = OrthogonalReslice(originalDCMPixList: list)
+    r.thickSlab = 2
+    HarnessSetMode(0)
+    r.yReslice(width - 1)
+    _ = HarnessWaitFill()
+    let made = r.yReslicedDCMPixList?.count ?? 0
+    if made != 2 { fail("a slab of two at the last column has \(made) images, not 2") }
+    if let wrong = wrongRows(r, columns: [width - 2, width - 1]) { fail("the slab at the last column has wrong rows: \(wrong)") }
+    print("a slab of two at the last column fuses the last two columns")
+
+case "reslice-axis-counts":
+    // Each reformation fuses its own count; -setThickSlab: still gives both the same.
+    let list = makeVolume()
+    let r = OrthogonalReslice(originalDCMPixList: list)
+    HarnessSetMode(0)
+    r.setXThickSlab(2, yThickSlab: 3)
+    r.reslice(3, 2)
+    _ = HarnessWaitFill()
+    let counts = (r.xReslicedDCMPixList?.count ?? 0, r.yReslicedDCMPixList?.count ?? 0)
+    if counts != (2, 3) { fail("rows 2 and columns 3 made \(counts.0) and \(counts.1) images") }
+    if r.xThickSlab != 2 || r.yThickSlab != 3 || r.thickSlab != 2 { fail("the counts read \(r.xThickSlab), \(r.yThickSlab) and \(r.thickSlab)") }
+    if let wrong = wrongRows(r, columns: [2, 3, 4]) { fail("the Y reformation of three columns has wrong rows: \(wrong)") }
+    r.thickSlab = 2
+    if r.xThickSlab != 2 || r.yThickSlab != 2 { fail("-setThickSlab: left \(r.xThickSlab) rows and \(r.yThickSlab) columns") }
+    print("each reformation fuses its own count, and one count sets both")
+
 default:
     fail("unknown case \(CommandLine.arguments[1])")
 }
@@ -515,6 +544,8 @@ CASES = [
     ('reslice-race', 'a thick-slab Y reslice started while the cache fills takes one path on all threads'),
     ('reslice-cache', 'a thick-slab Y reslice reads the full cache'),
     ('reslice-free', 'releasing the Y cache waits for the operations filling it'),
+    ('reslice-last-column', 'a slab at the last column of the image takes that column'),
+    ('reslice-axis-counts', 'the X and the Y reformation fuse a count each'),
 ]
 
 

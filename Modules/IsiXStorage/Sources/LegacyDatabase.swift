@@ -34,6 +34,14 @@ public struct LegacyDatabase: Sendable, Equatable {
     public var store: URL { folder.appendingPathComponent(Self.storeName) }
     public var imagesFolder: URL { folder.appendingPathComponent(Self.imagesFolderName, isDirectory: true) }
 
+    /// The data folder whose image folder is `imagesFolder`: the folder that
+    /// holds it, when a database lies there beside it.
+    public static func holding(imagesFolder: URL, fileManager: FileManager = .default) -> LegacyDatabase? {
+        guard imagesFolder.lastPathComponent == imagesFolderName else { return nil }
+        let database = LegacyDatabase(folder: imagesFolder.deletingLastPathComponent())
+        return fileManager.fileExists(atPath: database.store.path) ? database : nil
+    }
+
     /// The data folders of earlier applications in a documents folder.
     public static func found(inDocuments documents: URL, fileManager: FileManager = .default) -> [LegacyDatabase] {
         folderNames.map { LegacyDatabase(folder: documents.appendingPathComponent($0, isDirectory: true)) }
@@ -101,12 +109,16 @@ public struct LegacyDatabase: Sendable, Equatable {
         /// The files the database lists outside its own folder, which it
         /// referenced where they were.
         public let linkedFiles: [String]
+        /// The files of its own folder the database lists; nil when its table
+        /// of images does not record where they are.
+        public let listedFiles: LegacyFileIndex?
 
-        public init(studies: [Study], albums: [Album], imageCount: Int, linkedFiles: [String]) {
+        public init(studies: [Study], albums: [Album], imageCount: Int, linkedFiles: [String], listedFiles: LegacyFileIndex? = nil) {
             self.studies = studies
             self.albums = albums
             self.imageCount = imageCount
             self.linkedFiles = linkedFiles
+            self.listedFiles = listedFiles
         }
     }
 
@@ -178,10 +190,11 @@ public struct LegacyDatabase: Sendable, Equatable {
                                  albums: membership[key] ?? []))
         }
 
-        var imageCount = 0, linked: [String] = []
+        var imageCount = 0, linked: [String] = [], listed: LegacyFileIndex?
         if try !Self.rows(handle, "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ZIMAGE'").isEmpty {
             imageCount = Int(try Self.rows(handle, "SELECT COUNT(*) FROM ZIMAGE").first?[0].integer ?? 0)
-            if try Self.columns(handle, of: "ZIMAGE").contains("ZPATHSTRING") {
+            let imageColumns = try Self.columns(handle, of: "ZIMAGE")
+            if imageColumns.contains("ZPATHSTRING") {
                 // A file of the database's own folder is recorded by its number
                 // or by a bare name; a path from the root is a file left where
                 // it was. A multiframe file is listed once per frame.
@@ -189,28 +202,51 @@ public struct LegacyDatabase: Sendable, Equatable {
                     .compactMap { $0[0].text }
                     .filter { !$0.hasPrefix(imagesFolder.path + "/") }
             }
+            // Which files of the folder the rows record, one row at a time:
+            // there is a row per image, and a database holds millions. A row
+            // with both a number and a name records both files.
+            let number = imageColumns.contains("ZPATHNUMBER") ? "ZPATHNUMBER" : nil
+            let name = imageColumns.contains("ZPATHSTRING") ? "ZPATHSTRING" : nil
+            if number != nil || name != nil {
+                var index = LegacyFileIndex()
+                let folders = Array(Set([imagesFolder.path, imagesFolder.resolvingSymlinksInPath().path]))
+                try Self.each(handle, "SELECT \(number ?? "NULL"), \(name ?? "NULL") FROM ZIMAGE") { row in
+                    if let value = row[0].integer { index.list(number: value) }
+                    if let value = row[1].text { index.list(path: value, imagesFolders: folders) }
+                }
+                listed = index
+            }
         }
-        return Contents(studies: studies, albums: albums, imageCount: imageCount, linkedFiles: linked)
+        return Contents(studies: studies, albums: albums, imageCount: imageCount, linkedFiles: linked, listedFiles: listed)
     }
 
     // MARK: - Files
 
-    /// The files to import and the bytes they take on disk.
+    /// The files to import and the bytes they take on disk, and the files of
+    /// the image folder the database no longer lists, which are left out
+    /// unless asked for. Each file is in one of the two lists.
     public struct Files: Sendable, Equatable {
         public let paths: [String]
         public let bytes: Int64
+        public let unlisted: [String]
+        public let unlistedBytes: Int64
 
-        public init(paths: [String], bytes: Int64) {
+        public init(paths: [String], bytes: Int64, unlisted: [String] = [], unlistedBytes: Int64 = 0) {
             self.paths = paths
             self.bytes = bytes
+            self.unlisted = unlisted
+            self.unlistedBytes = unlistedBytes
         }
     }
 
     /// The files of the database's image folder, hidden ones left out, and
-    /// the files it lists elsewhere that are still there. Nil when
-    /// `isCancelled` answers true.
-    public func files(linked: [String], fileManager: FileManager = .default, isCancelled: () -> Bool = { false }) -> Files? {
-        var paths: [String] = [], bytes: Int64 = 0
+    /// the files it lists elsewhere that are still there. With `listed`, the
+    /// files of the folder it does not list are set apart; without it, which
+    /// is when the database does not say, every file of the folder is to
+    /// import. Nil when `isCancelled` answers true.
+    public func files(linked: [String], listed: LegacyFileIndex? = nil, fileManager: FileManager = .default,
+                      isCancelled: () -> Bool = { false }) -> Files? {
+        var paths: [String] = [], bytes: Int64 = 0, unlisted: [String] = [], unlistedBytes: Int64 = 0
         let keys: [URLResourceKey] = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
         if let enumerator = fileManager.enumerator(at: imagesFolder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles],
                                                    errorHandler: { _, _ in true }) {
@@ -219,8 +255,17 @@ public struct LegacyDatabase: Sendable, Equatable {
                 visited += 1
                 if visited % 512 == 0 && isCancelled() { return nil }
                 guard let size = Self.size(of: url, keys: keys) else { continue }
-                paths.append(url.path)
-                bytes += size
+                let path = url.path
+                // A file is set apart only when the list is there and does
+                // not have it. Its place in the folder is told by how deep the
+                // walk is, whichever way the folder's own path is written.
+                if let listed, !listed.lists(relativePath: url.pathComponents.suffix(enumerator.level).joined(separator: "/")) {
+                    unlisted.append(path)
+                    unlistedBytes += size
+                } else {
+                    paths.append(path)
+                    bytes += size
+                }
             }
         }
         for (index, path) in linked.enumerated() {
@@ -229,7 +274,53 @@ public struct LegacyDatabase: Sendable, Equatable {
             paths.append(path)
             bytes += size
         }
-        return Files(paths: paths, bytes: bytes)
+        return Files(paths: paths, bytes: bytes, unlisted: unlisted, unlistedBytes: unlistedBytes)
+    }
+
+    // MARK: - What to import
+
+    /// What was read of a data folder, to import it.
+    public struct Survey: Sendable, Equatable {
+        /// Whether the database said which files of its folder it lists.
+        public enum Listing: Sendable, Equatable {
+            /// It did: the files it does not list are set apart.
+            case read
+            /// The database could not be read at all: nothing of it is
+            /// known, and every file of the folder is to import.
+            case unreadable(Failure)
+            /// Its table of images does not record where the files are:
+            /// every file of the folder is to import.
+            case unknown
+        }
+
+        public let contents: Contents
+        public let files: Files
+        public let listing: Listing
+
+        public init(contents: Contents, files: Files, listing: Listing) {
+            self.contents = contents
+            self.files = files
+            self.listing = listing
+        }
+    }
+
+    /// Reads the database and the image folder. A database that cannot be
+    /// read, or that does not say where its files are, leaves no file out:
+    /// a file is only set apart on the word of a list that was read. Nil
+    /// when `isCancelled` answers true.
+    public func survey(fileManager: FileManager = .default, isCancelled: () -> Bool = { false }) -> Survey? {
+        var contents = Contents(studies: [], albums: [], imageCount: 0, linkedFiles: [])
+        var listing = Survey.Listing.read
+        do {
+            contents = try self.contents()
+            if contents.listedFiles == nil { listing = .unknown }
+        } catch let failure as Failure {
+            listing = .unreadable(failure)
+        } catch {
+            listing = .unreadable(Failure(description: error.localizedDescription))
+        }
+        guard let files = files(linked: contents.linkedFiles, listed: contents.listedFiles, fileManager: fileManager, isCancelled: isCancelled) else { return nil }
+        return Survey(contents: contents, files: files, listing: listing)
     }
 
     /// The bytes free for the user's files on the volume of `folder`.
@@ -292,17 +383,23 @@ public struct LegacyDatabase: Sendable, Equatable {
     }
 
     private static func rows(_ handle: OpaquePointer, _ sql: String) throws -> [[Value]] {
+        var rows: [[Value]] = []
+        try each(handle, sql) { rows.append($0) }
+        return rows
+    }
+
+    /// Hands each row of a query to `body` as it is read, none of them kept.
+    private static func each(_ handle: OpaquePointer, _ sql: String, _ body: ([Value]) -> Void) throws {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else {
             throw Failure(description: String(cString: sqlite3_errmsg(handle)))
         }
         defer { sqlite3_finalize(statement) }
-        var rows: [[Value]] = []
         while true {
             let step = sqlite3_step(statement)
             if step == SQLITE_DONE { break }
             guard step == SQLITE_ROW else { throw Failure(description: String(cString: sqlite3_errmsg(handle))) }
-            rows.append((0..<sqlite3_column_count(statement)).map { column in
+            body((0..<sqlite3_column_count(statement)).map { column in
                 switch sqlite3_column_type(statement, column) {
                 case SQLITE_NULL: return .null
                 case SQLITE_INTEGER: return .integer(sqlite3_column_int64(statement, column))
@@ -310,6 +407,5 @@ public struct LegacyDatabase: Sendable, Equatable {
                 }
             })
         }
-        return rows
     }
 }

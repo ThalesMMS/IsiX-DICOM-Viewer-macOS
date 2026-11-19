@@ -15,9 +15,9 @@ maximum and minimum, thickness 1 to 6, both directions and every position
 (slabs that run off either end included), the Metal path must give the host's
 floats bit for bit, through `PlanarThickSlab.sliceIndices` (the rule the bridge
 asks), `PlanarFrame.uploadPixels`, the Metal 3 texture and the Metal 4 pilot's.
-The 2x and 3x software enlargement must equal `vImageScale_PlanarF` of the
-host's slab, and an opacity table must be applied to the slab, not to the
-current slice.
+At the high-quality interpolation's 2x and 3x the slab goes up as it is, for
+the fragment's bounded cubic, and an opacity table must be applied to the
+slab, not to the current slice.
 
 Also checked in the sources: the bridge refuses only the volume-rendering slab
 (modes 4 and 5); a colour slab is drawn from the host's bytes, which
@@ -155,7 +155,7 @@ static const int kWidth = 17, kHeight = 13, kSlices = 9;
 - (void) setSlab:(int) thickness direction:(int) direction mode:(int) mode position:(int) position array:(NSArray*) array
 {
     PIX_IVAR( self, short, stack) = thickness; PIX_IVAR( self, short, stackDirection) = direction;
-    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, NSInteger, pixPos) = position;
+    PIX_IVAR( self, short, stackMode) = mode; PIX_IVAR( self, short, pixPos) = position;
     [PIX_IVAR( self, NSArray*, pixArray) release];
     PIX_IVAR( self, NSArray*, pixArray) = [array retain];
     PIX_IVAR( self, float, ww) = 256; PIX_IVAR( self, float, wl) = 127;
@@ -285,22 +285,14 @@ func texture(_ image: MTLTexture) -> [Float] {
                 fastDiffers += zip(reduced, expected).filter { $0 != $1 }.count
             }
 
-            // The host enlarges its slab, not the current slice.
+            // At the high-quality interpolation the slab, not the current
+            // slice, goes up as it is: the fragment interpolates it.
             if position == 4 && direction == 0 {
                 for scale in [2, 3] {
-                    let bigger = try PlanarFrame(snapshot(scale: scale)).uploadPixels(device: device).pixels
-                    var input = host, reference = Data(count: plane * scale * scale)
-                    let status = reference.withUnsafeMutableBytes { destination in
-                        input.withUnsafeMutableBytes { source in
-                            var from = vImage_Buffer(data: source.baseAddress!, height: vImagePixelCount(h),
-                                                     width: vImagePixelCount(w), rowBytes: w * 4)
-                            var to = vImage_Buffer(data: destination.baseAddress!, height: vImagePixelCount(h * scale),
-                                                   width: vImagePixelCount(w * scale), rowBytes: w * scale * 4)
-                            return vImageScale_PlanarF(&from, &to, nil, vImage_Flags(kvImageNoFlags))
-                        }
-                    }
-                    expect(status == kvImageNoError, "vImage failed")
-                    expect(floats(bigger) == floats(reference), "\(label): the \(scale)x enlargement is not the host's slab enlarged")
+                    let smooth = try PlanarFrame(snapshot(scale: scale))
+                    let bigger = try smooth.uploadPixels(device: device).pixels
+                    expect(smooth.softwareScale == 1 && smooth.window.w == 2, "\(label): the \(scale)x slab is enlarged on the CPU")
+                    expect(floats(bigger) == floats(host), "\(label): at \(scale)x the upload is not the host's slab")
                     enlarged += 1
                 }
                 // An opacity table follows the reduction.
@@ -346,7 +338,7 @@ func texture(_ image: MTLTexture) -> [Float] {
         }
         expect(cases == 3 * 6 * 2 * depth, "only \(cases) cases were read")
         expect(clamped > 0 && enlarged > 0 && tabled > 0, "the comparison missed clamped, enlarged or tabled slabs")
-        print("PASS: \(cases) slabs, \(pixels) pixels equal to computeThickSlab bit for bit through the Swift rule, the upload, the Metal 3 texture\(pilot == nil ? "" : " and the Metal 4 pilot's"); \(clamped) clamped at an end; \(enlarged) enlargements and \(tabled) tabled slabs; the MPR's fast-math mean would differ in \(fastDiffers) pixels")
+        print("PASS: \(cases) slabs, \(pixels) pixels equal to computeThickSlab bit for bit through the Swift rule, the upload, the Metal 3 texture\(pilot == nil ? "" : " and the Metal 4 pilot's"); \(clamped) clamped at an end; \(enlarged) high-quality uploads and \(tabled) tabled slabs; the MPR's fast-math mean would differ in \(fastDiffers) pixels")
     }
 }
 '''

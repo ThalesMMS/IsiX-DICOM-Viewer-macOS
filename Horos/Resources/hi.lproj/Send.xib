@@ -11,7 +11,6 @@
                 <outlet property="keyImageMatrix" destination="31" id="63"/>
                 <outlet property="newServerList" destination="108" id="114"/>
                 <outlet property="numberImagesTextField" destination="36" id="40"/>
-                <outlet property="sendSCU" destination="82" id="83"/>
                 <outlet property="syntaxListOffis" destination="11" id="45"/>
                 <outlet property="window" destination="5" id="41"/>
             </connections>

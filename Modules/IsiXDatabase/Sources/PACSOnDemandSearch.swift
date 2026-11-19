@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import Foundation
+import IsiXContracts
 import IsiXPreferences
 import Synchronization
 
@@ -42,6 +43,18 @@ public struct DistantStudySummary: Sendable {
     }
 }
 
+/// What one node answered to a query: the studies it found, and whether it
+/// answered at all, false when the query failed or was given up.
+public struct DistantNodeAnswer: Sendable {
+    public let studies: [DistantStudySummary]
+    public let answered: Bool
+
+    public init(studies: [DistantStudySummary], answered: Bool) {
+        self.studies = studies
+        self.answered = answered
+    }
+}
+
 /// The C-FIND of the PACS On-Demand nodes chosen in the preferences.
 ///
 /// Each query blocks a thread of its own, which the Activity window lists
@@ -55,21 +68,54 @@ public protocol DistantStudyQuerying: Sendable {
     /// distant searches key them ("PatientsName", "modality", "date"...).
     func studies(matching filters: [String: PropertyListValue], activity: String) async -> [DistantStudySummary]
 
+    /// The studies the nodes find, each node searched on its own by `search`:
+    /// it is handed a query of that node alone, which answers what the node
+    /// finds for some filters, keyed as above, and returns what it found
+    /// there. What the nodes found is merged as `studies(matching:activity:)`
+    /// merges their answers. By default the nodes are searched together, as
+    /// one node that always answers.
+    func studies(activity: String,
+                 searchingEachNode search: @escaping @Sendable (
+                     _ query: @Sendable ([String: PropertyListValue]) async -> DistantNodeAnswer) async -> [DistantStudySummary])
+        async -> [DistantStudySummary]
+
     /// The studies of `patient` on the nodes, by the identity fields the
     /// preferences choose; none when they cannot identify the patient.
     func patientStudies(of patient: Patient, activity: String) async -> [DistantStudySummary]
+
+    /// The other spellings of the patient name `name` a node may keep it in,
+    /// in the order they are asked, that the query's character set
+    /// `characterSet` (STRINGENCODING) can carry: the Query window's, in
+    /// capitals, then in capitals without diacritics. None by default.
+    func nameSpellings(of name: String, characterSet: String?) -> [String]
+}
+
+extension DistantStudyQuerying {
+    public func studies(activity: String,
+                        searchingEachNode search: @escaping @Sendable (
+                            _ query: @Sendable ([String: PropertyListValue]) async -> DistantNodeAnswer) async -> [DistantStudySummary])
+        async -> [DistantStudySummary] {
+        await search { filters in
+            DistantNodeAnswer(studies: await studies(matching: filters, activity: activity), answered: true)
+        }
+    }
+
+    public func nameSpellings(of name: String, characterSet: String?) -> [String] { [] }
 }
 
 // MARK: - What is asked
 
 extension DistantSearch {
-    /// The filters of a search of the search field, and the patient name a
-    /// second query asks with its last space made the component separator
-    /// (nil when there is no second query).
+    /// The filters of a search of the search field; for a search of the
+    /// patient name, the name as the first query asks it, without its
+    /// wildcard, and the patient name a second query asks with its last space
+    /// made the component separator when the name may not be found in any
+    /// word order (nil when there is no second query).
     public static func searchQuery(_ search: String, type: Int32, modality: String?)
-        -> (filters: [String: PropertyListValue], alternateName: String?) {
+        -> (filters: [String: PropertyListValue], name: String?, alternateName: String?) {
         let built = searchFilters(search, type: type, modality: modality)
         return (PropertyListValue.dictionary(built.filters as? [String: Any] ?? [:]) ?? [:],
+                type == 0 || type == 7 ? built.name : nil,
                 alternatePatientName(built.name, type: type))
     }
 
@@ -264,17 +310,39 @@ public actor PACSOnDemandSearch<Nodes: DistantStudyQuerying> {
 
     // MARK: The list
 
-    /// The studies the nodes find for a search of the search field; a patient
-    /// name of several words is asked a second time with "^" before its last
-    /// word, and what that adds joins the answer. A series description, which
-    /// a study query cannot ask, finds none. Nil when superseded or no longer
+    /// The studies the nodes find for a search of the search field. A
+    /// patient name is asked as the Query window asks it when it may be found
+    /// in any word order (PatientNameQueryForms), node by node: as searched,
+    /// then, while nothing is found on that node, in its other spellings,
+    /// then with "^" between its words in each order. Otherwise a name of
+    /// several words is asked a second time with "^" before its last word,
+    /// and what that adds joins the answer. A series description, which a
+    /// study query cannot ask, finds none. Nil when superseded or no longer
     /// asked.
     public func studies(forSearch search: String, type: Int32, modality: String?, activity: String,
                         stillAsked: @escaping @Sendable () async -> Bool) async -> DistantListAnswer? {
         let query = DistantSearch.searchQuery(search, type: type, modality: modality)
         let nodes = self.nodes
+        let anyWordOrder = preferences[NetworkPreferences.findsPatientNamesInAnyWordOrder]
+        let characterSet = preferences[NetworkPreferences.queryCharacterSet]
         let found = await ask(.list, activity: activity, stillAsked: stillAsked) {
             guard type != DistantSearch.seriesDescriptionType else { return [] }
+            if anyWordOrder, let name = query.name, !name.isEmpty {
+                // Each node on its own: one that keeps the name as searched
+                // must not keep another that keeps it with "^" from being
+                // asked the later forms.
+                let steps = PatientNameQueryForms.steps(for: name, spellings: nodes.nameSpellings(of: name, characterSet: characterSet),
+                                                         anyWordOrder: true)
+                let filters = query.filters
+                return await nodes.studies(activity: activity) { node in
+                    await PatientNameQueryForms.answers(of: steps, ask: { term in
+                        var asked = filters
+                        asked["PatientsName"] = .string(term + "*")
+                        let answer = await node(asked)
+                        return PatientNameQueryForms.Answer(answer.studies, answered: answer.answered)
+                    }, uid: { (study: DistantStudySummary) in study.studyInstanceUID }).studies
+                }
+            }
             let first = await nodes.studies(matching: query.filters, activity: activity)
             guard let name = query.alternateName else { return first }
             var filters = query.filters

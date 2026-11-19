@@ -55,14 +55,39 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
     @objc public dynamic var database: DicomDatabase!
     @objc public dynamic var album: DicomAlbum!
     @objc public dynamic var name: String!
-    @objc public dynamic var mode: Int = 0
+    @objc public dynamic var mode: Int {
+        get { _mode }
+        set {
+            _mode = newValue
+            editSqlQuery = newValue == 1
+        }
+    }
+    /// The mode, under the name the header of the former Horos and OsiriX
+    /// plugin SDK gave the variable: 0 for the rows of the editor, 1 for the
+    /// text of the predicate.
+    final var _mode = 0
+
+    // Instance variables of older headers of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with such a header. albumNameField was the name the field of the name
+    // had, assigned and not retained: the outlet stays weak, which no offset
+    // can export, and writes the unretained copy beside it. editSqlQuery,
+    // whether the text of the query is edited, is written with the mode.
+    // Neither is read here. The others have nothing behind them and stay 0,
+    // NO and nil, never retained: the rows of criteria, their box and their
+    // lists were replaced by the predicate editor, and the text of the
+    // predicate is checked through its binding as it changes, with no timer
+    // and no previous text.
+    final unowned(unsafe) var albumNameField: NSTextField?
+    final var editSqlQuery = false, madeCriteria = false, firstTime = false
+    final unowned(unsafe) var filterBox: NSBox?, subviews: NSMutableArray?, criteria: NSMutableArray?, sqlQueryTimer: Timer?, previousSqlString: NSString?
 
     /// The graph of the database window that opened the sheet, whose list
     /// shows a tested predicate; nil when nothing opened it from there.
     private var browserWindow: BrowserWindowGraph?
 
     /// assign in the former header: the xib's window owns the field.
-    @IBOutlet @objc public weak var nameField: NSTextField!
+    @IBOutlet @objc public weak var nameField: NSTextField! { didSet { albumNameField = nameField } }
     /// assign in the former header: the xib's window owns the editor.
     @IBOutlet @objc public weak var editor: O2DicomPredicateEditor!
 
@@ -95,6 +120,9 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
         MainActor.assumeIsolated {
             self.editor?.dbMode = true
             installContentCriterionCheckbox()
+            // The browser's copies of the sheet, for a plugin built with an
+            // older header of the former SDK, when the browser showed it.
+            BrowserOlderInstanceVariables.smartAlbumSheetLoaded(self.nameField?.window, name: self.nameField, editor: self.editor, in: self.browserWindow?.browser)
             (self.nameField?.cell as? NSTextFieldCell)?.placeholderString = NSLocalizedString("Smart Album", comment: "")
             self.nameField?.delegate = self
 
@@ -149,6 +177,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
             window.sheetParent?.endSheet(window, returnCode: .abort)
         }
 
+        BrowserOlderInstanceVariables.smartAlbumSheetLoaded(nil, name: nil, editor: nil, in: browserWindow?.browser)
         browserWindow?.browser.testPredicate = nil
         _ = browserWindow?.browser.outlineViewRefresh()
     }
@@ -174,6 +203,7 @@ public final class SmartWindowController: NSWindowController, NSTextFieldDelegat
             window.sheetParent?.endSheet(window)
         }
 
+        BrowserOlderInstanceVariables.smartAlbumSheetLoaded(nil, name: nil, editor: nil, in: browserWindow?.browser)
         browserWindow?.browser.testPredicate = nil
         _ = browserWindow?.browser.outlineViewRefresh()
     }

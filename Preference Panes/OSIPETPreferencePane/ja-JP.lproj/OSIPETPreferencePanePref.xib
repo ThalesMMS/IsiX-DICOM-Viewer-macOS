@@ -29,7 +29,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="743" height="655"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="CLUT (Color Look-Up Tables) :" id="314">
+                    <box title="CLUT(カラールックアップテーブル):" id="314">
                         <rect key="frame" x="11" y="544" width="715" height="103"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="tQA-4l-dTU">
@@ -48,14 +48,14 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Use &quot;B/W Inverse&quot; CLUT with this CLUT for blending:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="292">
+                                            <buttonCell type="radio" title="フュージョンでは「B/W Inverse」CLUT とこの CLUT を使う:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="292">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                                 <connections>
                                                     <action selector="setPETCLUTfor3DMIP:" target="-2" id="297"/>
                                                 </connections>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use this CLUT for PET, including for blending:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="296">
+                                            <buttonCell type="radio" title="PET にこの CLUT を使う(フュージョンを含む):" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="296">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -66,7 +66,7 @@
                                     </connections>
                                 </matrix>
                                 <popUpButton verticalHuggingPriority="750" id="298">
-                                    <rect key="frame" x="455" y="47" width="71" height="26"/>
+                                    <rect key="frame" x="455" y="47" width="83" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="301" id="425">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -81,7 +81,7 @@
                                     </popUpButtonCell>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="303">
-                                    <rect key="frame" x="455" y="26" width="71" height="26"/>
+                                    <rect key="frame" x="455" y="26" width="83" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="307" id="426">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -98,7 +98,7 @@
                                 <button id="399">
                                     <rect key="frame" x="14" y="11" width="430" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Apply this behavior also to NM modality" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
+                                    <buttonCell key="cell" type="check" title="NM モダリティにも適用" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -111,7 +111,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Mouse Windowing mode:" id="322">
+                    <box title="マウスによるウインドウ調整:" id="322">
                         <rect key="frame" x="11" y="338" width="715" height="116"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="I6O-20-rRJ">
@@ -130,15 +130,15 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Classic ( X: Window Width Y: Window Level )" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="319">
+                                            <buttonCell type="radio" title="クラシック(X: ウインドウ幅、Y: ウインドウレベル)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="319">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Fixed Minimum (X: nothing Y: maximum)   with minimum at:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="320">
+                                            <buttonCell type="radio" title="最小値固定(X: なし、Y: 最大値)、最小値:" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="320">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Maximum - Minimum ( X: Minimum Y: Maximum)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="321">
+                                            <buttonCell type="radio" title="最大 - 最小(X: 最小値、Y: 最大値)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="321">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -163,7 +163,7 @@
                                 <button id="397">
                                     <rect key="frame" x="14" y="9" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Apply this behavior also to NM modality" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="429">
+                                    <buttonCell key="cell" type="check" title="NM モダリティにも適用" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="429">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -176,7 +176,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Window Level &amp; Width" id="336">
+                    <box title="ウインドウレベルと幅" id="336">
                         <rect key="frame" x="11" y="230" width="715" height="104"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="tM4-tY-RqB">
@@ -195,15 +195,15 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Use stored WL &amp; WW" imagePosition="left" alignment="left" state="on" inset="2" id="387">
+                                            <buttonCell type="radio" title="保存された WL と WW を使う" imagePosition="left" alignment="left" state="on" inset="2" id="387">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use fixed levels, in percentages:" imagePosition="left" alignment="left" tag="1" inset="2" id="388">
+                                            <buttonCell type="radio" title="固定レベル(パーセント):" imagePosition="left" alignment="left" tag="1" inset="2" id="388">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use fixed levels, in SUV:" imagePosition="left" alignment="left" tag="2" inset="2" id="389">
+                                            <buttonCell type="radio" title="固定レベル(SUV):" imagePosition="left" alignment="left" tag="2" inset="2" id="389">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -228,7 +228,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="989" id="345">
                                     <rect key="frame" x="372" y="35" width="39" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="from:" id="431">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="下限:" id="431">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -247,9 +247,9 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="989" id="347">
-                                    <rect key="frame" x="521" y="35" width="30" height="17"/>
+                                    <rect key="frame" x="517" y="35" width="34" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="to:" id="433">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="上限:" id="433">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -270,7 +270,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="989" id="391">
                                     <rect key="frame" x="372" y="8" width="39" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="from:" id="435">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="下限:" id="435">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -289,9 +289,9 @@
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="989" id="393">
-                                    <rect key="frame" x="521" y="8" width="30" height="17"/>
+                                    <rect key="frame" x="517" y="8" width="34" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="to:" id="437">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="上限:" id="437">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -302,7 +302,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Fusion" id="355">
+                    <box title="フュージョン" id="355">
                         <rect key="frame" x="11" y="139" width="715" height="87"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Nbv-9B-V38">
@@ -312,26 +312,26 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="362">
                                     <rect key="frame" x="17" y="13" width="206" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Default fusion type:" id="438">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="デフォルトのフュージョン方式:" id="438">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="364">
-                                    <rect key="frame" x="227" y="7" width="133" height="26"/>
+                                    <rect key="frame" x="227" y="7" width="207" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Flat" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="383" id="439">
+                                    <popUpButtonCell key="cell" type="push" title="フラット" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="383" id="439">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="365">
                                             <items>
-                                                <menuItem title="Linear" id="378"/>
-                                                <menuItem title="High-Low-High" tag="1" id="379"/>
-                                                <menuItem title="Low-High-Low" tag="2" id="380"/>
-                                                <menuItem title="Log" tag="3" id="381"/>
-                                                <menuItem title="Inverse Log" tag="4" id="382"/>
-                                                <menuItem title="Flat" state="on" tag="5" id="383"/>
+                                                <menuItem title="線形" id="378"/>
+                                                <menuItem title="高-低-高" tag="1" id="379"/>
+                                                <menuItem title="低-高-低" tag="2" id="380"/>
+                                                <menuItem title="対数" tag="3" id="381"/>
+                                                <menuItem title="逆対数" tag="4" id="382"/>
+                                                <menuItem title="フラット" state="on" tag="5" id="383"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -342,7 +342,7 @@
                                 <button id="480">
                                     <rect key="frame" x="15" y="44" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Automatically fuse PET and CT series for PET-CT study." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
+                                    <buttonCell key="cell" type="check" title="PET-CT 検査では PET と CT のシリーズを自動的にフュージョン" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -355,7 +355,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="SUV Computation" id="448">
+                    <box title="SUV の計算" id="448">
                         <rect key="frame" x="11" y="16" width="715" height="119"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="VhS-2q-PlZ">
@@ -365,24 +365,24 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="996" id="450">
                                     <rect key="frame" x="15" y="43" width="337" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Use for Acquisition Time parameter:" id="451">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="撮影時刻に使う値:" id="451">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" id="461">
-                                    <rect key="frame" x="360" y="37" width="218" height="26"/>
+                                    <rect key="frame" x="360" y="37" width="264" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="462">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="OtherViews" id="463">
                                             <items>
-                                                <menuItem title="SeriesTime (0008,0031)" id="469"/>
-                                                <menuItem title="AcquisitionTime (0008,0032)" tag="1" id="468"/>
-                                                <menuItem title="ContentTime (0008,0033)" tag="2" id="467"/>
-                                                <menuItem title="StudyTime (0008,0030)" tag="3" id="466"/>
+                                                <menuItem title="シリーズ時刻 (0008,0031)" id="469"/>
+                                                <menuItem title="撮影時刻 (0008,0032)" tag="1" id="468"/>
+                                                <menuItem title="コンテンツ時刻 (0008,0033)" tag="2" id="467"/>
+                                                <menuItem title="検査時刻 (0008,0030)" tag="3" id="466"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -395,8 +395,8 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" id="475">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <string key="title">Dose is corrected by the half-life, in relation to the Acquisition Time and the Injection Time.
-Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality manufacturer, which field should be used.</string>
+                                        <string key="title">線量は撮影時刻と投与時刻をもとに半減期で補正されます。
+補正線量 = 線量 * exp(ln(2) / 半減期)。どのフィールドを使うかは PET 装置のメーカーに確認してください。</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -404,7 +404,7 @@ Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality ma
                                 <button id="477">
                                     <rect key="frame" x="15" y="76" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Automatically convert PET in SUV when loading, if possible. " bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="478">
+                                    <buttonCell key="cell" type="check" title="可能なら読み込み時に PET を SUV に自動変換" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="478">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -417,7 +417,7 @@ Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality ma
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Opacity Table (Transfer Function)" id="403">
+                    <box title="不透明度テーブル(伝達関数)" id="403">
                         <rect key="frame" x="11" y="460" width="715" height="80"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="ANn-Tx-VUf">
@@ -425,7 +425,7 @@ Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality ma
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="413">
-                                    <rect key="frame" x="450" y="30" width="71" height="26"/>
+                                    <rect key="frame" x="450" y="30" width="83" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="416" id="441">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -442,7 +442,7 @@ Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality ma
                                 <button id="418">
                                     <rect key="frame" x="14" y="9" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Apply this behavior also to NM modality" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="442">
+                                    <buttonCell key="cell" type="check" title="NM モダリティにも適用" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="442">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -453,7 +453,7 @@ Corrected dose = Dose * exp ( ln(2) / Half-life). Check with the PET modality ma
                                 <button id="419">
                                     <rect key="frame" x="14" y="35" width="430" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Apply this Opacity Table when viewing a PET:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="443">
+                                    <buttonCell key="cell" type="check" title="PET の表示時にこの不透明度テーブルを適用:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="443">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

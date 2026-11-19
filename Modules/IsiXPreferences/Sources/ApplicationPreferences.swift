@@ -91,6 +91,9 @@ public enum ApplicationPreferences {
     public static let screenCaptureSeriesName = PreferenceKey<String?>("screenCaptureKeyImageSeriesName")
     /// AVVideoCodecTypeJPEG, written out: the module does not link AVFoundation for one string.
     public static let selectedMenuAVFoundationExport = PreferenceKey<String?>("selectedMenuAVFoundationExport", registered: "jpeg")
+    /// The build number of the release the user chose to skip in the alert that offered it: an
+    /// automatic check offers only a later one. Absent until a release is skipped.
+    public static let skippedUpdateBuild = PreferenceKey<String?>("SkippedUpdateBuild")
     public static let startCount = PreferenceKey<Int>("STARTCOUNT", registered: "1")
     /// The columns of the last study metadata export, one per line, as typed in its panel.
     public static let studyMetadataCSVColumns = PreferenceKey<String?>("StudyMetadataCSVColumns")
@@ -133,7 +136,7 @@ public enum ApplicationPreferences {
         doNotDeleteCrashingPlugins, editingLevel, encryptsBurnedMedia, encryptsExport, emailZIPPassword, burnsJPEGInsteadOfJPEG2000,
         hidesToolbarIfNotActive, lastURL, macAppStore, magneticWindows, moveToApplicationsFolderAlertSuppressed,
         animatesWindowFrames, originalSize, osiEnvironmentActivated, preferencesModificationsEnabled,
-        quicktimeExportRateValue, screenCaptureSeriesName, selectedMenuAVFoundationExport, startCount,
+        quicktimeExportRateValue, screenCaptureSeriesName, selectedMenuAVFoundationExport, skippedUpdateBuild, startCount,
         studyMetadataCSVColumns, supplementaryBurnPath, surveyDone, useDCMTKForDicomExport,
         surveyDone5, initialToolTipDelay, timeZone, is64Bit, hasMacOSXSnowLeopard, is12BitPluginAvailable,
         isQueryWindowVisible, syncsPreferencesFromURL, preferencesSyncURL,

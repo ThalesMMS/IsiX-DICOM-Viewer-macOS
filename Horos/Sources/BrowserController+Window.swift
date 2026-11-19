@@ -287,7 +287,7 @@ extension BrowserController {
 
         let defaults = UserDefaults.standard
         if let columns = defaults.object(forKey: "databaseColumns2") {
-            outline?.restoreColumnState(columns as? NSObject)
+            outline?.restoreColumnState(columns as? NSObject, headersLanguageIn: defaults)
         }
 
         switch ListSort.restored(saved: defaults.object(forKey: "databaseSortDescriptor") as? NSDictionary, isVisible: { key in
@@ -502,50 +502,7 @@ extension BrowserController {
 
     @objc(shouldTerminate:)
     func shouldTerminate(_ sender: Any!) -> Bool {
-        // Is there a full screen window displayed?
-        for window in NSApp.orderedWindows where window is NSFullScreenWindow {
-            NSSound.beep()
-            return false
-        }
-        if !DatabaseRebuildService.waitForRebuildsBeforeQuitting() { return false }
-        ViewerController.closeAllWindows()
-
-        _ = horos_databaseIvar?.save(nil)
-
-        if (ThreadsManager.default()?.threadsCount() ?? 0) > 0 {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("Background Operations", comment: "")
-            alert.informativeText = NSLocalizedString("Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled.", comment: "")
-            alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-            alert.addButton(withTitle: NSLocalizedString("Quit", comment: ""))
-
-            let timer = Timer(timeInterval: 0.3, target: self, selector: #selector(shouldTerminateCallback(_:)), userInfo: alert, repeats: true)
-            RunLoop.current.add(timer, forMode: .modalPanel)
-
-            let response = alert.runModal()
-
-            timer.invalidate()
-
-            if (ThreadsManager.default()?.threadsCount() ?? 0) > 0 && response == .alertFirstButtonReturn {
-                return false
-            }
-
-            // AppController will cancel these threads and give them 10 secs to finish... then kill them
-        }
-
-        if SendController.sendControllerObjects() > 0 {
-            if HorosAlertPanel.runInformational(
-                title: NSLocalizedString("DICOM Sending - STORE", comment: ""),
-                message: NSLocalizedString("Files are currently being sent to a DICOM node. Are you sure you want to quit now? The sending will be stopped.", comment: ""),
-                defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Quit", comment: ""),
-                otherButton: nil) == HorosAlertDefaultResponse {
-                return false
-            }
-        }
-
-        self.database = nil
-
-        return true
+        BrowserQuitAgreement(browser: self).given(asking: true)
     }
 
     // MARK: - Full screen and showing the window
@@ -588,6 +545,7 @@ extension BrowserController {
         dateTimeWithSeconds.dateStyle = .short
         dateTimeWithSeconds.timeStyle = .medium
         horos_dateTimeWithSecondsFormat = dateTimeWithSeconds
+        BrowserOlderInstanceVariables.formattersSet(by: self)
 
         let outline = horos_databaseOutline
         func column(_ identifier: String) -> NSCell? {

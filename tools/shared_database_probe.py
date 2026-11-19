@@ -194,6 +194,30 @@ BROWSER_STAND_IN = """
     @objc(refreshDatabase:) public func refreshDatabase(_ sender: Any?) {}
 }
 """
+# The window's list of sources (BonjourBrowser) is Swift too: the publisher
+# tells it of itself when it is made, asking the class for the current list by
+# its Swift symbol and writing itself into the list's unretained field, at the
+# offset Swift exports for it. The real class brings the browser window with
+# it. This one answers that there is no list, as in a process whose window is
+# not made yet. The field is of the publisher's class, which only the
+# publisher's object defines, so the stand-in keeps a slot of the same size and
+# SOURCES_LIST_FIELD_OFFSET gives its place under the application's symbol.
+SOURCES_LIST_STAND_IN = """
+@objc(SharedDatabaseProbeBonjourBrowser) public final class BonjourBrowser: NSObject {
+    public class func currentBrowser() -> BonjourBrowser? { return nil }
+    private unowned(unsafe) var publisherSlot: AnyObject? = nil
+}
+"""
+SOURCES_LIST_FIELD_OFFSET = r"""
+#import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+long ProbeSourcesListPublisherOffset __asm__("_$s5Horos14BonjourBrowserC9publisherAA0B9PublisherCSgvpWvd");
+long ProbeSourcesListPublisherOffset;
+__attribute__((constructor)) static void ProbeSourcesListFieldOffset(void) {
+    Ivar ivar = class_getInstanceVariable(objc_getClass("SharedDatabaseProbeBonjourBrowser"), "publisherSlot");
+    ProbeSourcesListPublisherOffset = ivar ? (long)ivar_getOffset(ivar) : 0;
+}
+"""
 # DicomDatabase is an Objective-C class implemented in Swift: the publisher's
 # casts ask for its type metadata through the accessor that implementation
 # exports. The probe's recorder is a plain Objective-C class, and this is the
@@ -266,10 +290,13 @@ def _stand_ins(work: Path) -> list[Path]:
                        check=True, capture_output=True)
         made.append(work / "DicomDatabaseMetadata.o")
     if sources.is_swift("AppController"):
+        # A publisher that tells the window's list of sources of itself.
+        sources_list = "BonjourBrowser.currentBrowser()" in sources.source_text("BonjourPublisher")
         stand_in = work / "AppControllerStandIn.swift"
         stand_in.write_text(APP_CONTROLLER_STAND_IN + PROCESS_GRAPH_MEMBERS_STAND_IN +
                             (STORE_SCU_STAND_IN if sources.is_swift("DCMTKStoreSCU") else "") +
-                            (BROWSER_STAND_IN if sources.is_swift("BrowserController") else ""))
+                            (BROWSER_STAND_IN if sources.is_swift("BrowserController") else "") +
+                            (SOURCES_LIST_STAND_IN if sources_list else ""))
         # With the module's own NSLog, which the Swift objects call, and the
         # internal module it writes through.
         support = object_probe.module_support_sources()
@@ -293,6 +320,12 @@ def _stand_ins(work: Path) -> list[Path]:
         subprocess.run(["xcrun", "clang", "-c", "-fno-objc-arc", str(offsets), "-o", str(work / "AppControllerFieldOffsets.o")],
                        check=True, capture_output=True)
         made.append(work / "AppControllerFieldOffsets.o")
+        if sources_list:
+            offset = work / "SourcesListFieldOffset.m"
+            offset.write_text(SOURCES_LIST_FIELD_OFFSET)
+            subprocess.run(["xcrun", "clang", "-c", "-fno-objc-arc", str(offset), "-o", str(work / "SourcesListFieldOffset.o")],
+                           check=True, capture_output=True)
+            made.append(work / "SourcesListFieldOffset.o")
         made += [work / "support" / f"lib{flag[2:]}.a" for flag in flags if flag.startswith("-l")]
     return made
 

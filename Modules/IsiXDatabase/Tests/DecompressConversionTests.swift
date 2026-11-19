@@ -18,7 +18,7 @@ import IsiXPreferences
     /// A stand-in for the Decompress service, by the name of the file: "bad"
     /// cannot be read, "keep" stays as it is, "crash" ends the service, and
     /// anything else is converted to "converted:" and its contents.
-    private final class Converter: DecompressConverting, @unchecked Sendable {
+    final class Converter: DecompressConverting, @unchecked Sendable {
         private let lock = NSLock()
         private var asked: [String] = []
 

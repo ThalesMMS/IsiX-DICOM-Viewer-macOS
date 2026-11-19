@@ -101,7 +101,7 @@ extension DCMView {
     public dynamic func switchCopySettingsInSeries(_ sender: Any!) {
         self.horos_COPYSETTINGSINSERIES = !self.horos_COPYSETTINGSINSERIES
 
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
             let v = viewerMessages(self.windowController())
 
             for case let imageView as DCMView in (v?.viewerImageViews() ?? []) {

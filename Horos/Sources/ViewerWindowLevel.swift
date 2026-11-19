@@ -369,8 +369,9 @@ fileprivate extension WindowLevelPresetCatalog {
         }
     }
 
-    /// The end of the "Set WL/WW" sheet: OK applies its fields, Cancel restores
-    /// the window it started from.
+    /// The end of the "Set WL/WW" sheet: OK applies its fields and names the
+    /// level they left, Cancel restores the window it started from, whose name
+    /// stays.
     func endSetWindowSheet(_ sender: Any?) {
         viewer.horos_wlset?.selectText(viewer)
 
@@ -381,6 +382,8 @@ fileprivate extension WindowLevelPresetCatalog {
         if tag != 0 {
             viewer.horos_imageView?.setWLWW(Float(WindowLevelText.value(from: viewer.horos_wlset?.stringValue ?? "", fallback: Double(before.level))),
                                             Float(WindowLevelText.width(from: viewer.horos_wwset?.stringValue ?? "", fallback: Double(before.width))))
+            // The level the fields left is the one the menu names: a preset's, or «Other».
+            if let view = viewer.horos_imageView { viewer.setCurWLWWMenu(DCMView.findWLWWPreset(view.curWL, view.curWW, view.curDCM)) }
         } else {
             viewer.horos_imageView?.setWLWW(before.level, before.width)
         }

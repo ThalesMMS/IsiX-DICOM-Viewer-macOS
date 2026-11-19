@@ -103,6 +103,10 @@ private final class URLImportJob: @unchecked Sendable {
     /// linked as the preferences say, or as `overrides` say for this import
     /// alone (`COPYDATABASE`, `COPYDATABASEMODE`).
     func add(_ paths: [String], overriding overrides: [AnyHashable: Any] = [:]) {
+        // A sandboxed build keeps the access it was given to what is dropped
+        // or opened from the Finder: files linked where they are, not copied,
+        // are read again after the application is opened again.
+        for path in paths { SandboxFileAccess.remember(URL(fileURLWithPath: path)) }
         var files: [String] = []
         let plan = DroppedItemsPlan.actions(forDroppedPaths: paths, isArchive: { ArchiveImportLedger.isArchiveName($0) })
         for action in plan {

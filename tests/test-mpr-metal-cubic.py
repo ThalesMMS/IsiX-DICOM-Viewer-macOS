@@ -22,6 +22,7 @@ here it is only checked to be what a plane asks for when it does not say.
 """
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -274,14 +275,16 @@ if linear < 0 or 'interpolation:' in copy[copy.rfind('reslicer.reslice(', 0, lin
 if cubic_at < 0 or cubic_at < linear:
     failures.append('the cubic plane is not a second reslice after the linear one')
 guard = copy[copy.rfind('if MPRPlaneRules.drawsCubicDisplayPlane(', 0, cubic_at):cubic_at]
-for condition in ('preference: controller.horosMPRCubicDisplay()', 'fused: fused != nil', 'thickness: thickness'):
+for condition in ('preference: controller.horosMPRCubicDisplay()', 'fused: fused != nil', 'thickness: thickness',
+                  'thinEnd: controller.thickSlabThinEnd'):
     if condition not in guard:
         failures.append('the cubic plane is not limited by %s' % condition)
-if 'return preference && !fused && thickness <= cubicDisplayMaximumSlab' not in rules:
+if 'return preference && !fused && thickness <= cubicDisplayMaximumSlab(thinEnd: thinEnd)' not in rules:
     failures.append('the cubic plane is not limited to the preference, an unfused plane and the thin slab')
 if 'thickness: Double(thickness), sampleStep: step' not in copy[cubic_at - 400:cubic_at]:
     failures.append('the cubic plane is not the same slab as the linear one')
-if 'cubicDisplayMaximumSlab: Float = 1.0 + 1e-3' not in rules:
+# 1 mm, or the window's thin end when that is thicker, and a thousandth over.
+if 'return (thinEnd.isFinite ? max(1.0, Float(thinEnd)) : 1.0) + 1e-3' not in rules:
     failures.append('the cubic display is not limited to the MPR\'s thin slab')
 if 'plane.displayPlane = nil' not in copy[:linear]:
     failures.append('a reconstruction does not drop the previous display plane first')
@@ -341,7 +344,10 @@ if 'preferenceStore[ReconstructionPreferences.mprCubicDisplay]' not in source('M
     failures.append('the cubic display is not an unregistered preference, off unless set')
 for pane in ('Base', 'ja-JP'):
     text = (root / 'Preference Panes/OSI3DPreferencePane' / (pane + '.lproj') / 'OSI3DPreferencePanePref.xib').read_text()
-    if 'title="Cubic Interpolation for MPR Display"' not in text or 'keyPath="values.HorosMPRCubicDisplay"' not in text:
+    # The Japanese copy shows the same checkbox under its Japanese title.
+    titled = 'title="Cubic Interpolation for MPR Display"' in text if pane == 'Base' else \
+        re.search(r'<buttonCell key="cell" type="check" title="[^"]+"[^>]*id="mpr-pref-cubic-cell"', text) is not None
+    if not titled or 'keyPath="values.HorosMPRCubicDisplay"' not in text:
         failures.append(pane + ' 3D settings lack the cubic display option')
 for failure in failures:
     print('FAIL: %s' % failure)

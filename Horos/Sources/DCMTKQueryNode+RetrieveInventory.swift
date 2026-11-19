@@ -192,14 +192,25 @@ extension DCMTKQueryNode {
         guard let study = inventoryStudyUID, !study.isEmpty else { return }
         let collector = sibling(DCMTKStudyQueryNode.self, from: QueryIdentifiers.node(study: study))
         collector.setShowErrorMessage(false)
+        collector.listsForRetrieve = true
         var confirmed: Bool
+        // How the listing ended when it named nothing: refused by the node,
+        // as one that answers the STUDY level alone refuses it, or failed.
+        let refused: Bool, failedOtherwise: Bool
+        let refusalStatus: UInt16?
         if !inventorySeriesUID.isEmpty {
             collector.query(withValues: nil, identifier: QueryIdentifiers.instanceListing(series: inventorySeriesUID, study: study,
                                                                                           instanceNumbers: false))
             confirmed = collector.lastQuerySucceeded
+            refused = !confirmed && collector.lastQueryNotImplemented
+            failedOtherwise = !confirmed && !refused
+            refusalStatus = collector.lastQueryStatus
         } else {
             _ = collector.queryImagesHierarchically(forStudy: study)
             confirmed = collector.imageInventoryConfirmed
+            refused = collector.listingNotImplemented
+            failedOtherwise = collector.listingFailedOtherwise
+            refusalStatus = collector.listingRefusalStatus
         }
         // A C-GET receives only the storage classes it offers: an instance of
         // any other, such as a Siemens CT MR Volume, cannot arrive, and is an
@@ -220,17 +231,28 @@ extension DCMTKQueryNode {
             instances.append(instance)
         }
         // A walk that ended without an error is the inventory, even when its
-        // UIDs do not add up to the count the peer gives: OsiriX counts an
-        // instance in a series it lists none of, and the count alone kept the
+        // UIDs do not add up to the count the peer gives: some peers count an
+        // instance in a series whose IMAGE level lists none, and the count alone kept the
         // inventory unconfirmed and the study retrieved again on every cycle.
         // The counts go beside it, per series.
         let seriesCounts: [String: NSNumber] = !inventorySeriesUID.isEmpty
             ? (numberImagesValue.map { [inventorySeriesUID: $0] } ?? [:])
             : collector.seriesInstanceCounts as? [String: NSNumber] ?? [:]
+        // A listing the node refused, or answered without naming an instance,
+        // leaves the inventory unconfirmed and says why: the retrieve is then
+        // judged by the node's own counters once it has ended. One that
+        // failed says nothing of the node, and keeps the retrieve reported.
+        let listing = RetrieveListing.beforeTransfer(listed: instances.count, confirmed: confirmed, refused: refused,
+                                                     failedOtherwise: failedOtherwise, cancelled: Thread.current.isCancelled)
+        if listing != .confirmed {
+            NSLog("---- retrieve listing of %@: %@, %ld instances named%@", inventoryStudyUID ?? "(null)", listing.rawValue, instances.count,
+                  listing == .notImplemented ? refusalStatus.map { " (C-FIND status \(RetrieveListing.text(ofStatus: Int($0))))" } ?? "" : "")
+        }
         replaceRetrieveInventory(Self.retrieveInventories.begin(study: study, series: inventorySeriesUID, endpoint: inventoryEndpoint(),
                                                                 database: DicomDatabase.activeLocal()?.dataBaseDirPath ?? "",
                                                                 instances: instances, confirmed: confirmed && !Thread.current.isCancelled,
-                                                                reported: numberImagesValue?.intValue ?? 0, seriesReported: seriesCounts.mapValues { $0.intValue }))
+                                                                reported: numberImagesValue?.intValue ?? 0, seriesReported: seriesCounts.mapValues { $0.intValue },
+                                                                listing: listing, listingStatus: refusalStatus))
         seriesNumbersStorage = NSMutableDictionary(dictionary: collector.seriesNumbers)
         seriesDescriptionsStorage = NSMutableDictionary(dictionary: collector.seriesDescriptions)
         // A forced retrieve asks again for what the peer said it cannot send.

@@ -55,12 +55,22 @@ import Cocoa
 /// the mask are made by OSIROIVolumeGeometry, from IsiXROI's rules.
 @objc(OSIPathExtrusionROI)
 public final class OSIPathExtrusionROI: OSIROI {
-    private var _path: N3BezierPath?
-    private var _slab = OSISlab()
-    private var _name: String?
-    private var _fillColor: NSColor?
-    private var _strokeColor: NSColor?
-    private var _strokeThickness: CGFloat = 0
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    var _path: N3BezierPath?
+    var _slab = OSISlab()
+    var _name: NSString?
+    var _fillColor: NSColor?
+    var _strokeColor: NSColor?
+    var _strokeThickness: CGFloat = 0
+    // Without state here: the former class kept the mask's rows of the last
+    // slab drawn, and this one keeps none. Kept at zero and nil.
+    var _cachedSlab = OSISlab()
+    var _cachedDicomToPixTransform = N3AffineTransform()
+    var _cachedMinCorner = N3VectorZero
+    var _cachedMaskRunsData: NSData?
 
     @objc(initWith:slab:homeFloatVolumeData:name:)
     public init(_ path: N3BezierPath!, slab: OSISlab, homeFloatVolumeData floatVolumeData: OSIFloatVolumeData!, name: String!) {
@@ -68,7 +78,7 @@ public final class OSIPathExtrusionROI: OSIROI {
         setHomeFloatVolumeData(floatVolumeData)
         _path = path
         _slab = slab
-        _name = name
+        _name = name as NSString?
         _strokeThickness = 1
     }
 
@@ -79,7 +89,7 @@ public final class OSIPathExtrusionROI: OSIROI {
 
     @objc(name)
     public override func name() -> String! {
-        return _name
+        return _name as String?
     }
 
     @objc(fillColor)

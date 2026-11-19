@@ -76,15 +76,22 @@ final class SEGSurfaceController: NSWindowController, NSTableViewDataSource, NST
             session = existing
         } else {
             var references: [SEGSourceFrame] = []
+            var origins: [String: DicomSEGSourceSeries] = [:]
             for case let image as DicomImage in viewer.fileList() ?? [] {
-                let count = image.numberOfFrames?.intValue ?? 0
+                // The database keeps no frame count for an object of a single
+                // frame, and answers 0 for it: one frame, as the indexer reads it.
+                let count = max(1, image.numberOfFrames?.intValue ?? 0)
+                if let uid = image.sopInstanceUID(), !uid.isEmpty, let series = image.series?.seriesDICOMUID, !series.isEmpty {
+                    origins[uid] = DicomSEGSourceSeries(seriesInstanceUID: series, instances: [
+                        DicomSEGSourceInstance(sopInstanceUID: uid, sopClassUID: image.series?.seriesSOPClassUID ?? "")])
+                }
                 if let frame = SEGSourceFrame(sopInstanceUID: image.sopInstanceUID() ?? "",
                                               frameNumber: count > 1 ? (image.frameID?.intValue ?? 0) + 1 : 1,
                                               frameCount: count) {
                     references.append(frame)
                 }
             }
-            session = SEGViewerSession(volume: volume, sourceFrames: references)
+            session = SEGViewerSession(volume: volume, sourceFrames: references, preferences: .standard, origins: origins)
             objc_setAssociatedObject(volume, SEGSurfaceController.sessionKey.key, session, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
         table = NSTableView(frame: .zero)

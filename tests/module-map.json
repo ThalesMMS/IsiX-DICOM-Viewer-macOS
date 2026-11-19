@@ -14,7 +14,7 @@
   "viewer-rules": {"modules": ["IsiXImaging"], "stays_in_app": "ViewerController, DCMView and the Metal drawing, the viewer nibs and window controllers; only the vocabulary leaves them"}
  },
  "modules": {
-  "IsiXContracts": {"may_depend_on": [], "role": "Sendable value types and the capability ports over the local database, on Foundation alone"},
+  "IsiXContracts": {"may_depend_on": [], "role": "Sendable value types, the capability ports over the local database, and the rules the network and database areas share, such as the forms a patient name is asked in, on Foundation alone"},
   "IsiXCrashReporting": {"may_depend_on": ["IsiXLogging"], "role": "finding crash reports and drafting the report"},
   "IsiXDICOMDataset": {"may_depend_on": ["IsiXLogging", "IsiXImaging", "IsiXDICOMFile"], "role": "the Swift DICOM dataset (DCMObject) and its attributes"},
   "IsiXDICOMFile": {"may_depend_on": ["IsiXLogging", "IsiXPreferences", "IsiXImaging"], "role": "per-file DICOM rules: tags, character sets, dates, SOP classes, import formats, per-file export and anonymization rules"},
@@ -26,13 +26,13 @@
   "IsiXInstallation": {"may_depend_on": ["IsiXLogging"], "role": "where the app is installed, the Dock tile and the count of the receptions it shows, when a burst of user notifications is delivered, and when the update check runs"},
   "IsiXKeychain": {"may_depend_on": ["IsiXLogging"], "role": "keychain identities and their export"},
   "IsiXLogging": {"may_depend_on": [], "role": "unified logging and the NSLog shim every module shares"},
-  "IsiXMail": {"may_depend_on": ["IsiXLogging"], "role": "the SMTP client"},
+  "IsiXMail": {"may_depend_on": ["IsiXLogging"], "role": "the SMTP client, and the mail server of the web portal as a value: the route an email takes, what stops one before it is sent and how each one ended"},
   "IsiXPluginLoading": {"may_depend_on": ["IsiXLogging"], "role": "plugin inspection and admission before a bundle loads"},
   "IsiXPreferences": {"may_depend_on": ["IsiXLogging"], "role": "default values and, from stage 3, the typed settings, each with one key and one default"},
   "IsiXROI": {"may_depend_on": ["IsiXLogging"], "role": "ROI geometry, statistics, rasterization, editing rules and the ROI archive coder"},
   "IsiXSegmentation": {"may_depend_on": ["IsiXLogging", "IsiXROI", "IsiXImaging", "IsiXGeometry"], "role": "region growing, morphology, contour tracing and resampling without ITK"},
   "IsiXStorage": {"may_depend_on": ["IsiXLogging"], "role": "storage locations, path aliases and SQLite snapshots of the data folder"},
-  "IsiXVolumeRendering": {"may_depend_on": ["IsiXLogging", "IsiXImaging", "IsiXGeometry"], "role": "volume rendering values: opacity, colour tables, crop planes, camera, fly-through paths"}
+  "IsiXVolumeRendering": {"may_depend_on": ["IsiXLogging", "IsiXImaging", "IsiXGeometry"], "role": "volume rendering values: opacity, colour tables, the functions of the 16-bit curves, crop planes, camera, fly-through and vessel paths"}
  },
  "planned_modules": {
  },

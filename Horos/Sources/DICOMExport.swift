@@ -53,7 +53,12 @@ import IsiXPreferences
 
     // MARK: - State
 
-    final var horos_sourcePath: String?
+    /// The three strings are kept as the NSString the SDK declared; the class reads them as Swift strings.
+    final var horos_dcmSourcePath: NSString?
+    final var horos_sourcePath: String? {
+        get { horos_dcmSourcePath as String? }
+        set { horos_dcmSourcePath = newValue as NSString? }
+    }
     /// The file of the last write, kept until the next one.
     final var horos_file: IsiXDCMTKFile?
 
@@ -64,6 +69,10 @@ import IsiXPreferences
     final var horos_height = 0
     final var horos_samplesPerPixel = 0
     final var horos_bitsPerSample = 0
+    /// The bits of a sample under the name an older copy of the header of the
+    /// former Horos and OsiriX plugin SDK gave them, bpp, exported at its
+    /// offset: a copy written with horos_bitsPerSample, which the export reads.
+    final var bpp = 0
     final var horos_isSigned = false
     final var horos_modalityAsSource = false
     final var horos_triedToDecompress = false
@@ -72,12 +81,24 @@ import IsiXPreferences
     // NSImage source.
     final var horos_image: NSImage?
     final var horos_imageRepresentation: NSBitmapImageRep?
-    final var horos_imageData: UnsafeMutableRawPointer?
+    final var horos_imageBytes: UnsafeMutablePointer<UInt8>?
+    final var horos_imageData: UnsafeMutableRawPointer? {
+        get { UnsafeMutableRawPointer(horos_imageBytes) }
+        set { horos_imageBytes = newValue?.assumingMemoryBound(to: UInt8.self) }
+    }
 
     final var horos_instanceNumber: Int32 = 1
     final var horos_seriesNumber: Int32 = 5000
-    final var horos_seriesUID: String?
-    final var horos_seriesDescription: String?
+    final var horos_exportSeriesUID: NSString?
+    final var horos_seriesUID: String? {
+        get { horos_exportSeriesUID as String? }
+        set { horos_exportSeriesUID = newValue as NSString? }
+    }
+    final var horos_exportSeriesDescription: NSString?
+    final var horos_seriesDescription: String? {
+        get { horos_exportSeriesDescription as String? }
+        set { horos_exportSeriesDescription = newValue as NSString? }
+    }
 
     final var horos_windowWidth = -1
     final var horos_windowLevel = -1
@@ -85,8 +106,20 @@ import IsiXPreferences
     final var horos_spacingY: Float = 0
     final var horos_slope: Float = 1
     final var horos_sliceThickness: Float = 0
-    final var horos_orientation = [Float](repeating: 0, count: 6)
-    final var horos_position = [Float](repeating: 0, count: 3)
+    /// orientation[6] and position[3], inside the object as the SDK declared them, and their values.
+    final var horos_orientationArray = IsiXDICOMExportOrientation(), horos_positionArray = IsiXDCMViewTriple()
+    final var horos_orientation: [Float] {
+        get { withUnsafeBytes(of: horos_orientationArray.v) { Array($0.bindMemory(to: Float.self)) } }
+        set { withUnsafeMutableBytes(of: &horos_orientationArray.v) { for i in 0..<6 { $0.storeBytes(of: newValue[i], toByteOffset: i * 4, as: Float.self) } } }
+    }
+    final var horos_position: [Float] {
+        get { withUnsafeBytes(of: horos_positionArray.v) { Array($0.bindMemory(to: Float.self)) } }
+        set { withUnsafeMutableBytes(of: &horos_positionArray.v) { for i in 0..<3 { $0.storeBytes(of: newValue[i], toByteOffset: i * 4, as: Float.self) } } }
+    }
+    /// Without state in this class, kept at 0, NO and nil: the interval between slices, whether the image's bytes
+    /// are the object's to free, and the DCM object and the DCMTK file the former class wrote through.
+    final var horos_sliceInterval: Float = 0, horos_freeImageData = false, horos_dcmDst: AnyObject?
+    final unowned(unsafe) var horos_dcmtkFileFormat: AnyObject?
     final var horos_slicePosition: Float = 0
     final var horos_positionSet = false
     final var horos_slicePositionSet = false
@@ -196,6 +229,7 @@ import IsiXPreferences
         horos_localData = nil
         horos_samplesPerPixel = Int(ispp)
         horos_bitsPerSample = Int(ibps)
+        bpp = Int(ibps)
         horos_width = iwidth
         horos_height = iheight
         horos_data = idata

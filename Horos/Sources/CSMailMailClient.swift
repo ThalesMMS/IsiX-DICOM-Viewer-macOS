@@ -54,6 +54,24 @@ import Security
 /// Sends the web portal's e-mails: through Mail.app with an AppleScript, or
 /// through SMTPClient with the account and password Mail keeps.
 ///
+/// Sends a Quit Apple event to the application with this bundle identifier,
+/// without waiting for a reply, then sleeps the calling thread. With its C
+/// name, which plugins built for Horos or OsiriX call.
+@_cdecl("QuitAndSleep") @implementation @usableFromInline
+func QuitAndSleep(_ bundleIdentifier: String!, _ seconds: Float) {
+    let target = NSAppleEventDescriptor(descriptorType: DescType(typeApplicationBundleID),
+                                        data: Data((bundleIdentifier ?? "").utf8))
+    let event = NSAppleEventDescriptor.appleEvent(withEventClass: AEEventClass(kCoreEventClass),
+                                                  eventID: AEEventID(kAEQuitApplication),
+                                                  targetDescriptor: target,
+                                                  returnID: AEReturnID(kAutoGenerateReturnID),
+                                                  transactionID: AETransactionID(kAnyTransactionID))
+    if let quitApplicationAppleEvent = event.aeDesc {
+        _ = AESendMessage(quitApplicationAppleEvent, nil, AESendMode(kAENoReply), kAEDefaultTimeout)
+    }
+    Thread.sleep(forTimeInterval: TimeInterval(seconds))
+}
+
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CSMailMailClient.h> are those of the former class.
 @objc(CSMailMailClient)
@@ -84,22 +102,6 @@ public final class CSMailMailClient: NSObject {
     private static func describe(_ object: Any?) -> String {
         guard let object = object else { return "(null)" }
         return (object as AnyObject).description
-    }
-
-    /// Sends a Quit Apple event to the application with this bundle identifier,
-    /// without waiting for a reply, then sleeps the calling thread.
-    private static func quitAndSleep(_ bundleIdentifier: String, _ seconds: Float) {
-        let target = NSAppleEventDescriptor(descriptorType: DescType(typeApplicationBundleID),
-                                            data: Data(bundleIdentifier.utf8))
-        let event = NSAppleEventDescriptor.appleEvent(withEventClass: AEEventClass(kCoreEventClass),
-                                                      eventID: AEEventID(kAEQuitApplication),
-                                                      targetDescriptor: target,
-                                                      returnID: AEReturnID(kAutoGenerateReturnID),
-                                                      transactionID: AETransactionID(kAnyTransactionID))
-        if let quitApplicationAppleEvent = event.aeDesc {
-            _ = AESendMessage(quitApplicationAppleEvent, nil, AESendMode(kAENoReply), kAEDefaultTimeout)
-        }
-        Thread.sleep(forTimeInterval: TimeInterval(seconds))
     }
 
     /// The AppleScript record {name: name, address: address}.
@@ -592,7 +594,7 @@ public final class CSMailMailClient: NSObject {
             setMailPersistentDomain(mailDomain)
             preferences.synchronize()
 
-            CSMailMailClient.quitAndSleep("com.apple.mail", 0.5)
+            QuitAndSleep("com.apple.mail", 0.5)
         }
 
         if script()?.executeAppleEvent(event, error: &errorInfo) == nil {

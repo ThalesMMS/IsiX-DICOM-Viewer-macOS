@@ -177,6 +177,10 @@ private struct ComparativeOpeningRules: Sendable {
     /// The lists the sub-series sheet keeps open: the sub-series of the
     /// series being opened.
     private var subSeriesLists: [Any]?
+    /// How many of the series being opened a viewer took from its own lists
+    /// and steps (the thumbnails, the series menu, the next and previous
+    /// series, the key images): its window keeps the study it was opened with.
+    var viewerNavigations = 0
     private var comparativeOpening: ComparativeOpening?
     /// The study whose saved workspace waits for studies asked of a node.
     private var workspaceOpening: (wait: StudyOpeningWait, study: NSManagedObjectID)?
@@ -274,10 +278,14 @@ private struct ComparativeOpeningRules: Sendable {
     // MARK: - Loading
 
     /// Each list of images in a viewer of its own, or in `viewer`; the lists
-    /// together in the 4D player for a movie.
+    /// together in the 4D player for a movie. Images put in `viewer` are an
+    /// opening the user asked for, which the frame of its window goes by,
+    /// unless the viewer took them from its own lists (`viewerNavigations`).
     @discardableResult
     func openViewer(_ lists: [[Any]], movie: Bool, viewer: ViewerController?, keyImagesOnly: Bool, tryToFlipData: Bool = false) -> ViewerController? {
-        ViewerSeriesLoader(browser: browser).open(lists, movie: movie, viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: tryToFlipData)
+        let opened = ViewerSeriesLoader(browser: browser).open(lists, movie: movie, viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: tryToFlipData)
+        if viewerNavigations == 0, let viewer { ViewerWindowBorder.reopened(viewer) }
+        return opened
     }
 
     // MARK: - Selection
@@ -285,7 +293,9 @@ private struct ComparativeOpeningRules: Sendable {
     /// The lists of images to open, as the selection gives them: the 4D
     /// player checks them (cutting one series into its times); a single
     /// series opened with Option or as "Reparsed Series" may be cut into
-    /// sub-series, chosen in a sheet.
+    /// sub-series, chosen in a sheet; any other single series held in
+    /// several multi-frame files, a volume each, goes to the 4D player
+    /// unasked, a file a time.
     func open(lists toOpenArrayIn: [[Any]], movie movieViewerIn: Bool, viewer: ViewerController?) {
         var toOpenArray: [[Any]]? = toOpenArrayIn
         var movieViewer = movieViewerIn
@@ -293,6 +303,12 @@ private struct ComparativeOpeningRules: Sendable {
 
         if (toOpenArray?.count ?? 0) > 2 {
             showWaitWindow()
+        }
+
+        let reparsed = (NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false) || browser.horos_openReparsedSeriesFlag
+        if toOpenArray?.count == 1, movieViewer || !reparsed, let times = fileTimePoints(of: toOpenArray?[0] ?? []) {
+            toOpenArray = times
+            movieViewer = true
         }
 
         if movieViewer {
@@ -324,8 +340,7 @@ private struct ComparativeOpeningRules: Sendable {
         } else {
             tryToFlipData = true
 
-            if toOpenArray?.count == 1, let selected = toOpenArray?[0],
-               (NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false) || browser.horos_openReparsedSeriesFlag {
+            if toOpenArray?.count == 1, let selected = toOpenArray?[0], reparsed {
                 // Just one thumbnail is selected.
                 let singleSeries = StudyListItem.sorted(selected, by: [NSSortDescriptor(key: "instanceNumber", ascending: true),
                                                                        NSSortDescriptor(key: "frameID", ascending: true)])
@@ -752,8 +767,11 @@ private struct ComparativeOpeningRules: Sendable {
 
             open(Self.seriesLevel(seriesArray), movie: false, viewer: nil, tileWindows: true, protocol: currentHangingProtocol)
         } else {
+            // The study asked for is shown already: its windows come forward,
+            // and it is the study each of them goes by from now on.
             for case let v as ViewerController in ViewerController.getDisplayed2DViewers() ?? [] {
                 v.window?.makeKeyAndOrderFront(browser)
+                if (v.fileList()?.firstObject as? DicomImage)?.series?.study === currentStudy { ViewerWindowBorder.reopened(v) }
             }
         }
 
@@ -1615,7 +1633,7 @@ private struct ComparativeOpeningRules: Sendable {
             guard !kept.isEmpty else { continue }
             var imagesArray = kept.map { list[$0] }
             if let descriptors = ((imagesArray.last as? DicomImage)?.series as? DicomSeries)?.sortDescriptorsForImages() as? [NSSortDescriptor] {
-                imagesArray = StudyListItem.sorted(imagesArray, by: descriptors)
+                imagesArray = DicomSeries.fileByFile(StudyListItem.sorted(imagesArray, by: descriptors)) ?? imagesArray
             }
             newArray.append(imagesArray)
         }

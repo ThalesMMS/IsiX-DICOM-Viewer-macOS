@@ -161,12 +161,21 @@ extension FlyPathAssistant {
 
     /// The centerline from `a` to `b`, in input coordinates: the cheapest
     /// path over the resampled voxels, a step costing e^-distance, searched
-    /// from both ends at once until the two searches meet. The thresholds
-    /// come from the mean of the input voxels around a and b; a and b, clamped
-    /// to the volume, are the caller's and stay as they are. The points are
-    /// the resampled voxels' corners, from a's end to b's, not yet thinned or
-    /// smoothed. 0, 1 without memory, 2 (`cannotFindPath`) when the ends are
-    /// the same voxel or the searches do not meet, 3 without a distance map.
+    /// from both ends at once until a voxel one search settles touches one
+    /// the other has settled. The former code stopped at a voxel the other
+    /// search had only reached, often beside the axis, and the path stepped
+    /// a voxel aside where the searches met. The thresholds come from the
+    /// input voxels around the ones nearest to a and b
+    /// (`computeLumenThresholds`; the former code took each point's voxel
+    /// from its corner, up to a voxel aside); a and b, clamped to the volume,
+    /// are the caller's and stay as they are. The points are the centres of
+    /// the resampled voxels the path goes through, but for the first and the
+    /// last, which are a and b themselves (clamped): each lies in the voxel
+    /// it stands for. The former
+    /// code gave each voxel's corner, half a voxel off along each axis, its
+    /// ends too. Not yet thinned or smoothed. 0, 1 without memory, 2
+    /// (`cannotFindPath`) when the ends are the same point or the searches do
+    /// not meet, 3 without a distance map.
     public func centerline(from a: SIMD3<Float>, to b: SIMD3<Float>) -> (code: Int32, points: [SIMD3<Float>]) {
         guard distmapVolumeSize >= 0,
               let costmap = malloc(distmapVolumeSize * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else {
@@ -176,7 +185,7 @@ extension FlyPathAssistant {
         defer { free(costmap) }
 
         let dimensions = [inputWidth, inputHeight, inputDepth]
-        var pta = a, ptb = b
+        var pta = fromCaller(a), ptb = fromCaller(b)
         for axis in 0..<3 {
             if pta[axis] < 0 { pta[axis] = 0 }
             if pta[axis] >= Float(dimensions[axis]) { pta[axis] = Float(dimensions[axis] - 1) }
@@ -189,14 +198,12 @@ extension FlyPathAssistant {
             NSLog("Can not define path from point to itself.")
             return (Self.cannotFindPath, [])
         }
+        let start = pta, end = ptb
 
-        // the thresholds, from the mean of the voxels around A and B that lie in the volume
-        var pixVal: Float = 0
-        var count = 0
-        addInputNeighborhood(cInt(pta.x), cInt(pta.y), cInt(pta.z), &pixVal, &count)
-        addInputNeighborhood(cInt(ptb.x), cInt(ptb.y), cInt(ptb.z), &pixVal, &count)
-        pixVal /= Float(count)
-        computeIntervalThresholds(from: pixVal)
+        // the thresholds, from the voxels around A and B that lie in the volume
+        let values = [nearestInputVoxel(pta), nearestInputVoxel(ptb)].flatMap(inputNeighborhood)
+        let pixVal = Self.lumenValue(of: values)
+        computeLumenThresholds(from: pixVal, among: values)
         NSLog("Opt. thresholds from %f : Min = %f / Max = %f", pixVal, thresholdA, thresholdB)
         distanceTransform()
 
@@ -229,8 +236,11 @@ extension FlyPathAssistant {
             for dz in -1...1 {
                 for dy in -1...1 {
                     for dx in -1...1 {
+                        // Within the volume along each axis, as the search below: the voxel before the first
+                        // column of a row is, in the volume's memory, the last column of the row before, and
+                        // a seed planted there started the search across the volume.
+                        if x + dx < 0 || x + dx >= w || y + dy < 0 || y + dy >= h || z + dz < 0 || z + dz >= d { continue }
                         let neighbor = (z + dz) * imageSize + (y + dy) * w + (x + dx)
-                        guard neighbor < distmapVolumeSize && neighbor >= 0 else { continue }
                         if labelmap[neighbor] & Self.optimized != 0 { continue }
                         let cost = currentcost + stepCost(neighbor)
                         if cost < costmap[neighbor] {
@@ -265,7 +275,9 @@ extension FlyPathAssistant {
                         if x + dx < 0 || x + dx >= w || y + dy < 0 || y + dy >= h || z + dz < 0 || z + dz >= d || met { continue }
                         let neighbor = (z + dz) * imageSize + (y + dy) * w + (x + dx)
                         let neighborLabel = labelmap[neighbor] & Self.labelBitsMask
-                        if neighborLabel != 0 && neighborLabel != currentlabel {
+                        // The searches meet on a voxel the other one has settled: one it only
+                        // reached may lie off the lumen's axis, and the path stepped aside there.
+                        if neighborLabel != 0 && neighborLabel != currentlabel && labelmap[neighbor] & Self.optimized != 0 {
                             met = true
                             jointA = currentindex
                             jointB = neighbor
@@ -294,8 +306,11 @@ extension FlyPathAssistant {
             toB = trackCenterline(from: jointA, labelmap: labelmap)
         }
         let voxels = toA.reversed() + toB
-        let points = voxels.map { SIMD3(Float($0.x), Float($0.y), Float($0.z)) / resampleScale }
-        return (0, points)
+        var points = voxels.map { (SIMD3(Float($0.x), Float($0.y), Float($0.z)) + 0.5) / resampleScale }
+        // The two searches each give their seed, so the path has two voxels at least.
+        points[0] = start
+        points[points.count - 1] = end
+        return (0, points.map(toCaller))
     }
 
     /// The direction toward the neighbour at (dx, dy, dz) seen from that
@@ -306,7 +321,7 @@ extension FlyPathAssistant {
 
     /// The voxels from `index` back to its search's seed, along the labels'
     /// directions.
-    func trackCenterline(from start: Int, labelmap: UnsafeMutablePointer<UInt8>) -> [SIMD3<Int>] {
+    public func trackCenterline(from start: Int, labelmap: UnsafeMutablePointer<UInt8>) -> [SIMD3<Int>] {
         let w = distmapWidth, imageSize = distmapImageSize
         var currentindex = start
         var z = currentindex / imageSize
@@ -330,14 +345,19 @@ extension FlyPathAssistant {
 
     /// The points of a centerline (input coordinates) kept when it is thinned
     /// by the lumen's radius: a point closer to the last kept one than the
-    /// mean of their radii goes. Two points or fewer are all kept.
+    /// mean of their radii goes. The first and the last points stay: when the
+    /// last would go, it takes the place of the last point kept but the
+    /// first, so the line still ends where it ended and its points stay about
+    /// a radius apart. The former code let the last point go, and the line
+    /// could stop a radius short of the second point clicked. Two points or
+    /// fewer are all kept.
     public func thinnedCenterlineIndices(_ line: [SIMD3<Float>]) -> [Int] {
         guard line.count > 2 else { return Array(line.indices) }
         var kept = [0]
-        var previous = line[0] * resampleScale
+        var previous = resampleCoordinates(ofInputPoint: line[0])
         var previousRadius = distance(mapIndex(previous))
         for i in 1..<line.count {
-            let point = line[i] * resampleScale
+            let point = resampleCoordinates(ofInputPoint: line[i])
             let radius = distance(mapIndex(point))
             let step = point - previous
             let length = (step.y * step.y).addingProduct(step.x, step.x).addingProduct(step.z, step.z).squareRoot()
@@ -345,6 +365,14 @@ extension FlyPathAssistant {
             kept.append(i)
             previousRadius = radius
             previous = point
+        }
+        let last = line.count - 1
+        if kept[kept.count - 1] != last {
+            if kept.count > 1 {
+                kept[kept.count - 1] = last
+            } else {
+                kept.append(last)
+            }
         }
         return kept
     }
@@ -390,7 +418,7 @@ extension FlyPathAssistant {
         let window = 45, step = 3
         var maxView: UInt32 = 0
 
-        let origin = toResampleCoordinates(center)
+        let origin = resampleCoordinates(ofInputPoint: center)
         // the conversion is a scale on each axis, so it converts a vector as it does a point
         let ahead = toResampleCoordinates(direction - center)
         let aheadVector = SIMD3(Double(ahead.x), Double(ahead.y), Double(ahead.z))

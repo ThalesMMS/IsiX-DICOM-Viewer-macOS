@@ -89,6 +89,13 @@ public final class LogManager: NSObject, @unchecked Sendable {
 
     private let _currentLogs = NSMutableDictionary()
 
+    /// _timer of an older header of the former Horos and OsiriX plugin SDK,
+    /// exported at this field's offset for the plugins built with it: the
+    /// timer that looked at the logs from time to time. Each message is
+    /// written as it arrives and no timer runs: nothing here reads or writes
+    /// it, and it is not retained.
+    final unowned(unsafe) var _timer: Timer?
+
     /// The graph of the process, which answers from any thread whether the
     /// network logs are on and which database the browser shows: the logs are
     /// written from the network threads as well as from the main thread.

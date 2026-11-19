@@ -91,7 +91,7 @@
                     <rect key="frame" x="0.0" y="0.0" width="320" height="38"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
-                        <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="62">
+                        <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="62" customClass="IsiXTipMatrix">
                             <rect key="frame" x="0.0" y="1" width="302" height="34"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -127,7 +127,7 @@
                                     </buttonCell>
                                 </column>
                                 <column>
-                                    <buttonCell type="bevel" title="التالي" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="التنقل في المسلسل" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="235">
+                                    <buttonCell type="bevel" title="التالي" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="التنقل في السلسلة" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="235">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                         <font key="font" metaFont="system" size="10"/>
                                     </buttonCell>
@@ -209,7 +209,7 @@
                     <rect key="frame" x="1" y="5" width="30" height="13"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="26" id="Clt-HQ-KNW"/>
+                        <constraint firstAttribute="width" constant="52" id="Clt-HQ-KNW"/>
                     </constraints>
                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="0" id="298">
                         <font key="font" metaFont="label"/>
@@ -235,10 +235,10 @@
                         <action selector="setThickSlabMode:" target="-2" id="159"/>
                     </connections>
                 </popUpButton>
-                <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="145">
+                <slider customClass="HorosThickSlabSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="145">
                     <rect key="frame" x="33" y="1" width="194" height="17"/>
                     <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
-                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="128" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="45" sliderType="linear" id="299">
+                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="3" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="299">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
                     <connections>
@@ -393,7 +393,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="214">
                         <rect key="frame" x="41" y="71" width="84" height="17"/>
                         <autoresizingMask key="autoresizingMask"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم المسلسل:" id="307">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="اسم السلسلة:" id="307">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

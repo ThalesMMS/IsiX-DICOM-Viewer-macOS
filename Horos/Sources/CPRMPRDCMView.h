@@ -98,3 +98,13 @@ enum _CPRMPRDCMViewCPRType { // more than kinda ridiculous, move this and the eq
 #else
 #import "Horos-Swift.h"
 #endif
+
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+// Whether a CPR view fills the window, and the positions of the three splits
+// it restores, shared by the CPR views and read and written on the main
+// thread. C globals (MPRDCMView+CAPI.m), which the Horos and OsiriX plugin SDK
+// published: plugins built for it look them up by name.
+extern NS_SWIFT_UI_ACTOR BOOL frameZoomed;
+extern NS_SWIFT_UI_ACTOR int splitPosition[3];

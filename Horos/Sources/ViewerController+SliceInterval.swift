@@ -165,7 +165,7 @@ public extension ViewerController {
             let first = pixList[0]
             if let correction = SliceIntervalCorrection(orientation1: orientationDouble(pixList[1]), orientation2: orientationDouble(pixList[2]),
                                                         origin1: origin(pixList[1]), origin2: origin(pixList[2]), firstOrigin: origin(first),
-                                                        spacingBetweenSlices: first.spacingBetweenSlices, flipNow: flipNow) {
+                                                        firstOriginIsDefined: first.isOriginDefined, spacingBetweenSlices: first.spacingBetweenSlices, flipNow: flipNow) {
                 if let orientation = correction.spacing.orientation {
                     horos_orientationVector = orientation.rawValue
                     let tool = orientation.tool.rawValue
@@ -192,9 +192,11 @@ public extension ViewerController {
                     }
                 }
 
-                if correction.reversesStack {
-                    // Flip the data for 3D texture mapping.
-                    if pixList.allSatisfy({ $0.pheight == first.pheight && $0.pwidth == first.pwidth }) {
+                let sameSize = pixList.allSatisfy({ $0.pheight == first.pheight && $0.pwidth == first.pwidth }), arrangement = ViewerStackArrangement(viewer: self)
+                let order = correction.stacksWithoutPosition ? nil : arrangement.order(of: pixList)
+                // Flip the data for 3D texture mapping, by the direction of the whole stack.
+                if flipNow && (order?.isDescending(stepInterval: correction.interval) ?? correction.reversesStack) {
+                    if sameSize {
                         reverseSeries(sliceInterval: correction.reversedSliceInterval)
 
                         horos_subCtrlMaskID = pixList.count - horos_subCtrlMaskID - 1
@@ -204,11 +206,9 @@ public extension ViewerController {
                         NSLog("sameSize = NO")
                     }
                 } else {
-                    let sliceInterval = correction.sliceInterval
-                    for x in 0..<horos_movieCount {
-                        for pix in horos_pixArray(x) { pix.sliceInterval = sliceInterval }
-                    }
+                    arrangement.setSliceInterval(correction.sliceInterval)
                 }
+                if order != nil { arrangement.arrange(flipNow: flipNow && sameSize) }
 
                 if flipNow { horos_titledGantry = isGantryTitled() }
             }
@@ -352,7 +352,7 @@ public extension ViewerController {
         // (OSIRIX_LIGHT, not compiled, opened none of them.)
         switch ViewerSender.tag(contextInfo) {
         case 10: mprViewer(contextInfo)             // 3D MPR
-        case 1: cprViewer(contextInfo)              // 3D curved MPR
+        case 1, 11: cprViewer(contextInfo)          // 3D curved MPR, Vessel Analysis
         case 8: orthogonalMPRViewer(contextInfo)    // 2D orthogonal MPR
         case 3: vrViewer(contextInfo)               // MIP
         case 4: vrViewer(contextInfo)               // VR

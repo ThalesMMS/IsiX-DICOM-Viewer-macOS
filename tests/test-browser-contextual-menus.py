@@ -31,6 +31,7 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 PATH = 'Horos/Sources/BrowserController+SplitView.swift'
 PRUNING = 'Horos/Sources/ContextMenuPruning.swift'
+THUMBNAIL_MENU = 'Horos/Sources/BrowserThumbnailMenu.swift'
 failures = []
 
 
@@ -49,7 +50,9 @@ if start < 0 or end < 0:
     sys.exit(1)
 methods = source[start:end]
 
-actions = sorted(set(re.findall(r'#selector\(BrowserController\.(\w+)\(_:\)\)', methods)))
+# The commands of the thumbnails' menu are a type of their own; a revision before that had them here.
+thumbnail_menu = read(THUMBNAIL_MENU)
+actions = sorted(set(re.findall(r'#selector\(BrowserController\.(\w+)\(_:\)\)', methods + thumbnail_menu)))
 REFUSED = ['burnDICOM', 'exportROIAndKeyImagesAsDICOMSeries', 'rebuildThumbnails', 'copyToDBFolder']
 STAND_IN = 'import AppKit\n\n@MainActor final class BrowserController: NSObject, NSMenuDelegate, NSMenuItemValidation {\n' \
     '    func validateMenuItem(_ item: NSMenuItem) -> Bool {\n' \
@@ -115,8 +118,11 @@ with tempfile.TemporaryDirectory(prefix='horos-contextual-menus-') as folder:
     (folder / 'BrowserController.swift').write_text(STAND_IN)
     (folder / 'main.swift').write_text(DRIVER)
     (folder / 'ContextMenuPruning.swift').write_text(read(PRUNING))
+    # The commands of the thumbnails' menu, which the window's code asks for.
+    (folder / 'BrowserThumbnailMenu.swift').write_text(thumbnail_menu)
     built = subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'module-cache'),
                             str(folder / 'BrowserController.swift'), str(folder / 'ContextMenuPruning.swift'),
+                            str(folder / 'BrowserThumbnailMenu.swift'),
                             str(folder / 'main.swift'),
                             '-o', str(folder / 'menus')], capture_output=True, text=True)
     if built.returncode != 0:

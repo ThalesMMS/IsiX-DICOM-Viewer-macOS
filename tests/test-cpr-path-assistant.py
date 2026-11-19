@@ -15,8 +15,10 @@ CurvedMPRPathAssistant is compiled with CurvedMPRPath.swift and run:
 CPRController is read for the rest:
 - -addMoviePixList:: stores a time after the last one, within MAX4D, where it
   wrote over the first;
-- the assistant keeps a segment found after the distance transform finished,
-  not the centerlines of the unfinished one;
+- the former assistant, which traces an air-filled lumen for the Path
+  Assistant (IsiXVolumeRendering's VesselPathAssistant), keeps a segment found
+  after the distance transform finished, not the centerline of the unfinished
+  one;
 - removeNode and onSliderMove use the helpers above;
 - the image exports all take the view the user selected, as JPEG did;
 - CPR.xib no longer connects shadingsPresetsController, which the controller
@@ -172,8 +174,11 @@ check(0 <= guard < increment and 'return' in movie[guard:increment],
       '-addMoviePixList:: stores a time past MAX4D')
 
 assisted = block(controller, 'func assistedCurvedPath(')
-retries = block(assisted, 'while k < 5')
-check(assisted != '' and 'newCP.addPatientNode' not in retries,
+former = block(code(read('Modules/IsiXVolumeRendering/Sources/VesselPathAssistant.swift')), 'static func formerSegment(')
+retries = block(former, 'while code == FlyPathAssistant.distanceTransformNotFinished')
+kept = former.find('.formerAssistant(nodes:')
+check(assisted != '' and 'centerline(from: a, to: b)' in retries and '.formerAssistant(' not in retries
+      and kept > former.find(retries),
       'the assistant adds the centerline of an unfinished distance transform')
 check('CurvedMPRPathAssistant.assembledPath(' in assisted,
       'the assistant appends the last point of an old or empty centerline')

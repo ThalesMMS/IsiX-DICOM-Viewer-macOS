@@ -95,18 +95,31 @@ public final class FrameLoad: NSObject {
     // MARK: - loading
 
     /// The frame's position along the normal: an RT Dose object's frames are
-    /// planes of one grid, each at its Grid Frame Offset Vector value from
-    /// the object's origin (PS 3.3 C.8.8.3.2). Returns NO when the reading
-    /// raised.
+    /// planes of one grid, each placed by its Grid Frame Offset Vector value
+    /// (PS 3.3 C.8.8.3.2). Returns NO when the reading raised.
     @objc(readFrameOffset:from:)
     public func readFrameOffset(_ frame: Int, from dataset: DICOMAttributeSource) -> Bool {
-        attempt { frameOffset = try FramePosition.gridFrameOffset(of: frame, in: dataset) }
+        attempt {
+            frameOffset = try FramePosition.gridFrameOffset(of: frame, in: dataset)
+            frameStep = try FramePosition.gridFrameStep(of: frame, in: dataset)
+        }
     }
 
-    /// Whether the frame is offset from the image's origin, and by how much.
+    /// Whether the frame is a plane of a grid, and its value in the vector as
+    /// written: a distance from the first plane, or a z coordinate.
     @objc public var hasFrameOffset: Bool { frameOffset != nil }
     @objc public var frameOffsetValue: Double { frameOffset ?? 0 }
     private var frameOffset: Double?
+    private var frameStep: Double?
+
+    /// Where the frame's plane is, in an object whose first plane is at
+    /// `origin` (Image Position (Patient)) with the row and column cosines
+    /// that `orientation` starts with: `origin` itself for a frame that is
+    /// not a plane of a grid.
+    public func frameOrigin(from origin: [Double], orientation: [Double]) -> [Double] {
+        guard let frameStep else { return origin }
+        return FramePosition.origin(ofPlaneAt: frameStep, from: origin, normal: FramePosition.normal(ofOrientation: orientation))
+    }
 
     /// Loads a decoded frame - nil or empty when the frame carried nothing -
     /// into `image`, reading its bytes where they are. Returns NO when
@@ -114,7 +127,7 @@ public final class FrameLoad: NSObject {
     /// decided up to there.
     @objc(loadFrame:of:applyingVOILUT:)
     public func load(_ frame: NSData?, of dataset: DICOMAttributeSource,
-                     applyingVOILUT voiLUT: ((UnsafeMutablePointer<UInt16>) -> Void)?) -> Bool {
+                     applyingVOILUT voiLUT: ((UnsafeMutablePointer<UInt16>) -> Bool)?) -> Bool {
         let length = frame?.length ?? 0
         return attempt {
             try photometry.read(from: dataset, frameLength: length, width: layout.width, height: layout.height,
@@ -190,5 +203,40 @@ enum FramePosition {
         guard try ParsedValue.isEqual(dataset.attributeValue(withName: "Modality"), toString: "RTDOSE") else { return nil }
         let offsets = dataset.attributeArray(withName: "GridFrameOffsetVector")
         return try ParsedValue.double(try ParsedValue.element(frame, of: offsets.map { $0 as NSArray }))
+    }
+
+    /// How far the plane of `frame` is from the first plane of an RT Dose
+    /// object, along the normal; nil for any other object.
+    ///
+    /// The vector is written in one of two ways (PS 3.3 C.8.8.3.2). Its first
+    /// element is zero and the others are distances from the first plane,
+    /// which is where Image Position (Patient) is, positive along the cross
+    /// product of the row and column directions; or its first element is the z
+    /// of Image Position (Patient), the planes are transverse and the elements
+    /// are their z coordinates. Either way a plane is its element less the
+    /// first one away from the first plane, and so is one of a vector that
+    /// begins with neither.
+    static func gridFrameStep(of frame: Int, in dataset: DICOMAttributeSource) throws -> Double? {
+        guard let offset = try gridFrameOffset(of: frame, in: dataset) else { return nil }
+        guard frame != 0, let first = try gridFrameOffset(of: 0, in: dataset) else { return 0 }
+        return offset - first
+    }
+
+    /// The unit normal of a plane whose row and column cosines `orientation`
+    /// starts with: their cross product. The z axis for an object that states
+    /// no orientation, whose planes were always stacked along it.
+    static func normal(ofOrientation orientation: [Double]) -> [Double] {
+        guard orientation.count >= 6 else { return [0, 0, 1] }
+        let r = orientation, c = Array(orientation[3..<6])
+        let n = [r[1] * c[2] - r[2] * c[1], r[2] * c[0] - r[0] * c[2], r[0] * c[1] - r[1] * c[0]]
+        let length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).squareRoot()
+        guard length.isFinite, length > 1e-6 else { return [0, 0, 1] }
+        return n.map { $0 / length }
+    }
+
+    /// The origin of the plane `step` along `normal` from the plane at `origin`.
+    static func origin(ofPlaneAt step: Double, from origin: [Double], normal: [Double]) -> [Double] {
+        guard origin.count >= 3, normal.count >= 3 else { return origin }
+        return [origin[0] + step * normal[0], origin[1] + step * normal[1], origin[2] + step * normal[2]]
     }
 }

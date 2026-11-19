@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 import IsiXPreferences
 
 // MARK: - Navigation
@@ -87,10 +88,12 @@ extension ViewerOpener {
                 let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Study")
                 request.predicate = NSPredicate(value: true)
                 let studies = ((try? context?.fetch(request)) ?? []).compactMap { $0 as? DicomStudy }
-                guard let study = studies.first(where: { matches($0.studyInstanceUID, "studyID") }),
-                      let series = ((study.series as NSSet?)?.allObjects ?? []).compactMap({ $0 as? DicomSeries })
-                          .first(where: { matches($0.seriesInstanceUID, "seriesID") }) else { return }
-                found = ((series.images as NSSet?)?.allObjects ?? []).compactMap { $0 as? DicomImage }
+                guard let study = studies.first(where: { matches($0.studyInstanceUID, "studyID") }) else { return }
+                // The file's series, or the one it was filed in under the key a
+                // multi-frame file had of its own: both can be in the study.
+                let series = ((study.series as NSSet?)?.allObjects ?? []).compactMap({ $0 as? DicomSeries })
+                    .filter { matches($0.seriesInstanceUID, "seriesID") || matches($0.seriesInstanceUID, "formerSeriesID") }
+                found = series.lazy.flatMap { (($0.images as NSSet?)?.allObjects ?? []).compactMap { $0 as? DicomImage } }
                     .first { matches($0.value(forKey: "sopInstanceUID"), "SOPUID") }
             }) {
                 BrowserObjC.log(exception, stack: true, "-[BrowserController findAndSelectFile:image:shouldExpand:extendingSelection:]")
@@ -185,15 +188,18 @@ extension ViewerOpener {
         var found = false
 
         if let element = element as? DicomStudy {
-            // Is a viewer containing this study opened? -> select it
+            // Is a viewer containing this study opened? -> select it. The
+            // study was asked for: it is the one its window goes by from now on.
             for viewer in viewersList where (viewer.fileList()?.firstObject as? DicomImage)?.series?.study === element {
                 viewer.window?.makeKeyAndOrderFront(browser)
+                ViewerWindowBorder.reopened(viewer)
                 found = true
             }
         } else if let element = element as? DicomSeries {
             // Is a viewer containing this series opened? -> select it
             for viewer in viewersList where (viewer.fileList()?.firstObject as? DicomImage)?.series === element {
                 viewer.window?.makeKeyAndOrderFront(browser)
+                ViewerWindowBorder.reopened(viewer)
                 found = true
             }
         } else if let element = element as? DicomImage {
@@ -384,6 +390,8 @@ extension ViewerOpener {
     /// in every viewer when "nextSeriesToAllViewers" says so (Shift inverts
     /// it). A viewer past the last series is closed.
     func loadNextSeries(_ curImage: NSManagedObject?, direction: Int, viewer: ViewerController?, firstViewer: Bool, keyImagesOnly: Bool) {
+        viewerNavigations += 1
+        defer { viewerNavigations -= 1 }
         var curImage = curImage
         var direction = direction
         var viewer = viewer
@@ -474,7 +482,7 @@ extension ViewerOpener {
 
         if viewersArray.count == viewersList.count {
             for (other, images) in zip(viewersList, viewersArray) where !(images is NSNull) {
-                _ = openViewer([images as? [Any] ?? []], movie: false, viewer: other, keyImagesOnly: keyImagesOnly)
+                _ = openSeriesImages(images as? [Any] ?? [], movie: false, viewer: other, keyImagesOnly: keyImagesOnly)
             }
         }
 
@@ -486,6 +494,8 @@ extension ViewerOpener {
     /// Opens the series in `viewer`, or in a new viewer: a presentation
     /// state's images, the 4D player with Control, a reparse with Shift.
     func loadSeries(_ series: NSManagedObject?, viewer: ViewerController?, keyImagesOnly: Bool) -> ViewerController? {
+        viewerNavigations += 1
+        defer { viewerNavigations -= 1 }
         let presentationState = openPresentationState(series as? DicomSeries, viewer: viewer, keyImagesOnly: keyImagesOnly)
         if presentationState.handled {
             return presentationState.viewer
@@ -503,6 +513,50 @@ extension ViewerOpener {
             browser.horos_openReparsedSeriesFlag = false
             return nil
         }
-        return openViewer([images], movie: modifiers.contains(.control), viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: true)
+        return openSeriesImages(images, movie: modifiers.contains(.control), viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: true)
+    }
+
+    // MARK: - Series of several multi-frame files
+
+    /// The times of a series held in several multi-frame files, a volume
+    /// each (SeriesSplitting.fileGroups): the images of each file, in the
+    /// order of the series, which sorts its files by their time. Nil for any
+    /// other images, read no further than the first unless it is a frame of
+    /// a multi-frame file.
+    func fileTimePoints(of images: [Any]) -> [[Any]]? {
+        guard (images.first as? DicomImage)?.numberOfFrames?.intValue ?? 0 > 1, let rows = images as? [DicomImage] else { return nil }
+        let groups = SeriesSplitting.fileGroups(files: rows.map { $0.path() ?? "" }, frames: rows.map { $0.numberOfFrames?.intValue ?? 0 },
+                                                sliceLocations: rows.map { $0.sliceLocation?.floatValue ?? 0 }, maximum: Int(MAX4D))
+        return groups?.map { group in group.map { images[$0] } }
+    }
+
+    /// The lists -openViewerFromImages:… was sent, each a viewer of its own
+    /// or a time of the 4D player, as the sender chose them. One list that is
+    /// every image of a series held in several multi-frame files, a volume
+    /// each, is that series and opens as the database window opens it, its
+    /// times in the 4D player: a retrieve that shows its series, a reload
+    /// while its files arrive, a plugin handed the series. Some of its
+    /// images, its key images and several lists stay what was asked.
+    func openChosenImages(_ lists: [[Any]], movie: Bool, viewer: ViewerController?, keyImagesOnly: Bool, tryToFlipData: Bool) -> ViewerController? {
+        if lists.count == 1, !movie, !keyImagesOnly, let times = fileTimePoints(of: lists[0]), isWholeSeries(lists[0]) {
+            return openViewer(times, movie: true, viewer: viewer, keyImagesOnly: false)
+        }
+        return openViewer(lists, movie: movie, viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: tryToFlipData)
+    }
+
+    /// Whether the images are every image of one series, each once.
+    private func isWholeSeries(_ images: [Any]) -> Bool {
+        guard let rows = images as? [DicomImage], let series = rows.first?.series, rows.allSatisfy({ $0.series === series }) else { return false }
+        return rows.count == (series.horosImages()?.count ?? 0) && Set(rows.map { ObjectIdentifier($0) }).count == rows.count
+    }
+
+    /// The images of one series in `viewer`, or in a new viewer: its times
+    /// in the 4D player when it has them by its files, as the database
+    /// window opens it, unless only its key images are asked for.
+    private func openSeriesImages(_ images: [Any], movie: Bool, viewer: ViewerController?, keyImagesOnly: Bool, tryToFlipData: Bool = false) -> ViewerController? {
+        if !keyImagesOnly, let times = fileTimePoints(of: images) {
+            return openViewer(times, movie: true, viewer: viewer, keyImagesOnly: false)
+        }
+        return openViewer([images], movie: movie, viewer: viewer, keyImagesOnly: keyImagesOnly, tryToFlipData: tryToFlipData)
     }
 }

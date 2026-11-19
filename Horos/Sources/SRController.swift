@@ -55,6 +55,11 @@ import IsiXVolumeRendering
 final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemValidation {
     // MARK: Outlets of SR.xib
 
+    // The outlets, the surfaces' settings and the fields of the series and of
+    // the points below are the instance variables of the former Horos and
+    // OsiriX plugin SDK, each a stored field with the type its header
+    // declared: a plugin reads and writes them at the exported offset, and no
+    // setter runs.
     @IBOutlet var toolsView: NSView?
     @IBOutlet var LODView: NSView?
     @IBOutlet var BlendingView: NSView?
@@ -69,9 +74,44 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
     @IBOutlet var distanceValue: NSTextField?
     @IBOutlet var heightValue: NSTextField?
     @IBOutlet var eyeDistance: NSTextField?
+    // Outlets that only older copies of that SDK's headers declare, and that
+    // SR.xib connects under these names: the slider of the level of detail,
+    // the text and the slider of the fusion, and the controls of the settings
+    // sheet. The window reaches the controls by bindings and actions and
+    // reads none of these; they hold what the nib connects.
+    @IBOutlet var LODSlider: NSSlider?
+    @IBOutlet var blendingPercentage: NSTextField?
+    @IBOutlet var blendingSlider: NSSlider?
+    @IBOutlet var checkFirst: NSButton?
+    @IBOutlet var checkSecond: NSButton?
+    @IBOutlet var firstValue: NSTextField?
+    @IBOutlet var secondValue: NSTextField?
+    @IBOutlet var resolSlide: NSSlider?
+    @IBOutlet var firstTrans: NSSlider?
+    @IBOutlet var secondTrans: NSSlider?
+    @IBOutlet var firstPopup: NSPopUpButton?
+    @IBOutlet var secondPopup: NSPopUpButton?
+    @IBOutlet var preprocessMatrix: NSMatrix?
+    // The two text fields of the sheet that those headers named decimate and
+    // smooth, the names the numbers have here. The nib connects no outlet of
+    // those names: a connection would hand the field's pointer to the setter
+    // of the number. The fields are found in the sheet, by the number each is
+    // bound to, when the nib is loaded. Copies, read by nothing.
+    var decimateFieldOfOlderSDK: NSTextField?, smoothFieldOfOlderSDK: NSTextField?
+    // The second settings sheet of those headers, for the fused series, and
+    // its controls. SR.xib has one sheet, which edits the surfaces of the
+    // fused series too (fusionSettingsWindow): nothing stands behind these
+    // outlets, nil unless a plugin stores one, and never released.
+    unowned(unsafe) var BSRSettingsWindow: NSWindow?
+    unowned(unsafe) var BcheckFirst: NSButton?, BcheckSecond: NSButton?
+    unowned(unsafe) var BfirstValue: NSTextField?, BsecondValue: NSTextField?, Bdecimate: NSTextField?, Bsmooth: NSTextField?
+    unowned(unsafe) var BresolSlide: NSSlider?, BfirstTrans: NSSlider?, BsecondTrans: NSSlider?
+    unowned(unsafe) var BfirstPopup: NSPopUpButton?, BsecondPopup: NSPopUpButton?
+    unowned(unsafe) var BfirstColor: NSColorWell?, BsecondColor: NSColorWell?
+    unowned(unsafe) var BpreprocessMatrix: NSMatrix?
 
     /// The `view` outlet; -view stays the method of Window3DController.
-    private(set) var srView: SRView?
+    var srView: SRView?
 
     @objc(setView:)
     private func setSRViewOutlet(_ view: SRView?) { srView = view }
@@ -94,33 +134,117 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
     @objc dynamic var shouldRenderFusion = false
 
     /// Whether the sheet open edits the fused series' surfaces.
-    private var fusionSettingsWindow = false
-    private let settings = NSMutableDictionary()
-    private let blendingSettings = NSMutableDictionary()
+    var fusionSettingsWindow = false
+    var settingsOfSDK: NSMutableDictionary? = NSMutableDictionary()
+    var blendingSettingsOfSDK: NSMutableDictionary? = NSMutableDictionary()
+    /// The two dictionaries of settings: one a plugin set to nil is made again.
+    private var settings: NSMutableDictionary {
+        if let settings = settingsOfSDK { return settings }
+        let settings = NSMutableDictionary()
+        settingsOfSDK = settings
+        return settings
+    }
+    var blendingSettings: NSMutableDictionary {
+        if let settings = blendingSettingsOfSDK { return settings }
+        let settings = NSMutableDictionary()
+        blendingSettingsOfSDK = settings
+        return settings
+    }
+    // The surfaces of the fused series as that SDK's thirteen instance
+    // variables: the settings of the fusion sheet are in the dictionary above,
+    // and these are written from it wherever it changes, and not read.
+    var fusionFirstSurfaceOfSDK: Float = 0, fusionSecondSurfaceOfSDK: Float = 0, fusionResolutionOfSDK: Float = 0
+    var fusionFirstTransparencyOfSDK: Float = 0, fusionSecondTransparencyOfSDK: Float = 0, fusionDecimateOfSDK: Float = 0
+    var fusionSmoothOfSDK: Int32 = 0
+    var fusionFirstColorOfSDK: NSColor?, fusionSecondColorOfSDK: NSColor?
+    var fusionShouldDecimateOfSDK = false, fusionShouldSmoothOfSDK = false
+    var fusionUseFirstSurfaceOfSDK = false, fusionUseSecondSurfaceOfSDK = false
+    // The same thirteen under the names older copies of that SDK's headers
+    // gave them, with an underscore: a second copy of each, written with the
+    // first.
+    var _fusionFirstSurface: Float = 0, _fusionSecondSurface: Float = 0, _fusionResolution: Float = 0
+    var _fusionFirstTransparency: Float = 0, _fusionSecondTransparency: Float = 0, _fusionDecimate: Float = 0
+    var _fusionSmooth: Int32 = 0
+    var _fusionFirstColor: NSColor?, _fusionSecondColor: NSColor?
+    var _fusionShouldDecimate = false, _fusionShouldSmooth = false
+    var _fusionUseFirstSurface = false, _fusionUseSecondSurface = false
 
     // MARK: The series
 
     // nonisolated(unsafe): -pixList, -fileList and -blendingController are
     // read on any thread, as the Objective-C instance variables were; they are
     // set once, by the initializer.
-    nonisolated(unsafe) private var pixListStorage: NSMutableArray?
-    nonisolated(unsafe) private var fileListStorage: NSArray?
+    nonisolated(unsafe) var pixListStorage: NSMutableArray?
+    nonisolated(unsafe) var fileListStorage: NSArray?
     /// Not retained, as before: the fused viewer closes the window first.
     nonisolated(unsafe) private weak var blendingControllerStorage: ViewerController?
-    private var volumeData: NSData?
+    /// The pointer to the fused viewer with no retain, as the former SDK kept
+    /// it: written with the reference above and not read, since that one
+    /// becomes nil when the viewer goes.
+    unowned(unsafe) var blendingControllerOfSDK: ViewerController?
+    var volumeData: NSData?
     var toolbar: NSToolbar?
     /// The 2D viewer the window was opened from.
-    private(set) var viewer2DStorage: ViewerController?
+    var viewer2DStorage: ViewerController?
+    /// The adapter of the fly through window last opened, not retained, as
+    /// that SDK kept it: written when the window opens and not read.
+    unowned(unsafe) var FTAdapter: SRFlyThruAdapter?
+    // That SDK declared these three and never wrote them: nothing stands
+    // behind them, and they are never released.
+    var blending = false
+    unowned(unsafe) var blendingVolumeData: NSData?
+    unowned(unsafe) var blendingPixList: NSMutableArray?
 
     // MARK: 3D points and ROI volumes
 
-    var roi2DPointsArray: [ROI] = []
-    var sliceNumber2DPointsArray: [Int] = []
-    var x2DPointsArray: [Float] = []
-    var y2DPointsArray: [Float] = []
-    var z2DPointsArray: [Float] = []
+    // The 2D points the view shows, as that SDK kept them: five lists, of the
+    // ROIs and of NSNumbers of the slice (a long) and of the patient
+    // coordinates (floats). The window's code reads and writes them as the
+    // Swift arrays below.
+    var roi2DPointsOfSDK: NSMutableArray? = NSMutableArray()
+    var sliceNumber2DPointsOfSDK: NSMutableArray? = NSMutableArray()
+    var x2DPointsOfSDK: NSMutableArray? = NSMutableArray()
+    var y2DPointsOfSDK: NSMutableArray? = NSMutableArray()
+    var z2DPointsOfSDK: NSMutableArray? = NSMutableArray()
+
+    /// Puts `values` in `list`, or in a new list when a plugin set it to nil.
+    private static func filled(_ list: NSMutableArray?, _ values: [Any]) -> NSMutableArray {
+        let list = list ?? NSMutableArray()
+        list.setArray(values)
+        return list
+    }
+    private static func floats(_ list: NSMutableArray?) -> [Float] {
+        (list ?? []).map { ($0 as? NSNumber)?.floatValue ?? 0 }
+    }
+    var roi2DPointsArray: [ROI] {
+        get { (roi2DPointsOfSDK ?? []).compactMap { $0 as? ROI } }
+        set { roi2DPointsOfSDK = Self.filled(roi2DPointsOfSDK, newValue) }
+    }
+    var sliceNumber2DPointsArray: [Int] {
+        get { (sliceNumber2DPointsOfSDK ?? []).map { ($0 as? NSNumber)?.intValue ?? 0 } }
+        set { sliceNumber2DPointsOfSDK = Self.filled(sliceNumber2DPointsOfSDK, newValue.map { NSNumber(value: $0) }) }
+    }
+    var x2DPointsArray: [Float] {
+        get { Self.floats(x2DPointsOfSDK) }
+        set { x2DPointsOfSDK = Self.filled(x2DPointsOfSDK, newValue.map { NSNumber(value: $0) }) }
+    }
+    var y2DPointsArray: [Float] {
+        get { Self.floats(y2DPointsOfSDK) }
+        set { y2DPointsOfSDK = Self.filled(y2DPointsOfSDK, newValue.map { NSNumber(value: $0) }) }
+    }
+    var z2DPointsArray: [Float] {
+        get { Self.floats(z2DPointsOfSDK) }
+        set { z2DPointsOfSDK = Self.filled(z2DPointsOfSDK, newValue.map { NSNumber(value: $0) }) }
+    }
     /// Read on any thread through -roiVolumes, as the instance variable was.
-    nonisolated(unsafe) let roiVolumesStorage = NSMutableArray()
+    nonisolated(unsafe) var roiVolumesOfSDK: NSMutableArray? = NSMutableArray()
+    /// The list of the ROI volumes: one a plugin set to nil is made again.
+    nonisolated var roiVolumesStorage: NSMutableArray {
+        if let volumes = roiVolumesOfSDK { return volumes }
+        let volumes = NSMutableArray()
+        roiVolumesOfSDK = volumes
+        return volumes
+    }
     var flyThruRecordingTimeFrame: TimeInterval = 0
 
     /// [[SRController alloc] initWithPix:::::]: nil, after an alert, when the
@@ -164,6 +288,7 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
         }
 
         blendingControllerStorage = bC
+        blendingControllerOfSDK = bC
         if let bC { // Blending! Activate image fusion
             srView?.setBlendingPixSource(bC)
         }
@@ -240,8 +365,23 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
         settings["useSecondSurface"] = NSNumber(value: false)
 
         blendingSettings.addEntries(from: settings as! [AnyHashable: Any])
+        copyFusionSettings()
 
         shouldRenderFusion = false
+        decimateFieldOfOlderSDK = Self.textField(in: SRSettingsWindow?.contentView, boundTo: "decimate")
+        smoothFieldOfOlderSDK = Self.textField(in: SRSettingsWindow?.contentView, boundTo: "smooth")
+    }
+
+    /// The text field under `view` whose value is bound to `keyPath`.
+    private static func textField(in view: NSView?, boundTo keyPath: String) -> NSTextField? {
+        guard let view else { return nil }
+        if let field = view as? NSTextField, field.infoForBinding(.value)?[.observedKeyPath] as? String == keyPath {
+            return field
+        }
+        for subview in view.subviews {
+            if let field = textField(in: subview, boundTo: keyPath) { return field }
+        }
+        return nil
     }
 
     @IBAction override func showWindow(_ sender: Any?) {
@@ -330,6 +470,7 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
             d = settings
             renderSurfaces()
         }
+        defer { if fusionSettingsWindow { copyFusionSettings() } }
 
         d["resolution"] = NSNumber(value: resolution)
         d["shouldDecimate"] = NSNumber(value: shouldDecimate)

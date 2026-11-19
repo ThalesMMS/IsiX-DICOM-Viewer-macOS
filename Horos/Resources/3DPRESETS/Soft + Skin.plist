@@ -71,6 +71,14 @@
 				<key>red</key>
 				<real>1</real>
 			</dict>
+			<dict>
+				<key>blue</key>
+				<real>1</real>
+				<key>green</key>
+				<real>1</real>
+				<key>red</key>
+				<real>1</real>
+			</dict>
 		</array>
 	</array>
 	<key>16bitClutCurves</key>
@@ -123,6 +131,12 @@
 			<dict>
 				<key>x</key>
 				<real>461.59375</real>
+				<key>y</key>
+				<real>0.28899994492530823</real>
+			</dict>
+			<dict>
+				<key>x</key>
+				<real>3071</real>
 				<key>y</key>
 				<real>0.28899994492530823</real>
 			</dict>

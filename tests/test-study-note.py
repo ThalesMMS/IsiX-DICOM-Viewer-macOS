@@ -80,7 +80,7 @@ if identifier:
     branch = branch[:branch.find('\n        case ', 1)]
     require('systemSymbolName: "note.text"' in branch, 'the Note item has no image of its own')
     require('#selector(ViewerController.showStudyNoteEditor(_:))' in branch, 'the Note item does not open the note editor')
-    require('"Display the Note Editor"' in branch, 'the Note item has not the tooltip of the issue')
+    require('"Edit the notes of this study"' in branch, 'the Note item has not its tooltip')
 for language in ('en', 'es', 'it-IT', 'ja-JP'):
     menu = (root / f'Horos/Resources/{language}.lproj/MainMenu.xib').read_text()
     require('<action selector="showStudyNoteEditor:" target="-1"' in menu, f'the {language} 2D Viewer menu has no Note item')
@@ -124,7 +124,6 @@ enum HorosObjCException {
     @discardableResult
     static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
     static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
-    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
     @discardableResult
     static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
     @discardableResult

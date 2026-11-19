@@ -561,8 +561,7 @@ enum RecordedDataFileNumbers {
         let reader = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         reader.persistentStoreCoordinator = coordinator
         reader.undoManager = nil
-        var highest: UInt64 = 0
-        reader.performAndWait {
+        return reader.performAndWait {
             let highestNumber = NSExpressionDescription()
             highestNumber.name = "highest"
             highestNumber.expression = NSExpression(forFunction: "max:", arguments: [NSExpression(forKeyPath: "pathNumber")])
@@ -571,9 +570,8 @@ enum RecordedDataFileNumbers {
             request.resultType = .dictionaryResultType
             request.propertiesToFetch = [highestNumber]
             let found = ((try? reader.fetch(request)) as? [[String: Any]])?.first?["highest"] as? Int64
-            highest = UInt64(max(found ?? 0, 0))
+            return UInt64(max(found ?? 0, 0))
         }
-        return highest
     }
 }
 

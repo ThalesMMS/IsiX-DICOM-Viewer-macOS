@@ -43,10 +43,10 @@ import Testing
         let allowed = Catalog.allowedIdentifiers(space: space, canDisplay12Bit: false)
         #expect(Array(allowed.prefix(10)) == ["NSToolbarFlexibleSpaceItem", space, "Mail.icns", "Send.icns", "Print.tiff",
                                               "Export.icns", "iPhoto2", "QTExport.pdf", "XML.icns", "Reconstruction"])
-        #expect(Array(allowed[10..<17]) == Catalog.threeDShortcuts.map(\.identifier))
-        #expect(allowed[17] == "2DBlending")
+        #expect(Array(allowed[10..<18]) == Catalog.threeDShortcuts.map(\.identifier))
+        #expect(allowed[18] == "2DBlending")
         #expect(allowed.last == "StudyNote")
-        #expect(allowed.count == 55)
+        #expect(allowed.count == 56)
         #expect(Set(allowed).count == allowed.count)
         #expect(!allowed.contains("LUT12Bit"))
         let with12Bit = Catalog.allowedIdentifiers(space: space, canDisplay12Bit: true)
@@ -64,7 +64,11 @@ import Testing
     }
 
     @Test func threeDShortcutsSendTheMenusActions() {
-        #expect(Catalog.threeDShortcuts.map(\.tag) == [10, 1, 8, 3, 4, 5, 9])
+        #expect(Catalog.threeDShortcuts.map(\.tag) == [10, 1, 11, 8, 3, 4, 5, 9])
+        // Vessel Analysis is the curved MPR's action with a tag of its own.
+        #expect(Catalog.threeDShortcut("Shortcut3DVessels")?.action == "cprViewer:")
+        #expect(Catalog.threeDShortcut("Shortcut3DVessels")?.tag == Catalog.vesselAnalysisTag)
+        #expect(Catalog.threeDShortcut("Shortcut3DVessels")?.marksMIP == false)
         #expect(Catalog.threeDShortcut("Shortcut3DMIP")?.action == "VRViewer:")
         #expect(Catalog.threeDShortcut("Shortcut3DMIP")?.marksMIP == true)
         #expect(Catalog.threeDShortcut("Shortcut3DVR")?.marksMIP == false)

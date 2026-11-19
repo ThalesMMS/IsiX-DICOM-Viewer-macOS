@@ -83,47 +83,75 @@ final class QueryNodeShared<Value>: @unchecked Sendable {
 /// @usableFromInline because its subclasses are, so that a Release build exports
 /// their Objective-C classes for plugins built against the former SDK: Swift asks
 /// the superclass of such a class to have it too.
+///
+/// Its superclass is the one that SDK gave it, DCMTKServiceClassUser, which
+/// keeps the peer (the AE titles, _hostname, _port, the transfer syntax, the
+/// compression and the other settings) and _abortAssociation, set to give up
+/// the association in progress, as the Query window's Stop does.
 @objc(DCMTKQueryNode) @usableFromInline
-class DCMTKQueryNode: NSObject, @unchecked Sendable {
+class DCMTKQueryNode: DCMTKServiceClassUser, @unchecked Sendable {
 
     // MARK: The peer
 
-    let callingAETitle: String?
-    let calledAETitle: String?
-    @objc let _hostname: String!
-    @objc var _port: Int32
-    @objc let transferSyntax: Int32
-    @objc let compression: Float
+    @objc var transferSyntax: Int32 { givenTransferSyntax }
+    @objc var compression: Float { givenCompression }
     /// Replaced, never changed in place: a study adds its UID for its series.
-    var extraParametersStorage: NSDictionary?
-    let association: DICOMAssociationSettings
-
-    private let abortFlag = Atomic<Bool>(false)
-    /// Set to give up the association in progress, as the Query window's Stop does.
-    @objc var _abortAssociation: Bool {
-        get { abortFlag.load(ordering: .relaxed) }
-        set { abortFlag.store(newValue, ordering: .relaxed) }
+    var extraParametersStorage: NSDictionary? {
+        get { givenExtraParameters.map { NSDictionary(dictionary: $0) } }
+        set { givenExtraParameters = newValue as? [AnyHashable: Any] }
     }
+    let association: DICOMAssociationSettings
 
     // MARK: Attributes, as the response gave them
 
-    var uidValue: String?
-    var descriptionValue: String?
-    var nameValue: String?
-    var patientIDValue: String?
-    var referringPhysicianValue: String?
-    var performingPhysicianValue: String?
-    var institutionNameValue: String?
-    var commentsValue: String?
-    var interpretationStatusIDValue: String?
-    var accessionNumberValue: String?
+    var uidValue: String? { didSet { _uid = uidValue as NSString? } }
+    var descriptionValue: String? { didSet { _theDescription = descriptionValue as NSString? } }
+    var nameValue: String? { didSet { _name = nameValue as NSString? } }
+    var patientIDValue: String? { didSet { _patientID = patientIDValue as NSString? } }
+    var referringPhysicianValue: String? { didSet { _referringPhysician = referringPhysicianValue as NSString? } }
+    var performingPhysicianValue: String? { didSet { _performingPhysician = performingPhysicianValue as NSString? } }
+    var institutionNameValue: String? { didSet { _institutionName = institutionNameValue as NSString? } }
+    var commentsValue: String? { didSet { _comments = commentsValue as NSString? } }
+    var interpretationStatusIDValue: String? { didSet { _interpretationStatusID = interpretationStatusIDValue as NSString? } }
+    var accessionNumberValue: String? { didSet { _accessionNumber = accessionNumberValue as NSString? } }
     var dateValue: DICOMCalendarDate?
     var birthdateValue: DICOMCalendarDate?
     var timeValue: DICOMCalendarDate?
-    var modalityValue: String?
+    var modalityValue: String? { didSet { _modality = modalityValue as NSString? } }
     var numberImagesValue: NSNumber?
-    var specificCharacterSet: String?
-    private var logEntryValue: NSManagedObject?
+    var specificCharacterSet: String? { didSet { _specificCharacterSet = specificCharacterSet as NSString? } }
+    final var logEntryValue: NSManagedObject?
+
+    // MARK: Instance variables of the former plugin SDK
+
+    // Plugins built for the former Horos or OsiriX SDK read and write the
+    // node's instance variables at the offset the application exports for
+    // each, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, lazy, weak or observed: the
+    // dates, the number of images, the children, the log entry, the flags, the
+    // counts, the dictionaries of the series and the retrieve's plan are the
+    // node's own fields. The texts of the response are Swift strings above,
+    // which the node reads; these are their copies, written whenever one is
+    // set and never read here.
+    final var _uid: NSString?, _theDescription: NSString?, _name: NSString?, _patientID: NSString?
+    final var _referringPhysician: NSString?, _performingPhysician: NSString?, _institutionName: NSString?
+    final var _comments: NSString?, _interpretationStatusID: NSString?, _accessionNumber: NSString?
+    final var _modality: NSString?, _specificCharacterSet: NSString?, _retrievePatient: NSString?
+    // Without state in the node: it keeps no flag of a first WADO error, the
+    // condition of the last DCMTK call, one pointer in the SDK's class, is
+    // the adapter's, and the inventory of a retrieve is kept behind a lock,
+    // where no plain field can stand for it. False and nil.
+    final var firstWadoErrorDisplayed = false
+    final var globalCondition: UnsafeMutableRawPointer?
+    final var _retrieveInventory: AnyObject?
+    // Declared only by the header of an older SDK, whose node downloaded the
+    // images of a WADO retrieve itself: the count of the requests still
+    // running, their lock and what each had received. The download is a
+    // WADODownload's now, one object for each retrieve, which keeps the three
+    // under the same names; the node has none of them. Zero and nil.
+    final var WADOThreads: Int32 = 0
+    final var WADODownloadLock: NSRecursiveLock?
+    final var WADODownloadDictionary: NSMutableDictionary?
 
     // MARK: Children
 
@@ -145,6 +173,18 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     var lastQueryNotImplementedValue = false
     var listingNotImplemented = false
     var listingFailedOtherwise = false
+    /// The status the peer ended the last C-FIND with, when it was neither
+    /// success nor pending; nil when it answered none, or the search failed
+    /// before any answer.
+    var lastQueryStatus: UInt16?
+    /// The status of the first C-FIND of a hierarchical walk the peer refused.
+    var listingRefusalStatus: UInt16?
+    /// Set on the node a retrieve lists a study's instances with, before its
+    /// transfer: a C-FIND the peer refuses is then logged and not told. The
+    /// retrieve says what it makes of the listing once it has ended; told
+    /// here, a node that answers the STUDY level alone had a notice of a
+    /// failed query on every retrieve that arrived whole.
+    var listsForRetrieve = false
     var seriesInstanceCountsStorage: NSMutableDictionary?
     var seriesNumbersStorage: NSMutableDictionary?
     var seriesDescriptionsStorage: NSMutableDictionary?
@@ -165,27 +205,22 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     var retrieveInventoryRefreshQueued = false
     var retrieveInventoryMissGeneration: UInt = 0
     var reportedDICOMwebError: NSError?
-    var retrievePatient: String?
+    var retrievePatient: String? { didSet { _retrievePatient = retrievePatient as NSString? } }
 
     // MARK: Making a node
 
     @objc(initWithDataset:callingAET:calledAET:hostname:port:transferSyntax:compression:extraParameters:)
     required init(dataset: IsiXDCMTKDataset?, callingAET: String?, calledAET: String?, hostname: String?, port: Int32,
                   transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {
-        callingAETitle = callingAET
-        calledAETitle = calledAET
-        _hostname = hostname
-        _port = port
-        self.transferSyntax = transferSyntax
-        self.compression = compression
-        extraParametersStorage = extraParameters.map { NSDictionary(dictionary: $0) }
         association = DICOMAssociationSettings(extraParameters: extraParameters)
-        super.init()
+        super.init(callingAET: callingAET, calledAET: calledAET, hostname: hostname, port: port, transferSyntax: transferSyntax,
+                   compression: compression, extraParameters: extraParameters)
     }
 
-    @objc(initWithCallingAET:calledAET:hostname:port:transferSyntax:compression:extraParameters:)
-    convenience init(callingAET: String?, calledAET: String?, hostname: String?, port: Int32, transferSyntax: Int32,
-                     compression: Float, extraParameters: [AnyHashable: Any]?) {
+    /// -initWithCallingAET:calledAET:hostname:port:transferSyntax:compression:extraParameters:,
+    /// the superclass's initializer: a node of no dataset.
+    override convenience init(callingAET: String?, calledAET: String?, hostname: String?, port: Int32, transferSyntax: Int32,
+                              compression: Float, extraParameters: [AnyHashable: Any]?) {
         self.init(dataset: nil, callingAET: callingAET, calledAET: calledAET, hostname: hostname, port: port,
                   transferSyntax: transferSyntax, compression: compression, extraParameters: extraParameters)
     }
@@ -213,9 +248,7 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
 
     // MARK: The association settings a node reports
 
-    @objc func calledAET() -> String! { calledAETitle }
-    @objc func callingAET() -> String! { callingAETitle }
-    @objc func extraParameters() -> [AnyHashable: Any]! { extraParametersStorage as? [AnyHashable: Any] }
+    // -calledAET, -callingAET and -extraParameters are the superclass's.
     /// KVC: the Query window reads the node's peer by these keys.
     @objc var hostname: String! { _hostname }
     @objc var port: Int32 { _port }
@@ -334,9 +367,15 @@ class DCMTKQueryNode: NSObject, @unchecked Sendable {
     @objc var seriesDetails: [AnyHashable: Any] { seriesDetailsStorage?.copy() as? [AnyHashable: Any] ?? [:] }
 
     /// Sorts a failed search of a hierarchical walk: one the node said it does
-    /// not implement, or any other failure, cancellation included.
-    func noteFailedListing(notImplemented: Bool) {
-        if notImplemented { listingNotImplemented = true } else { listingFailedOtherwise = true }
+    /// not implement, or any other failure, cancellation included. `status`
+    /// is what a DIMSE peer refused the search with.
+    func noteFailedListing(notImplemented: Bool, status: UInt16? = nil) {
+        if notImplemented {
+            listingNotImplemented = true
+            if listingRefusalStatus == nil { listingRefusalStatus = status }
+        } else {
+            listingFailedOtherwise = true
+        }
     }
 
     // MARK: Locking as @synchronized did

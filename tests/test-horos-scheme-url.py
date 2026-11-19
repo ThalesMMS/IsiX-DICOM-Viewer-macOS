@@ -20,6 +20,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 from sources import source_text, class_text  # noqa: E402
+import isix_modules  # noqa: E402
 failures = []
 
 source = root / 'Horos/Sources/HorosSchemeURL.swift'
@@ -95,6 +96,19 @@ dump("noQuery", diagnose("horos://open"))
 dump("http", diagnose("https://example.invalid/study"))
 dump("retrieve", diagnose("horos://?methodName=Retrieve&serverName=WADOFIX&filterKey=StudyInstanceUID&filterValue=1.2.3"))
 dump("plusNotSpace", diagnose("horos://?methodName=DisplayStudy&StudyInstanceUID=1.2.3+4"))
+dump("methodCase", diagnose("osirix://?MethodName=Retrieve&ServerName=WADOFIX&filterKey=StudyInstanceUID&filterValue=1.2.3"))
+dump("retrieveCase", diagnose("osirix://?methodName=Retrieve&retrieveOnlyIfNeeded=yes&ServerName=WADOFIX&filterKey=StudyInstanceUID&filterValue=1.2.3&then=Open"))
+// isix:// is read as horos:// is: the same URLs, with the other scheme.
+dump("isixDisplay", diagnose("isix://?methodName=DisplayStudy&StudyInstanceUID=" + study))
+dump("isixUpper", diagnose("ISIX://?methodName=DisplayStudy&StudyInstanceUID=" + study))
+dump("isixRetrieve", diagnose("isix://?methodName=Retrieve&serverName=WADOFIX&filterKey=StudyInstanceUID&filterValue=1.2.3"))
+dump("isixImage", diagnose("isix://?image=1.2.840.10008.1.2+1.2.3.4.5"))
+dump("isixMissing", diagnose("isix://?methodName=DisplayStudy"))
+dump("isixNoQuery", diagnose("isix://open"))
+dump("isixEncoded", diagnose("isix://?methodName=DisplayStudy&StudyInstanceUID=1.2.3%261.4"))
+emit("isixDisplay.scheme", diagnose("isix://?methodName=DisplayStudy&StudyInstanceUID=" + study).invocation?.scheme)
+emit("isixUpper.scheme", diagnose("ISIX://?methodName=DisplayStudy&StudyInstanceUID=" + study).invocation?.scheme)
+dump("isixLike", diagnose("isixx://?methodName=DisplayStudy&StudyInstanceUID=" + study))
 '''
 
 swiftc = subprocess.run(['xcrun', '--sdk', 'macosx', '-f', 'swiftc'], capture_output=True, text=True)
@@ -108,7 +122,10 @@ else:
         driver = Path(directory) / 'main.swift'
         driver.write_text(DRIVER)
         binary = Path(directory) / 'scheme-url'
-        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-framework', 'AppKit',
+        # The parser asks the module of the server's rules which schemes the
+        # application declares.
+        modules = isix_modules.module_flags('IsiXHTTPServer', Path(directory) / 'modules')
+        built = subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-framework', 'AppKit', *modules,
                                 '-o', str(binary), str(source), str(driver)],
                                capture_output=True, text=True)
         if built.returncode != 0:
@@ -171,6 +188,35 @@ if results:
     expect('plusNotSpace.p.StudyInstanceUID', '1.2.3+4',
            '+ in a query value is not a space; image= uses it as a separator')
 
+    # The parser reads methodName under that exact spelling: it names the
+    # method, and is no parameter of it. The parameters keep the case they
+    # came in, and the method reads them whatever it is.
+    expect('methodCase.layer', 'parser', 'a link that writes methodName in another case names no method')
+    expect('methodCase.code', 'missing-query', 'and is refused as a link with no method')
+    expect('retrieveCase.layer', 'accepted', 'a Retrieve link with ServerName and then=Open is valid')
+    expect('retrieveCase.method', 'Retrieve', 'the method is read from methodName')
+    expect('retrieveCase.p.ServerName', 'WADOFIX', 'ServerName reaches the method as it was written')
+    expect('retrieveCase.p.then', 'Open', 'then reaches the method as it was written')
+
+    # isix:// is the scheme only this application declares: the same parser,
+    # the same refusals.
+    expect('isixDisplay.layer', 'accepted', 'an isix:// DisplayStudy URL with a UID is valid')
+    expect('isixDisplay.method', 'DisplayStudy', 'isix:// keeps the method name')
+    expect('isixDisplay.p.StudyInstanceUID', '2.25.287428555831697092999545823839393783259',
+           'isix:// hands DisplayStudy the StudyInstanceUID')
+    expect('isixDisplay.scheme', 'isix', 'the invocation names the scheme it came by')
+    expect('isixUpper.layer', 'accepted', 'the scheme is read in any case')
+    expect('isixUpper.scheme', 'isix', 'and named in lower case')
+    expect('isixRetrieve.layer', 'accepted', 'isix:// Retrieve is valid')
+    expect('isixRetrieve.p.serverName', 'WADOFIX', 'isix:// Retrieve keeps its server name')
+    expect('isixImage.layer', 'accepted', 'an isix:// image= link is a valid invocation')
+    expect('isixImage.image', '1.2.840.10008.1.2+1.2.3.4.5', 'with the plus kept')
+    expect('isixMissing.layer', 'parser', 'isix:// DisplayStudy without an identifier is refused')
+    expect('isixMissing.code', 'invalid-parameters', 'as horos:// is')
+    expect('isixNoQuery.code', 'missing-query', 'an isix:// URL with no query is a parser error')
+    expect('isixEncoded.p.StudyInstanceUID', '1.2.3&1.4', 'isix:// decodes after splitting')
+    expect('isixLike.code', 'unsupported-scheme', 'a scheme that only starts like one is not one')
+
 # --- getUrl uses the parser and still opens an image= link once --------------
 # The façade hands the link to ExternalRequestHandler (ExternalRequestHandler.swift).
 at = application.find('@objc(getUrl:withReplyEvent:) func getUrl(')
@@ -217,15 +263,26 @@ rules_at = display_rules.find('public struct StudyIdentifiers')
 rules_body = display_rules[rules_at:display_rules.find('public struct SeriesIdentifiers', rules_at)] if rules_at >= 0 else ''
 if '@objc(DisplayStudy:error:)' not in display or not display_body:
     failures.append('DisplayStudy: is gone')
-elif 'RISRequestRules.StudyIdentifiers { paramDict?.value(forKey: $0) }' not in display_body or not rules_body:
+elif 'RISRequestRules.StudyIdentifiers { Self.parameter(paramDict, $0) }' not in display_body or not rules_body:
     failures.append('DisplayStudy: no longer reads its identifiers from the request')
 else:
     for key in ('StudyInstanceUID', 'PatientID', 'AccessionNumber', 'StudyID'):
         if '"%s"' % key not in rules_body:
             failures.append('DisplayStudy: no longer reads %s' % key)
 
-if '<string>horos</string>' not in info or '<string>osirix</string>' not in info:
-    failures.append('Info.plist no longer claims both URL schemes')
+import plistlib  # noqa: E402
+declared = [scheme for entry in plistlib.loads(info.encode()).get('CFBundleURLTypes', [])
+            for scheme in entry.get('CFBundleURLSchemes', [])]
+if sorted(declared) != ['horos', 'isix', 'osirix']:
+    failures.append('Info.plist declares %r, not isix, horos and osirix, once each' % declared)
+# The schemes the parser accepts are the ones the application declares.
+rules = (root / 'Modules/IsiXHTTPServer/Sources/LinkSchemeHandlers.swift').read_text(encoding='utf-8')
+listed = re.search(r'public static let declared = \[([^\]]*)\]', rules)
+if not listed or sorted(re.findall(r'"(\w+)"', listed.group(1))) != sorted(declared):
+    failures.append('the schemes of LinkSchemeHandlers.declared are not those of Info.plist')
+# The alert of a link that arrives with the URL support off names the three.
+if '[isix:// , horos:// , osirix://] is currently not activated!' not in application:
+    failures.append('the alert of the URL support that is off does not name the three schemes')
 
 for failure in failures:
     print('FAIL: %s' % failure)

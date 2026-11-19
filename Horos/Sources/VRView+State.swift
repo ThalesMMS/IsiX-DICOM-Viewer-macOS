@@ -122,7 +122,7 @@ extension VRView {
     @objc(startAutoRotate:)
     func startAutoRotate(_ sender: Any?) {
         if processGraph.preferences[VolumeRenderingPreferences.autorotate3D] {
-            horos_isRotating = true
+            setRotating(true)
         }
     }
 
@@ -167,7 +167,7 @@ extension VRView {
     // invalidated only by -windowWillClose:, which a window never shown never
     // posts: the endoscopy viewer's, when its initializer fails.
     @objc(prepareForRelease)
-    func prepareForRelease() {
+    public override func prepareForRelease() {
         horos_startAutoRotate?.invalidate()
         horos_startAutoRotate = nil
 
@@ -226,7 +226,14 @@ extension VRView {
 
         if let dict {
             if let tempArray = savedArray(dict["ShadingValues"]) {
-                setShadingValues(savedFloat(tempArray, 0), savedFloat(tempArray, 1), savedFloat(tempArray, 2), savedFloat(tempArray, 3))
+                // Within the shading panel's ranges, as its presets come: a state
+                // saved with a value typed before the panel's fields had limits
+                // would render a value the panel cannot show, write it beside the
+                // Shading check box wider than its field, and leave the panel
+                // without the preset of these values selected.
+                let values = ShadingPreset.withinRanges([savedFloat(tempArray, 0), savedFloat(tempArray, 1),
+                                                         savedFloat(tempArray, 2), savedFloat(tempArray, 3)])
+                setShadingValues(values[0], values[1], values[2], values[3])
             }
 
             if renderingMode == 0 && vtk.hasProperty {

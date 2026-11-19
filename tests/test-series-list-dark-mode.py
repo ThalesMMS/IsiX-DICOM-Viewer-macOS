@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The viewer's series list stays legible in the dark appearance.
 
-The cells of a series shown in the viewer (red), fused with it (green) and of
+The cells of a series shown in the viewer (blue), fused with it (green) and of
 another study (grey) had fixed light pastel backgrounds, and their titles take
 the system's text colour: light text on a light fill in the dark appearance.
 HorosSeriesListColors gives each a dark shade there and keeps the pastels in
@@ -48,6 +48,18 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
             print(String(format: "%@ %@: %.2f", name.rawValue, what, ratio))
             if ratio < 4.5 { failed = true }
         }
+        // The series shown is tinted with the blue of the current study, and
+        // the frame of that study is stroked on the tint: same hue, so only
+        // lightness tells them apart.
+        let shown = SeriesListColors.shown.usingColorSpace(.sRGB)!
+        if !(shown.blueComponent > shown.greenComponent && shown.greenComponent > shown.redComponent) {
+            print("\(name.rawValue) shown is not a blue"); failed = true
+        }
+        let frame = NSColor(calibratedRed: 0.30, green: 0.60, blue: 1.00, alpha: 1).usingColorSpace(.sRGB)!
+        let (a, b) = (luminance(over(shown, 0.75, window)), luminance(frame))
+        let apart = (max(a, b) + 0.05) / (min(a, b) + 0.05)
+        print(String(format: "%@ shown against the frame of its study: %.2f", name.rawValue, apart))
+        if apart < 2.0 { failed = true }
     }
 }
 let dark = SeriesListColors.shown.usingColorSpace(.sRGB)!
@@ -69,7 +81,7 @@ with tempfile.TemporaryDirectory(prefix='horos-series-colors-') as directory:
         run = subprocess.run([str(work / 'contrast')], capture_output=True, text=True, timeout=60)
         print(run.stdout.strip())
         if run.returncode:
-            failures.append('a title is below 4.5:1 on its background\n' + run.stderr[-800:])
+            failures.append('a title is below 4.5:1 on its background, or the series shown is not a blue the frame stands out on\n' + run.stderr[-800:])
 
 if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
     for gone in ('_fusionedItemColor', '_differentStudyColor'):

@@ -95,6 +95,10 @@ extension VRView {
     // MARK: - The frame
 
     public override func draw(_ aRect: NSRect) {
+        // The window can keep the view, and have it displayed, after its
+        // controller closed and was released.
+        guard horosCanDrawFrame else { return }
+
         if VRView.horos_drawLock == nil { VRView.horos_drawLock = NSRecursiveLock() }
 
         minimumStep = 0
@@ -186,10 +190,10 @@ extension VRView {
     // MARK: - Presentation without OpenGL
 
     @objc(renderer)
-    func renderer() -> UnsafeMutableRawPointer? { horos_vtk.rendererHandle }
+    public override func renderer() -> UnsafeMutableRawPointer? { horos_vtk.rendererHandle }
 
     @objc(renderWindow)
-    func renderWindow() -> UnsafeMutableRawPointer? { horos_vtk.renderWindowHandle }
+    public override func renderWindow() -> UnsafeMutableRawPointer? { horos_vtk.renderWindowHandle }
 
     @objc(getVTKRenderWindow)
     func getVTKRenderWindow() -> UnsafeMutableRawPointer? { horos_vtk.renderWindowHandle }

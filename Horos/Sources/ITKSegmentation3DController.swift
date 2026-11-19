@@ -89,6 +89,17 @@ public final class ITKSegmentation3DController: NSWindowController, NSWindowDele
     /// hand its callers a retained field.
     var newNameField: NSTextField?
 
+    // The instance variables of the former Horos and OsiriX plugin SDK are the
+    // two viewers, the seed, the outlets and the field above, each a stored
+    // field with the type its header declared, which a plugin reads and
+    // writes at the exported offset; and these five, behind which nothing of
+    // the application stands. The algorithms, their parameters and their help
+    // are IsiXSegmentation's and are not kept in the window, and that header
+    // declared the form of the parameters with a class the outlet above no
+    // longer has. The controller releases them when it goes.
+    var algorithms: NSArray?, parameters: NSArray?, defaultsParameters: NSArray?, urlHelp: NSArray?
+    var horos_params_sdk: AnyObject?
+
     @objc(setNewName:)
     func setNewName(_ field: NSTextField?) {
         newNameField = field

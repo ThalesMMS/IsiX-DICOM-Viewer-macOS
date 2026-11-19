@@ -37,6 +37,8 @@ private actor Gate {
 private final class Nodes: DistantStudyQuerying {
     struct Record: Sendable {
         var filters: [[String: PropertyListValue]] = []
+        /// For each of `filters`, the node of `eachNode` asked; -1 for all of them at once.
+        var nodes: [Int] = []
         var patients: [String] = []
         var activities: [String] = []
         var cancelled = 0
@@ -47,10 +49,23 @@ private final class Nodes: DistantStudyQuerying {
     let record = Mutex(Record())
     let gate: Gate?
     let answer: @Sendable ([String: PropertyListValue]) -> [String]
+    /// The other spellings of a name, for the query's character set; none when nil.
+    let spellings: (@Sendable (String, String?) -> [String])?
+    /// The nodes, each answering as the test says, nil when its query fails;
+    /// when none are given, one node answering as `answer` does.
+    let eachNode: [@Sendable ([String: PropertyListValue]) -> [String]?]
 
-    init(gate: Gate? = nil, answer: @escaping @Sendable ([String: PropertyListValue]) -> [String] = { _ in [] }) {
+    init(gate: Gate? = nil, answer: @escaping @Sendable ([String: PropertyListValue]) -> [String] = { _ in [] },
+         spellings: (@Sendable (String, String?) -> [String])? = nil,
+         eachNode: [@Sendable ([String: PropertyListValue]) -> [String]?] = []) {
         self.gate = gate
         self.answer = answer
+        self.spellings = spellings
+        self.eachNode = eachNode
+    }
+
+    func nameSpellings(of name: String, characterSet: String?) -> [String] {
+        spellings?(name, characterSet) ?? []
     }
 
     var snapshot: Record { record.withLock { $0 } }
@@ -73,10 +88,44 @@ private final class Nodes: DistantStudyQuerying {
     func studies(matching filters: [String: PropertyListValue], activity: String) async -> [DistantStudySummary] {
         record.withLock {
             $0.filters.append(filters)
+            $0.nodes.append(-1)
             $0.activities.append(activity)
         }
         await held()
-        return answer(filters).map { summary($0) }
+        guard !eachNode.isEmpty else { return answer(filters).map { summary($0) } }
+        // All the nodes at once: what each finds, merged by UID.
+        return Self.merged(eachNode.map { node in (node(filters) ?? []).map { summary($0) } })
+    }
+
+    func studies(activity: String,
+                 searchingEachNode search: @escaping @Sendable (
+                     _ query: @Sendable ([String: PropertyListValue]) async -> DistantNodeAnswer) async -> [DistantStudySummary])
+        async -> [DistantStudySummary] {
+        let answer = self.answer
+        let nodes: [@Sendable ([String: PropertyListValue]) -> [String]?] = eachNode.isEmpty ? [{ answer($0) }] : eachNode
+        var found: [[DistantStudySummary]] = []
+        for (index, node) in nodes.enumerated() {
+            found.append(await search { filters in
+                self.record.withLock {
+                    $0.filters.append(filters)
+                    $0.nodes.append(index)
+                    $0.activities.append(activity)
+                }
+                await self.held()
+                guard let uids = node(filters) else { return DistantNodeAnswer(studies: [], answered: false) }
+                return DistantNodeAnswer(studies: uids.map { summary($0) }, answered: true)
+            })
+        }
+        return Self.merged(found)
+    }
+
+    /// The studies of each node, a UID found again kept once, as the app's merge keeps it.
+    private static func merged(_ found: [[DistantStudySummary]]) -> [DistantStudySummary] {
+        var merged: [DistantStudySummary] = []
+        for study in found.joined() where !merged.contains(where: { $0.studyInstanceUID == study.studyInstanceUID }) {
+            merged.append(study)
+        }
+        return merged
     }
 
     func patientStudies(of patient: String, activity: String) async -> [DistantStudySummary] {
@@ -217,6 +266,7 @@ private let noRawFiles: @Sendable ([Int]) async -> [Int: Int32] = { _ in [:] }
         #expect(uids(await search.studies(forSearch: "BBB", type: 1, modality: nil, activity: "l", stillAsked: asked)) == ["X"])
     }
 
+    // Without the preference that finds a name in any word order.
     @Test func aPatientNameOfSeveralWordsIsAskedASecondTimeAndOnlyNewStudiesJoin() async {
         let nodes = Nodes { filters in
             filters["PatientsName"]?.stringValue == "DOE^JOHN*" ? ["2", "3"] : ["1", "2"]
@@ -239,6 +289,79 @@ private let noRawFiles: @Sendable ([Int]) async -> [Int: Int32] = { _ in [:] }
                                           stillAsked: asked)
         #expect(series?.studies?.isEmpty == true)
         #expect(nodes.snapshot.filters.count == 4)
+    }
+
+    @Test func aPatientNameInAnyWordOrderIsAskedAsTheQueryWindowAsksIt() async {
+        // The node keeps KOWALSKI^JAN and JAN^KOWALSKI, and only in capitals;
+        // the other spellings are those the query's character set can carry.
+        let nodes = Nodes(answer: { filters in
+            switch filters["PatientsName"]?.stringValue {
+            case "KOWALSKI^JAN*": return ["1", "2"]
+            case "JAN^KOWALSKI*": return ["2", "3"]
+            case "KOWALSKI*": return ["1"]
+            default: return []
+            }
+        }, spellings: { name, characterSet in characterSet == "ISO_IR 192" ? [name.uppercased()] : [] })
+        let preferences = MemoryPreferences(["PatientNameAnyWordOrder": true, "STRINGENCODING": "ISO_IR 192"])
+        let search = PACSOnDemandSearch(nodes: nodes, preferences: preferences)
+        let answer = await search.studies(forSearch: "Jan Kowalski", type: 0, modality: "MR", activity: "s", stillAsked: asked)
+        #expect(uids(answer) == ["2", "3", "1"], "both orders merged by StudyInstanceUID, in the order they were asked")
+        #expect(nodes.snapshot.filters.map { $0["PatientsName"]?.stringValue } ==
+                ["Jan Kowalski*", "JAN KOWALSKI*", "Jan^Kowalski*", "Kowalski^Jan*", "JAN^KOWALSKI*", "KOWALSKI^JAN*"])
+        #expect(nodes.snapshot.filters.allSatisfy { $0["modality"] == .array([.string("MR")]) })
+
+        // One word: asked as searched, then in its other spellings, never with "^".
+        let one = await search.studies(forSearch: "kowalski", type: 7, modality: nil, activity: "s", stillAsked: asked)
+        #expect(uids(one) == ["1"])
+        #expect(nodes.snapshot.filters.suffix(2).map { $0["PatientsName"]?.stringValue } == ["kowalski*", "KOWALSKI*"])
+
+        // A name found as searched is asked once; another field is asked as before.
+        let typedNodes = Nodes(answer: { _ in ["7"] }, spellings: { name, _ in [name.uppercased()] })
+        let typed = PACSOnDemandSearch(nodes: typedNodes, preferences: preferences)
+        #expect(uids(await typed.studies(forSearch: "Kowalski Jan", type: 0, modality: nil, activity: "s", stillAsked: asked)) == ["7"])
+        _ = await typed.studies(forSearch: "Kowalski Jan", type: 1, modality: nil, activity: "s", stillAsked: asked)
+        #expect(typedNodes.snapshot.filters.count == 2)
+        #expect(typedNodes.snapshot.filters.last?["PatientID"] == .string("Kowalski Jan"))
+    }
+
+    @Test func aPatientNameInAnyWordOrderIsAskedNodeByNode() async {
+        // Node 0 keeps the name as one component, «KOWALSKI JAN», and finds it
+        // as searched; node 1 keeps KOWALSKI^JAN and finds it only with «^».
+        // A study both keep is listed once.
+        let nodes = Nodes(eachNode: [
+            { filters in filters["PatientsName"]?.stringValue == "Kowalski Jan*" ? ["A", "AB"] : [] },
+            { filters in filters["PatientsName"]?.stringValue == "Kowalski^Jan*" ? ["AB", "B"] : [] },
+        ])
+        let search = PACSOnDemandSearch(nodes: nodes, preferences: MemoryPreferences(["PatientNameAnyWordOrder": true]))
+        let answer = await search.studies(forSearch: "Kowalski Jan", type: 0, modality: nil, activity: "s", stillAsked: asked)
+        #expect(uids(answer) == ["A", "AB", "B"])
+        let record = nodes.snapshot
+        #expect(record.nodes == [0, 1, 1, 1], "node 0 is asked once, node 1 until the word orders find it")
+        #expect(record.filters.map { $0["PatientsName"]?.stringValue } == ["Kowalski Jan*", "Kowalski Jan*", "Kowalski^Jan*", "Jan^Kowalski*"])
+    }
+
+    @Test func aNodeWhoseQueryFailsIsNotAskedTheOtherFormsOfTheName() async {
+        // Node 0 cannot be reached: it is asked once, not in every form, and
+        // node 1 is still asked until it finds the patient.
+        let nodes = Nodes(eachNode: [
+            { _ in nil },
+            { filters in filters["PatientsName"]?.stringValue == "Jan^Kowalski*" ? ["B"] : [] },
+        ])
+        let search = PACSOnDemandSearch(nodes: nodes, preferences: MemoryPreferences(["PatientNameAnyWordOrder": true]))
+        let answer = await search.studies(forSearch: "Kowalski Jan", type: 0, modality: nil, activity: "s", stillAsked: asked)
+        #expect(uids(answer) == ["B"])
+        #expect(nodes.snapshot.nodes == [0, 1, 1, 1])
+    }
+
+    @Test func aQueryingSideThatCannotAskItsNodesOneAtATimeSearchesThemAsOne() async {
+        struct Together: DistantStudyQuerying {
+            func studies(matching filters: [String: PropertyListValue], activity: String) async -> [DistantStudySummary] {
+                filters["PatientsName"]?.stringValue == "Jan^Kowalski*" ? [summary("1")] : []
+            }
+            func patientStudies(of patient: String, activity: String) async -> [DistantStudySummary] { [] }
+        }
+        let search = PACSOnDemandSearch(nodes: Together(), preferences: MemoryPreferences(["PatientNameAnyWordOrder": true]))
+        #expect(uids(await search.studies(forSearch: "Kowalski Jan", type: 0, modality: nil, activity: "s", stillAsked: asked)) == ["1"])
     }
 
     @Test func aSmartAlbumIsAskedWithItsActivatedEntry() async {

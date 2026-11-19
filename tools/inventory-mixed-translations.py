@@ -64,13 +64,16 @@ ENGLISH_WORDS = {
 # Names a Spanish sentence keeps as they are, spelled exactly like this: an application,
 # a folder Horos makes, a DICOM attribute. They are matched with their capitals.
 NAMES = {"Numbers", "Pages", "Word", "Mail", "Finder", "Photos", "Data", "Instance", "Class",
-         "Keys", "Report", "Text", "Level", "List", "Index", "Path", "Mode", "Angle", "Volume"}
+         "Keys", "Report", "Text", "Level", "List", "Index", "Path", "Mode", "Angle", "Volume",
+         "NOT", "READABLE"}
 # Letters and accents, hyphens inside a word kept: "días" is one word, and so is the
 # product name "On-Demand", which is not "on" plus "demand".
 WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
 
 FILE_NAME = re.compile(r"\b[\w-]+\.[A-Za-z]{2,}\b")
+# A parameter with its value, as a request spells them: "execute = Delete".
+PARAMETER = re.compile(r"\b[A-Za-z]\w* = [A-Za-z]\w*\b")
 
 
 def catalog(language):
@@ -97,7 +100,8 @@ def mixed(language):
         # A name keeps its capitals; the same word in lower case is an English leftover.
         kept = {word.lower() for word in WORD.findall(value) if word in NAMES}
         # A file or folder name ("DATABASE.noindex") is what is on disk, not a word to translate.
-        words = {word.lower() for word in WORD.findall(FILE_NAME.sub(" ", value))}
+        # So is a parameter of a request with its value ("execute = Delete").
+        words = {word.lower() for word in WORD.findall(PARAMETER.sub(" ", FILE_NAME.sub(" ", value)))}
         left = sorted((words & ENGLISH_WORDS) - kept)
         if left:
             found[key] = {"value": value, "english": original, "words": left}

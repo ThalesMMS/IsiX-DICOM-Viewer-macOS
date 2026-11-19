@@ -9,6 +9,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 import ObjectiveC
 import QuartzCore
 
@@ -139,23 +140,23 @@ extension DCMView {
         return renderer
     }
 
-    /// A snapshot that can be drawn, or nil with the reason recorded.
-    private func drawablePlanarSnapshot() -> NSDictionary? {
+    /// A snapshot that can be drawn, as the screen shows it when `onScreen`, or nil with the reason recorded.
+    private func drawablePlanarSnapshot(onScreen: Bool) -> NSDictionary? {
         let snapshot = horosPlanarSnapshot()
         guard snapshot["error"] == nil else {
             horosInvalidatePlanar()
             planarHostState.fallback = NSLocalizedString("This image cannot be displayed.", comment: "")
             return nil
         }
-        return snapshot
+        return DocumentPagePolarity.shown(snapshot, inverted: onScreen && curDCM?.showsDocumentPageInverted(in: effectiveAppearance) == true)
     }
 
-    /// Draws the view's picture into its layer and presents it with the
-    /// current transaction; NO, with a reason, when it cannot.
+    /// Draws the view's picture, a document page inverted in Dark Mode, into its
+    /// layer with the current transaction; NO, with a reason, when it cannot.
     @objc(horosDrawPlanarInLayer:inverted:)
     func horosDrawPlanar(in layer: CAMetalLayer, inverted: Bool) -> Bool {
         assert(Thread.isMainThread, "Planar rendering requires the main thread")
-        guard let snapshot = drawablePlanarSnapshot() else { return false }
+        guard let snapshot = drawablePlanarSnapshot(onScreen: true) else { return false }
         let drawn = horosPlanarRenderer().draw(snapshot: snapshot, session: planarSession, layer: layer, inverted: inverted)
         planarHostState.fallback = drawn ? nil : NSLocalizedString("This image cannot be displayed.", comment: "")
         return drawn
@@ -169,12 +170,12 @@ extension DCMView {
 
     // MARK: - Captures
 
-    /// The picture the view shows, BGRA, rows from the top, `width` x
-    /// `height` backing pixels, as it draws it: for a capture.
+    /// The picture the view shows, BGRA, rows from the top, `width` x `height`
+    /// backing pixels, as it draws it but a document page as it is: for a capture.
     @objc(horosPlanarPixelsWidth:height:inverted:)
     func horosPlanarPixelsWidth(_ width: Int, height: Int, inverted: Bool) -> Data? {
         assert(Thread.isMainThread, "Planar rendering requires the main thread")
-        let snapshot = drawablePlanarSnapshot()
+        let snapshot = drawablePlanarSnapshot(onScreen: false)
         let pixels = snapshot.flatMap {
             horosPlanarRenderer().render(snapshot: $0, session: planarSession, width: width, height: height, inverted: inverted)
         }
@@ -203,13 +204,13 @@ extension DCMView {
         captureFailure = nil
     }
 
-    /// The same picture magnified: the square of `side` backing pixels whose
-    /// top left, top right and bottom left corners show these points of the
-    /// view's bounds.
+    /// The same picture magnified, as the screen shows it (the lens): the square
+    /// of `side` backing pixels whose top left, top right and bottom left
+    /// corners show these points of the view's bounds.
     @objc(horosPlanarPixelsSide:topLeft:topRight:bottomLeft:inverted:)
     func horosPlanarPixelsSide(_ side: Int, topLeft: NSPoint, topRight: NSPoint, bottomLeft: NSPoint, inverted: Bool) -> Data? {
         assert(Thread.isMainThread, "Planar rendering requires the main thread")
-        let snapshot = horosPlanarSnapshot()
+        let snapshot = DocumentPagePolarity.shown(horosPlanarSnapshot(), inverted: curDCM?.showsDocumentPageInverted(in: effectiveAppearance) == true)
         guard snapshot["error"] == nil, side > 0 else { return nil }
         // The view's own mapping, onto a square: the image pixels its three
         // corners show, as the snapshot works them out for the bounds.

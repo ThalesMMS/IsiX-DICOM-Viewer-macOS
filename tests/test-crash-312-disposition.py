@@ -113,8 +113,11 @@ volumic = body(viewer,
 loader_swift = not load_image
 if loader_swift:
     loader = source_path('SeriesImageLoader')
+    # The loader decodes through SeriesDecoding, which probes the first file.
     load_image = body(loader, 'private func decode(_ request: SeriesLoadRequest) -> SeriesLoadResult?') + \
         loader.read_text()[loader.read_text().index('actor SeriesImageLoader {'):][:400]
+    if 'SeriesDecoding.decode(' in load_image:
+        load_image += body(loader, 'private static func isDecodedConcurrently(_ file: String?) -> Bool')
 if not volumic:
     # The selector is a façade of the viewer's SeriesVolumeCheck, in the same file.
     volumic = body(source_path('ViewerController+VolumeCheck'),

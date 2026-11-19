@@ -66,7 +66,9 @@ import IsiXImaging
 // member of the interface is sent as an Objective-C message, so a subclass's
 // override is the one that runs.
 
-/// The arrays the class held inline: one zeroed allocation per object.
+/// The arrays the class holds inline, each a field of the image where a
+/// plugin of the former SDK reads and writes it: pointers into the instance,
+/// which hold while it lives.
 struct DCMPixArrays {
     static let overlays = 16
 
@@ -82,53 +84,42 @@ struct DCMPixArrays {
     let overlayBitPosition: UnsafeMutablePointer<Int32>
     let overlayData: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>
     let overlayOn: UnsafeMutablePointer<Bool>
-    private let block: UnsafeMutableRawPointer
 
-    init() {
-        let doubles = 9 * MemoryLayout<Double>.stride
-        let pointers = Self.overlays * MemoryLayout<UnsafeMutableRawPointer?>.stride
-        let floats = (25 + 4) * MemoryLayout<Float>.stride
-        let integers = Self.overlays * 7 * MemoryLayout<Int32>.stride
-        let size = doubles + pointers + floats + integers + Self.overlays
-        block = UnsafeMutableRawPointer.allocate(byteCount: size, alignment: 8)
-        block.initializeMemory(as: UInt8.self, repeating: 0, count: size)
-        let raw = block
-        var at = 0
-        orientation = raw.bindMemory(to: Double.self, capacity: 9)
-        at += 9 * MemoryLayout<Double>.stride
-        overlayData = (raw + at).bindMemory(to: UnsafeMutablePointer<UInt8>?.self, capacity: Self.overlays)
-        at += pointers
-        kernel = (raw + at).bindMemory(to: Float.self, capacity: 25)
-        at += 25 * MemoryLayout<Float>.stride
-        referenceCoordinates = (raw + at).bindMemory(to: Float.self, capacity: 4)
-        at += 4 * MemoryLayout<Float>.stride
-        let int32 = MemoryLayout<Int32>.stride * Self.overlays
-        overlayRows = (raw + at).bindMemory(to: Int32.self, capacity: Self.overlays)
-        overlayColumns = (raw + at + int32).bindMemory(to: Int32.self, capacity: Self.overlays)
-        overlayType = (raw + at + 2 * int32).bindMemory(to: Int32.self, capacity: Self.overlays)
-        overlayOrigin = (raw + at + 3 * int32).bindMemory(to: Int32.self, capacity: 2 * Self.overlays)
-        overlayBits = (raw + at + 5 * int32).bindMemory(to: Int32.self, capacity: Self.overlays)
-        overlayBitPosition = (raw + at + 6 * int32).bindMemory(to: Int32.self, capacity: Self.overlays)
-        at += 7 * int32
-        overlayOn = (raw + at).bindMemory(to: Bool.self, capacity: Self.overlays)
+    private static func offset(of name: String) -> Int {
+        guard let field = class_getInstanceVariable(DCMPix.self, name) else {
+            preconditionFailure("DCMPix keeps an array in its field \(name)")
+        }
+        return ivar_getOffset(field)
     }
 
-    /// Frees the overlays' bitmaps and the block.
+    private static let offsets = (
+        orientation: offset(of: "horos_orientationArray"), kernel: offset(of: "horos_kernelArray"),
+        referenceCoordinates: offset(of: "horos_referenceCoordinatesArray"),
+        rows: offset(of: "horos_oRows"), columns: offset(of: "horos_oColumns"), type: offset(of: "horos_oType"),
+        origin: offset(of: "horos_oOrigin"), bits: offset(of: "horos_oBits"), bitPosition: offset(of: "horos_oBitPosition"),
+        data: offset(of: "horos_oData"), on: offset(of: "horos_overlaysChannelON"))
+
+    init(of pix: DCMPix) {
+        let base = Unmanaged.passUnretained(pix).toOpaque(), offsets = Self.offsets
+        orientation = (base + offsets.orientation).assumingMemoryBound(to: Double.self)
+        kernel = (base + offsets.kernel).assumingMemoryBound(to: Float.self)
+        referenceCoordinates = (base + offsets.referenceCoordinates).assumingMemoryBound(to: Float.self)
+        overlayRows = (base + offsets.rows).assumingMemoryBound(to: Int32.self)
+        overlayColumns = (base + offsets.columns).assumingMemoryBound(to: Int32.self)
+        overlayType = (base + offsets.type).assumingMemoryBound(to: Int32.self)
+        overlayOrigin = (base + offsets.origin).assumingMemoryBound(to: Int32.self)
+        overlayBits = (base + offsets.bits).assumingMemoryBound(to: Int32.self)
+        overlayBitPosition = (base + offsets.bitPosition).assumingMemoryBound(to: Int32.self)
+        overlayData = (base + offsets.data).assumingMemoryBound(to: UnsafeMutablePointer<UInt8>?.self)
+        overlayOn = (base + offsets.on).assumingMemoryBound(to: Bool.self)
+    }
+
+    /// Frees the overlays' bitmaps.
     func free() {
         for i in 0..<Self.overlays {
             if let data = overlayData[i] { Foundation.free(data) }
         }
-        block.deallocate()
     }
-}
-
-/// The palette state the class kept, read only by key now: the palettes are
-/// applied by IsiXImaging's FrameLoad.
-struct DCMPixPaletteState {
-    var entries: (r: UInt16, g: UInt16, b: UInt16) = (0, 0, 0)
-    var depths: (r: UInt16, g: UInt16, b: UInt16) = (0, 0, 0)
-    var set = false
-    var set16 = false
 }
 
 @objc @implementation extension DCMPix {
@@ -159,6 +150,10 @@ struct DCMPixPaletteState {
     final var horos_width = 0
     final var horos_height = 0
     final var horos_isRGB = false
+    /// A document page: a PDF page or a structured report's rendering, drawn on
+    /// white paper by -getDataFromNSImage:. A view in Dark Mode shows it
+    /// inverted (DocumentPagePolarity); its pixels stay the page's.
+    final var horos_isDocumentPage = false
     final var horos_inverseVal = false
     final var horos_fIsSigned = false
     final var horos_bitsAllocated: Int16 = 0
@@ -176,7 +171,15 @@ struct DCMPixPaletteState {
     final var horos_originX: Double = 0
     final var horos_originY: Double = 0
     final var horos_originZ: Double = 0
-    final let horos_arrays = DCMPixArrays()
+    /// orientation[9], kernel[25], referenceCoordinates[4] and the arrays of
+    /// the 16 overlays, inside the image as the SDK declared them, and the
+    /// pointers to them.
+    final var horos_orientationArray = IsiXDCMPixOrientation(), horos_kernelArray = IsiXDCMPixKernel()
+    final var horos_referenceCoordinatesArray = IsiXDCMPixReferenceCoordinates()
+    final var horos_oRows = IsiXDCMPixOverlayNumbers(), horos_oColumns = IsiXDCMPixOverlayNumbers(), horos_oType = IsiXDCMPixOverlayNumbers()
+    final var horos_oBits = IsiXDCMPixOverlayNumbers(), horos_oBitPosition = IsiXDCMPixOverlayNumbers()
+    final var horos_oOrigin = IsiXDCMPixOverlayOrigins(), horos_oData = IsiXDCMPixOverlayBitmaps(), horos_overlaysChannelON = IsiXDCMPixOverlayFlags()
+    final var horos_arrays: DCMPixArrays { DCMPixArrays(of: self) }
     /// Whether an initializer ran: an object released straight after +alloc,
     /// as an Objective-C subclass whose -init fails before [super init] may
     /// do, has zeroed storage, which the Objective-C class freed as nothing.
@@ -192,7 +195,7 @@ struct DCMPixPaletteState {
     final var horos_spacingBetweenSlices: Double = 0
     final var horos_usRegions: NSMutableArray?
     // No decoder fills it: always nil, kept for its key and its selector.
-    final var horos_waveform: AnyObject?
+    final var horos_waveform: DCMWaveform?
 
     // MARK: - Window and the 8-bit picture
 
@@ -227,7 +230,7 @@ struct DCMPixPaletteState {
     final var horos_cineRate: Float = 0
     final var horos_stack: Int16 = 0
     final var horos_stackMode: Int16 = 0
-    final var horos_pixPos = 0
+    final var horos_pixPos: Int16 = 0
     final var horos_stackDirection: Int16 = 0
     final var horos_thickSlabVRActivated = false
     /// Not retained, as the class never retained it.
@@ -314,7 +317,84 @@ struct DCMPixPaletteState {
     /// The HorosFileRevision of the source file when fImage was decoded from it.
     final var horos_loadedFileRevision: AnyObject?
     final var horos_dcmtkDcmFileFormat: DCMTKFileFormat?
-    final var horos_clut = DCMPixPaletteState()
+    /// The palette's entries and depths and whether a palette was read, kept
+    /// for who reads them: the palettes are applied by IsiXImaging's FrameLoad.
+    final var horos_clutEntryR: UInt16 = 0, horos_clutEntryG: UInt16 = 0, horos_clutEntryB: UInt16 = 0
+    final var horos_clutDepthR: UInt16 = 0, horos_clutDepthG: UInt16 = 0, horos_clutDepthB: UInt16 = 0
+    final var horos_fSetClut = false, horos_fSetClut16 = false
+    /// Without state in this class, kept at nil, 0 and NO: the palettes' tables,
+    /// freed with the image as the class freed them, the frame reference time,
+    /// the 32-bit pipeline, and three fields whose class is not the one the SDK
+    /// declared (the two SUV times are NSDate here, the cache group an identifier).
+    final var horos_clutRed: UnsafeMutablePointer<UInt8>?, horos_clutGreen: UnsafeMutablePointer<UInt8>?, horos_clutBlue: UnsafeMutablePointer<UInt8>?
+    final var horos_shortRed: UnsafeMutablePointer<UInt16>?, horos_shortGreen: UnsafeMutablePointer<UInt16>?, horos_shortBlue: UnsafeMutablePointer<UInt16>?
+    final var horos_frameReferenceTime: Float = 0, horos_full32bitPipeline = false
+    final var horos_acquisitionTimeOfSDK: AnyObject?, horos_radiopharmaceuticalStartTimeOfSDK: AnyObject?, horos_retainedCacheGroupOfSDK: AnyObject?
+
+    // What only older copies of the SDK's header declare, exported as the rest.
+    /// Copies, written with what they repeat and not read: the file and the
+    /// frame of reference under the names they had (srcFile,
+    /// frameOfReferenceUID), the caller's buffer under its former name
+    /// (fVolImage), the shutter as a flag and six whole numbers, whether the
+    /// file was not read as DICOM, and whether the values went through the
+    /// file's VOI LUT (useVOILUT). The shutter's numbers are the rectangle as
+    /// it was loaded or set, before the display holds it inside the image.
+    /// The samples of a pixel, the bytes of a row of the 8-bit picture, the
+    /// width under its other name (realwidth) and the origin as an object
+    /// repeat isRGB, the width and originX, originY and originZ as the image
+    /// was decoded, read from its attributes, made from a buffer or copied:
+    /// a reslice that gives its image a new size or origin for every picture
+    /// it draws does not write them.
+    final var horos_srcFileOfOlderSDK: NSString?, horos_frameOfReferenceUIDOfOlderSDK: NSString?
+    final var horos_fVolImage: UnsafeMutablePointer<Float>?
+    final var horos_DCMPixShutterOnOff = false, horos_shutterRect_x = 0, horos_shutterRect_y = 0, horos_shutterRect_w = 0, horos_shutterRect_h = 0
+    final var horos_shutterCircular_x = 0, horos_shutterCircular_y = 0
+    final var horos_nonDICOM = false, horos_useVOILUT = false
+    final var horos_spp: Int16 = 0, horos_rowBytes = 0, horos_realwidth: Int32 = 0
+    final var horos_originOfOlderSDK: Point3D?
+    /// Without state in this class, kept at nil and 0: the database row, of
+    /// which the image keeps the identifier and not the object; the picture,
+    /// the 16-bit and the 8-bit buffers of a pipeline that now keeps floats and
+    /// one 8-bit picture (baseAddr), the two buffers freed with the image, as
+    /// the buffers of a load are; the protocol name, which the import reads,
+    /// not the image; the path of a converted copy of the file, the lock and
+    /// the count of the threads of a computation, the groups of a parser and
+    /// the pan, rotation and zoom of one image alone, none of which exists any
+    /// more.
+    final var horos_imageObj: NSManagedObject?, horos_imageOfOlderSDK: AnyObject?
+    final var horos_oImage: UnsafeMutablePointer<Int16>?, horos_wImage: UnsafeMutablePointer<CChar>?
+    final var horos_protocolName: NSString?, horos_convertedDICOM: NSString?
+    final var horos_processorsLock: NSLock?, horos_numberOfThreadsForCompute: Int32 = 0, horos_cachedGroupsOfOlderSDK: AnyObject?
+    final var horos_independentOffset = NSPoint.zero, horos_independentRotation: Float = 0, horos_independentZoom: Float = 0
+
+    /// The copies of the samples, the row, the width and the origin follow
+    /// them: after a decode, a reading of the attributes, a copy or an
+    /// image made from a buffer, never from the setters a reslice calls for
+    /// each picture.
+    final func horos_olderImageFieldsFollow() {
+        horos_spp = horos_isRGB ? 3 : 1
+        horos_rowBytes = horos_isRGB ? horos_width &* 4 : horos_width
+        horos_realwidth = Int32(clamping: horos_width)
+        let x = Float(horos_originX), y = Float(horos_originY), z = Float(horos_originZ)
+        if let origin = horos_originOfOlderSDK {
+            (origin.x, origin.y, origin.z) = (x, y, z)
+        } else {
+            horos_originOfOlderSDK = Point3D(x: x, y: y, z: z)
+        }
+    }
+
+    /// The copies of the shutter follow it: after each write of the flag, the
+    /// rectangle or the circle's centre outside the display.
+    final func horos_olderShutterFieldsFollow() {
+        func whole(_ value: CGFloat) -> Int { value.isFinite ? Int(min(max(value, -1e15), 1e15)) : 0 }
+        horos_DCMPixShutterOnOff = horos_shutterEnabled
+        horos_shutterRect_x = whole(horos_shutterRect.origin.x)
+        horos_shutterRect_y = whole(horos_shutterRect.origin.y)
+        horos_shutterRect_w = whole(horos_shutterRect.size.width)
+        horos_shutterRect_h = whole(horos_shutterRect.size.height)
+        horos_shutterCircular_x = whole(horos_shutterCircular.x)
+        horos_shutterCircular_y = whole(horos_shutterCircular.y)
+    }
 
     // The fixed arrays, by the names the extensions read.
     final var horos_orientation: UnsafeMutablePointer<Double>! { horos_arrays.orientation }
@@ -408,6 +488,7 @@ struct DCMPixPaletteState {
     func copy(with zone: NSZone?) -> Any {
         let copy = DCMPix()
         copy.horos_srcFile = horos_srcFile
+        copy.horos_srcFileOfOlderSDK = horos_srcFile
         copy.horos_loadedFileRevision = horos_loadedFileRevision
         copy.horos_imageObjectID = horos_imageObjectID
         copy.horos_URIRepresentationAbsoluteString = horos_URIRepresentationAbsoluteString
@@ -418,6 +499,7 @@ struct DCMPixPaletteState {
         copy.horos_imID = horos_imID
         copy.horos_imTot = horos_imTot
         copy.horos_fExternalOwnedImage = horos_fExternalOwnedImage
+        copy.horos_fVolImage = horos_fExternalOwnedImage
         copy.horos_frameNo = horos_frameNo
         copy.horos_serieNo = horos_serieNo
         copy.horos_isBonjour = horos_isBonjour
@@ -444,6 +526,7 @@ struct DCMPixPaletteState {
         copy.frameofReferenceUID = frameofReferenceUID
 
         copy.horos_isRGB = horos_isRGB
+        copy.horos_isDocumentPage = horos_isDocumentPage
         copy.horos_inverseVal = horos_inverseVal
         copy.horos_cineRate = horos_cineRate
         copy.horos_savedWL = horos_savedWL
@@ -481,6 +564,8 @@ struct DCMPixPaletteState {
 
         copy.horos_shutterRect = horos_shutterRect
         copy.horos_shutterEnabled = horos_shutterEnabled
+        copy.horos_olderShutterFieldsFollow()
+        copy.horos_olderImageFieldsFollow()
 
         copy.horos_generated = true
 
@@ -512,6 +597,10 @@ struct DCMPixPaletteState {
 
         horos_checking?.unlock()
         horos_arrays.free()
+        free(horos_clutRed); free(horos_clutGreen); free(horos_clutBlue); free(horos_shortRed); free(horos_shortGreen); free(horos_shortBlue)
+        // The two image buffers of older headers are never written here, so
+        // they are not freed here: what one holds was put there by a plugin,
+        // which owns it.
     }
 
     public override var description: String {
@@ -554,7 +643,7 @@ struct DCMPixPaletteState {
 
     var srcFile: String! {
         get { horos_srcFile as String? }
-        set { horos_srcFile = newValue as NSString? }
+        set { horos_srcFile = newValue as NSString?; horos_srcFileOfOlderSDK = horos_srcFile }
     }
 
     func sourceFile() -> String! { srcFile }
@@ -597,7 +686,7 @@ struct DCMPixPaletteState {
 
     var frameofReferenceUID: String! {
         get { horos_frameofReferenceUID as String? }
-        set { horos_frameofReferenceUID = newValue as NSString? }
+        set { horos_frameofReferenceUID = newValue as NSString?; horos_frameOfReferenceUIDOfOlderSDK = horos_frameofReferenceUID }
     }
 
     var repetitiontime: String! {
@@ -667,7 +756,7 @@ struct DCMPixPaletteState {
             }
             kill8bitsImage()
             horos_fImage = newValue
-            if horos_fExternalOwnedImage != nil { horos_fExternalOwnedImage = horos_fImage }
+            if horos_fExternalOwnedImage != nil { (horos_fExternalOwnedImage, horos_fVolImage) = (horos_fImage, horos_fImage) }
             horos_checking?.unlock()
         }
     }
@@ -675,6 +764,7 @@ struct DCMPixPaletteState {
     func freefImage(whenDone b: Bool) {
         horos_checking?.lock()
         horos_fExternalOwnedImage = b ? nil : horos_fImage
+        horos_fVolImage = horos_fExternalOwnedImage
         horos_checking?.unlock()
     }
 
@@ -869,8 +959,8 @@ struct DCMPixPaletteState {
     // MARK: - Series, stack and fusion
 
     var pixPos: Int {
-        get { horos_pixPos }
-        set { horos_pixPos = newValue }
+        get { Int(horos_pixPos) }
+        set { horos_pixPos = Int16(clamping: newValue) }
     }
 
     var stackDirection: Int16 {
@@ -900,6 +990,7 @@ struct DCMPixPaletteState {
         get { horos_shutterEnabled }
         set {
             horos_shutterEnabled = newValue
+            horos_DCMPixShutterOnOff = newValue
             horos_updateToBeApplied = true
         }
     }
@@ -908,6 +999,7 @@ struct DCMPixPaletteState {
         get { horos_shutterRect }
         set {
             horos_shutterRect = newValue
+            horos_olderShutterFieldsFollow()
             if let polygon = horos_shutterPolygonal {
                 free(polygon)
                 horos_shutterPolygonal = nil
@@ -1158,6 +1250,7 @@ extension DCMPix {
 
         if volSize {
             horos_fExternalOwnedImage = im
+            horos_fVolImage = im
             horos_fImage = im
             if im == nil { NSLog("DCMPix initWithData ERROR im == nil") }
         } else {
@@ -1205,6 +1298,7 @@ extension DCMPix {
         horos_sliceLocation = 0
         horos_sliceThickness = 0
         horos_arrays.orientation.update(repeating: 0, count: 9)
+        horos_olderImageFieldsFollow()
         loadCustomImageAnnotationsPapyLink(-1, dcmLink: nil)
     }
 
@@ -1216,6 +1310,7 @@ extension DCMPix {
         horos_imID = pos
         horos_imTot = tot
         horos_fExternalOwnedImage = ptr
+        horos_fVolImage = ptr
         horos_frameNo = f
         horos_serieNo = ss
         horos_isBonjour = hello
@@ -1248,7 +1343,7 @@ extension DCMPix {
 
     @objc(horos_setSeriesList:position:) func setSeriesList(_ list: NSArray?, position: Int) {
         horos_pixArray = list
-        horos_pixPos = position
+        horos_pixPos = Int16(clamping: position)
         if list?.object(at: position) as AnyObject? !== self {
             NSLog("Beuh... Pix != Pix...")
         }

@@ -49,10 +49,19 @@ import Cocoa
 public final class PreviewView: DCMView {
 
     /// Not retained: the browser owns this view.
-    @objc public weak var windowDelegate: PreviewViewWindowDelegate?
+    @objc public weak var windowDelegate: PreviewViewWindowDelegate? {
+        didSet { windowDelegateOfSDK = windowDelegate }
+    }
 
+    // The instance variables of the former plugin SDK, which a plugin reads
+    // and writes at the offset the application exports for each, so each is a
+    // stored field of this class, never private, lazy, weak or observed. The
+    // delegate the view uses is the weak reference above, which becomes nil
+    // when the browser goes; this is its copy without a retain, written with
+    // it and never read here.
+    unowned(unsafe) var windowDelegateOfSDK: AnyObject?
     /// More than zero while the policy, not a person, sets the window.
-    private var applyingPreviewWindow = 0
+    var applyingPreviewWindow = 0
 
     public override dynamic func setWLWW(_ wl: Float, _ ww: Float) {
         super.setWLWW(wl, ww)
@@ -110,7 +119,7 @@ public final class PreviewView: DCMView {
     /// when an Objective-C exception leaves it, which then goes on.
     private func whileApplyingPreviewWindow(_ body: () -> Void) {
         self.applyingPreviewWindow += 1
-        let exception = HorosObjCException.caughtWithoutAllocation(body)
+        let exception = HorosObjCException.caught(body)
         self.applyingPreviewWindow -= 1
         exception?.raise()
     }

@@ -109,17 +109,25 @@ check(mprFields.count == 4, "MPR numeric fields missing")
 var numericEvidence: [String: Any] = [:]
 for field in mprFields {
     let formatter = field.formatter as! NumberFormatter
+    // The shading panel's fields take what their sliders give: two decimals
+    // inside the formatter's range come back as typed, and the rest is refused.
+    let low = formatter.minimum?.doubleValue ?? -.infinity, high = formatter.maximum?.doubleValue ?? .infinity
+    check(low.isFinite && high.isFinite && low < high, "MPR numeric range missing")
     var localeEvidence: [String: Any] = [:]
     for locale in ["en_US", "pt_BR", "de_DE", "ar_SA", "ja_JP"] {
         let copy = formatter.copy() as! NumberFormatter
         copy.locale = Locale(identifier: locale)
         var strings: [String] = []
-        for value in [0.0, 1.25, -1.25, 12.34567, -12.34567, 1234.567, -1234.567] {
+        for value in [0.0, 0.75, high, 1.25, -1.25, 12.34567, -12.34567, 1234.567, -1234.567] {
             let formatted = copy.string(from: NSNumber(value: value))!
             strings.append(formatted)
-            let decoded = copy.number(from: formatted)!.doubleValue
             let rounded = (value * 100).rounded() / 100
-            check(abs(decoded - rounded) < 0.00001, "MPR positive/negative fraction round trip changed for \(locale)")
+            if (low...high).contains(rounded) {
+                let decoded = copy.number(from: formatted)?.doubleValue ?? .nan
+                check(abs(decoded - rounded) < 0.00001, "MPR fraction round trip changed for \(locale): \(formatted)")
+            } else {
+                check(copy.number(from: formatted) == nil, "MPR field accepts \(formatted) outside \(low)...\(high) in \(locale)")
+            }
         }
         let parses = ["0.00", "1.25", "-1.25", "1234.57", "1,25"].map { copy.number(from: $0)?.doubleValue }
         localeEvidence[locale] = ["strings": strings, "parses": parses.map { $0 as Any? ?? NSNull() }]

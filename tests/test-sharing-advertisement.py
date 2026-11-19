@@ -47,7 +47,8 @@ def method(source, signature):
 def methods(source):
     found = []
     for signature in ('func updateBonjour() {', 'func netService(_ sender: NetService, didNotPublish',
-                      'static func isEqual(', 'private static func dataFromTXTRecordDictionary('):
+                      'static func isEqual(', 'private static func dataFromTXTRecordDictionary(',
+                      'private func noteService() {'):
         if signature in source:
             found.append(method(source, signature))
     return '\n'.join(found)
@@ -92,6 +93,7 @@ typealias BonjourAdvertisement=FakeAdvertisement
 final class BonjourPublisher:NSObject{
  let processGraph=Graph()
  var _listener:Listener?;var _bonjour:FakeService?;var _advertisement:FakeAdvertisement?
+ var horos_netService:NetService?;var dbPublished=false;var serviceName:NSString?;var horos_OsiriXDBCurrentPort:Int32=0
 ACTUAL_METHODS
 }
 func check(_ condition:Bool,_ message:String){if !condition{print("FAIL:",message);exit(1)}}

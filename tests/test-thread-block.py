@@ -36,6 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import object_probe  # noqa: E402
+import former_sdk_objects
 
 SOURCE = "Nitrogen/Sources/NSThread+N2.mm"  # --revision: the Objective-C before its move to Swift
 parser = argparse.ArgumentParser()
@@ -72,7 +73,10 @@ else:
     bridging.write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "N2Debug.h"\n'
                         '#import "NSException+N2.h"\n#import "NSThread+N2.h"\n#import "HorosObjCException.h"\n')
     obj = object_probe.swift_dylib([ROOT / "Nitrogen/Sources" / name for name in
-                                    ("NSThread+N2.swift", "N2Debug.swift", "NSException+N2.swift")], helpers,
+                                    ("NSThread+N2.swift", "N2Debug.swift", "NSException+N2.swift")],
+                                   # The thread keys NSThread+N2.h declares extern are defined beside callbacks that
+                                   # call the N3 geometry, which is not here.
+                                   helpers + [Path(former_sdk_objects.nitrogen(work)), Path(former_sdk_objects.bezier_stubs(work))],
                                    work / "libNSThreadN2.dylib", bridging_header=bridging,
                                    include_dirs=(ROOT / "Nitrogen/Sources", ROOT / "Horos/Sources"),
                                    frameworks=("Cocoa",))

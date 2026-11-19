@@ -3,6 +3,11 @@
 
 The event deliberately has deltaZ == 0: native pinch input is magnification,
 not a synthetic scroll event. No app build, renderer, fixture or UI is needed.
+
+The pinch selects its plane and, when it ends or is cancelled, tells the
+window's Sync Zoom, after its own full-resolution reconstruction, that the
+pinch over the plane ended: the other planes are brought to its zoom there
+when Sync Zoom is on. The steps of the pinch and the rotation tell it nothing.
 """
 from pathlib import Path
 import subprocess
@@ -28,7 +33,7 @@ def block(text, marker):
 try:
     source = sources.source_text('MPRDCMView')
     helper = block(source, 'enum MPRTrackpadGesture')
-    handlers = '\n\n'.join(
+    handlers = block(source, 'private func finishGesture(_ anEvent: NSEvent) -> Bool') + '\n\n' + '\n\n'.join(
         block(source, f'public override dynamic func {name}(with anEvent: NSEvent)')
         .replace('public override dynamic func', 'func', 1)
         for name in ('magnify', 'rotate')
@@ -102,6 +107,19 @@ final class Controller {
     var pendingRefresh: Double?
     var cancellations = 0
     var onCancel: (() -> Void)?
+    let zoomSync = ZoomSync()
+}
+final class ZoomSync {
+    var endedPinches: [GestureView] = []
+    var onPinchEnded: (() -> Void)?
+    func pinchEnded(in view: GestureView) {
+        endedPinches.append(view)
+        onPinchEnded?()
+    }
+}
+final class Window {
+    var firstResponder: AnyObject?
+    func makeFirstResponder(_ responder: AnyObject?) { firstResponder = responder }
 }
 enum MPRDCMView {
     static let delayedFullLODRendering = "delayedFullLODRendering:"
@@ -148,6 +166,7 @@ enum MPRController {
 final class GestureView {
     var _camera: Camera?
     let windowControllerIvar: Controller? = Controller()
+    let window: Window? = Window()
     var _pix: Pix?
     var _vrView: VRView?
     var _angleMPR: Float = 0
@@ -166,6 +185,7 @@ final class GestureView {
             _vrView = VRView(camera)
         }
         windowControllerIvar?.onCancel = { [weak self] in self?.phases.append("cancel") }
+        windowControllerIvar?.zoomSync.onPinchEnded = { [weak self] in self?.phases.append("zoom") }
     }
     func restoreCamera() {
         restores += 1
@@ -253,6 +273,8 @@ pinch.magnify(with: NSEvent(magnification: 1))
 near(pinchCamera.parallelScale, 80, "zoom out followed by inverse restores scale")
 checkGeometry(pinchCamera, position: originalPosition, focal: originalFocal)
 checkInteractive(pinch, count: 4)
+expect(pinch.window!.firstResponder === pinch, "the pinched plane becomes the selected one")
+expect(pinch.windowControllerIvar!.zoomSync.endedPinches.isEmpty, "the steps of a pinch hand no zoom on")
 
 // Rotation is about the line of sight, not an orbit of the camera or focal point.
 let rotation = GestureView()
@@ -269,6 +291,7 @@ rotation.rotate(with: NSEvent(rotation: -90))
 nearVector(rotationCamera.viewUp!.vector, SIMD3(0, 1, 0), "negative rotation reverses in-plane edit")
 near(rotation._angleMPR, 0, "inverse rotation restores MPR angle")
 checkInteractive(rotation, count: 2)
+expect(rotation.window!.firstResponder == nil, "rotation leaves the selection")
 
 // An oblique plane catches a hard-coded screen Z axis or wrong focal subtraction.
 let oblique = GestureView()
@@ -304,6 +327,8 @@ func noRender(_ name: String, camera: Camera? = Camera(),
            "\(name): invalid gesture must not read renderer geometry")
     expect(view.windowControllerIvar!.cancellations == 0,
            "\(name): uninitialized or invalid gesture must not cancel work")
+    expect(view.windowControllerIvar!.zoomSync.endedPinches.isEmpty,
+           "\(name): uninitialized or invalid gesture must not hand a zoom on")
     expect(!view.windowControllerIvar!.lowLOD && view._angleMPR == 0,
            "\(name): invalid gesture changes interaction state")
 }
@@ -402,7 +427,10 @@ for rotates in [false, true] {
                    "zero terminal delta adds no delayed work")
             expect(view.phases == (0..<changes).flatMap { _ in
                 ["restore", "restore", "update", "refresh"]
-            } + ["cancel", "restore", "update"], "completion order")
+            } + ["cancel", "restore", "update"] + (rotates ? [] : ["zoom"]), "completion order")
+            let ended = view.windowControllerIvar!.zoomSync.endedPinches
+            expect(rotates ? ended.isEmpty : ended.count == 1 && ended[0] === view,
+                   "the end of a pinch, and only it, hands the zoom of its plane on, once")
             if finalDelta {
                 near(view.renderedScale.last!, 80, "final full LOD render includes final pinch delta")
                 nearVector(view.renderedUp.last!, SIMD3(0, 1, 0),

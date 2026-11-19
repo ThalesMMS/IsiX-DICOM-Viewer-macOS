@@ -63,19 +63,62 @@ public final class CalciumScoringWindowController: NSWindowController, NSWindowD
     /// controller is closing, since its -windowWillClose: autoreleased it.
     @objc(windowWillClose) public private(set) var closing = false
 
-    private var storedCTType: Int32 = 0
-    private var storedLowerThreshold: Int32 = 0
-    private var storedUpperThreshold: Int32 = 0
-    private var storedROIs = NSMutableSet()
-    private var storedROIName: String?
-    private var storedVessels: NSArray = NSMutableArray()
-    private var storedVesselNames: NSArray = NSArray()
-    private var storedStartingPointPixelPosition: String?
-    private var storedStartingPointWorldPosition: String?
-    private var storedStartingPointValue: String?
-    private var storedTotalCalciumScore: Float = 0
-    private var storedTotalCalciumMass: Float = 0
-    private var storedTotalCalciumVolume: Float = 0
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // a stored field with the type its header declared: a plugin reads and
+    // writes them at the exported offset, and no setter runs. With the viewer
+    // above, the seed and the outlet of the printed view below, they are the
+    // window's state; the controller releases the objects when it goes.
+    // Nothing stands behind _resultsViewer, which that SDK never wrote.
+    var storedCTType: Int32 = 0
+    var storedLowerThreshold: Int32 = 0
+    var storedUpperThreshold: Int32 = 0
+    var _rois: NSMutableSet? = NSMutableSet()
+    var _roiName: NSString?
+    var _vessels: NSArray? = NSMutableArray()
+    var _vesselNames: NSArray? = NSArray()
+    var _startingPointPixelPosition: NSString?
+    var _startingPointWorldPosition: NSString?
+    var _startingPointValue: NSString?
+    var storedTotalCalciumScore: Float = 0
+    var storedTotalCalciumMass: Float = 0
+    var storedTotalCalciumVolume: Float = 0
+    unowned(unsafe) var _resultsViewer: ViewerController?
+
+    /// The objects above as the window's code uses them: a set or a list a
+    /// plugin set to nil is an empty one.
+    private var storedROIs: NSMutableSet {
+        get {
+            if let rois = _rois { return rois }
+            let rois = NSMutableSet()
+            _rois = rois
+            return rois
+        }
+        set { _rois = newValue }
+    }
+    private var storedROIName: String? {
+        get { _roiName as String? }
+        set { _roiName = newValue as NSString? }
+    }
+    private var storedVessels: NSArray {
+        get { _vessels ?? NSArray() }
+        set { _vessels = newValue }
+    }
+    private var storedVesselNames: NSArray {
+        get { _vesselNames ?? NSArray() }
+        set { _vesselNames = newValue }
+    }
+    private var storedStartingPointPixelPosition: String? {
+        get { _startingPointPixelPosition as String? }
+        set { _startingPointPixelPosition = newValue as NSString? }
+    }
+    private var storedStartingPointWorldPosition: String? {
+        get { _startingPointWorldPosition as String? }
+        set { _startingPointWorldPosition = newValue as NSString? }
+    }
+    private var storedStartingPointValue: String? {
+        get { _startingPointValue as String? }
+        set { _startingPointValue = newValue as NSString? }
+    }
 
     /// The seed of the region growing, in pixels of the current image; none
     /// at 0 on either axis.

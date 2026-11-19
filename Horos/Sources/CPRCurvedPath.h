@@ -60,3 +60,9 @@ typedef uint32_t CPRCurvedPathControlToken;
 #else
 #import "Horos-Swift.h"
 #endif
+
+// Looked up by name by plugins built for Horos or OsiriX, which are not
+// rebuilt: defined once in Objective-C (FormerPluginSDK+CAPI.m), since a Swift
+// constant has no C symbol, and read from there by the Swift code too.
+// The token of no control of a curved path.
+extern const int32_t CPRCurvedPathControlTokenNone;

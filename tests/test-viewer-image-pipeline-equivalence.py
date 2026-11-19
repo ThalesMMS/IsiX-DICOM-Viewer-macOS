@@ -101,11 +101,18 @@ def session_sources(revision):
                                             + float_value + '}\n').encode('utf-8')
     if subtraction is not None:
         sources['MaskSubtractionSession.swift'] = subtraction
+    # The arrangement of the slices along their normal, which -computeIntervalFlipNow: hands a stack to.
+    arrangement = read(revision, 'Horos/Sources/ViewerStackArrangement.swift')
+    if arrangement is not None:
+        sources['ViewerStackArrangement.swift'] = arrangement
     colour_tables = read(revision, 'Horos/Sources/ViewerColourTables.swift')
     if colour_tables is not None:
         text = colour_tables.decode('utf-8')
         sources['ViewerColourTables.swift'] = (text[:text.index(COLOUR_TABLES_END)].rstrip() + '\n}\n').encode('utf-8')
         sources['ColourTableCache.swift'] = read(revision, 'Horos/Sources/ColourTableCache.swift')
+        if 'AnyLanguage.' in text:
+            # The linear opacity table is recognised under the name any language gave it.
+            sources['AnyLanguage.swift'] = read(revision, 'Horos/Sources/AnyLanguage.swift')
         sources['PETBlendingTables.swift'] = PET_BLENDING_TABLES
     if sources:
         graph = ['import AppKit', 'import IsiXPreferences', '',
@@ -142,6 +149,17 @@ def session_sources(revision):
             outlets = []
         graph += ['}', '', 'extension ViewerController {',
                   '    @MainActor var sessionGraph: HarnessSessionGraph { HarnessSessionGraph(viewer: self) }', '}', ''] + outlets
+        if b'final class SlabPositions' in (read(revision, 'Horos/Sources/ViewerController+ThickSlab.swift') or b''):
+            # The thick slab hands the scale of the image shown to its slider,
+            # whose class these files only name (the stand-in's slider is a
+            # plain one), and keeps where the images stand in the viewer's
+            # geometry state.
+            graph += ['', 'import IsiXImaging', '',
+                      'final class HorosThickSlabSlider: NSSlider {', '    var stackScale: StackFusionScale?', '}',
+                      '@MainActor final class HarnessGeometryState {', '    let slabPositions = SlabPositions()', '    var slabRequestMillimetres: Double?', '}',
+                      '@MainActor private let harnessGeometry = HarnessGeometryState()',
+                      'extension ViewerController {',
+                      '    @MainActor var geometryState: HarnessGeometryState { harnessGeometry }', '}', '']
         sources['SessionGraph.swift'] = '\n'.join(graph).encode('utf-8')
     return sources
 
@@ -216,6 +234,44 @@ DELIBERATE = [
      "    \n"
      "    if (m != 0 && [sliderFusion intValue] < 2) [sliderFusion setIntValue:2];\n"
      "    [imageView setFusion:m :[sliderFusion intValue]];\n"),
+    # The toolbar writes the thickness of the images the slab fuses at the
+    # image shown, the text of the slider's bubble: one slice and the distance
+    # to the last image fused, of those the slider asks for that are left to
+    # the end of the series; one image while the slab is off. It wrote what
+    # -getThickSlabThickness:location: answered, whatever the slider said. The
+    # stand-in's images are axial, so the distance is the one between origins.
+    ("    return [NSString stringWithFormat: @\"%2.1f mm\", thickness];\n",
+     "    NSArray *shown = imageView.dcmPixList;\n"
+     "    NSInteger index = imageView.curImage, total = shown.count;\n"
+     "    if (imageView.curDCM == nil || index < 0 || index >= total) return @\"\";\n"
+     "    NSInteger left = MAX(1, MIN(imageView.flippedData ? index + 1 : total - index, (NSInteger)sliderFusion.maxValue));\n"
+     "    NSInteger images = sliderFusion.isEnabled ? MAX(1, MIN(left, sliderFusion.integerValue)) : 1;\n"
+     "    DCMPix *near = shown[index], *far = shown[index + (imageView.flippedData ? -1 : 1) * (images - 1)];\n"
+     "    return [NSString localizedStringWithFormat: @\"%.1f mm\", near->sliceThickness + fabs(far->originZ - near->originZ)];\n"),
+    # A step of the wheel is an image of those left from the image shown to
+    # the end of the series: past them no step changes anything, a step down
+    # leaves from the images fused, and the last image has no step at all.
+    ("    BOOL active = activatedFusion.state == NSControlStateValueOn;\n"
+     "    NSInteger current = active ? sliderFusion.integerValue : 1;\n",
+     "    NSInteger requested = sliderFusion.integerValue;\n"
+     "    if (imageView)\n"
+     "    {\n"
+     "        NSInteger index = imageView.curImage, total = [imageView.dcmPixList count];\n"
+     "        NSInteger left = index < 0 || index >= total ? 1 : MAX(1, MIN(imageView.flippedData ? index + 1 : total - index, maximum));\n"
+     "        maximum = MIN(maximum, left);\n"
+     "        requested = MIN(MAX(1, requested), left);\n"
+     "        if (maximum < 2) return;\n"
+     "    }\n"
+     "    BOOL active = activatedFusion.state == NSControlStateValueOn;\n"
+     "    NSInteger current = active ? requested : 1;\n"),
+    # OK in the "Set WL/WW" sheet names the level its fields left, a preset's
+    # or «Other», where the menu kept the name of the level before; Cancel
+    # leaves the name with the level it restores.
+    ("                          : [HorosWindowLevelText widthFromString: [wwset stringValue] fallback: oldsetww]];\n"
+     "    }\n",
+     "                          : [HorosWindowLevelText widthFromString: [wwset stringValue] fallback: oldsetww]];\n"
+     "        if (imageView) [self setCurWLWWMenu: [DCMView findWLWWPreset: imageView.curWL :imageView.curWW :imageView.curDCM]];\n"
+     "    }\n"),
 ]
 
 
@@ -276,6 +332,11 @@ for name in ('fileList', 'pixList', 'roiList'):
     found = re.search(r'^- \((nullable [^)]*)\)horos_%sAt:\(NSInteger\)index(?: NS_SWIFT_NONISOLATED)?;$' % name, ivars_header, re.M)
     declarations.append(found.group(0))
     implementations.append('- (%s)horos_%sAt:(NSInteger)index { return %s[index]; }' % (found.group(1).replace('nullable ', ''), name, name))
+# The ROIs as read, by slice, which a reversal moves with the ROIs: Swift
+# (ViewerController+SeriesState.swift), never in that header. The Objective-C
+# reference has none to move, so the stand-in gives it none.
+declarations.append('- (nullable NSMutableArray *)horos_copyRoiListAt:(NSInteger)index;')
+implementations.append('- (NSMutableArray *)horos_copyRoiListAt:(NSInteger)index { return nil; }')
 
 STUBS_H = r'''
 #pragma clang diagnostic ignored "-Wnullability-completeness"
@@ -327,8 +388,15 @@ DicomImage *ImageFile(NSDictionary *values);
     BOOL isRGB;
     double sliceInterval, sliceThickness, spacingBetweenSlices, sliceLocation, originX, originY, originZ, pixelSpacingX, pixelSpacingY, pixelRatio;
     float orientationValues[9], savedWL, savedWW, fImageTimeValue, maskTimeValue;
+    double orientationDoubles[9];
     NSPoint subPixOffset;
 }
+// What the image holds without loading anything, as the scale of the thick slab reads it.
+@property(readonly) double horos_originX, horos_originY, horos_originZ, horos_sliceLocation, horos_sliceThickness, horos_sliceInterval;
+@property(readonly) double *horos_orientation;
+@property(readonly) short stack;
+// An image whose origin is all zeros says nothing of where it is, which is how the Objective-C told.
+@property(readonly) BOOL isOriginDefined;
 @property(copy) NSString *name;
 @property (nonatomic) long pwidth, pheight;
 @property(setter=setfImage:) float* fImage;
@@ -390,6 +458,9 @@ DicomImage *ImageFile(NSDictionary *values);
 - (void) setIndex:(NSInteger) index;
 - (void) setWLWW:(float) wl :(float) ww;
 - (void) getWLWW:(float*) wl :(float*) ww;
+// The level on screen and the name the presets have for it: the stand-in knows one preset.
+@property(readonly) float curWL, curWW;
++ (NSString*) findWLWWPreset:(float) wl :(float) ww :(DCMPix*) pix;
 - (void) setFusion:(short) mode :(short) stacks;
 - (void) setCLUT:(unsigned char*) r :(unsigned char*) g :(unsigned char*) b;
 - (void) getCLUT:(unsigned char**) r :(unsigned char**) g :(unsigned char**) b;
@@ -400,6 +471,13 @@ DicomImage *ImageFile(NSDictionary *values);
 - (void) stopROIEditingForce:(BOOL) force;
 - (void) sendSyncMessage:(NSInteger) inc;
 - (void) getThickSlabThickness:(float*) thickness location:(float*) location;
+// What the scale of the thick slab reads of the view, and the image a scenario has it show.
+@property(readonly) NSMutableArray *horos_dcmPixList;
+@property(readonly) NSInteger horos_curImage;
+@property(readonly) BOOL horos_flippedData;
+- (BOOL) is2DViewer;
+- (id) windowController;
+- (void) harnessShow:(DCMPix*) pix;
 + (double) angleBetweenVectorD:(double*) v1 andVectorD:(double*) v2;
 + (void) computePETBlendingCLUT;
 @end
@@ -462,6 +540,13 @@ NS_SWIFT_NAME(ViewerSpacingGapFill)
 - (void) orderOutAndEndSheetWithReturnCode:(NSModalResponse) code NS_SWIFT_NAME(orderOutAndEndSheet(returnCode:));
 @end
 
+// What the resampling in place asks of the viewer's series load: whether
+// other windows use the volume, which keeps the series from being replaced.
+// None does here.
+@interface HarnessSeriesLoad : NSObject
+@property(readonly) BOOL volumeIsUsedByOtherWindows;
+@end
+
 @interface ViewerController : NSWindowController {
 @public
 IVARS
@@ -491,6 +576,7 @@ IVARS
 - (void) ApplyConvString:(NSString*) str;
 - (NSMutableArray*) pixList: (long) i;
 - (NSMutableArray*) fileList: (long) i;
+@property(readonly, nonnull) HarnessSeriesLoad *horosSeriesLoad;
 + (NSMutableArray*) getDisplayed2DViewers;
 + (void) correctGangtryTilt: (ViewerController*) viewerController;
 - (IBAction) mprViewer:(id) sender;
@@ -636,6 +722,15 @@ CALIBRATION
 { RecordLine([NSString stringWithFormat:@"pix %@ setArrayPix %@ %ld", self.name, ListName(array), (long)i]); }
 + (NSPoint) originCorrectedAccordingToOrientation: (DCMPix*) p { return NSMakePoint(p.originX, p.originY); }
 - (void) setBlackIndex:(int) i { RecordLine([NSString stringWithFormat:@"pix %@ setBlackIndex %d", self.name, i]); }
+- (double) horos_originX { return originX; }
+- (double) horos_originY { return originY; }
+- (double) horos_originZ { return originZ; }
+- (double) horos_sliceLocation { return sliceLocation; }
+- (double) horos_sliceThickness { return sliceThickness; }
+- (double) horos_sliceInterval { return sliceInterval; }
+- (double*) horos_orientation { for (int i = 0; i < 9; i++) orientationDoubles[i] = orientationValues[i]; return orientationDoubles; }
+- (short) stack { return 1; }
+- (BOOL) isOriginDefined { return originX != 0 || originY != 0 || originZ != 0; }
 - (void) setThickSlabController:(ThickSlabController*) ts { RecordLine([NSString stringWithFormat:@"pix %@ setThickSlabController %@", self.name, ts ? @"set" : @"nil"]); }
 - (void) setFusion:(short) m :(short) s :(short) d { RecordLine([NSString stringWithFormat:@"pix %@ setFusion %d %d %d", self.name, m, s, d]); }
 - (void) setSubtractedfImage:(float*)mask :(NSPoint)smm
@@ -669,6 +764,12 @@ CALIBRATION
 @synthesize flippedData = _flippedData, whiteBackground = _whiteBackground, drawing = _drawing, origin = _origin, curDCM = _curDCM;
 - (NSMutableArray*) dcmPixList { return dcmPixList; }
 - (NSInteger) curImage { return curImage; }
+- (NSMutableArray*) horos_dcmPixList { return dcmPixList; }
+- (NSInteger) horos_curImage { return curImage; }
+- (BOOL) horos_flippedData { return _flippedData; }
+- (BOOL) is2DViewer { return YES; }
+- (id) windowController { return nil; }
+- (void) harnessShow:(DCMPix*) pix { [_curDCM release]; _curDCM = [pix retain]; }
 - (float) scaleValue { return scaleValue; }
 - (void) setScaleValue:(float)v { scaleValue = v; RecordLine([NSString stringWithFormat:@"view setScaleValue %@", BitsF(v)]); }
 - (float) rotation { return rotation; }
@@ -679,6 +780,9 @@ CALIBRATION
 - (void) setIndex:(NSInteger) index { curImage = index; RecordLine([NSString stringWithFormat:@"view setIndex %ld", (long)index]); }
 - (void) setWLWW:(float) l :(float) w { wl = l; ww = w; RecordLine([NSString stringWithFormat:@"view setWLWW %@ %@", BitsF(l), BitsF(w)]); }
 - (void) getWLWW:(float*) l :(float*) w { if (l) *l = wl; if (w) *w = ww; }
+- (float) curWL { return wl; }
+- (float) curWW { return ww; }
++ (NSString*) findWLWWPreset:(float) l :(float) w :(DCMPix*) pix { return l == 40 && w == 350 ? @"Abdomen" : @"Other"; }
 - (void) setFusion:(short) mode :(short) stacks { fusionStacks = stacks; RecordLine([NSString stringWithFormat:@"view setFusion %d %d", mode, stacks]); }
 - (void) setCLUT:(unsigned char*) r :(unsigned char*) g :(unsigned char*) b
 {
@@ -782,6 +886,10 @@ CALIBRATION
 - (void) orderOutAndEndSheetWithReturnCode:(NSModalResponse) code { RecordLine([NSString stringWithFormat:@"sheet end %ld", (long)code]); }
 @end
 
+@implementation HarnessSeriesLoad
+- (BOOL) volumeIsUsedByOtherWindows { return NO; }
+@end
+
 @implementation ViewerController
 - (void) checkEverythingLoaded { RecordLine(@"viewer checkEverythingLoaded"); }
 - (BOOL) isEverythingLoaded { return YES; }
@@ -804,6 +912,7 @@ CALIBRATION
 - (void) ApplyConvString:(NSString*) str { RecordLine([NSString stringWithFormat:@"viewer ApplyConvString %@", str]); }
 - (NSMutableArray*) pixList: (long) i { return pixList[i]; }
 - (NSMutableArray*) fileList: (long) i { return fileList[i]; }
+- (HarnessSeriesLoad*) horosSeriesLoad { return [[HarnessSeriesLoad new] autorelease]; }
 + (NSMutableArray*) getDisplayed2DViewers { return [NSMutableArray array]; }
 + (void) correctGangtryTilt: (ViewerController*) v { RecordLine(@"viewer correctGangtryTilt"); }
 - (IBAction) mprViewer:(id) sender { RecordLine(@"viewer mprViewer"); }
@@ -1219,6 +1328,8 @@ static void WindowLevel(void)
     v->fromset.stringValue = @"-100.5"; v->toset.stringValue = @"300.25"; [v updateSetWLWW:Sender(1)]; fields(@"update range");
     [v endSetWLWW:Sender(1)]; fields(@"ok");
     [v SetWLWW:nil]; v->wlset.stringValue = @"77"; [v endSetWLWW:Sender(0)]; fields(@"cancel");
+    [v SetWLWW:nil]; v->wlset.stringValue = @"40"; v->wwset.stringValue = @"350"; [v endSetWLWW:Sender(1)]; fields(@"ok on a preset");
+    [v SetWLWW:nil]; v->wlset.stringValue = @"77"; [v endSetWLWW:Sender(0)]; fields(@"cancel on a preset");
     for (NSString *title in @[@"Default WL & WW", @"Full dynamic", @"Other", @"1 - Brain", @"2 - Missing", @"3 - Short"]) {
         NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""] autorelease];
         [v ApplyWLWW:item]; fields(title);
@@ -1314,10 +1425,16 @@ static void ColorTables(void)
 static void ThickSlab(void)
 {
     R(@"== thick slab");
+    // Six slices: the slider's thick end is the series' own count since the
+    // slab reaches the whole series (test-thick-slab-slider checks that end),
+    // so the thickness 5 asked below has to fit in the series on both sides.
     NSMutableArray *files = [NSMutableArray array];
-    for (int i = 0; i < 4; i++) [files addObject:ImageFile(@{@"name": @"f", @"width": @3, @"height": @2})];
-    ViewerController *v = Viewer(@[Stack(@"ts", 4, 3, 2, AXIAL, 1, 0, NO, NULL), Stack(@"ts4D", 4, 3, 2, AXIAL, 1, 0, NO, NULL)],
+    for (int i = 0; i < 6; i++) [files addObject:ImageFile(@{@"name": @"f", @"width": @3, @"height": @2})];
+    ViewerController *v = Viewer(@[Stack(@"ts", 6, 3, 2, AXIAL, 1, 0, NO, NULL), Stack(@"ts4D", 6, 3, 2, AXIAL, 1, 0, NO, NULL)],
                                  @[files, [[files mutableCopy] autorelease]]);
+    // Slices of 2 mm, 1 mm apart, the second of them shown: five are left from it to the end of the series.
+    for (NSArray *movie in @[v->pixList[0], v->pixList[1]]) for (DCMPix *p in movie) p->sliceThickness = 2;
+    [v->imageView harnessShow:v->pixList[0][1]];
     void (^state)(NSString *) = ^(NSString *title) {
         R(@"%@: active %ld slider %d enabled %d stacks %@ thickness %@ slab %d default %ld", title, (long)v->activatedFusion.state, v->sliderFusion.intValue,
           v->sliderFusion.isEnabled, v->stacksFusion.stringValue, [v thicknessInMm], v->thickSlab != nil,

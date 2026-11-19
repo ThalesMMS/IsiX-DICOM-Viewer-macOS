@@ -36,6 +36,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import isix_modules
+
 SKIPPED = 2
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -76,6 +78,7 @@ if shutil.which('xcrun') is None:
 
 MAIN = r'''
 import Foundation
+import IsiXPreferences
 
 @@READERS@@
 
@@ -252,7 +255,10 @@ with tempfile.TemporaryDirectory() as tmp:
     t = Path(tmp)
     (t / 'main.swift').write_text(MAIN.replace('@@READERS@@', readers.group(1))
                                   .replace('@@SETTER@@', setter).replace('@@GETTER@@', getter))
-    swift = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', str(t / 'main.swift'), '-o', 'probe'],
+    # The setter brings the saved shading within the panel's ranges (IsiXPreferences).
+    target = ['-target', 'arm64-apple-macos15.0']
+    flags = isix_modules.module_flags('IsiXPreferences', t / 'modules', target)
+    swift = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *target, *flags, str(t / 'main.swift'), '-o', 'probe'],
                            cwd=t, capture_output=True, text=True, timeout=300)
     if swift.returncode:
         print('FAIL: the probe does not build:\n' + swift.stderr[-3000:])

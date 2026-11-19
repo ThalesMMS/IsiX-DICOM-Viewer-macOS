@@ -52,21 +52,30 @@ GLOBALS
 /// The panel of one screen. The window stays on screen; `content` is its content view.
 @MainActor public final class ThumbnailsListPanel: NSObject {
     public var thumbnailsView: NSView?
-    weak var superView: NSView?
     public var viewer: ViewerController?
     let content = NSView(frame: NSRect(x: 0, y: 0, width: 110, height: 700))
 RETURNING
     /// What the production -setThumbnailsView:viewer: does with a list: the
     /// same list returns early; another one is borrowed once the previous one
-    /// is back where it came from.
+    /// is back in its viewer's dock.
     public func setThumbnailsView(_ list: NSView?, viewer v: ViewerController?) {
         if list === thumbnailsView { return }
+        if let previous = thumbnailsView { putBack(previous, of: viewer) }
         viewer = v
-        if let home = superView, let previous = thumbnailsView { home.addSubview(previous) }
         thumbnailsView = list
-        superView = list?.superview
-        if let list = list { content.addSubview(list); list.frame = content.bounds }
+        if let list = list { takeBack(list); content.addSubview(list); list.frame = content.bounds }
     }
+}
+
+enum ViewerWindowArranger { static let maximumScreens = 10 }
+@MainActor func AppControllerCAPIThumbnailsListPanel(_ index: Int) -> ThumbnailsListPanel? {
+    index == 0 ? AppController.panel : nil
+}
+
+/// The viewer's list presenter, as much of it as a panel asks: the dock the
+/// list was placed in last.
+@MainActor final class SeriesListPresenter {
+    weak var listDock: NSView?
 }
 
 @MainActor public final class AppController: NSObject {
@@ -82,12 +91,14 @@ RETURNING
     let dock = NSView(frame: NSRect(x: 0, y: 0, width: 100, height: 600))
     let image = NSView(frame: NSRect(x: 109, y: 0, width: 691, height: 600))
     let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 100, height: 600))
+    let seriesListPresenter = SeriesListPresenter()
     init(_ name: String) {
         self.name = name
         super.init()
         split.isVertical = true
         split.addSubview(dock); split.addSubview(image)
         dock.addSubview(scroll)
+        seriesListPresenter.listDock = dock
         NotificationCenter.default.addObserver(self, selector: #selector(updateSeriesListMode),
                                                name: NSNotification.Name(SeriesListLayout.placementDidChangeNotification), object: nil)
     }

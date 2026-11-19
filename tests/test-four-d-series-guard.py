@@ -168,7 +168,8 @@ assert 'FourDSeriesGuard.reconstructionRefusal(comparing:' in viewer or 'fourDRe
 panel = objc_body(viewer, 'func openVolumeRenderingPanel(_ sender: Any?)')
 assert 'guard let pix0 = viewer.horos_pixList(at: 0)' in panel and 'makeVRController(pix0, files0, volume0, style: "panel"' in panel, (
     'the floating MIP panel still pairs the current time\'s pix with volume 0')
-assert '[NSMutableArray?](repeating: nil, count: Int(MAX4D))' in vr, (
+assert 'typedef struct { void * _Nullable v[500]; } IsiXVRControllerFrameObjects;' in (root / 'Horos/Sources/LegacyPluginIvarStorage.h').read_text() and \
+    'VRControllerFrameObjects<NSMutableArray>' in sources.source_text('VRController+State'), (
     'VR still keeps only 100 times while the 2D viewer can hold 500')
 assert 'FourDSeriesGuard.nextIndex(' in mpr and 'FourDSeriesGuard.wrappedIndex(' in mpr, 'MPR play does not wrap with the same helper'
 assert 'fourDReconstructionRefusalReason' in viewer, 'reconstruction has no explicit refusal'

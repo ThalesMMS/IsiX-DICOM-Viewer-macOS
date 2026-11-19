@@ -712,7 +712,7 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             (work / 'XMLControllerDCMTKCategory.h').write_text('#import "XMLController.h"\n')
             # The editor reads its preferences through the process graph.
             # The guards the editor puts around what may raise: HorosObjCException.caught.
-            swift = [SOURCES / 'XMLController.swift', SOURCES / 'XMLController+DICOMEditing.swift', *helpers,
+            swift = [SOURCES / 'XMLController.swift', SOURCES / 'XMLController+DICOMEditing.swift', SOURCES / 'XMLEditingToolbarItem.swift', *helpers,
                      SOURCES / 'HorosObjCException+Guards.swift', work / 'ToolbarPolicy.swift', process_graph_stand_in.source(work)]
             if 'removeReplacedRows(' in (SOURCES / 'XMLController.swift').read_text(encoding='utf-8'):
                 swift.append(work / 'EditedFiles.swift')

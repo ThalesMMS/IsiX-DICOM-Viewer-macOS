@@ -228,6 +228,24 @@ import Testing
         #expect(ImportMatching.seriesHoldingRows(of: Series(nil), ownSR: true, studySeries: [Series(nil)], id: { $0.id }).count == 1)
     }
 
+    @Test func aVolumeIndexedAsASeriesOfItsOwnStaysInIt() {
+        let shared = "00000001 1.2.3-volume-64x64x12-860ed26d0358f692", former = "00000001 1.2.3-    1-1.2.3.1"
+        func stays(_ formerKey: String?, in study: [String?]) -> Bool {
+            ImportMatching.staysInFormerSeries(formerKey: formerKey) { study.contains($0) }
+        }
+        // A database indexed before: the file is in the series of its former key.
+        #expect(stays(former, in: ["1.2.9", former]))
+        // And stays there when files that came later made the shared series.
+        #expect(stays(former, in: [shared, former, nil]))
+        // A file the database does not have, or has in the shared series.
+        #expect(!stays(former, in: []))
+        #expect(!stays(former, in: [shared, "00000001 1.2.3-    2-1.2.3.2", nil]))
+        // A file without a former key is never asked about.
+        var asked = false
+        #expect(!ImportMatching.staysInFormerSeries(formerKey: nil) { _ in asked = true; return true })
+        #expect(!asked)
+    }
+
     @Test func aStudyWithOnlyTheAlbumMarkerIsNewAgain() {
         #expect(ImportMatching.isAlbumMarkerOnly(seriesCount: 1, onlySeriesName: "OsiriX No Autodeletion", onlySeriesID: 5005))
         #expect(!ImportMatching.isAlbumMarkerOnly(seriesCount: 2, onlySeriesName: "OsiriX No Autodeletion", onlySeriesID: 5005))

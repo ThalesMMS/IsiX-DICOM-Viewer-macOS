@@ -86,7 +86,8 @@ CASES = {
         OBJECT: 1,            # SWAPS below
     },
     'Reports.swift': {
-        BROWSER_DATABASE: 6,  # the RTF, Word, OpenDocument and Pages templates of the database the browser shows
+        BROWSER_DATABASE: 4,  # the RTF and OpenDocument templates of the database the browser shows, and the
+                              # folder of its Word and Pages templates
     },
     'IsiXDatabaseAdapter.swift': {
         ACTIVE: 1,            # the database a plugin reads and changes
@@ -391,7 +392,6 @@ enum HorosObjCException {
     @discardableResult
     static func caught(_ body: () -> Void) -> NSException? { body(); return nil }
     static func caught(_ body: () -> Void, catch handler: (NSException) -> Void) { body() }
-    static func caughtWithoutAllocation(_ body: () -> Void) -> NSException? { body(); return nil }
     @discardableResult
     static func logged(_ function: String, stack: Bool = false, _ body: () -> Void) -> Bool { body(); return false }
     @discardableResult

@@ -135,7 +135,7 @@ if '@objc(HorosProtectedMode)' not in protected:
 # The browser is Swift: its init is BrowserController.swift.
 browser = class_text('BrowserController')
 init = browser[browser.index('public override init(window: NSWindow?) {'):]
-init = init[:init.index('studyListState.searchType = 7')]
+init = init[:init.index('_searchType = 7')]
 if '_currentModifierFlags' in init or 'setRunOsiriXInProtectedMode' in init:
     failures.append('the browser still reads Shift and Option, after the plugins are loaded')
 if 'message: ProtectedMode.alertMessage' not in init:

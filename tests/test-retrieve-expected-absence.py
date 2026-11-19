@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A study counts as complete when only its expected absences are missing.
 
-OsiriX counts an instance in a series whose IMAGE level lists none, so its study
+A peer may count an instance in a series whose IMAGE level lists none, so its study
 reports one more instance than the hierarchical query lists. The inventory was
 left unconfirmed by that count, and the auto-query retrieved the study again on
 every cycle. The inventory is now what the walk listed, with the peer's counts
@@ -94,7 +94,7 @@ let directory = CommandLine.arguments[1]
 let rows = (1...4).map { ["uid": "A.\($0)", "series": "A"] } + (1...3).map { ["uid": "B.\($0)", "series": "B"] }
 let counts: [String: NSNumber] = ["A": 4, "B": 3, "C": 1]
 func begin(_ study: String, reported: Int = 8) -> RetrieveInventory {
-    RetrieveInventory.begin(study: study, series: "", endpoint: "OSIRIX@peer:11112", database: directory, instances: rows,
+    RetrieveInventory.begin(study: study, series: "", endpoint: "PEER@peer:11112", database: directory, instances: rows,
                             confirmed: true, reported: reported, seriesReported: counts)
 }
 let listed = rows.map { $0["uid"]! }
@@ -137,14 +137,14 @@ precondition(!missing.isSatisfied && !missing.isComplete)
 missing.finish()
 
 // An inventory the query could not confirm proves nothing.
-let unconfirmed = RetrieveInventory.begin(study: "3.1", series: "", endpoint: "OSIRIX@peer:11112", database: directory,
+let unconfirmed = RetrieveInventory.begin(study: "3.1", series: "", endpoint: "PEER@peer:11112", database: directory,
                                           instances: rows, confirmed: false, reported: 8, seriesReported: counts)
 unconfirmed.updateImportedUIDs(listed)
 precondition(!unconfirmed.isSatisfied && !unconfirmed.matchesReportedCount(8))
 unconfirmed.finish()
 
 // A manifest without the reported count stands only when what it listed matches.
-let old = RetrieveInventory.begin(study: "4.1", series: "", endpoint: "OSIRIX@peer:11112", database: directory,
+let old = RetrieveInventory.begin(study: "4.1", series: "", endpoint: "PEER@peer:11112", database: directory,
                                   instances: rows, confirmed: true)
 precondition(old.matchesReportedCount(7) && !old.matchesReportedCount(8) && old.unlistedCount == 0)
 old.finish()

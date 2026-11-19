@@ -74,8 +74,10 @@ final class DICOMListenerController {
     /// and the listener threads started and not yet holding their lock: until
     /// they hold it, waiting on that lock proves nothing.
     private struct Running {
-        var plain: DCMTKQueryRetrieveSCP?
-        var tls: DCMTKQueryRetrieveSCP?
+        // Each is also what the global of the former plugin SDK names: written
+        // under this state's lock, and read by nothing in the application.
+        var plain: DCMTKQueryRetrieveSCP? { didSet { dcmtkQRSCP = plain } }
+        var tls: DCMTKQueryRetrieveSCP? { didSet { dcmtkQRSCPTLS = tls } }
         var pendingStarts = 0
     }
     private nonisolated let running = Mutex(Running())
@@ -228,6 +230,21 @@ final class DICOMListenerController {
         }
     }
 
+    /// Starts one listener if it is neither running nor starting, on the main
+    /// thread, and returns at once: what a caller of the former thread bodies
+    /// of the listeners gets. A running listener holds its lock and a starting
+    /// one is counted, so this never makes a second listener.
+    nonisolated func startIfStopped(tls: Bool) {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard !ProtectedMode.isActive, !self.applyingSettings, self.running.withLock({ $0.pendingStarts }) == 0,
+                      let lock = tls ? STORESCPTLS : STORESCP, lock.try() else { return }
+                lock.unlock()
+                self.start(tls: tls, settings: ListenerSettings(preferences: self.preferences))
+            }
+        }
+    }
+
     /// A listener's thread: it holds the listener's lock for as long as it
     /// runs and makes the listener after taking it, so a lock taken means the
     /// thread has left the listener. The titles were stored on the main thread
@@ -334,7 +351,8 @@ final class DICOMListenerController {
     /// joined. Returns whether both threads ended in time.
     nonisolated func stopListeners(before deadline: Date) -> Bool {
         while running.withLock({ $0.pendingStarts }) > 0 {
-            if Date() >= deadline { return false }
+            // Not `>=`: between two dates it is a Foundation symbol only macOS 27.2 has.
+            if !(Date() < deadline) { return false }
             Thread.sleep(forTimeInterval: 0.02)
         }
         var asked: DCMTKQueryRetrieveSCP? = nil
@@ -343,7 +361,7 @@ final class DICOMListenerController {
         for (lock, listener) in threads {
             while lock?.lock(before: min(deadline, Date(timeIntervalSinceNow: 0.05))) == false {
                 if let listener = listener(), listener !== asked { listener.abort(); asked = listener }
-                if Date() >= deadline { return false }
+                if !(Date() < deadline) { return false }
             }
             lock?.unlock()
         }

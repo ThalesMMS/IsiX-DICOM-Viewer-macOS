@@ -38,6 +38,10 @@ public final class SEGViewerSession: NSObject {
     private let sourceSOPs: Set<String>
     private let sourceFrames: [String: Set<Int>]
     private let sourceFrameCounts: [String: Int]
+    /// The series and the class of the open volume's instances, by SOP
+    /// Instance UID, where the viewer knows them: what a segmentation that
+    /// does not say which series its sources are of is told.
+    private let sourceOrigins: [String: DicomSEGSourceSeries]
     private let preferences: UserDefaults
     private let presentationKey: String
     public private(set) var store: DicomSEGStore?
@@ -59,8 +63,12 @@ public final class SEGViewerSession: NSObject {
         self.init(volume: volume, sourceFrames: sourceFrames, preferences: .standard)
     }
 
-    public init(volume: VolumeSession, sourceFrames: [SEGSourceFrame], preferences: UserDefaults) {
+    /// `origins` gives, for the SOP Instance UID of an instance of the volume,
+    /// its series with that one instance and its class.
+    public init(volume: VolumeSession, sourceFrames: [SEGSourceFrame], preferences: UserDefaults,
+                origins: [String: DicomSEGSourceSeries] = [:]) {
         self.preferences = preferences
+        sourceOrigins = origins
         presentationKey = "HorosSEGSurfacePresentation:" + volume.identity.description
         self.volume = volume
         identity = volume.identity
@@ -176,6 +184,10 @@ public final class SEGViewerSession: NSObject {
                 opacities[uid] = state["opacity"]
             }
         }
+        // The sources are instances of the volume open here: an object that
+        // does not say which series they are of (what this application wrote
+        // before did not) is told, so that what is exported from it does.
+        document.identity.sourceSeries = document.identity.namingSourceSeries { sourceOrigins[$0] }
         let next = DicomSEGStore(document: document, surfaceOpacities: opacities)
         let surfaceSet = HorosSEGSurfaceSet(store: next)
         guard surfaceSet.overlays.allSatisfy({ $0.inspection.closed &&

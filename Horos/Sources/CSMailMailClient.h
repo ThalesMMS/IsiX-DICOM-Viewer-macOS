@@ -62,3 +62,14 @@ enum {
 #else
 #import "Horos-Swift.h"
 #endif
+
+// A C function of the Horos and OsiriX plugin SDK, implemented in Swift with
+// this name: plugins built for that SDK look it up in the application.
+#ifdef __cplusplus
+extern "C" {
+#endif
+// Asks the application with this bundle identifier to quit, then sleeps (CSMailMailClient.swift).
+extern void QuitAndSleep(NSString* bundleIdentifier, float seconds);
+#ifdef __cplusplus
+}
+#endif

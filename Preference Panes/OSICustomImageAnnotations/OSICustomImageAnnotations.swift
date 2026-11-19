@@ -113,8 +113,7 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
         // and never deallocated. They are not kept here either: the window
         // stays alive through the `_window`, `window` and `mainWindow` outlets.
         var topLevelObjects: NSArray?
-        let nib = NSNib(nibNamed: "OSICustomImageAnnotations", bundle: nil)
-        _ = nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSICustomImageAnnotations", mirrors: false, topLevelObjects: &topLevelObjects)
 
         // -setMainView: with the nil content view of a nib that failed to
         // load changed nothing: the main view was still unset.
@@ -236,6 +235,11 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
             for item in modalities {
                 modalitiesPopUpButton?.addItem(withTitle: item)
             }
+            // The row was drawn for "Default" and "Same as Default": in another language the pop-up, the checkbox
+            // and the controls after them take the width their texts need, up to the orientation checkbox.
+            if let modalitiesPopUpButton {
+                PaneFit.flowRow(startingAt: modalitiesPopUpButton, until: orientationWidgetButton)
+            }
         }
 
         if layoutControllerValue == nil {
@@ -323,8 +327,10 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
         layoutControllerValue?.validateTokenTextField(sender)
     }
 
+    /// Saves the layout shown under its modality's key ("Default", or the modality's code): the pop-up's first
+    /// title is "Default" in the user's language, which is no key of the stored layouts.
     @IBAction public func saveAnnotationLayout(_ sender: Any?) {
-        layoutControllerValue?.saveAnnotationLayout(forModality: modalitiesPopUpButton?.selectedItem?.title)
+        layoutControllerValue?.saveAnnotationLayout()
     }
 
     @IBAction public func switchModality(_ sender: Any?) {
@@ -360,7 +366,7 @@ public final class OSICustomImageAnnotations: NSPreferencePane {
                 return
             }
         } else {
-            layoutControllerValue?.loadAnnotationLayout(forModality: modalitiesPopUpButton?.selectedItem?.title)
+            layoutControllerValue?.loadAnnotationLayout(forModality: layoutControllerValue?.currentModality())
         }
         layoutView?.isEnabled = !state
         sameAsDefaultButton?.state = state ? .on : .off

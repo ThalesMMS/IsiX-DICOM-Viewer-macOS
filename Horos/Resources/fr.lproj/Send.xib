@@ -11,7 +11,6 @@
                 <outlet property="keyImageMatrix" destination="31" id="63"/>
                 <outlet property="newServerList" destination="108" id="114"/>
                 <outlet property="numberImagesTextField" destination="36" id="40"/>
-                <outlet property="sendSCU" destination="82" id="83"/>
                 <outlet property="syntaxListOffis" destination="11" id="45"/>
                 <outlet property="window" destination="5" id="41"/>
             </connections>
@@ -156,14 +155,14 @@ Gw
                                     <menuItem title="Little Endian implicite seulement" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 sans perte" tag="1" id="67"/>
-                                    <menuItem title="JPEG 2000 avec perte - bonne qualité" tag="2" id="71"/>
-                                    <menuItem title="JPEG 2000 avec perte - qualité moyenne" tag="3" id="72"/>
-                                    <menuItem title="JPEG 2000 avec perte - faible qualité" tag="4" id="73"/>
+                                    <menuItem title="JPEG 2000 avec perte - bonne" tag="2" id="71"/>
+                                    <menuItem title="JPEG 2000 avec perte - moyenne" tag="3" id="72"/>
+                                    <menuItem title="JPEG 2000 avec perte - faible" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
                                     <menuItem title="JPEG LS sans perte" tag="13" id="148"/>
-                                    <menuItem title="JPEG LS avec perte - bonne qualité" tag="14" id="149"/>
-                                    <menuItem title="JPEG LS avec perte - qualité moyenne" tag="15" id="150"/>
-                                    <menuItem title="JPEG LS avec perte - faible qualité" tag="16" id="151"/>
+                                    <menuItem title="JPEG LS avec perte - bonne" tag="14" id="149"/>
+                                    <menuItem title="JPEG LS avec perte - moyenne" tag="15" id="150"/>
+                                    <menuItem title="JPEG LS avec perte - faible" tag="16" id="151"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="117"/>
                                     <menuItem title="JPEG sans perte" tag="5" id="16"/>
                                 </items>

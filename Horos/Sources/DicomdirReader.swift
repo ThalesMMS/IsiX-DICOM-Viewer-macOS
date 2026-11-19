@@ -150,6 +150,8 @@ struct DicomdirReader {
     }
 
     func read(at path: String, withPaths listed: [String]) -> Index {
+        let basePath = (path as NSString).deletingLastPathComponent
+        guard let fileSet = MediaScanRules.FileSetDirectory(basePath), fileSet.contains(path) else { return Index() }
         let thread = Thread.current
         let pathsToScanAnyway = NSMutableArray()
 
@@ -182,20 +184,31 @@ struct DicomdirReader {
         while i >= 0 {
             let item = items.object(at: i) as! NSMutableDictionary
 
-            var filepath = item["filePath"] as? String
-            if !FileManager.default.fileExists(atPath: filepath ?? "") { // reference invalid, try and find the file...
-                filepath = MediaScanRules.listedPath(matching: filepath ?? "", in: listed)
-
-                if let filepath { item["filePath"] = filepath }
-
+            guard let referencedPath = item["filePath"] as? String else {
+                items.removeObject(at: i)
+                i -= 1
+                continue
+            }
+            var filepath = referencedPath
+            var isDirectory: ObjCBool = false
+            if !fileSet.contains(filepath) || !FileManager.default.fileExists(atPath: filepath, isDirectory: &isDirectory)
+                || isDirectory.boolValue {
                 notFoundFiles = true
+                guard let listedPath = MediaScanRules.listedPath(matching: referencedPath, in: listed, fileSet: fileSet)
+                else {
+                    items.removeObject(at: i)
+                    i -= 1
+                    continue
+                }
+                filepath = listedPath
+                item["filePath"] = filepath
             }
 
             // some DICOMDIR files only list 1 image for 1 multiframe DICOM file
             let scuid = item["SOPClassUID"] as? String
             if DICOMSOPClass.isMultiframe(scuid)
                 && MediaScanRules.isOnlyEntryOfItsSeries(at: i, seriesIDs: items.map { ($0 as? NSDictionary)?["seriesID"] as? String }) {
-                if let filepath { pathsToScanAnyway.add(filepath) }
+                pathsToScanAnyway.add(filepath)
                 items.removeObject(at: i)
             }
 
@@ -248,11 +261,9 @@ struct DicomdirReader {
                                        + path + " is not used")
                 return nil
             }
-            let filePath = MediaScanRules.referencedFilePath(fileID, basePath: basePath)
-
-            guard MediaScanRules.acceptsReferencedFilePath(filePath) else {
-                N2LogStackTraceMessage(String(format: "path > MAXPATHLEN : %d characters, %@",
-                                              Int32((filePath as NSString).length), filePath))
+            guard let filePath = MediaScanRules.referencedFilePath(fileID, basePath: basePath),
+                  MediaScanRules.acceptsReferencedFilePath(filePath) else {
+                NSLog("(scanAtPath): ignoring an invalid Referenced File ID in DICOMDIR")
                 continue
             }
 
@@ -305,15 +316,17 @@ struct DicomdirReader {
             set(NSNumber(value: 1), "numberOfSeries")
 
             set(DirectoryElements.integerNumber(elements.remove(DirectoryTag.numberOfFrames)), "numberOfFrames")
-            // SERIES ID MUST BE UNIQUE!!!!!
-            set(MediaScanRules.seriesDICOMUID(seriesInstanceUID: elements.takeString(DirectoryTag.seriesInstanceUID),
-                                              sopInstanceUID: item["SOPUID"] as? String,
-                                              numberOfFrames: (item["numberOfFrames"] as? NSNumber)?.intValue ?? 0),
-                "seriesDICOMUID")
+            // The DICOM identifier of the series is the record's Series Instance
+            // UID, as the file itself states it. What makes a multi-frame file
+            // a series of its own is the series ID, the key the index groups on.
+            let seriesInstanceUID = elements.takeString(DirectoryTag.seriesInstanceUID)
+            set(seriesInstanceUID, "seriesDICOMUID")
 
             let seriesNumberAttribute = elements.remove(DirectoryTag.seriesNumber)
             set(MediaScanRules.seriesID(seriesNumber: DirectoryElements.string(seriesNumberAttribute),
-                                        seriesDICOMUID: item["seriesDICOMUID"] as? String), "seriesID")
+                                        seriesInstanceUID: seriesInstanceUID,
+                                        sopInstanceUID: item["SOPUID"] as? String,
+                                        numberOfFrames: (item["numberOfFrames"] as? NSNumber)?.intValue ?? 0), "seriesID")
 
             encodings.withUnsafeMutableBufferPointer { encodings in
                 let list = encodings.baseAddress!

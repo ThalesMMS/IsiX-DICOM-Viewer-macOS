@@ -54,12 +54,12 @@ extension BrowserController {
 
     @available(*, deprecated, message: "Use WebPortal.defaultWebPortal.database")
     @objc public var userManagedObjectModel: NSManagedObjectModel! {
-        return WebPortal.default()?.database?.managedObjectModel
+        return BrowserOlderInstanceVariables.userModel(of: self)
     }
 
     @available(*, deprecated, message: "Use WebPortal.defaultWebPortal.database")
     @objc public var userManagedObjectContext: NSManagedObjectContext! {
-        return WebPortal.default()?.database?.managedObjectContext
+        return BrowserOlderInstanceVariables.userContext(of: self)
     }
 
     @available(*, deprecated, message: "Use WebPortal.defaultWebPortal.database")

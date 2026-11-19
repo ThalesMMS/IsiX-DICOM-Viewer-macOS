@@ -125,6 +125,15 @@ enum DCMHost {
     /// cannot catch an Objective-C exception. The host's HorosObjCException
     /// can; it is found by name, like the other services. Without it `body`
     /// runs unprotected.
+    ///
+    /// `body` goes to the host as the block parameter itself, which does not
+    /// escape. Wrapped in withoutActuallyEscaping and called from a block made
+    /// here, it would end the process when it raises: the frame of that block
+    /// retains the closure to call it, the exception abandons the frame with
+    /// the retain, and the wrapper stops the process for a closure that
+    /// escaped. Converted by the compiler, no frame between the raise and the
+    /// host's @catch holds it. The Swift frames `body` ran in are abandoned
+    /// all the same: what they owned at the raise is not released.
     static func catchingObjCException(_ body: () -> Void) -> NSException? {
         guard let catcher: AnyClass = NSClassFromString("HorosObjCException"),
               let method = class_getClassMethod(catcher, performSelector) else {
@@ -135,10 +144,7 @@ enum DCMHost {
                                             AutoreleasingUnsafeMutablePointer<NSError?>?) -> ObjCBool
         let perform = unsafeBitCast(method_getImplementation(method), to: Perform.self)
         var error: NSError?
-        withoutActuallyEscaping(body) { escapable in
-            let block: @convention(block) () -> Void = { escapable() }
-            _ = perform(catcher, performSelector, block, &error)
-        }
+        _ = perform(catcher, performSelector, body, &error)
         return error?.userInfo["HorosObjCException"] as? NSException
     }
 

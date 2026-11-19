@@ -10,94 +10,71 @@
 
 import AppKit
 
-/// The layout of the window: the full screen (its window, the window and content view it replaced, the tiling, image and frames to restore), the standard frame of the zoom button and the name of the saved layout of the viewers.
-final class ViewerWindowLayoutState: @unchecked Sendable {
-    var windowsStateName: String?
-    var FullScreenOn: Bool = false
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var FullScreenWindow: NSWindow?
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var StartingWindow: NSWindow?
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var contentView: NSView?
-    var standardRect: NSRect = .zero
-    var previousFrameRect: NSRect = .zero
-    var windowFrameToRestore: NSRect = .zero
-    var scaleFitToRestore: Bool = false
-    var previousFullscreenColumns: Int32 = 0
-    var previousFullscreenRows: Int32 = 0
-    var previousFullscreenCurImage: Int32 = 0
-    var previousFullscreenViewIndex: Int32 = 0
-    var previousPropagate: Int32 = 0
-    var previousScaledFit: Int32 = 0
-    var previousSliderStripHeight: CGFloat = 0
-}
-
 extension ViewerController {
     var horos_windowsStateName: String? {
-        get { windowLayoutState.windowsStateName }
-        set { windowLayoutState.windowsStateName = newValue }
+        get { _windowsStateName as String? }
+        set { _windowsStateName = newValue as NSString? }
     }
     var horos_FullScreenOn: Bool {
-        get { windowLayoutState.FullScreenOn }
-        set { windowLayoutState.FullScreenOn = newValue }
+        get { _FullScreenOn }
+        set { _FullScreenOn = newValue }
     }
     var horos_FullScreenWindow: NSWindow? {
-        get { windowLayoutState.FullScreenWindow }
-        set { windowLayoutState.FullScreenWindow = newValue }
+        get { _FullScreenWindow.wrappedValue }
+        set { _FullScreenWindow.wrappedValue = newValue }
     }
     var horos_StartingWindow: NSWindow? {
-        get { windowLayoutState.StartingWindow }
-        set { windowLayoutState.StartingWindow = newValue }
+        get { _StartingWindow.wrappedValue }
+        set { _StartingWindow.wrappedValue = newValue }
     }
-    func horos_assignStartingWindow(_ value: NSWindow?) { windowLayoutState.$StartingWindow.assign(value) }
+    func horos_assignStartingWindow(_ value: NSWindow?) { _StartingWindow.assign(value) }
     var horos_contentView: NSView? {
-        get { windowLayoutState.contentView }
-        set { windowLayoutState.contentView = newValue }
+        get { _contentView.wrappedValue }
+        set { _contentView.wrappedValue = newValue }
     }
-    func horos_assignContentView(_ value: NSView?) { windowLayoutState.$contentView.assign(value) }
+    func horos_assignContentView(_ value: NSView?) { _contentView.assign(value) }
     var horos_standardRect: NSRect {
-        get { windowLayoutState.standardRect }
-        set { windowLayoutState.standardRect = newValue }
+        get { _standardRect }
+        set { _standardRect = newValue }
     }
     var horos_previousFrameRect: NSRect {
-        get { windowLayoutState.previousFrameRect }
-        set { windowLayoutState.previousFrameRect = newValue }
+        get { _previousFrameRect }
+        set { _previousFrameRect = newValue }
     }
     var horos_windowFrameToRestore: NSRect {
-        get { windowLayoutState.windowFrameToRestore }
-        set { windowLayoutState.windowFrameToRestore = newValue }
+        get { _windowFrameToRestore }
+        set { _windowFrameToRestore = newValue }
     }
     var horos_scaleFitToRestore: Bool {
-        get { windowLayoutState.scaleFitToRestore }
-        set { windowLayoutState.scaleFitToRestore = newValue }
+        get { _scaleFitToRestore }
+        set { _scaleFitToRestore = newValue }
     }
     var horos_previousFullscreenColumns: Int32 {
-        get { windowLayoutState.previousFullscreenColumns }
-        set { windowLayoutState.previousFullscreenColumns = newValue }
+        get { _previousFullscreenColumns }
+        set { _previousFullscreenColumns = newValue }
     }
     var horos_previousFullscreenRows: Int32 {
-        get { windowLayoutState.previousFullscreenRows }
-        set { windowLayoutState.previousFullscreenRows = newValue }
+        get { _previousFullscreenRows }
+        set { _previousFullscreenRows = newValue }
     }
     var horos_previousFullscreenCurImage: Int32 {
-        get { windowLayoutState.previousFullscreenCurImage }
-        set { windowLayoutState.previousFullscreenCurImage = newValue }
+        get { _previousFullscreenCurImage }
+        set { _previousFullscreenCurImage = newValue }
     }
     var horos_previousFullscreenViewIndex: Int32 {
-        get { windowLayoutState.previousFullscreenViewIndex }
-        set { windowLayoutState.previousFullscreenViewIndex = newValue }
+        get { _previousFullscreenViewIndex }
+        set { _previousFullscreenViewIndex = newValue }
     }
     var horos_previousPropagate: Int32 {
-        get { windowLayoutState.previousPropagate }
-        set { windowLayoutState.previousPropagate = newValue }
+        get { _previousPropagate }
+        set { _previousPropagate = newValue }
     }
     var horos_previousScaledFit: Int32 {
-        get { windowLayoutState.previousScaledFit }
-        set { windowLayoutState.previousScaledFit = newValue }
+        get { _previousScaledFit }
+        set { _previousScaledFit = newValue }
     }
     var horos_previousSliderStripHeight: CGFloat {
-        get { windowLayoutState.previousSliderStripHeight }
-        set { windowLayoutState.previousSliderStripHeight = newValue }
+        get { _previousSliderStripHeight }
+        set { _previousSliderStripHeight = newValue }
     }
 }

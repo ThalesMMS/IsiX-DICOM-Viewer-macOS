@@ -55,6 +55,23 @@ struct OSISlab {
 };
 typedef struct OSISlab OSISlab;
 
+// Implemented in Swift (OSIGeometry.swift) with these C names, which plugins
+// built for Horos or OsiriX call. The dictionary a Create function answers is
+// the caller's to release.
+OSISlab OSISlabMake(N3Plane plane, CGFloat thickness);
+bool OSISlabEqualTo(OSISlab slab1, OSISlab slab2);
+bool OSISlabIsCoincidentToSlab(OSISlab slab1, OSISlab slab2);
+bool OSISlabContainsVector(OSISlab slab, N3Vector vector);
+bool OSISlabContainsPlane(OSISlab slab, N3Plane plane);
+OSISlab OSISlabApplyTransform(OSISlab slab, N3AffineTransform transform);
+
+CFDictionaryRef OSISlabCreateDictionaryRepresentation(OSISlab slab);
+bool OSISlabMakeWithDictionaryRepresentation(CFDictionaryRef dict, OSISlab *slab);
+
+#ifdef __OBJC__
+NSString *NSStringFromOSISlab(OSISlab slab);
+#endif
+
 CF_EXTERN_C_END
 
 #endif /* _OSIGEOMETRY_H_ */

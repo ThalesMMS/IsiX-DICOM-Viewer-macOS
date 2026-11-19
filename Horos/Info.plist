@@ -31,30 +31,19 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>osirixzip</string>
 				<string>dcm</string>
-				<string>dcmURLs</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string>dcm.icns</string>
 			<key>CFBundleTypeMIMETypes</key>
 			<array>
 				<string>application/dicom</string>
-				<string>application/zip</string>
-				<string>application/osirixzip</string>
-				<string>application/dcmURLs</string>
 			</array>
 			<key>CFBundleTypeName</key>
 			<string>DICOM Image</string>
 			<key>CFBundleTypeOSTypes</key>
 			<array>
 				<string>DCM </string>
-				<string>****</string>
-				<string>fold</string>
-				<string>disk</string>
-				<string>zip</string>
-				<string>osirixzip</string>
-				<string>dcmURLs</string>
 			</array>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
@@ -64,6 +53,44 @@
 			<array>
 				<string>org.nema.dicom</string>
 			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>DICOM Folder, Disc or Archive</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.folder</string>
+				<string>public.volume</string>
+				<string>public.zip-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>osirixzip</string>
+				<string>dcmURLs</string>
+			</array>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>application/osirixzip</string>
+				<string>application/dcmURLs</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>DICOM File</string>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>****</string>
+				<string>fold</string>
+				<string>disk</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
 		</dict>
 		<dict>
 			<key>CFBundleTypeExtensions</key>
@@ -226,6 +253,18 @@
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>IsiX DICOM Viewer Remote Access</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>isix</string>
+			</array>
+			<key>LSIsAppleDefaultForType</key>
+			<string>Yes</string>
+		</dict>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>

@@ -10,29 +10,21 @@
 
 import AppKit
 
-/// The SUV conversion: the PET to SUV factor and the times edited in the SUV sheet.
-final class ViewerSUVState: @unchecked Sendable {
-    var factorPET2SUV: Float = 0
-    var editedRadiopharmaceuticalStartTime: Date?
-    var editedAcquisitionTime: Date?
-    var injectionDateTime: Date?
-}
-
 extension ViewerController {
     var horos_factorPET2SUV: Float {
-        get { suvState.factorPET2SUV }
-        set { suvState.factorPET2SUV = newValue }
+        get { _factorPET2SUV }
+        set { _factorPET2SUV = newValue }
     }
     var horos_editedRadiopharmaceuticalStartTime: Date? {
-        get { suvState.editedRadiopharmaceuticalStartTime }
-        set { suvState.editedRadiopharmaceuticalStartTime = newValue }
+        get { _editedRadiopharmaceuticalStartDate }
+        set { _editedRadiopharmaceuticalStartDate = newValue }
     }
     var horos_editedAcquisitionTime: Date? {
-        get { suvState.editedAcquisitionTime }
-        set { suvState.editedAcquisitionTime = newValue }
+        get { _editedAcquisitionDate }
+        set { _editedAcquisitionDate = newValue }
     }
     var horos_injectionDateTime: Date? {
-        get { suvState.injectionDateTime }
-        set { suvState.injectionDateTime = newValue }
+        get { _injectionDate }
+        set { _injectionDate = newValue }
     }
 }

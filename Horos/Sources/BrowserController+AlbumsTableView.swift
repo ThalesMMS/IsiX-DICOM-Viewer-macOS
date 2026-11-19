@@ -140,7 +140,7 @@ public extension BrowserController {
     class func databaseObjectXIDsPasteboardTypes() -> [String]! {
         return [O2PasteboardTypeDatabaseObjectXIDs,
                 // Compatibility input from older plugins; new drags use the UTI above.
-                "BrowserController.database.context.XIDs"]
+                O2DatabaseXIDsDragType]
     }
 
     @objc(tableView:acceptDrop:row:dropOperation:)

@@ -44,6 +44,7 @@
 #import <Cocoa/Cocoa.h>
 #import "PluginFilter.h"
 #import "PluginFileFormatDecoder.h"
+#import "ReportPluginFilter.h"
 
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.

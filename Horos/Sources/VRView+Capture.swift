@@ -109,9 +109,23 @@ extension VRView {
         return fullDepthImage(w, h, rgb, blendingView: blendingView)
     }
 
+    /// Whether the ray caster has a picture to read: it has one once it has
+    /// rendered. A plane of the 3D MPR that the Metal reslice refuses is read
+    /// from that picture, and the opening of the window skips the render,
+    /// which the window does once it is shown: a ray caster that has rendered
+    /// nothing yet is the one case where the view renders during the opening,
+    /// or it would open on nothing.
+    @objc(hasFullDepthPicture) func hasFullDepthPicture() -> Bool {
+        let vtk = horos_vtk
+        return vtk.hasVolumeMapper && vtk.rayCastImageFused(false) != nil
+    }
+
     /// The picture of -imageInFullDepthWidth:height:isRGB:blendingView:, read
     /// from the ray caster through the VTK adapter, which reports a failure
-    /// rather than raising.
+    /// rather than raising. The ray caster has a picture once it has
+    /// rendered: before that, or when the adapter caught a failure, there is
+    /// none to read and the answer is nil, which every caller takes for "no
+    /// picture".
     private func fullDepthImage(_ w: UnsafeMutablePointer<Int>, _ h: UnsafeMutablePointer<Int>,
                                 _ rgb: UnsafeMutablePointer<ObjCBool>, blendingView: Bool) -> UnsafeMutablePointer<Float>? {
         let vtk = horos_vtk
@@ -120,7 +134,7 @@ extension VRView {
         let rayCastImage = vtk.rayCastImageInfoFused(blendingView)
 
         if !blendingView { horosWriteDirectPictureIntoImage() }
-        let im = vtk.rayCastImageFused(blendingView)!
+        guard let im = vtk.rayCastImageFused(blendingView) else { return nil }
 
         let fullSize0 = Int(rayCastImage.memorySize.0)
 

@@ -29,6 +29,7 @@
 		<string>viewer.read</string>
 		<string>viewer.write</string>
 		<string>roi</string>
+		<string>report</string>
 	</array>
 </dict>
 </plist>

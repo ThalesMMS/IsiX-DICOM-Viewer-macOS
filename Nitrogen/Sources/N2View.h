@@ -44,8 +44,13 @@
 
 @class N2Layout;
 
-static NSNotificationName const N2ViewBoundsSizeDidChangeNotification = @"N2ViewBoundsSizeDidChangeNotification";
-static NSString* const N2ViewBoundsSizeDidChangeNotificationOldBoundsSize = @"oldBoundsSize";
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m, and not const, as the Horos and OsiriX plugin
+// SDK declared them: plugins built for it look these names up. Nothing writes them.
+extern NSNotificationName N2ViewBoundsSizeDidChangeNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSString* N2ViewBoundsSizeDidChangeNotificationOldBoundsSize NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

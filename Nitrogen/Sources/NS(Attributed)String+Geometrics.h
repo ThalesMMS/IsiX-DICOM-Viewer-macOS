@@ -89,9 +89,12 @@
  The estimate of line spacing is controlled by the NSTypesetterBehavior
  setting in the NSLayoutManager these methods use. They use its default,
  NSTypesetterLatestBehavior, appropriate to text rendered in an NSTextView or
- on a single line. The former global variable gNSStringGeometricsTypesetterBehavior,
- which could ask for the behavior of a wrapping NSTextField, is gone: Horos
- never changed it.
+ on a single line. A caller that measures for a wrapping NSTextField sets the
+ global variable gNSStringGeometricsTypesetterBehavior to
+ NSTypesetterBehavior_10_2_WithCompatibility before measuring: the next
+ measure of a string that is not empty uses that behavior and sets the
+ variable back to NSTypesetterLatestBehavior. The application never sets it;
+ a plugin built for Horos or OsiriX may.
  
  * ARGUMENTS width and height
  
@@ -150,3 +153,10 @@
 #ifndef HOROS_BRIDGING_HEADER
 #import "Horos-Swift.h"
 #endif
+
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m. As before it has no lock: who sets it measures
+// right after, on the same thread.
+extern int gNSStringGeometricsTypesetterBehavior NS_SWIFT_NONISOLATED_UNSAFE;

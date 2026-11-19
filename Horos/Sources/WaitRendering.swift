@@ -89,6 +89,10 @@ public final class WaitRendering: NSWindowController {
         set { stopFlag.store(newValue, ordering: .relaxed) }
     }
     private var supportCancel = false
+    /// cancel of an older header of the former Horos and OsiriX plugin SDK,
+    /// exported at this field's offset for the plugins built with it: the
+    /// name supportCancel had there. Written with supportCancel, never read.
+    final var cancelOfSDK = false
     private var session: NSApplication.ModalSession?
 
     /// assign: the delegate is not retained.
@@ -135,6 +139,7 @@ public final class WaitRendering: NSWindowController {
     @objc(setCancel:)
     public func setCancel(_ c: Bool) {
         supportCancel = c
+        cancelOfSDK = c
 
         abortOutlet?.isHidden = !c;         abortOutlet?.display()
         currentTimeText?.isHidden = !c;     currentTimeText?.display()
@@ -294,6 +299,7 @@ public final class WaitRendering: NSWindowController {
         string = str
         session = nil
         supportCancel = false
+        cancelOfSDK = false
         lastDuration = 0
         startTime = nil
         displayedTime = Date.timeIntervalSinceReferenceDate

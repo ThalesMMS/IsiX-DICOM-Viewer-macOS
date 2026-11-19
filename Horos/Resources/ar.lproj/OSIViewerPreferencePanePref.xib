@@ -117,7 +117,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="tool-style-popup">
-                                    <rect key="frame" x="200" y="47" width="160" height="22"/>
+                                    <rect key="frame" x="200" y="47" width="170" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="مربع إطار" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" selectedItem="tool-style-framed" id="tool-style-popup-cell">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -136,7 +136,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="104">
                                     <rect key="frame" x="10" y="30" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="أداة الحفاظ على زر الماوس اليسرى" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
+                                    <buttonCell key="cell" type="check" title="حفظ أداة زر الماوس الأيسر" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="342">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -147,7 +147,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="scroll-preview-control">
                                     <rect key="frame" x="10" y="10" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="عرض مسار الموقع أثناء التمرير" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
+                                    <buttonCell key="cell" type="check" title="إظهار معاينة موضع الشريحة أثناء التمرير" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="scroll-preview-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -169,7 +169,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="323">
                                     <rect key="frame" x="10" y="110" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="تطبيق زر المسلسل التالي/ السابق على جميع المشاهدين المفتوحين" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
+                                    <buttonCell key="cell" type="check" title="تطبيق زر السلسلة التالية/السابقة على كل العارضات المفتوحة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="350">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -180,7 +180,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="555">
                                     <rect key="frame" x="10" y="90" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="لا تغير السلسلة إذا كانت تظهر بالفعل" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
+                                    <buttonCell key="cell" type="check" title="عدم تغيير السلسلة إذا كانت معروضة بالفعل" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="556">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -191,7 +191,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="437">
                                     <rect key="frame" x="10" y="70" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="تظهر فقط صور نفس المريض" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
+                                    <buttonCell key="cell" type="check" title="عرض صور المريض نفسه فقط" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="438">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -213,7 +213,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="480">
                                     <rect key="frame" x="10" y="30" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="استخدم عرضًا واحدًا (1 × 1) في وضع ملء الشاشة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
+                                    <buttonCell key="cell" type="check" title="استخدام عرض واحد (1 × 1) في وضع ملء الشاشة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="481">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -222,14 +222,25 @@
                                     </connections>
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" id="412">
-                                    <rect key="frame" x="10" y="10" width="720" height="18"/>
+                                    <rect key="frame" x="10" y="10" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="فتح PDF باستخدام تطبيق Preview" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
+                                    <buttonCell key="cell" type="check" title="فتح ملفات PDF باستخدام تطبيق معاينة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="413">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <connections>
                                         <binding destination="308" name="value" keyPath="values.openPDFwithPreview" id="440"/>
+                                    </connections>
+                                </button>
+                                <button toolTip="في الوضع الداكن تُعرض مستندات PDF والتقارير المنظمة بألوان معكوسة: نص فاتح على صفحة داكنة. التصدير والطباعة والنسخ تعطي الصفحة الأصلية." horizontalCompressionResistancePriority="1000" id="invert-pdf-control">
+                                    <rect key="frame" x="316" y="10" width="440" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="عرض ملفات PDF والتقارير المنظمة معكوسة في الوضع الداكن" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="invert-pdf-cell">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="system"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="308" name="value" keyPath="values.InvertsDocumentPagesInDarkMode" id="invert-pdf-binding"/>
                                     </connections>
                                 </button>
                             </subviews>
@@ -273,7 +284,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="fit-open-control">
                                     <rect key="frame" x="10" y="50" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="زيادة المحتوى تلقائيًا عند فتح سلسلة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
+                                    <buttonCell key="cell" type="check" title="ضبط التكبير تلقائيًا على المحتوى عند فتح سلسلة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="fit-open-cell">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -293,14 +304,14 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="1Xf-Mw-WhA">
-                                    <rect key="frame" x="300" y="26" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="26" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="الإجراءات" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
+                                    <popUpButtonCell key="cell" type="push" title="أنواع التصوير" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" selectedItem="5Jf-1n-5Bm" id="fhV-XV-SCY">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="عروض أخرى" id="jDc-fg-eC3">
                                             <items>
-                                                <menuItem title="الإجراءات" hidden="YES" id="rUf-a6-mNm">
+                                                <menuItem title="أنواع التصوير" hidden="YES" id="rUf-a6-mNm">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
                                                 <menuItem title="CR" state="on" id="FOf-lv-Yw4">
@@ -734,14 +745,14 @@
                                     </connections>
                                 </button>
                                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="Pyh-nV-fiK">
-                                    <rect key="frame" x="300" y="119" width="112" height="26"/>
+                                    <rect key="frame" x="300" y="119" width="140" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="الإجراءات" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
+                                    <popUpButtonCell key="cell" type="push" title="أنواع التصوير" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" pullsDown="YES" id="XCc-0E-TE4">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="عروض أخرى" id="3N3-Wh-vx1">
                                             <items>
-                                                <menuItem title="الإجراءات" hidden="YES" id="M0C-0c-XXi">
+                                                <menuItem title="أنواع التصوير" hidden="YES" id="M0C-0c-XXi">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
                                                 <menuItem title="CR" state="on" id="8uS-Ii-xSk">
@@ -983,7 +994,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="335">
                                     <rect key="frame" x="130" y="107" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="حفظ حالة مساحة العمل تلقائيًا عند إغلاق جميع المشاهدين" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="362">
+                                    <buttonCell key="cell" type="check" title="حفظ حالة مساحة العمل تلقائيًا عند إغلاق جميع العارضات" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="362">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -991,7 +1002,7 @@
                                         <binding destination="308" name="value" keyPath="values.automaticWorkspaceSave" id="337"/>
                                     </connections>
                                 </button>
-                                <button toolTip="استعادة ترتيب المشاهد المحفوظ ، بما في ذلك الدراسات الأخرى المحفوظة في مساحة العمل." horizontalCompressionResistancePriority="1000" id="336">
+                                <button toolTip="استعادة ترتيب العارضات المحفوظ ، بما في ذلك الدراسات الأخرى المحفوظة في مساحة العمل." horizontalCompressionResistancePriority="1000" id="336">
                                     <rect key="frame" x="130" y="87" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="قم بتحميل حالة الفضاء التلقائي عند فتح الدراسة" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="363">
@@ -1093,7 +1104,7 @@
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="505">
-                                    <rect key="frame" x="8" y="258" width="122" height="17"/>
+                                    <rect key="frame" x="2" y="258" width="128" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="حجم النافذة:" id="506">
                                         <font key="font" metaFont="system"/>

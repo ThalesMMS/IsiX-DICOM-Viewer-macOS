@@ -73,6 +73,7 @@ final class AnonymizationErrorPresenter: NSObject {
 struct BurnOptions: Sendable { var destination: Int }
 final class BurnerWindowController: NSObject {
     var files: NSMutableArray?, dbObjectsID: NSMutableArray?, originalDbObjectsID: NSMutableArray?
+    var dbObjects: NSMutableArray?, originalDbObjects: NSMutableArray?
     var anonymizationTags: NSArray?, cancelled = false
     var browserWindow: BrowserWindowGraph? = BrowserWindowGraph()
     var writeDMGPath: String?, writeVolumePath: String?

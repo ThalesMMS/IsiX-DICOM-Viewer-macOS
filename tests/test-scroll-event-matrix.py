@@ -47,9 +47,20 @@ adjust = thick[a:thick.index('    /// The thick slab\'s on/off button', a)]
 if 'ViewerThickSlab(' in adjust:
     a = thick.index('    func adjust(bySteps steps: Int) {')
     # The double of the viewer is not main-actor isolated: neither are these.
+    # The scale of the slab at the image a view shows, which the steps and the
+    # thickness ask, with the positions it keeps: over the doubles' images,
+    # which hold their origin, orientation, location, thickness and interval
+    # as DCMPix does.
+    b = thick.index('    /// The scale of the slab at the image `view` shows')
+    scale = thick[b:thick.index('    /// What the slider asks for now', b)]
+    b = thick.index('/// Where the images of a viewer\'s lists stand along the normal')
+    positions = thick[b:]
     slab = ('struct ViewerThickSlab {\n    let viewer: ViewerController\n    let preferences: any PreferenceStore\n\n'
-            + thick[a:thick.index('    /// Fuses `stacks` slices in every movie', a)] + '}\n'
-            'final class HarnessSessionGraph {\n    var preferences: any PreferenceStore { UserDefaults.standard }\n}\n')
+            + thick[a:thick.index('    /// Fuses `stacks` slices in every movie', a)] + scale + '}\n' + positions +
+            'final class HarnessSessionGraph {\n    var preferences: any PreferenceStore { UserDefaults.standard }\n}\n'
+            'final class HarnessGeometryState {\n    let slabPositions = SlabPositions()\n    var slabRequestMillimetres: Double?\n}\n'
+            'private let harnessGeometry = HarnessGeometryState()\n')
+    adjust += '    var geometryState: HarnessGeometryState { harnessGeometry }\n'
     adjust += '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n'
 else:
     slab = ''
@@ -132,11 +143,20 @@ bridge = r'''
 -(void)setFusionMode:(NSInteger)mode;
 -(void)popFusionAction:(id)sender;
 -(void)sliderFusionAction:(id)sender;
+// Every image says where it is, unless a test says the series is still loading.
+@property BOOL loading;
+-(BOOL)isEverythingLoaded;
 @end
-@interface Frame:NSObject
+@interface Frame:NSObject {
+@public double normalAxes[9];
+}
 @property NSInteger ordinal, frameNumber, stack;
 @property double sliceLocation,sliceThickness;
 @property(retain) NSArray *position, *orientation;
+// What DCMPix holds without loading anything.
+@property double horos_originX, horos_originY, horos_originZ, horos_sliceInterval;
+@property(readonly) double horos_sliceLocation, horos_sliceThickness;
+@property(readonly) double *horos_orientation;
 @end
 // The Swift reads the frames as DCMPix.
 @compatibility_alias DCMPix Frame;
@@ -225,6 +245,7 @@ code = r'''
  self.appliedMode=mode;activatedFusion.state=mode?NSOnState:NSOffState;
  sliderFusion.enabled=mode!=0;self.projections++;
 }
+-(BOOL)isEverythingLoaded{return !self.loading;}
 -(void)popFusionAction:(id)sender {[self setFusionMode:self.refuse?0:self.selectedMode];[imageView sendSyncMessage:0];}
 -(void)sliderFusionAction:(id)sender {
  self.projections++;stacksFusion.integerValue=sliderFusion.integerValue;
@@ -233,6 +254,9 @@ code = r'''
 }
 @end
 @implementation Frame
+-(double)horos_sliceLocation{return self.sliceLocation;}
+-(double)horos_sliceThickness{return self.sliceThickness;}
+-(double*)horos_orientation{return normalAxes;}
 @end
 #define DCMPix Frame
 @interface Event:NSObject
@@ -352,8 +376,25 @@ int main(){@autoreleasepool{
  c->pixList[0]=@[v.curDCM];e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && v->curImage==10);
  c->pixList[0]=v->dcmPixList;c.refuse=YES;[v scrollWheel:(NSEvent*)e];check(c.appliedMode==0 && v->curImage==10);
  c.refuse=NO;c.selectedMode=3;[v scrollWheel:(NSEvent*)e];check(c.appliedMode==3 && c->sliderFusion.integerValue==2);
- [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20); // bounded by series
- calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls);
+ // Bounded by the images left from the one shown to the end of the series,
+ // towards its start here: 11 of 20 at image 10. Past them no step changes anything.
+ check(v->flippedData && v->curImage==10);
+ [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==11);
+ calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==11);
+ // Where fewer images are left than were asked for, the request is kept, and
+ // a step down leaves from the images fused, the next stop, not from the request.
+ v->curImage=4;calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==11);
+ e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==4 && c.projections==calls+1);
+ // The last image in the slab's direction has one stop: no step changes,
+ // stops or starts the slab, whichever way.
+ v->curImage=0;calls=c.projections;[v scrollWheel:(NSEvent*)e];e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];
+ check(c.projections==calls && c->sliderFusion.integerValue==4 && c->activatedFusion.state==NSOnState);
+ [c setFusionMode:0];calls=c.projections;[v scrollWheel:(NSEvent*)e];e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];
+ check(c.projections==calls && c->activatedFusion.state==NSOffState);
+ // The other way the whole series is left from there.
+ v->flippedData=NO;e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==2 && c->activatedFusion.state==NSOnState);
+ [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20);
+ v->flippedData=YES;v->curImage=10;
  // Fractions, natural scrolling and flipped order must preserve thickness intent.
  for(int natural=0;natural<2;natural++)for(int flipped=0;flipped<2;flipped++) {
   [c setFusionMode:0];v->flippedData=flipped;v->slabScrollRemainder=0;
@@ -404,14 +445,47 @@ int main(){@autoreleasepool{
  [v scrollWheel:(NSEvent*)e];
  check(!v->openingFitPending && v->scaleValue!=previousScale && v->curImage==13);
  NSLog(@"PASS: pending opening fit survives wheel/trackpad navigation and cancels for manual horizontal zoom");
- // Physical thickness is valid at origin zero and clipped at either edge.
- NSMutableArray *physical=[NSMutableArray array];
- for(int n=0;n<6;n++){Frame *f=[Frame new];f.sliceLocation=n*2;f.sliceThickness=2;f.stack=3;[physical addObject:f];}
- v->dcmPixList=physical;float mm,location;v->curImage=0;v->flippedData=NO;
+ // Physical thickness is valid at origin zero and clipped at either edge:
+ // the thickness of one slice and the distance to the last one fused, along
+ // the normal of the slices, by the scale of the slab the toolbar reads.
+ NSArray *(^series)(int, double, double, NSArray*)=^NSArray*(int count,double thickness,double interval,NSArray *normal){
+  NSMutableArray *list=[NSMutableArray array];
+  double n[3]={[normal[0] doubleValue],[normal[1] doubleValue],[normal[2] doubleValue]};
+  int dominant=fabs(n[0])>fabs(n[2])?0:2;
+  for(int i=0;i<count;i++){Frame *f=[Frame new];f.stack=3;f.sliceThickness=thickness;f.horos_sliceInterval=interval;
+   f.horos_originX=n[0]*i*interval;f.horos_originY=n[1]*i*interval;f.horos_originZ=n[2]*i*interval;
+   f->normalAxes[6]=n[0];f->normalAxes[7]=n[1];f->normalAxes[8]=n[2];
+   // The location is the coordinate on the dominant axis, as the image has it.
+   f.sliceLocation=n[dominant]*i*interval;[list addObject:f];}
+  return list;
+ };
+ c->sliderFusion.maxValue=128;
+ v->dcmPixList=series(6,2,2,@[@0,@0,@1]);float mm,location;v->curImage=0;v->flippedData=NO;
  [v getThickSlabThickness:&mm location:&location];check(mm==6 && location==2);
  v->curImage=5;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==10);
  v->flippedData=YES;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==8);
  v->curImage=0;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==0);
+ // Slices that overlap, 2 mm every 1 mm: three cover 4 mm.
+ v->dcmPixList=series(6,2,1,@[@0,@0,@1]);v->flippedData=NO;
+ [v getThickSlabThickness:&mm location:&location];check(mm==4 && location==1);
+ // Slices that do not say their thickness count the distance between two:
+ // three of them are 3 mm, not the 2 mm between the first and the last.
+ v->dcmPixList=series(6,0,1,@[@0,@0,@1]);
+ [v getThickSlabThickness:&mm location:&location];check(mm==3 && location==1);
+ // Without a slab the image's own thickness, none here, is not made up.
+ for(Frame *f in v->dcmPixList)f.stack=1;
+ [v getThickSlabThickness:&mm location:&location];check(mm==0 && location==0);
+ // An oblique series, 1 mm apart along its normal: 0.8 mm on its dominant axis.
+ v->dcmPixList=series(6,1,1,@[@0.6,@0,@0.8]);
+ [v getThickSlabThickness:&mm location:&location];check(fabsf(mm-3)<1e-5 && fabsf(location-0.8f)<1e-5);
+ // While the series loads, nothing asks an image where it is: its interval stands for the distances.
+ c.loading=YES;v->dcmPixList=series(6,2,1,@[@0,@0,@1]);for(Frame *f in v->dcmPixList)f.horos_originZ=NAN;
+ [v getThickSlabThickness:&mm location:&location];check(mm==4);
+ c.loading=NO;
+ // A slider that can ask for fewer images than the series has bounds the slab's scale.
+ c->sliderFusion.maxValue=2;v->dcmPixList=series(6,2,2,@[@0,@0,@1]);
+ [v getThickSlabThickness:&mm location:&location];check(mm==4);
+ c->sliderFusion.maxValue=128;
  NSLog(@"PASS: slab activation, fractions, bounds, refusal, modifier precedence, momentum (released and held) and physical thickness");
  NSLog(@"PASS: %lu scenarios, %lu gestures; precise/classic accessor, natural/reverse/flipped, four acquisition normals, single/multiframe, both drag axes and sync deltas",(unsigned long)scenarios,(unsigned long)gestures);
 }}

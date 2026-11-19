@@ -289,9 +289,32 @@ extension ViewerController {
         return !current.isFinished && !viewer.horos_requestLoadingCancel
     }
 
-    /// Reloads every slice from its files, with the series' presentation state.
-    func revert() {
+    /// Whether every slice that was decoded still has the file it was decoded
+    /// from, as it was then. Only then can the files give the series back: a
+    /// file removed since gives an empty slice and one rewritten gives other
+    /// pixels, and the slices released to read them again are gone for good.
+    func slicesMatchTheirFiles() -> Bool {
+        (0..<viewer.horos_movieCount).allSatisfy { x in viewer.horos_pixArray(x).allSatisfy { $0.loadedFileMatchesDisk() } }
+    }
+
+    /// Reloads every slice from its files, with the series' presentation
+    /// state; false, with the series as it is, when a file of it was removed
+    /// or changed since it was read.
+    @discardableResult
+    func revert() -> Bool {
         viewer.checkEverythingLoaded()
+
+        guard slicesMatchTheirFiles() else {
+            NSLog("Revert: a file of the series was removed or changed since it was read; the series is kept as it is")
+            return false
+        }
+
+        // The 3D windows opened on a series corrected for a gantry tilt render,
+        // cut and place their points in the corrected grid: while one is open
+        // the slices, which the files give tilted, are corrected again.
+        let correctsAgain = GantryTiltPolicy.correctedDegrees(of: viewer) != nil && NSApplication.shared.windows.contains {
+            ($0.windowController as? Window3DController)?.viewer() === viewer
+        }
 
         for x in 0..<viewer.horos_movieCount {
             for pix in viewer.horos_pixArray(x) { pix.revert() }
@@ -303,20 +326,36 @@ extension ViewerController {
         viewer.horos_imageView?.updatePresentationStateFromSeries()
 
         viewer.checkEverythingLoaded()
+        if correctsAgain {
+            ViewerController.correctGangtryTilt(viewer)
+            _ = viewer.computeInterval()
+        }
 
-        postViewerNotification(.OsirixUpdateVolumeData, viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex)))
+        // The 3D windows on the series forget the copies they kept of the volume before.
+        for x in 0..<viewer.horos_movieCount {
+            postViewerNotification(.OsirixUpdateVolumeData, viewer.horos_pixList(at: x), [VRController.horosReadFromFilesKey: false])
+        }
+        return true
     }
 
-    /// "Revert series": not for a series made by post processing.
+    /// "Revert series": not for a series made by post processing other than a
+    /// change of plane of the files' slices, nor for one whose files are no
+    /// longer those it was read from. Refused, it says why and the series
+    /// stays as it is.
     func revertUnlessPostprocessed() {
         if viewer.horos_postprocessed {
+            if ViewerPlaneChange(viewer: viewer).revertToFiles() { return }
             HorosAlertPanel.run(title: NSLocalizedString("Revert", comment: ""),
                                 message: NSLocalizedString("This dataset has been post processed (reslicing, MPR, ...). You cannot revert it.", comment: ""),
                                 defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
             return
         }
 
-        viewer.executeRevert()
+        if !revert() {
+            HorosAlertPanel.run(title: NSLocalizedString("Revert", comment: ""),
+                                message: NSLocalizedString("Files of this dataset were removed or changed since it was read. You cannot restore it.", comment: ""),
+                                defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+        }
     }
 
     /// A series was asked to revert (its slices are the notification's

@@ -184,11 +184,10 @@ import IsiXROI
 
     // MARK: - The labels
 
-    /// A label of a viewer, the list it is in and the two Lengths it means;
-    /// nil for one whose Length is not in the time point.
+    /// A label of a viewer and the two Lengths it means; nil for one whose
+    /// Length is not in the time point.
     struct Label {
         let roi: ROI
-        let list: NSMutableArray
         let numerator: ROI?
         let denominator: ROI?
     }
@@ -219,7 +218,7 @@ import IsiXROI
         }
         var labels: [Label] = []
         for label in found {
-            guard let list = slices.list(at: label.slice) else { continue }
+            guard slices.list(at: label.slice) != nil else { continue }
             let known = ROIRatioLabels.shared.lengths(of: label.roi)
             var lengths: [ROI?] = []
             for (identifier, known) in [(label.numerator, known.numerator), (label.denominator, known.denominator)] {
@@ -230,7 +229,7 @@ import IsiXROI
                 }
             }
             ROIRatioLabels.shared.remember(numerator: lengths[0], denominator: lengths[1], of: label.roi)
-            labels.append(Label(roi: label.roi, list: list, numerator: lengths[0], denominator: lengths[1]))
+            labels.append(Label(roi: label.roi, numerator: lengths[0], denominator: lengths[1]))
         }
         return labels
     }
@@ -350,8 +349,7 @@ public final class ROIRatioLabels: NSObject {
     }
 
     private var viewers: [ViewerController] {
-        ((ViewerController.getDisplayed2DViewers() as NSArray?) ?? NSArray()).compactMap { $0 as? ViewerController }
-            .filter { !$0.windowWillClose() }
+        (ViewerController.getDisplayed2DViewers()?.compactMap { $0 as? ViewerController } ?? []).filter { !$0.windowWillClose() }
     }
 
     // MARK: Notifications

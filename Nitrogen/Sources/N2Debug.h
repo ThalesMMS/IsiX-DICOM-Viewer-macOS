@@ -71,6 +71,10 @@ extern void N2LogStackTrace(NSString* format, ...);
 // argument list (Swift).
 extern void N2LogStackTraceMessage(NSString* message);
 
+// "[x,y,width,height]" and "[x,y]" (N2Debug.swift).
+extern NSString* RectString(NSRect r);
+extern NSString* PointString(NSPoint p);
+
 #ifdef __cplusplus
 }
 #endif

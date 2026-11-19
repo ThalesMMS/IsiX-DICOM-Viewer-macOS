@@ -42,17 +42,23 @@ import Foundation
 
 /// Linear interpolation for FlyThru: a piecewise linear function on each
 /// coordinate, VTK's, through its adapter (IsiXVTKCurve3D). The Objective-C
-/// name and selectors are those of the former class.
+/// name, superclass and selectors are those of the former class.
 @objc(Piecewise3D)
-public final class Piecewise3D: NSObject, Interpolation3D {
+public final class Piecewise3D: Interpolation3D {
     private let curve = IsiXVTKCurve3D(kind: .piecewiseLinear)
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads at the offset the application exports for each: the three
+    // VTK functions, pointers to C++ objects that were never retained. The
+    // curve is the adapter's now, and these stay nil.
+    unowned(unsafe) var xPiecewise: AnyObject?, yPiecewise: AnyObject?, zPiecewise: AnyObject?
 
     @objc public override init() {
         super.init()
     }
 
     @objc(addPoint::)
-    public func addPoint(_ t: Float, _ p: Point3D!) {
+    public override func addPoint(_ t: Float, _ p: Point3D!) {
         do {
             try curve.addPoint(at: Double(t), x: Double(p?.x ?? 0), y: Double(p?.y ?? 0), z: Double(p?.z ?? 0))
         } catch {
@@ -61,7 +67,7 @@ public final class Piecewise3D: NSObject, Interpolation3D {
     }
 
     @objc(evaluateAt:)
-    public func evaluate(at t: Float) -> Point3D! {
+    public override func evaluate(at t: Float) -> Point3D! {
         var point = [Double](repeating: 0, count: 3)
         do {
             try curve.evaluate(at: Double(t), point: &point)

@@ -85,6 +85,11 @@ public final class NetworkNotices: NSObject {
     /// How many distinct notices are listed. Main thread.
     @objc public static var noticeCount: Int { log.entries.count }
 
+    /// How many notices were posted for those listed, a notice posted again
+    /// counted each time: the list shows a repeat as a count on its row. Main
+    /// thread.
+    @objc public static var postedCount: Int { log.entries.reduce(0) { $0 + $1.count } }
+
     /// Whether the panel is on screen. Main thread.
     @objc public static var isShowing: Bool { panel?.isVisible ?? false }
 

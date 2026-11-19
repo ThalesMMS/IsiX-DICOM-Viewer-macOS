@@ -68,6 +68,12 @@ for source in sources:
             assert decoded(b) == hi.get(decoded(a), decoded(a)), (source, a.get('key'))
             assert Counter(re.findall(r'%\{[^}]+\}@', a.text)) == Counter(re.findall(r'%\{[^}]+\}@', b.text or ''))
 
+# One word for a term, the Viewers pane's: to propagate is प्रसार (प्रचार is publicity), a modality is मोडैलिटी
+# (not a means or a manner), a viewer is व्यूअर (दर्शक is a spectator).
+for key, value in hi.items():
+    assert 'प्रचा' not in value and 'दर्शक' not in value, f'Wrong Hindi term in {key!r}: {value!r}'
+    assert not (re.search('odalit', key, re.I) and re.search('साधन|तौर-तरीक', value)), f'Modality in {key!r}: {value!r}'
+assert hi['Modality'] == 'मोडैलिटी' and hi['Propagate'] == 'प्रसार'
 assert hi['Cancel'] == 'रद्द करें'
 assert hi['Database'] == 'डेटाबेस'
 assert hi['2D Viewer'] == '2D व्यूअर'

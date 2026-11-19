@@ -38,12 +38,80 @@ public enum DicomSEGDiagnosis: String, Equatable, Hashable, Error {
     case invalidColor = "invalid-display-color"
 }
 
+/// An instance a segmentation was made from.
+public struct DicomSEGSourceInstance: Equatable {
+    public var sopInstanceUID: String
+    /// Empty when nothing states it.
+    public var sopClassUID: String
+
+    public init(sopInstanceUID: String, sopClassUID: String = "") {
+        self.sopInstanceUID = sopInstanceUID
+        self.sopClassUID = sopClassUID
+    }
+}
+
+/// A series a segmentation was made from, with the instances of it that the
+/// segmentation names: an item of its Referenced Series Sequence (PS 3.3
+/// C.12.2).
+public struct DicomSEGSourceSeries: Equatable {
+    /// The series of the sources, which is never the segmentation's own.
+    /// Empty when the object does not say which it is.
+    public var seriesInstanceUID: String
+    public var instances: [DicomSEGSourceInstance]
+
+    public init(seriesInstanceUID: String, instances: [DicomSEGSourceInstance]) {
+        self.seriesInstanceUID = seriesInstanceUID
+        self.instances = instances
+    }
+}
+
 public struct DicomSEGIdentity: Equatable {
     public var sopInstanceUID: String
+    /// The series of the segmentation itself.
     public var seriesInstanceUID: String
     public var studyInstanceUID: String
     public var frameOfReferenceUID: String
+    /// Every instance the segmentation was made from, whatever its series.
     public var sourceSOPInstanceUIDs: [String]
+    /// The same instances by the series they are of, where that is known:
+    /// one of `sourceSOPInstanceUIDs` that no series here holds is of a
+    /// series nobody stated.
+    public var sourceSeries: [DicomSEGSourceSeries] = []
+
+    /// The sources by series, each instance with the series and the class
+    /// that `origin` knows for it where the identity states none. Nothing is
+    /// taken from `origin` for an instance whose series is stated.
+    public func namingSourceSeries(with origin: (String) -> DicomSEGSourceSeries?) -> [DicomSEGSourceSeries] {
+        var named: [DicomSEGSourceSeries] = []
+        func add(_ instance: DicomSEGSourceInstance, to series: String) {
+            if let index = named.firstIndex(where: { $0.seriesInstanceUID == series }) {
+                if !named[index].instances.contains(where: { $0.sopInstanceUID == instance.sopInstanceUID }) {
+                    named[index].instances.append(instance)
+                }
+            } else {
+                named.append(DicomSEGSourceSeries(seriesInstanceUID: series, instances: [instance]))
+            }
+        }
+        var stated = Set<String>()
+        for series in sourceSeries where !series.seriesInstanceUID.isEmpty {
+            for instance in series.instances {
+                var instance = instance
+                if instance.sopClassUID.isEmpty { instance.sopClassUID = origin(instance.sopInstanceUID)?.instances.first?.sopClassUID ?? "" }
+                add(instance, to: series.seriesInstanceUID)
+                stated.insert(instance.sopInstanceUID)
+            }
+        }
+        let unstated = sourceSeries.filter { $0.seriesInstanceUID.isEmpty }.flatMap(\.instances)
+            + sourceSOPInstanceUIDs.map { DicomSEGSourceInstance(sopInstanceUID: $0) }
+        for instance in unstated where !stated.contains(instance.sopInstanceUID) {
+            let known = origin(instance.sopInstanceUID)
+            var instance = instance
+            if instance.sopClassUID.isEmpty { instance.sopClassUID = known?.instances.first?.sopClassUID ?? "" }
+            add(instance, to: known?.seriesInstanceUID ?? "")
+            stated.insert(instance.sopInstanceUID)
+        }
+        return named
+    }
 
     public static let jsonKeys = [
         "sopInstanceUID", "seriesInstanceUID", "studyInstanceUID",
@@ -149,8 +217,42 @@ public struct DicomSEGDocument: Equatable {
     public var segments: [DicomSEGSegment]
     public var diagnoses: [DicomSEGDiagnosis]
     public var sourceBytes: Data?
+    /// What a fractional value means, PROBABILITY or OCCUPANCY (Segmentation
+    /// Fractional Type, PS 3.3 C.8.20.2): as the object read states it.
+    public var fractionalType = "PROBABILITY"
     /// SEG is never a scalar acquisition in preview.
     public var previewKind: String { "segmentation" }
+
+    /// The type the object is written with, which is one for all its
+    /// segments (Segmentation Type): FRACTIONAL while any segment holds
+    /// fractions, BINARY once every one is a mask, whatever the document was
+    /// when it was read. A document whose segments were all thresholded is a
+    /// binary object.
+    public var writtenKind: DicomSEGKind {
+        segments.contains(where: { $0.kind == .fractional }) ? .fractional : .binary
+    }
+
+    /// The Maximum Fractional Value a fractional object is written with: that
+    /// of its fractional segments, the first one's.
+    public var writtenMaximumFractionalValue: UInt8 {
+        max(1, segments.first(where: { $0.kind == .fractional })?.maximumFractionalValue ?? 255)
+    }
+
+    /// The frames of `segment` as a fractional object holds them, every value
+    /// out of `writtenMaximumFractionalValue`. A mask among fractional
+    /// segments is all there where it is there: its voxels take the maximum,
+    /// which a reader takes for 1, where 1 written as it stands is the
+    /// smallest fraction there is. Fractions out of another maximum are
+    /// brought to this one.
+    public func fractionalFrames(of segment: DicomSEGSegment) -> [Data] {
+        let maximum = writtenMaximumFractionalValue
+        if segment.kind == .binary {
+            return segment.frames.map { Data($0.map { $0 > 0 ? maximum : 0 }) }
+        }
+        let own = max(1, segment.maximumFractionalValue)
+        if own == maximum { return segment.frames }
+        return segment.frames.map { Data($0.map { UInt8(min(255, (Int(min($0, own)) * Int(maximum) + Int(own) / 2) / Int(own))) }) }
+    }
 }
 
 public enum DicomSEGCommand: Equatable {
@@ -159,6 +261,7 @@ public enum DicomSEGCommand: Equatable {
     case setVisibility(number: UInt16, from: Bool, to: Bool)
     case setOpacity(number: UInt16, from: Double, to: Double)
     case setMask(number: UInt16, from: [Data], to: [Data], explicit: Bool)
+    case binarize(from: DicomSEGSegment, to: DicomSEGSegment)
     case duplicate(from: UInt16, created: DicomSEGSegment)
     case remove(index: Int, segment: DicomSEGSegment)
 
@@ -174,6 +277,8 @@ public enum DicomSEGCommand: Equatable {
             return n1 == n2 && a1 == a2 && b1 == b2
         case let (.setMask(n1, a1, b1, e1), .setMask(n2, a2, b2, e2)):
             return n1 == n2 && a1 == a2 && b1 == b2 && e1 == e2
+        case let (.binarize(a1, b1), .binarize(a2, b2)):
+            return a1 == a2 && b1 == b2
         case let (.duplicate(a, s1), .duplicate(b, s2)):
             return a == b && s1 == s2
         case let (.remove(i1, s1), .remove(i2, s2)):
@@ -250,12 +355,13 @@ public final class DicomSEGStore: NSObject {
     public func binarize(segment number: UInt16, threshold: UInt8) -> DicomSEGDiagnosis? {
         guard let index = index(of: number) else { return .emptySegment }
         let segment = document.segments[index]
-        let converted = segment.frames.map { frame in
+        var converted = segment
+        converted.frames = segment.frames.map { frame in
             Data(frame.map { $0 >= threshold ? UInt8(1) : 0 })
         }
-        apply(.setMask(number: number, from: segment.frames, to: converted, explicit: true), record: true)
-        document.segments[index].kind = .binary
-        document.segments[index].provenance += "; thresholded at \(threshold)"
+        converted.kind = .binary
+        converted.provenance += "; thresholded at \(threshold)"
+        apply(.binarize(from: segment, to: converted), record: true)
         return nil
     }
 
@@ -328,6 +434,8 @@ public final class DicomSEGStore: NSObject {
             if let i = index(of: number) { surfaceOpacities[document.segments[i].trackingUID] = to }
         case let .setMask(number, _, to, _):
             if let i = index(of: number) { document.segments[i].frames = to }
+        case let .binarize(_, to):
+            if let i = index(of: to.number) { document.segments[i] = to }
         case let .duplicate(source, created):
             surfaceOpacities[created.trackingUID] = opacity(segment: source)
             if document.segments.contains(where: { $0.number == created.number }) == false {
@@ -353,13 +461,9 @@ public final class DicomSEGStore: NSObject {
         case let .setOpacity(number, from, _):
             if let i = index(of: number) { surfaceOpacities[document.segments[i].trackingUID] = from }
         case let .setMask(number, from, _, _):
-            if let i = index(of: number) {
-                document.segments[i].frames = from
-                if let range = document.segments[i].provenance.range(of: "; thresholded at ") {
-                    document.segments[i].provenance.removeSubrange(range.lowerBound...)
-                    document.segments[i].kind = .fractional
-                }
-            }
+            if let i = index(of: number) { document.segments[i].frames = from }
+        case let .binarize(from, _):
+            if let i = index(of: from.number) { document.segments[i] = from }
         case let .duplicate(_, created):
             document.segments.removeAll { $0.number == created.number }
         case let .remove(index, segment):
@@ -449,12 +553,17 @@ public enum DicomSEGCodec {
         if sopClass != sopClassUID {
             diagnoses.append(.notSegmentation)
         }
-        let identity = DicomSEGIdentity(
+        let ownSeries = DicomBinary.string(elements, 0x0020, 0x000E)
+        let sourceSeries = referencedSeries(elements, ownSeries: ownSeries)
+        var sourceSOPs: [String] = []
+        for uid in sourceSeries.flatMap(\.instances).map(\.sopInstanceUID) where !sourceSOPs.contains(uid) { sourceSOPs.append(uid) }
+        var identity = DicomSEGIdentity(
             sopInstanceUID: DicomBinary.string(elements, 0x0008, 0x0018),
-            seriesInstanceUID: DicomBinary.string(elements, 0x0020, 0x000E),
+            seriesInstanceUID: ownSeries,
             studyInstanceUID: DicomBinary.string(elements, 0x0020, 0x000D),
             frameOfReferenceUID: DicomBinary.string(elements, 0x0020, 0x0052),
-            sourceSOPInstanceUIDs: referencedSOPs(elements)
+            sourceSOPInstanceUIDs: sourceSOPs,
+            sourceSeries: sourceSeries
         )
         let rows = Int(DicomBinary.us(elements, 0x0028, 0x0010) ?? 0)
         let columns = Int(DicomBinary.us(elements, 0x0028, 0x0011) ?? 0)
@@ -495,6 +604,14 @@ public enum DicomSEGCodec {
             }
             frameReferences.append(references)
             frameSOPs.append(references.first?.sopInstanceUID ?? "")
+        }
+        // An object that names no series for its sources still names the
+        // sources, frame by frame: they are what it was made from.
+        if identity.sourceSOPInstanceUIDs.isEmpty {
+            for reference in frameReferences.flatMap({ $0 }) where !reference.sopInstanceUID.isEmpty
+                && !identity.sourceSOPInstanceUIDs.contains(reference.sopInstanceUID) {
+                identity.sourceSOPInstanceUIDs.append(reference.sopInstanceUID)
+            }
         }
         if frameOrigins.isEmpty {
             frameOrigins = [Array(repeating: 0, count: 3)]
@@ -570,13 +687,15 @@ public enum DicomSEGCodec {
         if identity.frameOfReferenceUID.isEmpty {
             diagnoses.append(.missingFrameOfReference)
         }
+        let fractionalType = DicomBinary.string(elements, 0x0062, 0x0010)
         return DicomSEGDocument(
             identity: identity,
             geometry: geometry,
             kind: kind,
             segments: segments,
             diagnoses: Array(Set(diagnoses)),
-            sourceBytes: data
+            sourceBytes: data,
+            fractionalType: fractionalType.isEmpty ? "PROBABILITY" : fractionalType
         )
     }
 
@@ -586,21 +705,24 @@ public enum DicomSEGCodec {
     }
 
     public static func encode(_ document: DicomSEGDocument) throws -> Data {
-        let bits: UInt16 = document.kind == .binary ? 1 : 8
+        // By what the segments hold now: see DicomSEGDocument.writtenKind.
+        let kind = document.writtenKind
+        let bits: UInt16 = kind == .binary ? 1 : 8
         var frameItems: [[DicomBinary.Element]] = []
         var pixel = Data()
         for segment in document.segments {
-            for (index, plane) in segment.frames.enumerated() {
+            let written = kind == .fractional ? document.fractionalFrames(of: segment) : segment.frames
+            for (index, plane) in written.enumerated() {
                 let origin = document.geometry.frameOrigin(index)
                 let sop = index < segment.referencedSOPInstanceUIDs.count ? segment.referencedSOPInstanceUIDs[index] : (segment.referencedSOPInstanceUIDs.first ?? "")
                 let sources = index < segment.frameReferences.count ? segment.frameReferences[index]
                     : (sop.isEmpty ? [] : [DicomSEGSourceReference(sopInstanceUID: sop,
                         sopClassUID: "1.2.840.10008.5.1.4.1.1.2", frameNumbers: [])])
                 frameItems.append(perFrameItem(origin: origin, segment: segment.number, sources: sources))
-                if document.kind == .fractional { pixel.append(plane) }
+                if kind == .fractional { pixel.append(plane) }
             }
         }
-        if document.kind == .binary {
+        if kind == .binary {
             pixel = packBinary(document.segments.flatMap(\.frames),
                                rows: document.geometry.rows, columns: document.geometry.columns)
         }
@@ -612,7 +734,7 @@ public enum DicomSEGCodec {
             DicomBinary.ui(0x0020, 0x000E, document.identity.seriesInstanceUID),
             DicomBinary.ui(0x0020, 0x0052, document.geometry.frameOfReferenceUID),
             DicomBinary.cs(0x0008, 0x0060, "SEG"),
-            DicomBinary.cs(0x0062, 0x0001, document.kind.rawValue),
+            DicomBinary.cs(0x0062, 0x0001, kind.rawValue),
             DicomBinary.us(0x0028, 0x0002, 1),
             DicomBinary.cs(0x0028, 0x0004, "MONOCHROME2"),
             DicomBinary.is(0x0028, 0x0008, "\(max(1, document.segments.reduce(0) { $0 + $1.frames.count }))"),
@@ -623,15 +745,16 @@ public enum DicomSEGCodec {
             DicomBinary.us(0x0028, 0x0102, bits == 1 ? 0 : 7),
             DicomBinary.us(0x0028, 0x0103, 0)
         ]
-        if document.kind == .fractional {
-            dataset.append(DicomBinary.us(0x0062, 0x000E, UInt16(document.segments.first?.maximumFractionalValue ?? 255)))
+        if kind == .fractional {
+            dataset.append(DicomBinary.us(0x0062, 0x000E, UInt16(document.writtenMaximumFractionalValue)))
+            dataset.append(DicomBinary.cs(0x0062, 0x0010, document.fractionalType == "OCCUPANCY" ? "OCCUPANCY" : "PROBABILITY"))
         }
         dataset.append(DicomBinary.sq(0x0062, 0x0002, try document.segments.map(segmentItem)))
         dataset.append(DicomBinary.sq(0x5200, 0x9229, [sharedItem(document.geometry)]))
         dataset.append(DicomBinary.sq(0x5200, 0x9230, frameItems))
-        if !document.identity.sourceSOPInstanceUIDs.isEmpty {
-            dataset.append(DicomBinary.sq(0x0008, 0x1115, [referencedSeries(document.identity,
-                sources: document.segments.flatMap(\.frameReferences).flatMap { $0 })]))
+        let referenced = referencedSeriesItems(document.identity, sources: document.segments.flatMap(\.frameReferences).flatMap { $0 })
+        if !referenced.isEmpty {
+            dataset.append(DicomBinary.sq(0x0008, 0x1115, referenced))
         }
         dataset.append(DicomBinary.ob(0x7FE0, 0x0010, pixel))
         return DicomBinary.file(classUID: sopClassUID, instanceUID: document.identity.sopInstanceUID, dataset: dataset)
@@ -648,15 +771,29 @@ public enum DicomSEGCodec {
         )
     }
 
-    private static func referencedSOPs(_ elements: [DicomBinary.Element]) -> [String] {
-        var uids: [String] = []
+    /// The items of Referenced Series Sequence (0008,1115): the series the
+    /// segmentation was made from and, under Referenced Instance Sequence
+    /// (0008,114A), the instances of each.
+    ///
+    /// What this application wrote before listed the instances under
+    /// Referenced Image Sequence (0008,1140), which is not an attribute of
+    /// the item, and gave the segmentation's own series for theirs. Such an
+    /// item is still read, its instances kept, and a series that is the
+    /// segmentation's own is taken as not stated: no source is of it.
+    private static func referencedSeries(_ elements: [DicomBinary.Element], ownSeries: String) -> [DicomSEGSourceSeries] {
+        var all: [DicomSEGSourceSeries] = []
         for series in DicomBinary.sequence(elements, 0x0008, 0x1115) {
-            for instance in DicomBinary.sequence(series, 0x0008, 0x1140) {
-                let uid = DicomBinary.string(instance, 0x0008, 0x1155)
-                if !uid.isEmpty { uids.append(uid) }
+            var items = DicomBinary.sequence(series, 0x0008, 0x114A)
+            if items.isEmpty { items = DicomBinary.sequence(series, 0x0008, 0x1140) }
+            let instances = items.compactMap { item -> DicomSEGSourceInstance? in
+                let uid = DicomBinary.string(item, 0x0008, 0x1155)
+                return uid.isEmpty ? nil : DicomSEGSourceInstance(sopInstanceUID: uid, sopClassUID: DicomBinary.string(item, 0x0008, 0x1150))
             }
+            if instances.isEmpty { continue }
+            let uid = DicomBinary.string(series, 0x0020, 0x000E)
+            all.append(DicomSEGSourceSeries(seriesInstanceUID: uid == ownSeries ? "" : uid, instances: instances))
         }
-        return uids
+        return all
     }
 
     private static func unpack(_ pixel: Data, rows: Int, columns: Int, frames: Int, bits: Int, kind: DicomSEGKind) -> (frames: [Data], truncated: Bool) {
@@ -763,16 +900,29 @@ public enum DicomSEGCodec {
         return items
     }
 
-    private static func referencedSeries(_ identity: DicomSEGIdentity, sources: [DicomSEGSourceReference]) -> [DicomBinary.Element] {
-        let instances = identity.sourceSOPInstanceUIDs.map { uid -> [DicomBinary.Element] in
-            [DicomBinary.ui(0x0008, 0x1150, sources.first(where: { $0.sopInstanceUID == uid })?.sopClassUID
-                ?? "1.2.840.10008.5.1.4.1.1.2"),
-             DicomBinary.ui(0x0008, 0x1155, uid)]
-        }
-        return [
-            DicomBinary.ui(0x0020, 0x000E, identity.seriesInstanceUID),
-            DicomBinary.sq(0x0008, 0x1140, instances)
-        ]
+    /// One item of Referenced Series Sequence for each series the sources
+    /// are known to be of: its Series Instance UID and, under Referenced
+    /// Instance Sequence (0008,114A), its instances with their classes
+    /// (PS 3.3 C.12.2). The class of an instance is the one stated for it,
+    /// that of a frame's source reference to it, or CT Image Storage.
+    ///
+    /// The segmentation's own series is the source of nothing, and an
+    /// instance whose series nobody stated has no item to go in: it stays
+    /// named by the frames made from it, in their Source Image Sequence.
+    private static func referencedSeriesItems(_ identity: DicomSEGIdentity, sources: [DicomSEGSourceReference]) -> [[DicomBinary.Element]] {
+        identity.namingSourceSeries { _ in nil }
+            .filter { !$0.seriesInstanceUID.isEmpty && $0.seriesInstanceUID != identity.seriesInstanceUID }
+            .map { series in
+                let instances = series.instances.map { instance -> [DicomBinary.Element] in
+                    let stated = instance.sopClassUID.isEmpty
+                        ? sources.first(where: { $0.sopInstanceUID == instance.sopInstanceUID && !$0.sopClassUID.isEmpty })?.sopClassUID
+                        : instance.sopClassUID
+                    return [DicomBinary.ui(0x0008, 0x1150, stated ?? "1.2.840.10008.5.1.4.1.1.2"),
+                            DicomBinary.ui(0x0008, 0x1155, instance.sopInstanceUID)]
+                }
+                return [DicomBinary.sq(0x0008, 0x114A, instances),
+                        DicomBinary.ui(0x0020, 0x000E, series.seriesInstanceUID)]
+            }
     }
 }
 
@@ -923,9 +1073,15 @@ enum DicomBinary {
         return data
     }
 
+    /// The elements of a data set or of an item, in the ascending order of
+    /// their tags that PS 3.5 7.1 asks for, whatever order they were put
+    /// together in.
     private static func encode(_ elements: [Element]) -> Data {
         var data = Data()
-        for element in elements { data.append(encode(element)) }
+        let ordered = elements.enumerated().sorted {
+            ($0.element.group, $0.element.element, $0.offset) < ($1.element.group, $1.element.element, $1.offset)
+        }
+        for (_, element) in ordered { data.append(encode(element)) }
         return data
     }
 

@@ -182,9 +182,10 @@ else:
     series_state = (root / 'Horos/Sources/ViewerController+SeriesState.swift').read_text()
     storage = (root / 'Horos/Sources/ViewerControllerStorage.swift').read_text()
     slot_set = re.search(r'    func set\(_ value: Value\?, at index: Int\) \{\n(.*?)\n    \}', storage, re.S)
-    retains_first = ('func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { seriesState.roiList.set(value, at: index) }' in series_state
+    retains_first = ('func horos_setRoiList(_ value: NSMutableArray?, at index: Int) { ViewerFrameListFields.roiList(of: self).set(value, at: index) }' in series_state
                      and slot_set is not None
-                     and re.search(r'\.retain\(\) \}\n\s*slots\[index\]\?\.release\(\)', slot_set.group(1)))
+                     and re.search(r'\.retain\(\)\.toOpaque\(\) \}\n\s*if let old = slots\[index\] \{ Unmanaged<Value>\.fromOpaque\(old\)\.release\(\) \}',
+                                   slot_set.group(1)))
 if not retains_first:
     failures.append('horos_setRoiList:at: must retain the new array before releasing the old one')
 

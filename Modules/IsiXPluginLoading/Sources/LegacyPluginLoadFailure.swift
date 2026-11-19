@@ -89,4 +89,23 @@ public struct LegacyPluginLoadFailure: Sendable, Equatable {
     public var linkDetail: String? {
         isLinkError ? dyldMessage : nil
     }
+
+    /// Whether what dyld missed is of the SDK framework: a plugin made with
+    /// a newer IsiXPluginKit than the application has uses a symbol this one
+    /// lacks.
+    public var missesKitSymbol: Bool {
+        isLinkError && missingSymbol != nil && dyldReason?.contains(PluginContract.kitFrameworkName) == true
+    }
+
+    /// The reason the plugin manager shows for a version 1 plugin that did
+    /// not load: `description`, the error's own, alone says only that the
+    /// bundle could not be loaded.
+    public func version1Reason(description: String) -> String {
+        if missesKitSymbol {
+            return "The plugin was made with a newer plugin SDK than this application has. Update the application, "
+                + "or obtain a version of the plugin made for this one. (\(dyldMessage ?? description))"
+        }
+        guard let detail = linkDetail else { return description }
+        return description + " " + detail
+    }
 }

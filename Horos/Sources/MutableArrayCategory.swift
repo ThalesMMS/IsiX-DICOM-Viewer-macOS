@@ -39,12 +39,28 @@
 
 import Foundation
 
-// NSMutableArray (MutableArrayCategory) is implemented in Swift; the
-// selectors and <Horos/MutableArrayCategory.h> are those of the former
-// category, without -shuffle and NSArray (ArrayCategory) -shuffledArray, which
-// nothing sent any more.
+// NSMutableArray (MutableArrayCategory) and NSArray (ArrayCategory) are
+// implemented in Swift; the selectors and <Horos/MutableArrayCategory.h> are
+// those of the former categories. The application sends neither -shuffle nor
+// -shuffledArray; plugins built for Horos and OsiriX do.
+public extension NSArray {
+    /// A copy of the array in random order.
+    @objc(shuffledArray)
+    func legacyShuffledArray() -> [Any] { (self as [AnyObject]).shuffled() }
+}
 
 public extension NSMutableArray {
+    /// Puts the objects of the array in random order, in place, and answers
+    /// the array. The former method returned nothing; a system framework has
+    /// a method of this name on NSArray that leaves the receiver as it is and
+    /// answers a shuffled copy, and this one serves a caller of either.
+    @objc(shuffle) @discardableResult
+    func legacyShuffle() -> Any {
+        for index in stride(from: count - 1, to: 0, by: -1) {
+            exchangeObject(at: index, withObjectAt: Int.random(in: 0...index))
+        }
+        return self
+    }
 
     // appends array to self except when the object is already in the array as determined by isEqual:
     @objc(mergeWithArray:)

@@ -39,6 +39,7 @@
                 <outlet property="tbTools" destination="697" id="742"/>
                 <outlet property="tbViewsPosition" destination="1430" id="1439"/>
                 <outlet property="tbWLWW" destination="672" id="741"/>
+                <outlet property="thickSlabSlider" destination="663" id="slab-scale-slider-outlet"/>
                 <outlet property="toolsMatrix" destination="700" id="1081"/>
                 <outlet property="topTransverseView" destination="1176" id="1183"/>
                 <outlet property="verticalSplit" destination="357" id="1159"/>
@@ -144,6 +145,8 @@
                 <string>clippingRangeActivated</string>
                 <string>LOD</string>
                 <string>clippingRangeThicknessInMm</string>
+                <string>thickSlabSliderPosition</string>
+                <string>thickSlabFieldThickness</string>
                 <string>colorAxis1</string>
                 <string>colorAxis2</string>
                 <string>colorAxis3</string>
@@ -964,13 +967,13 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="225" height="40"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
-                    <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="663">
+                    <slider customClass="HorosMPRThickSlabSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="663">
                         <rect key="frame" x="61" y="4" width="155" height="15"/>
-                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="200" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">
+                        <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="1" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">
                             <font key="font" size="12" name="Helvetica"/>
                         </sliderCell>
                         <connections>
-                            <binding destination="342" name="value" keyPath="selection.clippingRangeThickness" id="746"/>
+                            <binding destination="342" name="value" keyPath="selection.thickSlabSliderPosition" id="746"/>
                         </connections>
                     </slider>
                     <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="749" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="660">
@@ -1004,18 +1007,13 @@ Gw
                             <constraint firstAttribute="width" constant="47" id="22w-MA-a1Q"/>
                         </constraints>
                         <textFieldCell key="cell" controlSize="mini" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="center" title="128" bezelStyle="round" id="1637">
-                            <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.##" negativeFormat="#.##" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="309" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="1638">
-                                <nil key="negativeInfinitySymbol"/>
-                                <nil key="positiveInfinitySymbol"/>
-                            </numberFormatter>
+                            <customFormatter key="formatter" id="1638" customClass="IsiXThickSlabFieldFormatter"/>
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                         <connections>
-                            <binding destination="342" name="value" keyPath="selection.clippingRangeThicknessInMm" previousBinding="1644" id="1645"/>
-                            <binding destination="342" name="maxValue" keyPath="selection.dcmIntervalMax" id="1643"/>
-                            <binding destination="342" name="minValue" keyPath="selection.dcmIntervalMin" previousBinding="1643" id="1644"/>
+                            <binding destination="342" name="value" keyPath="selection.thickSlabFieldThickness" id="1645"/>
                         </connections>
                     </textField>
                 </subviews>
@@ -1148,7 +1146,7 @@ Gw
                 <rect key="frame" x="0.0" y="0.0" width="261" height="38"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
-                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="700">
+                    <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="700" customClass="IsiXTipMatrix">
                         <rect key="frame" x="0.0" y="2" width="242" height="34"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         <size key="cellSize" width="32" height="34"/>

@@ -309,17 +309,56 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     /// The Window3DController ivars, by their accessors.
     private var curWLWWMenuIvar: String? {
         get { return self.horos_curWLWWMenu }
-        set { self.horos_curWLWWMenu = newValue }
+        set {
+            self.horos_curWLWWMenu = newValue
+            copyMenusOfOlderSDK()
+        }
     }
 
     private var curCLUTMenuIvar: String? {
         get { return self.horos_curCLUTMenu }
-        set { self.horos_curCLUTMenu = newValue }
+        set {
+            self.horos_curCLUTMenu = newValue
+            copyMenusOfOlderSDK()
+        }
     }
 
     private var curOpacityMenuIvar: String? {
         get { return self.horos_curOpacityMenu }
-        set { self.horos_curOpacityMenu = newValue }
+        set {
+            self.horos_curOpacityMenu = newValue
+            copyMenusOfOlderSDK()
+        }
+    }
+
+    // Instance variables that only older copies of the headers of the former
+    // Horos and OsiriX plugin SDK declare in this class, which a plugin built
+    // with one reads at the offsets the application exports for them. Those
+    // headers declared here the three menus of the window level, the colour
+    // table and the opacity table and the names chosen in them, which the
+    // later ones declare in Window3DController, where the window keeps them.
+    // These are copies, written when the nib has connected the menus, when
+    // this class writes a name and when a change of the menus is announced,
+    // as it is after every other write; nothing reads them.
+    var wlwwPopupOfOlderSDK: NSPopUpButton?, clutPopupOfOlderSDK: NSPopUpButton?, opacityPopupOfOlderSDK: NSPopUpButton?
+    var curWLWWMenuOfOlderSDK: NSString?, curCLUTMenuOfOlderSDK: NSString?, curOpacityMenuOfOlderSDK: NSString?
+    /// The button of the export sheet that asked for the three modalities,
+    /// an outlet of those older headers that the nib does not connect: nil
+    /// unless a plugin stores one, and never released.
+    unowned(unsafe) var dcmExport3ModalitiesOfOlderSDK: NSButton?
+
+    private func copyMenusOfOlderSDK() {
+        wlwwPopupOfOlderSDK = wlwwPopup()
+        clutPopupOfOlderSDK = clutPopup()
+        opacityPopupOfOlderSDK = opacityPopup()
+        curWLWWMenuOfOlderSDK = curWLWWMenuOfSDK
+        curCLUTMenuOfOlderSDK = curCLUTMenuOfSDK
+        curOpacityMenuOfOlderSDK = curOpacityMenuOfSDK
+    }
+
+    public override func windowDidLoad() {
+        super.windowDidLoad()
+        copyMenusOfOlderSDK()
     }
 
     // MARK: - Properties
@@ -497,11 +536,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         modalitySplitView?.delegate = self
 
-        //	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"orthogonalMPRPETCTVerticalNSSplitView"])
-        //	{
-        //		[self turnModalitySplitView];
-        //	}
-
         pixListStorage = pix
         filesList = files
 
@@ -521,13 +555,13 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
                        object: nil)
         nc.post(name: NSNotification.Name.OsirixUpdateCLUTMenu, object: curCLUTMenuIvar, userInfo: nil)
 
-        // WL/WW Menu
-        curWLWWMenuIvar = NSLocalizedString("Other", comment: "")
+        // WL/WW Menu: the CT row opens on the images of the viewer the window comes from, at its level, so under the name it has for it.
+        curWLWWMenuIvar = vC?.curWLWWMenu() ?? NSLocalizedString("Other", comment: "")
         nc.addObserver(self,
                        selector: #selector(UpdateWLWWMenu(_:)),
                        name: NSNotification.Name.OsirixUpdateWLWWMenu,
                        object: nil)
-        nc.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: curCLUTMenuIvar, userInfo: nil)
+        nc.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: curWLWWMenuIvar, userInfo: nil)
 
         // Opacity Menu
         curOpacityMenuIvar = NSLocalizedString("Linear Table", comment: "")
@@ -555,9 +589,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         moviePosSlider?.maxValue = Double(_maxMovieIndex - 1)
         moviePosSlider?.numberOfTickMarks = Int(_maxMovieIndex)
-
-        //	[[self window] performZoom:self];
-        //	[[self window] display];
 
         NSUserDefaultsController.shared.addObserver(self,
                                                     forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.exportIncludesAllViews),
@@ -608,7 +639,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     }
 
     public override dynamic func applyCLUTString(_ str: String!) {
-        //	if ([[self window] firstResponder])
         if CTController?.containsView(self.keyView()) ?? false {
             CTController?.applyCLUTString(str)
             PETCTController?.applyCLUTString(str)
@@ -632,10 +662,11 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.clutPopup()?.menu?.item(at: 0)?.title = str
     }
 
+    /// The colour tables changed or a window announced its own: the menu is
+    /// built again, under the name of the key sub-view. The name notified is
+    /// that of whichever window announced, so it is not read.
     public override dynamic func updateCLUTMenu(_ note: Notification!) {
-        //*** Build the menu
-        // Presets VIEWER Menu
-
+        copyMenusOfOlderSDK()
         let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.colourTables, in: self.preferenceStore)
 
         self.clutPopup()?.menu?.removeAllItems()
@@ -647,7 +678,16 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         for name in names {
             self.clutPopup()?.menu?.addItem(withTitle: name, action: #selector(applyCLUT(_:)), keyEquivalent: "")
         }
-        self.clutPopup()?.menu?.item(at: 0)?.title = note?.object as? String ?? ""
+        self.showPresetNames(of: keyOrthogonalView, opacity: false)
+    }
+
+    /// The popups of the colour tables and of the opacity tables under the
+    /// names of `view`: the key sub-view, or the one that becomes it and says
+    /// so itself, since the window's first responder may not be it yet.
+    /// Without one, the names last chosen in this window.
+    func showPresetNames(of view: OrthogonalMPRView?, colourTable: Bool = true, opacity: Bool = true) {
+        if colourTable { self.clutPopup()?.menu?.item(at: 0)?.title = view?.curCLUTMenu() ?? curCLUTMenuIvar ?? "" }
+        if opacity { self.opacityPopup()?.menu?.item(at: 0)?.title = view?.curOpacityMenu() ?? curOpacityMenuIvar ?? "" }
     }
 
     @IBAction public override dynamic func addCLUT(_ sender: Any!) {
@@ -666,7 +706,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             PETCTController?.superSetWLWW(iwl, iww)
 
             CTController?.setCurWLWWMenu(curWLWWMenuIvar)
-            //[PETCTController setCurWLWWMenu: curWLWWMenu];
         } else if objIsEqual(sender, PETController) {
             blendingViewerController?.setWL(iwl, ww: iww)
 
@@ -682,17 +721,12 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
             PETController?.setCurWLWWMenu(curWLWWMenuIvar)
             PETCTController?.setCurWLWWMenu(curWLWWMenuIvar)
-        } else if objIsEqual(sender, PETCTController) {
-            //		[CTController superSetWLWW: iwl : iww];
-            //		[PETCTController superSetWLWW: iwl : iww];
-            //
-            //		[CTController setCurWLWWMenu: curWLWWMenu];
-            //		[PETCTController setCurWLWWMenu: curWLWWMenu];
         }
     }
 
     @objc(UpdateWLWWMenu:)
     private dynamic func UpdateWLWWMenu(_ note: Notification!) {
+        copyMenusOfOlderSDK()
         //*** Build the menu
         // Presets VIEWER Menu
 
@@ -726,7 +760,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     @objc(applyWLWWForString:)
     private dynamic func applyWLWW(for menuString: String!) {
         if menuString == NSLocalizedString("Other", comment: "") {
-            //[imageView setWLWW:0 :0];
         } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
             self.setWLWW(self.keyView()?.curDCM?.savedWL ?? 0, self.keyView()?.curDCM?.savedWW ?? 0, keyOrthogonalView?.controller())
         } else if menuString == NSLocalizedString("Full dynamic", comment: "") {
@@ -738,9 +771,9 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         self.wlwwPopup()?.menu?.item(at: 0)?.title = menuString ?? ""
 
-        if curWLWWMenuIvar != menuString {
-            curWLWWMenuIvar = menuString
-        }
+        curWLWWMenuIvar = menuString
+        // The level went to the 2D viewer of the key row too, and its name goes with it; «Other» applies no level and names none there.
+        if menuString != NSLocalizedString("Other", comment: "") { viewerOfKeyRow?.setCurWLWWMenu(menuString) }
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: curWLWWMenuIvar, userInfo: nil)
     }
@@ -757,16 +790,29 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         self.applyWLWW(for: menuString)
     }
 
+    /// The 2D viewer the key row gives its level to: the viewer of the CT for the CT row, of the PET for the PET row. The fused row sets no level.
+    private var viewerOfKeyRow: ViewerController? {
+        if CTController?.containsView(self.keyView()) ?? false { return viewerIvar }
+        return (PETController?.containsView(self.keyView()) ?? false) ? blendingViewerController : nil
+    }
+
+    /// The name of the level a press or a hot key left in a view of this window, which is the level of its row's 2D viewer too: both keep it.
+    @objc(setCurWLWWMenu:)
+    public dynamic func setCurWLWWMenu(_ wlww: String!) {
+        curWLWWMenuIvar = wlww
+        viewerOfKeyRow?.setCurWLWWMenu(wlww)
+    }
+
     @objc(OpacityChanged:)
     private dynamic func OpacityChanged(_ note: Notification!) {
         keyOrthogonalView?.controller()?.refreshViews()
     }
 
+    /// The opacity tables changed or a window announced its own: as for the
+    /// colour tables, the menu is built again under the key sub-view's name.
     @objc(UpdateOpacityMenu:)
     private dynamic func UpdateOpacityMenu(_ note: Notification!) {
-        //*** Build the menu
-        // Presets VIEWER Menu
-
+        copyMenusOfOlderSDK()
         let names = ReconstructionPreferences.menuNames(ImagePresetPreferences.opacityTables, in: self.preferenceStore)
 
         self.opacityPopup()?.menu?.removeAllItems()
@@ -777,7 +823,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
             self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(applyOpacity(_:)), keyEquivalent: "")
         }
 
-        self.opacityPopup()?.menu?.item(at: 0)?.title = note?.object as? String ?? ""
+        self.showPresetNames(of: keyOrthogonalView, colourTable: false)
     }
 
     @objc(transferFunction)
@@ -786,7 +832,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
     }
 
     public override dynamic func applyOpacityString(_ str: String!) {
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             if curOpacityMenuIvar != str {
                 curOpacityMenuIvar = str
             }
@@ -1093,10 +1139,10 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
     @IBAction @objc(changeTool:)
     public dynamic func changeTool(_ sender: Any!) {
-        var tag: Int32
-
-        if (sender as AnyObject?)?.isMember(of: NSMatrix.self) ?? false { tag = Int32(truncatingIfNeeded: (sender as? NSMatrix)?.selectedCell()?.tag ?? 0) }
-        else { tag = Int32(truncatingIfNeeded: tagOf(sender)) }
+        // A matrix gives the tool in the tag of its clicked cell: its own tag
+        // is 0, window level. The nib names a subclass of NSMatrix, so any
+        // matrix is asked, not only one of that exact class.
+        let tag = Int32(truncatingIfNeeded: (sender as? NSMatrix).map { $0.selectedCell()?.tag ?? 0 } ?? tagOf(sender))
 
         if tag >= 0 {
             self.setCurrentTool(ToolMode(rawValue: Int16(truncatingIfNeeded: tag))!)
@@ -2079,7 +2125,7 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
 
         email = Mailer()
 
-        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: path)
+        email.mailShowingFailure(image: path)
     }
 
     @objc(exportJPEG:)
@@ -2892,12 +2938,6 @@ public final class OrthogonalMPRPETCTViewer: Window3DController, NSSplitViewDele
         PETController?.originalView()?.setPixels(subPix, files: blendingViewerController?.fileList(Int(i))?.subarray(with: rangePET) as NSArray?, rois: blendingViewerController?.roiList(Int(i)), firstImage: 0, level: CChar(UInt8(ascii: "i")), reset: false)
         //	if( wasDataFlipped) [self flipDataSeries: self];
         PETController?.originalView()?.setIndex(Int(truncatingIfNeeded: index))
-        //[[CTController originalView] sendSyncMessage:0];
-        //
-        //	[CTController setFusion];
-        //	[PETController setFusion];
-        //	[PETCTController setFusion];
-        //
         CTController?.refreshViews()
         PETController?.refreshViews()
         PETCTController?.refreshViews()

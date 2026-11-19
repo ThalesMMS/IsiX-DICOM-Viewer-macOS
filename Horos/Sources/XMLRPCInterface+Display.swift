@@ -121,34 +121,30 @@ extension XMLRPCInterface {
         return found
     }
 
-    /// A RIS often asks to open a study it has just had the PACS send, before
-    /// the files are in: the Listener pane can make the order wait for them.
-    /// This looks again every half second, importing what has arrived, for up
-    /// to the seconds set there. Never on the main thread, which it would
+    /// The one wait for a study whose files are still coming in, for the
+    /// order to open a study that has not arrived yet and for the `then` of a
+    /// Retrieve: a single loop, so both import and look at the same pace and
+    /// end the same way (StudyArrivalWait). Before each look, what has
+    /// arrived is imported into `database`; the wait ends when `look` answers
+    /// something, after `seconds`, or when the thread is cancelled. On the
+    /// queue of `database`, and never on the main thread, which it would
     /// freeze.
+    func arriving<Found>(within seconds: Int, in database: DicomDatabase, _ look: () throws -> Found?) throws -> Found? {
+        try StudyArrivalWait.first(within: TimeInterval(seconds), isCancelled: { Thread.current.isCancelled }) {
+            _ = DatabaseIngest.process.importQueueNow(in: database)
+            return try look()
+        }
+    }
+
+    /// A RIS often asks to open a study it has just had the PACS send, before
+    /// the files are in: the Listener pane can make the order wait for them,
+    /// for up to the seconds set there. Never on the main thread.
     private func studiesArriving(for predicate: NSPredicate, in database: DicomDatabase) throws -> [Any]? {
         let seconds = PreferencesSource.process.preferences[NetworkPreferences.xmlrpcServerWaitForStudy]
         if seconds <= 0 || Thread.isMainThread {
             return nil
         }
-        let start = Date.timeIntervalSinceReferenceDate
-        var found: [Any]?
-        var failure: Error?
-        repeat {
-            Thread.sleep(forTimeInterval: 0.5)
-            _ = DatabaseIngest.process.importQueueNow(in: database)
-            // A failed look is looked at again: the wait keeps only the last
-            // look's failure.
-            do {
-                found = try studiesWithImages(predicate, in: database)
-                failure = nil
-            } catch {
-                found = nil
-                failure = error
-            }
-        } while (found?.count ?? 0) == 0 && Date.timeIntervalSinceReferenceDate - start < Double(seconds)
-        if let failure { throw failure }
-        return found
+        return try arriving(within: seconds, in: database) { try self.studiesWithImages(predicate, in: database) }
     }
 
     /// Asks the PACS On-Demand nodes (DICOMweb ones included) for the studies
@@ -249,7 +245,7 @@ extension XMLRPCInterface {
     }
 
     private func findStudies(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
-        let identifiers = RISRequestRules.StudyIdentifiers { paramDict?.value(forKey: $0) }
+        let identifiers = RISRequestRules.StudyIdentifiers { Self.parameter(paramDict, $0) }
         guard let predicate = identifiers.predicate else {
             throw Self.error(withCode: 400) // Bad Request
         }
@@ -321,7 +317,7 @@ extension XMLRPCInterface {
     }
 
     private func displaySeries(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
-        let identifiers = RISRequestRules.SeriesIdentifiers { paramDict?.value(forKey: $0) }
+        let identifiers = RISRequestRules.SeriesIdentifiers { Self.parameter(paramDict, $0) }
         guard let predicate = identifiers.predicate else {
             throw Self.error(withCode: 400) // Bad Request
         }
@@ -381,9 +377,9 @@ extension XMLRPCInterface {
     }
 
     private func findObjects(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
-        let request = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "request"))
-        let entityName = RISRequestRules.nonEmptyText(paramDict?.value(forKey: "table"))
-        let command = RISRequestRules.text(paramDict?.value(forKey: "execute")) as NSString?
+        let request = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "request"))
+        let entityName = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "table"))
+        let command = RISRequestRules.text(Self.parameter(paramDict, "execute")) as NSString?
 
         guard let request, let entityName else {
             throw Self.error(withCode: 400) // Bad Request
@@ -451,10 +447,29 @@ extension XMLRPCInterface {
         let answer = elements(found)
 
         if command?.isEqual(to: "Delete") ?? false {
+            // The whole study of each object found goes, and nothing brings it
+            // back: whoever sits at this Mac agrees first, whichever way the
+            // request came (the server, a link, a script).
+            var studies: [DicomStudy] = []
             for object in found {
-                if let study = self.study(for: object as? NSManagedObject) {
-                    database.managedObjectContext.delete(study)
+                if let study = self.study(for: object as? NSManagedObject), !studies.contains(where: { $0 === study }) {
+                    studies.append(study)
                 }
+            }
+            let count = studies.count
+            let agreed = count == 0 || onMainRunLoopSync {
+                let message = String(format: NSLocalizedString("An XML-RPC request (FindObject with execute = Delete) asks to delete %ld studies from the database. This cannot be undone.", comment: "XML-RPC FindObject: confirmation of a deletion"), count)
+                NSApp.activate()
+                return HorosAlertPanel.runCritical(title: NSLocalizedString("Delete", comment: ""), message: message,
+                                                   defaultButton: NSLocalizedString("Cancel", comment: ""),
+                                                   alternateButton: NSLocalizedString("Delete", comment: ""), otherButton: nil) == HorosAlertPanel.alternateResponse
+            }
+            guard agreed else {
+                NSLog("XML-RPC FindObject: the deletion of %ld studies was declined at this Mac", count)
+                return Self.answer(-1)
+            }
+            for study in studies {
+                database.managedObjectContext.delete(study)
             }
             _ = database.save()
         }
@@ -494,7 +509,7 @@ extension XMLRPCInterface {
     }
 
     private func selectAlbum(_ paramDict: NSDictionary?, in database: DicomDatabase) throws -> NSDictionary? {
-        guard let name = RISRequestRules.nonEmptyText(paramDict?.object(forKey: "name")) else {
+        guard let name = RISRequestRules.nonEmptyText(Self.parameter(paramDict, "name")) else {
             throw Self.error(withCode: 400) // Bad Request
         }
         let albums = (database.albums() ?? []) as NSArray

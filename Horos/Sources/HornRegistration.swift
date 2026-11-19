@@ -53,34 +53,57 @@ import IsiXImaging
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(HornRegistration) @usableFromInline
 final class HornRegistration: NSObject {
-    private var modelPoints: [SIMD3<Double>] = []
-    private var sensorPoints: [SIMD3<Double>] = []
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared: a plugin reads and writes them at
+    // the exported offset. The two sets are lists of NSValue, each of a
+    // double[3], as that SDK's code kept them, and the object releases them
+    // when it goes; a list a plugin set to nil counts no point. The rotation
+    // and the translation were those of a registration that is no longer
+    // computed: nothing of the application stands behind them.
+    final var modelPoints: NSMutableArray? = NSMutableArray()
+    final var sensorPoints: NSMutableArray? = NSMutableArray()
+    final var adRot: UnsafeMutablePointer<Double>?
+    final var adTrans: UnsafeMutablePointer<Double>?
+
+    /// A point as the lists keep it.
+    private static func value(_ point: UnsafePointer<Double>) -> NSValue {
+        NSValue(bytes: point, objCType: "[3d]")
+    }
+
+    /// The first `count` points of `list`.
+    private static func points(_ list: NSMutableArray?, count: Int) -> [SIMD3<Double>] {
+        (0..<count).map { index in
+            var point = (0.0, 0.0, 0.0)
+            (list?.object(at: index) as? NSValue)?.getValue(&point, size: MemoryLayout<(Double, Double, Double)>.size)
+            return SIMD3(point.0, point.1, point.2)
+        }
+    }
 
     @objc(addModelPointX:Y:Z:)
     func addModelPointX(_ x: Double, y: Double, z: Double) {
-        modelPoints.append(SIMD3(x, y, z))
+        addModelPoint([x, y, z])
     }
 
     @objc(addSensorPointX:Y:Z:)
     func addSensorPointX(_ x: Double, y: Double, z: Double) {
-        sensorPoints.append(SIMD3(x, y, z))
+        addSensorPoint([x, y, z])
     }
 
     @objc(addModelPoint:)
     func addModelPoint(_ point: UnsafePointer<Double>) {
-        modelPoints.append(SIMD3(point[0], point[1], point[2]))
+        modelPoints?.add(Self.value(point))
     }
 
     @objc(addSensorPoint:)
     func addSensorPoint(_ point: UnsafePointer<Double>) {
-        sensorPoints.append(SIMD3(point[0], point[1], point[2]))
+        sensorPoints?.add(Self.value(point))
     }
 
     /// The number of point pairs, or -1 when the two sets differ; to be
     /// asked once every point has been added.
     @objc func numberOfPoint() -> Int16 {
-        let modelCount = Int16(truncatingIfNeeded: modelPoints.count)
-        let sensorCount = Int16(truncatingIfNeeded: sensorPoints.count)
+        let modelCount = Int16(truncatingIfNeeded: modelPoints?.count ?? 0)
+        let sensorCount = Int16(truncatingIfNeeded: sensorPoints?.count ?? 0)
         return modelCount == sensorCount ? modelCount : -1
     }
 
@@ -90,8 +113,8 @@ final class HornRegistration: NSObject {
     func computeVTK(_ matrixResult: UnsafeMutablePointer<Double>!) {
         let count = Int(numberOfPoint())
         guard count > 0, let matrixResult,
-              let matrix = PointSetRegistration.similarity(model: Array(modelPoints.prefix(count)),
-                                                           sensor: Array(sensorPoints.prefix(count))) else { return }
+              let matrix = PointSetRegistration.similarity(model: Self.points(modelPoints, count: count),
+                                                           sensor: Self.points(sensorPoints, count: count)) else { return }
         let values = PointSetRegistration.rotationAndTranslation(matrix)
         for row in 0..<3 {
             for column in 0..<3 { matrixResult[3 * row + column] = values[3 * row + column] }

@@ -39,35 +39,31 @@
 
 import Foundation
 
-/// The cookie that carries the session id.
-let SessionCookieName = "OSID"
-/// The keys of the values stored for a session.
-let SessionUserIDKey = "UserID" // NSManagedObjectID
-let SessionUsernameKey = "Username" // NSString
-let SessionTokensDictKey = "Tokens" // NSMutableDictionary
-let SessionChallengeKey = "Challenge" // NSString
-let SessionLastActivityDateKey = "LastActivityDate" // NSDate
-
 /// One visitor of the web portal: the session id carried by the OSID cookie,
 /// the values stored for it (user, last activity, DICOM port), the Weasis
 /// tokens and the login challenge.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/WebPortalSession.h> are those of the former class. The Session*Key
-/// constants are above it, with the names and values of the former ones.
+/// constants are C constants that header declares.
 ///
 /// The dictionary is guarded by the same NSLock, around the same sections;
 /// -newChallenge and -deleteChallenge did not take it and still do not.
 @objc(WebPortalSession)
 public final class WebPortalSession: NSObject {
     /// nil only after -init, as the former class's instance variables were.
-    private let sidValue: String?
-    private let dictValue: NSMutableDictionary?
-    private let dictLock: NSLock?
+    ///
+    /// These are sid, dict and dictLock of the header of an older Horos and
+    /// OsiriX plugin SDK, which a plugin built with it binds by name when it
+    /// loads: stored fields of this class with the type the C declaration has
+    /// in memory, never private or constant.
+    var sidValue: NSString?
+    var dictValue: NSMutableDictionary?
+    var dictLock: NSLock?
 
     @objc(initWithId:)
     public init(id isid: String!) {
-        sidValue = isid
+        sidValue = isid as NSString?
         dictLock = NSLock()
         dictValue = NSMutableDictionary(capacity: 8)
         super.init()
@@ -83,7 +79,7 @@ public final class WebPortalSession: NSObject {
     }
 
     @objc public var sid: String! {
-        return sidValue
+        return sidValue as String?
     }
 
     @objc public var dict: NSMutableDictionary! {

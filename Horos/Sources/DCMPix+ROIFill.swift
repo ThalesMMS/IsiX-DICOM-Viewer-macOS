@@ -248,14 +248,15 @@ extension DCMPix {
     }
 
     /// Reads every slice of the series again from its file into the restore
-    /// cache, for a fill that gives the original pixels back. NO without
+    /// cache, for a fill that gives the original pixels back, in SUV and on
+    /// the plane of the gantry tilt correction when the series is. NO without
     /// slices, or when one cannot be read (the cache is emptied then).
-    @objc(prepareRestore)
+    @MainActor @objc(prepareRestore)
     public dynamic func prepareRestore() -> Bool {
         if restoreImageCache != nil { freeRestore() }
         let slices = pixArray ?? []
         if slices.isEmpty { return false }
-        var cache: [DCMPix] = []
+        var cache: [DCMPix] = [], sources: [DCMPix] = []
         cache.reserveCapacity(slices.count)
         for (i, object) in slices.enumerated() {
             let source = object as! DCMPix
@@ -266,6 +267,12 @@ extension DCMPix {
                 return false
             }
             cache.append(copy)
+            sources.append(source)
+        }
+        // As the series is now: in SUV, on the plane of a corrected gantry tilt.
+        guard SeriesRestoreCopies.match(cache, to: sources) else {
+            NSLog("prepare Restore cache - FAILED: the copies cannot be brought to the state of the series")
+            return false
         }
         restoreImageCache = cache
         NSLog("prepare Restore cache")

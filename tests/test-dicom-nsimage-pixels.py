@@ -34,6 +34,7 @@ import IsiXDICOMFile
     var horos_height = 0
     var horos_samplesPerPixel = 0
     var horos_bitsPerSample = 0
+    var bpp = 0
     var horos_isSigned = false
     var horos_offset: Int32 = 0
     var horos_image: NSImage?

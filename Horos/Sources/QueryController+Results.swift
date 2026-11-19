@@ -534,13 +534,20 @@ extension QueryController {
     nonisolated func inventoryCompleteness(forItem item: Any?, inventory: RetrieveInventory) -> LocalCompleteness {
         let node = item as? DCMTKQueryNode
         node?.refreshRetrieveInventoryWithoutWaiting()
-        let current = inventory.matchesReportedCount(Int(QueryController.int32((item as AnyObject?)?.value(forKey: "numberImages"))))
+        let reported = Int(QueryController.int32((item as AnyObject?)?.value(forKey: "numberImages")))
+        let current = inventory.matchesReportedCount(reported)
+        // A node that lists no series or instances leaves no inventory to
+        // count against: when its counters judged the retrieve complete and
+        // that still stands, the row shows what is here against the node's
+        // count, complete, and not an unknown total.
+        let judged = !current && inventory.standsByPeerCounters(reported: reported)
         // Local instances against what the peer reports, complete when only its
         // expected absences are missing; the detail says what they are.
         let remote = inventory.reportedCount > 0 ? inventory.reportedCount : inventory.expectedCount
         let value = LocalCompleteness(localCount: current ? inventory.importedCount : inventory.localUniqueCount,
-                                      remoteCount: current ? NSNumber(value: remote) : nil)
-        value.completeButExpectedAbsences = current && inventory.isSatisfied
+                                      remoteCount: current ? NSNumber(value: remote)
+                                          : judged ? NSNumber(value: reported > 0 ? reported : inventory.localUniqueCount) : nil)
+        value.completeButExpectedAbsences = (current && inventory.isSatisfied) || judged
         value.inventoryDetail = String(format: "%@%@\nInventory queried: %@\nManifest: %@",
                                        inventory.inventoryConfirmed && !current ? "The remote count changed; retrieve again to refresh the inventory.\n" : "",
                                        inventory.summary, QueryController.text(inventory.queriedAt as NSDate), inventory.path)
@@ -658,6 +665,8 @@ extension QueryController {
                     MainActor.assumeIsolated {
                         guard let snapshot = snapshot.value, generation == self.localSnapshotGeneration else { return }
                         self.workers.localSnapshot = snapshot
+                        self._studyArrayInstanceUID = Array(snapshot.studies.keys) as NSArray
+                        self._lastComputeStudyArrayInstanceUID = Date.timeIntervalSinceReferenceDate
                         DCMTKQueryNode.forgetMissingRetrieveInventories()
                         if !self.DatabaseIsEdited {
                             self.reloadResultsAfterLocalChange()

@@ -55,10 +55,14 @@ import IsiXROI
 /// <Horos/OSIPlanarBrushROI.h> are those of the former class.
 @objc(OSIPlanarBrushROI)
 public final class OSIPlanarBrushROI: OSIROI {
-    private let _osiriXROI: ROI?
-    private var _brushMask: OSIFloatVolumeData?
-    private let _plane: N3Plane
-    private var _convexHull: [Any]?
+    // The instance variables of the former Horos and OsiriX plugin SDK: a
+    // plugin reads and writes each at the offset the application exports for
+    // it, so each is a stored field of this class with the type the C
+    // declaration has in memory, never private, constant, lazy, weak or observed.
+    var _osiriXROI: ROI?
+    var _brushMask: OSIFloatVolumeData?
+    var _plane: N3Plane
+    var _convexHull: NSArray?
 
     /// The ROI of the brush ROI `roi`, painted on the slice whose pix space
     /// `pixToDICOMTransfrom` carries to patient space; nil for another tool.
@@ -74,7 +78,7 @@ public final class OSIPlanarBrushROI: OSIROI {
         }
         _convexHull = OSIROIVolumeGeometry.brushHull(left: roi.textureUpLeftCornerX, top: roi.textureUpLeftCornerY,
                                                      right: roi.textureDownRightCornerX, bottom: roi.textureDownRightCornerY,
-                                                     pixToDICOM: pixToDICOMTransfrom).map { NSValue(n3Vector: $0) as Any }
+                                                     pixToDICOM: pixToDICOMTransfrom).map { NSValue(n3Vector: $0) as Any } as NSArray
 
         let width = Int(roi.textureWidth), height = Int(roi.textureHeight)
         let byteCount = width * height * MemoryLayout<Float>.size
@@ -96,7 +100,7 @@ public final class OSIPlanarBrushROI: OSIROI {
 
     @objc(convexHull)
     public override func convexHull() -> [Any]! {
-        return _convexHull
+        return _convexHull as? [Any]
     }
 
     /// The painted voxels in `floatVolume`, whose z direction must be

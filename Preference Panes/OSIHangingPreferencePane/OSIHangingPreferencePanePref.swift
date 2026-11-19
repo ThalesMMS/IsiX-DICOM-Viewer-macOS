@@ -99,9 +99,8 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIHangingPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSIHangingPreferencePanePref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let contentView = mainWindow?.contentView {
@@ -323,6 +322,27 @@ public final class OSIHangingPreferencePanePref: NSPreferencePane {
             WLWWPopup?.addItem(withTitle: String(format: "%@", sortedKeys.object(at: i) as! CVarArg), action: nil, keyEquivalent: "")
             lastWLWWItem?.tag = i + 1
         }
+
+        // The nib's columns were drawn for the English headers and items ("Default WL & WW" in 150 points): where
+        // a translation or a preset's name needs more, the column takes it from the columns with room to spare.
+        if let table = protocolsTable {
+            PaneFit.fitColumns(of: table)
+        }
+    }
+
+    /// The table of the protocols, whose WLWW column shows the WL/WW menu.
+    private var protocolsTable: NSTableView? {
+        func find(_ view: NSView) -> NSTableView? {
+            if let table = view as? NSTableView, table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("WLWW")) != nil {
+                return table
+            }
+            for child in view.subviews {
+                if let table = find(child) { return table }
+            }
+            return nil
+        }
+        let root: NSView? = mainView
+        return root.flatMap(find)
     }
 
     private var lastWLWWItem: NSMenuItem? {

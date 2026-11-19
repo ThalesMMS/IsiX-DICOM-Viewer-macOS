@@ -58,12 +58,12 @@ private func foundationArray(_ predicates: [NSPredicate]) -> [NSPredicate] {
 /// as before.
 @objc(O2DicomPredicateEditor)
 public final class O2DicomPredicateEditor: NSPredicateEditor {
-    private var _inited = false
-    private var _inValidateEditing = false
-    private var _dbMode = false
-    private var _backbinding = false
-    private var _setting = false
-    private var _dpert: O2DicomPredicateEditorRowTemplate?
+    // Instance variables of an older header of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with it: stored fields of this class with the C declaration's type,
+    // never private, lazy, weak or observed. A plugin's write calls no setter.
+    final var _inited = false, _inValidateEditing = false, _dbMode = false, _backbinding = false, _setting = false
+    final var _dpert: O2DicomPredicateEditorRowTemplate?
     /// Whether -awakeFromNib registered the "value" observer, which the former
     /// -dealloc removed unconditionally.
     private var _observingValue = false

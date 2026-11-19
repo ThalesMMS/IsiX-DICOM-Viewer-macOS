@@ -64,7 +64,36 @@ public final class WindowLayoutManager: NSObject {
     /// Atomic and retained in the former header. It is set and read on the main
     /// thread, when viewers are opened and tiled. `dynamic` so that the setter
     /// keeps notifying key-value observers, as the synthesized one did.
-    @objc public dynamic var currentHangingProtocol: NSDictionary!
+    @objc public dynamic var currentHangingProtocol: NSDictionary! {
+        didSet {
+            IMAGEROWS = imagesTiling(tag: { ($0 / 4) + 1 }, key: "Image Rows")
+            IMAGECOLUMNS = imagesTiling(tag: { ($0 % 4) + 1 }, key: "Image Columns")
+        }
+    }
+
+    // Two instance variables of the former Horos and OsiriX plugin SDK that
+    // only an older copy of its header declares, exported at their offsets:
+    // the rows and the columns of images of the current protocol, which the
+    // manager now reads from the protocol each time it is asked. They are
+    // copies written when the protocol is set, and not read.
+    final var IMAGEROWS: Int32 = 1
+    final var IMAGECOLUMNS: Int32 = 1
+
+    /// What -imagesRows and -imagesColumns answer for the current protocol, for
+    /// the copies above: a value that is not a number or a string counts as
+    /// absent here, where those two send it -intValue and may raise.
+    private func imagesTiling(tag: (Int32) -> Int32, key: String) -> Int32 {
+        func number(_ object: Any?) -> Int32? {
+            (object as? NSNumber)?.int32Value ?? (object as? NSString)?.intValue
+        }
+        if let tiling = currentHangingProtocol?.object(forKey: "ImageTiling"), let value = number(tiling), value < 16 {
+            return tag(value)
+        }
+        if let stored = number(currentHangingProtocol?.object(forKey: key)), stored > 0 {
+            return stored
+        }
+        return 1
+    }
 
     @objc(sharedWindowLayoutManager)
     public class func shared() -> WindowLayoutManager! {

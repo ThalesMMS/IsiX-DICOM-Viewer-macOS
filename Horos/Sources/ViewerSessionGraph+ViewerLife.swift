@@ -48,10 +48,11 @@ import IsiXPreferences
 // message to nil answered nil, 0 or NO: the optional chains below answer the same.
 
 /// The images given to each tag of the reconstruction menu (tag 7, which had
-/// no viewer left, is removed from the menu).
+/// no viewer left, is removed from the menu); Vessel Analysis (11) has the
+/// curved MPR's, as in the 3D Viewer menu.
 fileprivate let reconstructionMenuImages: [Int: String] = [
     1: "MPR", 2: "MPR3D", 3: "MIP", 4: "VolumeRendering", 5: "Surface", 6: "VolumeRendering",
-    8: "orthogonalReslice", 9: "Endoscopy", 10: "MPR",
+    8: "orthogonalReslice", 9: "Endoscopy", 10: "MPR", 11: "MPR",
 ]
 
 extension ViewerSessionGraph {
@@ -488,7 +489,7 @@ extension ViewerSessionGraph {
 
         if preferences[ViewerPreferences.useFloatingThumbnailsList] {
             let previewMatrixScrollView = viewer.horos_previewMatrixScrollView
-            for i in 0..<NSScreen.screens.count {
+            for i in 0..<ViewerWindowArranger.maximumScreens {
                 AppControllerCAPIThumbnailsListPanel(i)?.thumbnailsListWillClose(previewMatrixScrollView)
             }
         }

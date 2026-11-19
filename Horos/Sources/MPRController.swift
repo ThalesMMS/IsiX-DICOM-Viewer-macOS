@@ -82,6 +82,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     /// setting says, while an MPR or a curved MPR lays its planes out anew:
     /// their cross-reference lines ask this, and the setting is not written.
     nonisolated static let planesLayoutZoomSync = ForcedPreference(ReconstructionPreferences.syncsZoomLevelMPR, to: true)
+    /// Sync Zoom turned on and the end of a pinch bring the planes to one zoom.
+    private(set) lazy var zoomSync = MPRZoomSynchronizer(window: self)
 
     // MARK: - Outlets
 
@@ -91,7 +93,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     // To be able to use Cocoa bindings with toolbar...
     @IBOutlet private var tbLOD: NSView?
     @IBOutlet private var tbThickSlab: NSView?
-    @IBOutlet private var thickSlabSlider: HorosMPRThickSlabSlider?
+    @IBOutlet var thickSlabSlider: HorosMPRThickSlabSlider?
     @IBOutlet private var tbWLWW: NSView?
     @IBOutlet private var tbTools: NSView?
     @IBOutlet private var tbShading: NSView?
@@ -147,6 +149,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     private var undoQueue: NSMutableArray?
     private var redoQueue: NSMutableArray?
+    private var pressInPlane = false // A press in a plane under way: see planePressBegan().
+    private weak var pressEntry: AnyObject?
 
     /// viewer2D and fusedViewer2D: assigned, not retained.
     private unowned(unsafe) var viewer2D: ViewerController? = nil
@@ -164,6 +168,34 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     private unowned(unsafe) var _originalPix: DCMPix? = nil
     private var volumeDataStorage = [Unretained<NSData>](repeating: Unretained(object: nil), count: Int(MAX4D))
     private var avoidReentry = false
+
+    // Instance variables that only older copies of the headers of the former
+    // Horos and OsiriX plugin SDK declare, which a plugin built with one reads
+    // at the offsets the application exports for them. Those headers describe
+    // an earlier window of this name. What this window still has under
+    // another name or another shape is copied here where it is written, and
+    // read by nothing: the list of the files (the first of filesList), the
+    // fused viewer, its images and its volume and whether there is one, none
+    // of them retained, as the viewers own them; the views of five toolbar
+    // items (tbTools, tbWLWW, tbBlending, tbMovie, tbThickSlab), retained as
+    // those outlets are; and whether the window is closing, which
+    // Window3DController keeps.
+    unowned(unsafe) var fileListOfOlderSDK: NSArray?
+    unowned(unsafe) var blendingControllerOfOlderSDK: ViewerController?
+    unowned(unsafe) var blendingPixListOfOlderSDK: NSMutableArray?, blendingVolumeDataOfOlderSDK: NSData?
+    var blendingOfOlderSDK = false, windowWillCloseOfOlderSDK = false
+    var toolsViewOfOlderSDK: NSView?, WLWWViewOfOlderSDK: NSView?, BlendingViewOfOlderSDK: NSView?
+    var movieViewOfOlderSDK: NSView?, ThickSlabViewOfOlderSDK: NSView?
+    // What that earlier window had and this one has not: the sliders of the
+    // three axes and of the view with the view that held them, the slider of
+    // the fusion, the button, the slider and the text of the movie and the
+    // matrix of the planes, outlets that MPR.xib does not connect, and the
+    // view itself, of a class the application does not have. Nil unless a
+    // plugin stores one, and never released.
+    unowned(unsafe) var XsliderOfOlderSDK: NSSlider?, YsliderOfOlderSDK: NSSlider?, ZsliderOfOlderSDK: NSSlider?
+    unowned(unsafe) var viewSliderOfOlderSDK: NSSlider?, blendingSliderOfOlderSDK: NSSlider?, movieRateSliderOfOlderSDK: NSSlider?
+    unowned(unsafe) var axesViewOfOlderSDK: NSView?, movieTextSlideOfOlderSDK: NSTextField?, moviePlayStopOfOlderSDK: NSButton?
+    unowned(unsafe) var selectedPlaneMatrixOfOlderSDK: NSMatrix?, viewOfOlderSDK: AnyObject?
 
     // 4D Data support
     private var lastMovieTime: TimeInterval = 0
@@ -255,6 +287,9 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             refreshThickSlabSliderPosition()
         }
     }
+
+    /// The thinnest slab of the window, in millimeters (ThickSlabSliderHost).
+    var thickSlabThinEnd = 1.0 { didSet { refreshThickSlabSliderPosition() } }
 
     @objc public dynamic var dcmmN: Int32 {
         get { return _dcmmN }
@@ -532,11 +567,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     public static func angleBetweenVector(_ a: UnsafeMutablePointer<Float>!, andPlane orientation: UnsafeMutablePointer<Float>!) -> Double {
         var sc = [Double](repeating: 0, count: 2)
 
-//	double la = sqrt( a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-//	double lo = sqrt( orientation[0]*orientation[0] + orientation[1]*orientation[1] + orientation[2]*orientation[2]);
 //
-//	sc[ 0 ] = a[ 0]/la * orientation[ 0 ]/lo + a[ 1]/la * orientation[ 1 ]/lo + a[ 2]/la * orientation[ 2 ]/lo;
-//	sc[ 1 ] = a[ 0]/la * orientation[ 3 ]/lo + a[ 1]/la * orientation[ 4 ]/lo + a[ 2]/la * orientation[ 5 ]/lo;
 
         sc[0] = Double(a[0] * orientation[0] + a[1] * orientation[1] + a[2] * orientation[2])
         sc[1] = Double(a[0] * orientation[3] + a[1] * orientation[4] + a[2] * orientation[5])
@@ -629,6 +660,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         volumeDataStorage[0].object = volume
 
         fusedViewer2D = fusedViewer
+        fileListOfOlderSDK = files
+        blendingControllerOfOlderSDK = fusedViewer
+        blendingOfOlderSDK = fusedViewer != nil
+        blendingPixListOfOlderSDK = fusedViewer?.pixList()
+        blendingVolumeDataOfOlderSDK = fusedViewer?.volumeData()
         _clippingRangeMode = 1
         _LOD = 1
         if _LOD < 1 {
@@ -714,7 +750,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         // To avoid the "invalid drawable" message
         hiddenVRController?.window?.level = NSWindow.Level(rawValue: 0)
         hiddenVRController?.window?.orderBack(self)
-        //[[hiddenVRController window] orderOut: self];
 
         messagesView(hiddenVRController?.view())?.engine = 0 // CPU Engine !
         hiddenVRController?.load3DState()
@@ -735,6 +770,10 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         mprView3?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
 
         hiddenVRView?.setWLWW(viewer?.imageView()?.curWL ?? 0, viewer?.imageView()?.curWW ?? 0)
+        // The Shading item shows the values the hidden view renders with: the
+        // 3D state saved for the series, or those a VR window is made with.
+        horosShowShadingValues()
+        shadingCheck?.state = (hiddenVRView?.shading() ?? 0) != 0 ? .on : .off
 
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(defaultToolModified(_:)), name: NSNotification.Name.OsirixDefaultToolModified, object: nil)
@@ -844,7 +883,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     private func updateViewsAccordingToFrame(_ sender: Any!, keeping kept: MPRDCMView?) {
         if self.horos_windowWillClose { return }
 
-
         var win = self.window
 
         if self.horos_FullScreenOn {
@@ -881,6 +919,11 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     public override dynamic func windowDidLoad() {
         super.windowDidLoad()
         NSLog("MPRController windowDidLoad")
+        toolsViewOfOlderSDK = tbTools
+        WLWWViewOfOlderSDK = tbWLWW
+        BlendingViewOfOlderSDK = tbBlending
+        movieViewOfOlderSDK = tbMovie
+        ThickSlabViewOfOlderSDK = tbThickSlab
     }
 
     public override dynamic func windowDidBecomeKey(_ notification: Notification) {
@@ -911,22 +954,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             // Default Init
             self.clippingRangeMode = 1 // MIP
 
-            if (_originalPix?.sliceInterval ?? 0) > 1.0 {
-                self.setClippingRangeThicknessInMm(1.0)
-            } else {
-                self.setClippingRangeThicknessInMm(Float(_originalPix?.sliceInterval ?? 0))
-            }
-
-            //self.clippingRangeThickness = 0.5;
-
-            let min = cInt32(Double(self.getClippingRangeThicknessInMm() * 100.0))
-            self.dcmIntervalMin = Float(min) / 100.0
-            self.dcmIntervalMin -= 0.001
-            if self.dcmIntervalMin < 0.01 {
-                self.dcmIntervalMin = 0.01
-            }
-
-            self.dcmIntervalMax = 100
+            self.openSlab(of: pixListStorage[0].object as? [DCMPix] ?? [])
 
             self.window?.makeFirstResponder(mprView1)
             mprView1?.vrView?.resetImage(self)
@@ -991,7 +1019,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         } else {
             portrait = false
         }
-
 
         verticalSplit?.translatesAutoresizingMaskIntoConstraints = true
         horizontalSplit?.translatesAutoresizingMaskIntoConstraints = true
@@ -1130,7 +1157,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         MainActor.assumeIsolated {
             self.applyViewsPosition()
 
-    //    [shadingsPresetsController setWindowController: self];
             shadingsPresetsController?.addObserver(self, forKeyPath: "selectedObjects", options: [], context: MPRController.kvoContext)
 
             shadingCheck?.action = #selector(switchShading(_:))
@@ -1145,6 +1171,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             NSUserDefaultsController.shared.addObserver(self, forKeyPath: ReconstructionPreferences.controllerKeyPath(ReconstructionPreferences.logarithmicThickSlabSlider), options: .new, context: nil)
 
             observesPresetsAndDefaults = true
+            _ = zoomSync // It observes the Sync Zoom setting from now on.
         }
     }
 
@@ -1263,11 +1290,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         if sender != nil {
             if Self.planesLayoutZoomSync.value(in: self.preferenceStore) {
-                let selectedView = self.selectedView()
-
-                if selectedView !== mprView1 { mprView1?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
-                if selectedView !== mprView2 { mprView2?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
-                if selectedView !== mprView3 { mprView3?.camera?.parallelScale = selectedView?.camera?.parallelScale ?? 0 }
+                MPRZoomSynchronizer.carryZoom(of: self.selectedView(), to: [mprView1, mprView2, mprView3])
             }
         }
 
@@ -1278,7 +1301,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             var x: Float, y: Float, z: Float
             let cam = sender.camera
             var position = cam?.position
-//		Point3D *viewUp = cam.viewUp;
             let halfthickness = Float((sender.vrView?.clippingRangeThickness ?? 0) / 2.0)
             var cos = [Float](repeating: 0, count: 9)
             sender.pix?.orientation(&cos)
@@ -1681,10 +1703,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc(prepareObjectForUndo:)
     public dynamic func prepareObject(forUndo string: String!) -> Any! {
-//	if( [string isEqualToString: @"roi"])
-//	{
-//		... (the ROI undo stays disabled, as before)
-//	}
+        // The ROI undo stays disabled, as before.
 
         if string == "mprCamera" {
             let cameras = NSMutableArray()
@@ -1725,16 +1744,12 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
                 self.updateViewsAccordingToFrame(nil)
             }
 
-//		if( [[[u lastObject] objectForKey: @"type"] isEqualToString:@"roi"])
-//		{
-//			... (the ROI undo stays disabled, as before)
-//		}
-
             u.removeLastObject()
         }
     }
 
     @IBAction public override dynamic func redo(_ sender: Any!) {
+        self.planePressEnded()
         if (redoQueue?.count ?? 0) > 0 {
             let obj = self.prepareObject(forUndo: (redoQueue?.lastObject as? NSDictionary)?.object(forKey: "type") as? String)
 
@@ -1749,6 +1764,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     @IBAction public override dynamic func undo(_ sender: Any!) {
+        self.planePressEnded()
         if (undoQueue?.count ?? 0) > 0 {
             let obj = self.prepareObject(forUndo: (undoQueue?.lastObject as? NSDictionary)?.object(forKey: "type") as? String)
 
@@ -1772,18 +1788,33 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     }
 
     public override dynamic func add(toUndoQueue string: String!) {
-        if self.preferenceStore[ReconstructionPreferences.undoQueueSize] <= 0 {
-            return
-        }
+        let size = self.preferenceStore[ReconstructionPreferences.undoQueueSize]
+        guard size > 0, let entry = self.prepareObject(forUndo: string) else { return }
+        undoQueue?.add(entry)
+        if (undoQueue?.count ?? 0) > size { undoQueue?.removeObject(at: 0) }
+        // Something new to undo: what was undone before it is no longer what a redo would bring back. A press settles it at its end.
+        if !pressInPlane { redoQueue?.removeAllObjects() }
+    }
 
-        let obj = self.prepareObject(forUndo: string)
+    /// A plane's mouse down: the cameras as it began go on the queue, and stay there at its mouse up only if the press
+    /// changed them or the lines' angles. Every click left an entry, so a few clicks that changed nothing used up the
+    /// Cmd-Z; a click that changes nothing also keeps what can be redone. A press whose release never came ends at the
+    /// next one, or at Cmd-Z.
+    func planePressBegan() {
+        self.planePressEnded()
+        pressInPlane = true
+        self.add(toUndoQueue: "mprCamera")
+        pressEntry = undoQueue?.lastObject as AnyObject?
+    }
 
-        if let obj = obj {
-            undoQueue?.add(obj)
-        }
-
-        if (undoQueue?.count ?? 0) > self.preferenceStore[ReconstructionPreferences.undoQueueSize] {
-            undoQueue?.removeObject(at: 0)
+    func planePressEnded() {
+        guard pressInPlane else { return }
+        pressInPlane = false
+        guard let entry = pressEntry else { return }
+        if undoQueue?.lastObject as AnyObject? === entry, ReconstructionUndoEntries.sameCameras(entry, self.prepareObject(forUndo: "mprCamera")) {
+            undoQueue?.removeLastObject()
+        } else {
+            redoQueue?.removeAllObjects()
         }
     }
 
@@ -1831,7 +1862,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc(createWLWWMenuItems)
     public dynamic func createWLWWMenuItems() {
-        // Presets VIEWER Menu
         let titles = ReconstructionPreferences.windowLevelMenuTitles(in: self.preferenceStore)
 
         let tmp = NSMutableArray()
@@ -1843,10 +1873,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         for title in titles {
             tmp.add(NSMenuItem(title: title, action: #selector(ApplyWLWW(_:)), keyEquivalent: ""))
         }
-
-//    [tmp addObject:[NSMenuItem separatorItem]];
-//	[tmp addObject:[[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Add Current WL/WW", nil) action:@selector(AddCurrentWLWW:) keyEquivalent:@""] autorelease]];
-//	[tmp addObject:[[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Set WL/WW Manually", nil) action:@selector(SetWLWW:) keyEquivalent:@""] autorelease]];
 
         self.wlwwMenuItems = tmp
     }
@@ -1862,6 +1888,12 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         }
 
         self.wlwwPopup()?.setTitle(curWLWWMenu ?? "")
+    }
+
+    /// The name of the window level of this window's views, which tell it when a drag or a preset's hot key ends in them.
+    @objc(setCurWLWWMenu:)
+    public dynamic func setCurWLWWMenu(_ name: String!) {
+        curWLWWMenu = name
     }
 
     @objc(ApplyWLWW:)
@@ -1881,7 +1913,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     @objc(applyWLWWForString:)
     public dynamic func applyWLWW(for menuString: String!) {
         if menuString == NSLocalizedString("Other", comment: "") {
-            //[imageView setWLWW:0 :0];
         } else if menuString == NSLocalizedString("Default WL & WW", comment: "") {
             let first = pixListStorage[0].object?.object(at: 0) as? DCMPix
             mprView1?.setWLWW(first?.savedWL ?? 0, first?.savedWW ?? 0)
@@ -1906,9 +1937,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         self.wlwwPopup()?.menu?.item(at: 0)?.title = menuString ?? ""
 
-        if curWLWWMenu as NSString? !== menuString as NSString? {
-            curWLWWMenu = menuString
-        }
+        curWLWWMenu = menuString
     }
 
     // MARK: - CLUTs
@@ -2051,8 +2080,6 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         for name in names {
             self.opacityPopup()?.menu?.addItem(withTitle: name, action: #selector(Window3DController.applyOpacity(_:)), keyEquivalent: "")
         }
-//    [[OpacityPopup menu] addItem: [NSMenuItem separatorItem]];
-//    [[OpacityPopup menu] addItemWithTitle:NSLocalizedString(@"Add an Opacity Table", nil) action:@selector (AddOpacity:) keyEquivalent:@""];
 
         self.opacityPopup()?.menu?.item(at: 0)?.title = curOpacityMenu ?? ""
     }
@@ -2090,7 +2117,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             curOpacityMenu = str
         }
 
-        if str == NSLocalizedString("Linear Table", comment: "") {
+        if AnyLanguage.says(str, "Linear Table") {
             mprView1?.vrView?.setOpacity([])
             NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: curOpacityMenu, userInfo: nil)
 
@@ -2119,14 +2146,12 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     @objc(Apply2DOpacityString:)
     public dynamic func Apply2DOpacityString(_ str: String!) {
-        if str == NSLocalizedString("Linear Table", comment: "") {
-            //[thickSlab setOpacity:[NSArray array]];
+        if AnyLanguage.says(str, "Linear Table") {
 
             if curOpacityMenu as NSString? !== str as NSString? {
                 curOpacityMenu = str
             }
 
-            //lastMenuNotification = nil;
             NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: curOpacityMenu, userInfo: nil)
 
             self.opacityPopup()?.menu?.item(at: 0)?.title = str ?? ""
@@ -2140,12 +2165,10 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             mprView3?.setIndex(mprView3?.curImage ?? 0)
         } else {
             if let aOpacity = ReconstructionPreferences.preset(str, of: ImagePresetPreferences.opacityTables, in: self.preferenceStore) {
-                //[thickSlab setOpacity:array];
                 if curOpacityMenu as NSString? !== str as NSString? {
                     curOpacityMenu = str
                 }
 
-                //lastMenuNotification = nil;
                 NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: curOpacityMenu, userInfo: nil)
 
                 self.opacityPopup()?.menu?.item(at: 0)?.title = str ?? ""
@@ -2165,24 +2188,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     // MARK: - GUI ObjectController - Cocoa Bindings
 
-    private var thickSlabSliderScale: ThickSlabSliderScale {
-        ThickSlabSliderScale(minimum: Double(dcmIntervalMin), maximum: Double(dcmIntervalMax),
-                             exponential: self.preferenceStore[ReconstructionPreferences.logarithmicThickSlabSlider])
-    }
-
-    /// Only the slider binds this normalized position. All other consumers keep
-    /// their millimeter value, including when the scale preference changes.
-    @objc public dynamic var thickSlabSliderPosition: Double {
-        get { thickSlabSliderScale.position(for: Double(getClippingRangeThicknessInMm())) }
-        set { setClippingRangeThicknessInMm(Float(thickSlabSliderScale.thickness(at: newValue))) }
-    }
-
-    private func refreshThickSlabSliderPosition() {
-        thickSlabSlider?.minimumThickness = Double(dcmIntervalMin)
-        thickSlabSlider?.maximumThickness = Double(dcmIntervalMax)
-        willChangeValue(forKey: "thickSlabSliderPosition")
-        didChangeValue(forKey: "thickSlabSliderPosition")
-    }
+    // The slab slider's position, thickSlabSliderPosition, is ThickSlabSliderHost's.
 
     @objc(getClippingRangeThicknessInMm)
     public dynamic func getClippingRangeThicknessInMm() -> Float {
@@ -2191,7 +2197,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
     /// The setter of the clippingRangeThicknessInMm key the xib binds.
     @objc(setClippingRangeThicknessInMm:)
-    private dynamic func setClippingRangeThicknessInMm(_ c: Float) {
+    dynamic func setClippingRangeThicknessInMm(_ c: Float) {
         mprView1?.vrView?.setClippingRangeThicknessInMm(Double(c))
 
         self.clippingRangeThickness = Float(mprView1?.vrView?.getClippingRangeThickness() ?? 0)
@@ -2290,8 +2296,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             blendedMprView2?.setWLWW(128, 256)
             blendedMprView3?.setWLWW(128, 256)
 
-            // switch log inverse table
-            curOpacityMenu = NSLocalizedString("Logarithmic Inverse Table", comment: "")
+            // The presets are stored under their English names.
+            curOpacityMenu = "Logarithmic Inverse Table"
 
             self.setTool(toolsMatrix)
         }
@@ -3052,7 +3058,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         let path = (browserWindowGraph?.database?.tempDirPath() ?? "") + "IsiX DICOM Viewer.jpg"
         (bitmapData as NSData?)?.write(toFile: path, atomically: true)
 
-        Photos().importInPhotos([path])
+        Photos().importShowingFailure([path])
     }
 
     @objc(exportTIFF:)
@@ -3098,6 +3104,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             self.saveRememberedPlanes()
 
             self.horos_windowWillClose = true
+            windowWillCloseOfOlderSDK = true
 
             self.preferenceStore.set(self.displayMousePosition, for: ReconstructionPreferences.mprDisplaysMousePosition)
 
@@ -3118,6 +3125,10 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
             if let controller = hiddenVRController {
                 Unmanaged.passUnretained(controller).release()
             }
+            hiddenVRController = nil
+            hiddenVRView = nil
+            // The window can outlive this controller and still draw its planes: they let go of both now.
+            for view in [mprView1, mprView2, mprView3] { view?.detachFromWindowController() }
 
             ob?.content = nil // To allow the dealloc of MPRController ! otherwise memory leak
 
@@ -3131,18 +3142,7 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     @IBAction @objc(switchShading:)
     private dynamic func switchShading(_ sender: Any!) {
         hiddenVRView?.switchShading(sender)
-
-        mprView1?.restoreCamera()
-        mprView1?.camera?.forceUpdate = true
-        mprView1?.updateViewMPR()
-
-        mprView2?.restoreCamera()
-        mprView2?.camera?.forceUpdate = true
-        mprView2?.updateViewMPR()
-
-        mprView3?.restoreCamera()
-        mprView3?.camera?.forceUpdate = true
-        mprView3?.updateViewMPR()
+        horosRedrawShading()
     }
 
     @IBAction public override dynamic func applyShading(_ sender: Any!) {
@@ -3160,19 +3160,25 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
         if sambient != ambient || sdiffuse != diffuse || sspecular != specular || sspecularpower != specularpower {
             hiddenVRView?.setShadingValues(ambient, diffuse, specular, specularpower)
-            shadingValues?.stringValue = String(format: NSLocalizedString("Ambient: %2.2f\nDiffuse: %2.2f\nSpecular :%2.2f, %2.2f", comment: ""), Double(ambient), Double(diffuse), Double(specular), Double(specularpower))
+            horosShowShadingValues()
+            horosRedrawShading()
+        }
+    }
 
-            mprView1?.restoreCamera()
-            mprView1?.camera?.forceUpdate = true
-            mprView1?.updateViewMPR()
+    /// The shading values the hidden view renders with, beside the Shading
+    /// check box in the text of the VR window (ShadingValuesText.localized).
+    private func horosShowShadingValues() {
+        var ambient: Float = 0, diffuse: Float = 0, specular: Float = 0, specularpower: Float = 0
+        hiddenVRView?.getShadingValues(&ambient, &diffuse, &specular, &specularpower)
+        shadingValues?.stringValue = ShadingValuesText.localized(.init(ambient: ambient, diffuse: diffuse, specular: specular, specularPower: specularpower))
+    }
 
-            mprView2?.restoreCamera()
-            mprView2?.camera?.forceUpdate = true
-            mprView2?.updateViewMPR()
-
-            mprView3?.restoreCamera()
-            mprView3?.camera?.forceUpdate = true
-            mprView3?.updateViewMPR()
+    /// The three views drawn again with the hidden view's new shading.
+    private func horosRedrawShading() {
+        for view in [mprView1, mprView2, mprView3] {
+            view?.restoreCamera()
+            view?.camera?.forceUpdate = true
+            view?.updateViewMPR()
         }
     }
 
@@ -3286,7 +3292,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
         } else if itemIdent.rawValue == "tbMovie" {
             viewItem("4D Player", tbMovie)
         } else if itemIdent.rawValue == "tbShading" {
-            viewItem("Shadings", tbShading)
+            let widest = ShadingValuesText.localized(.init(ambient: 0.44, diffuse: 0.44, specular: 0.44, specularPower: 44.44))
+            MPRShadingItemLayout.fill(toolbarItem, view: tbShading, check: shadingCheck, values: shadingValues, widestText: widest)
         } else if itemIdent.rawValue == "AxisColors" {
             // Fixed at its designed size: with a free maximum the item took
             // every spare point of a wide bar.

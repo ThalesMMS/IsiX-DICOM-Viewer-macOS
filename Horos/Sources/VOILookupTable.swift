@@ -56,7 +56,7 @@ public final class VOILookupTable: NSObject {
         // table there is does not fit in them.
         entries = descriptor[0].intValue == 0 ? 65536 : descriptor[0].intValue
         depth = descriptor[2].intValue
-        guard entries > 1, entries <= 65536, depth >= 8, depth <= 16 else { return nil }
+        guard entries >= 1, entries <= 65536, depth >= 8, depth <= 16 else { return nil }
 
         let first = descriptor[1].intValue
         firstMapped = (signed && first > 32767) ? first - 65536 : first

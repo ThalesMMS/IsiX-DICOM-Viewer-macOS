@@ -48,8 +48,29 @@ import IsiXGeometry
 
 @objc @implementation extension N3BezierPath {
 
-    /// The path's segments.
-    final var core = BezierCore()
+    // The instance variables of the former Horos and OsiriX plugin SDK
+    // (_bezierCore, _length and _bezierCoreRandomAccessor): a plugin reads and
+    // writes each at the offset the application exports for it, so each is a
+    // stored field of this class with the type the C declaration has in
+    // memory, never private, constant, lazy or observed. The core is kept as
+    // the handle the N3BezierCore functions take, which owns one reference;
+    // the path makes no random accessor, and that one stays nil.
+    final var _bezierCore: OpaquePointer? = retainedHandle(BezierCore())
+    final var _bezierCoreRandomAccessor: OpaquePointer?
+
+    /// The path's segments: the core of the handle. A handle a plugin set to
+    /// nil is an empty path.
+    final var core: BezierCore {
+        get {
+            if _bezierCore == nil { _bezierCore = retainedHandle(BezierCore()) }
+            return bezierCore(_bezierCore)
+        }
+        set {
+            let former = _bezierCore
+            _bezierCore = retainedHandle(newValue)
+            if let former { Unmanaged<BezierCore>.fromOpaque(UnsafeRawPointer(former)).release() }
+        }
+    }
     /// The length, measured on first use; 0 until then and after each change.
     final var measuredLength: CGFloat = 0
     final let lengthLock = NSLock()
@@ -63,6 +84,7 @@ import IsiXGeometry
 
     deinit {
         mutations.deallocate()
+        if let _bezierCore { Unmanaged<BezierCore>.fromOpaque(UnsafeRawPointer(_bezierCore)).release() }
     }
 
     override init() {

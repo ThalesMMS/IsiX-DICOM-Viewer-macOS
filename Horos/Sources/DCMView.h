@@ -103,6 +103,15 @@ typedef NS_ENUM(short, ToolMode)
 extern NSString * const HorosPasteboardType;
 extern NSString * const HorosPasteboardTypePlugin;
 
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// The name plugins built for Horos or OsiriX look up when they load. Nothing in
+// the application writes it; Swift reads it as nonisolated(unsafe).
+extern NSString *pasteBoardOsiriX NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSString *pasteBoardOsiriXPlugin NS_SWIFT_NONISOLATED_UNSAFE, *OsirixPluginPboardUTI NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSString * const pasteBoardHoros, * const HorosPboardUTI, * const pasteBoardHorosPlugin, * const HorosPluginPboardUTI;
+
 #ifndef NS_SWIFT_UI_ACTOR
 #define NS_SWIFT_UI_ACTOR
 #endif

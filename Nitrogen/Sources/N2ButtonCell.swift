@@ -45,6 +45,14 @@ import Cocoa
 /// `<Horos/N2ButtonCell.h>` are those of the former class.
 @objc(N2ButtonCell)
 public final class N2ButtonCell: NSButtonCell {
+    // An instance variable of an older header of the former Horos and OsiriX
+    // plugin SDK, exported at this field's offset for the plugins built with
+    // it: the cell's own copy of its key equivalent, taken when the nib awoke.
+    // The SDK's later code no longer took it, and NSButtonCell keeps the key
+    // equivalent itself: nothing here reads or writes it, and it is not
+    // retained, so that a copy of the cell, made bit for bit, owns nothing.
+    final unowned(unsafe) var _keyEq: NSString?
+
     // The Objective-C did not call super either.
     public override func awakeFromNib() {
         MainActor.assumeIsolated {

@@ -108,7 +108,14 @@ def scan(lines):
             # A viewer assigned to a name may be kept once after the branches that
             # make it: Unmanaged.passRetained(name) within the next lines.
             assigned = re.match(r'\s*(?:let\s+|var\s+)?(\w+)\s*=', code)
-            kept_later = bool(assigned) and f'Unmanaged.passRetained({assigned.group(1)})' in '\n'.join(lines[number:number + 20])
+            later = '\n'.join(lines[number:number + 20])
+            names = [assigned.group(1)] if assigned else []
+            # The name may be handed on once, `other = name`, as when the viewer
+            # is made inside a closure and kept by the name declared outside it.
+            for name in list(names):
+                names += re.findall(rf'^\s*(?:let\s+|var\s+)?(\w+)\s*=\s*{name}\s*$',
+                                    '\n'.join(bare(line) for line in lines[number:number + 20]), re.M)
+            kept_later = any(f'Unmanaged.passRetained({name})' in later for name in names)
             kept = 'Unmanaged.passRetained' in window or kept_later
         if not kept:
             unkept.append(number + 1)
@@ -133,6 +140,12 @@ controls = [
      'if let viewer = ViewerController.newWindow(pixels, files, volume) { _ = Unmanaged.passRetained(viewer) }\n', True),
     ('a viewer nobody keeps',
      'let viewer = ViewerController.newWindow(pixels, files, volume)\nviewer?.window?.makeKeyAndOrderFront(nil)\n', False),
+    ('a viewer handed on to another name and kept by it',
+     'made = ViewerController.newWindow(pixels, files, volume)\n}\nviewer = made\n'
+     'if let viewer { _ = Unmanaged.passRetained(viewer) }\n', True),
+    ('a viewer handed on to another name that nobody keeps',
+     'made = ViewerController.newWindow(pixels, files, volume)\n}\nviewer = made\n'
+     'viewer?.window?.makeKeyAndOrderFront(nil)\n', False),
     ('a viewer kept right after the guard that binds it', GUARD + KEEP, True),
     ('a viewer kept right after a one-line guard',
      'guard let made = viewer.newWindow(pixels, files, volume) else { return false }\n_ = Unmanaged.passRetained(made)\n', True),

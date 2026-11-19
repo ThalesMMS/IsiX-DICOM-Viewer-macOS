@@ -36,7 +36,7 @@ Every output has to be the same bytes. DCMTK gives a lossily compressed object a
 new SOP Instance UID of its own; for those files the bytes are compared with that
 identifier (and its copy in the meta header) masked, and the count is reported.
 
-Exit 2 without the Debug build, a Python with pydicom and numpy (HOROS_PYTHON or
+Exit 2 without the Debug build, a Python with pydicom, numpy and Pillow (HOROS_PYTHON or
 the local venvs), or the history.
 
     python3 tests/test-dicom-write-equivalence.py [--reference REV] [--keep DIR]
@@ -82,7 +82,9 @@ if reason:
     raise SystemExit(2)
 
 
-python = interpreter_or_skip('import pydicom', 'import numpy', need='the generators need')
+# The colour generator writes its JPEG variants with Pillow.
+python = interpreter_or_skip('import pydicom', 'import numpy', 'import PIL', need='the generators need',
+                             packages="'pydicom>=3,<4' numpy pillow")
 
 # (transfer syntax, quality); quality is a DCM_CompressionQuality, 0 lossless.
 SYNTAXES = [('1.2.840.10008.1.2.1', 0), ('1.2.840.10008.1.2', 0), ('1.2.840.10008.1.2.2', 0),

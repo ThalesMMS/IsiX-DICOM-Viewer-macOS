@@ -238,8 +238,9 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
     source.write_text(SOURCE)
     (folder / "bridging.h").write_text(BRIDGING)
     # NSWindow+N2.swift: the compression sheet ends through -orderOutAndEndSheet(returnCode:).
+    # PaneCatalogTranslation.swift: the pane loads its nib through instantiatePaneNib.
     pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift",
-                        ROOT / "Nitrogen/Sources/NSWindow+N2.swift",
+                        ROOT / "Nitrogen/Sources/NSWindow+N2.swift", ROOT / "Preference Panes/PaneCatalogTranslation.swift",
                         ROOT / "Horos/Sources/DefaultPreferences+Application.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
                        bridging_header=folder / "bridging.h",
                        include_dirs=(ROOT / "Horos/Sources", ROOT / "Nitrogen/Sources", PANE_SOURCE.parent),

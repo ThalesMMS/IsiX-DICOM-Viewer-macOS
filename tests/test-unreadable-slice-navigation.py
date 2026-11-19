@@ -49,8 +49,9 @@ if not set_index:
 else:
     if 'notAbleToLoadImage' in set_index or 'missingPixelsReason' in set_index:
         failures.append('setIndex: must not skip or refuse an unreadable pix; the index asked for is the index shown')
-    if ('self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)' not in set_index
-            or 'self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix' not in set_index):
+    if ('self.stackNavigation.current = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)' not in set_index
+            or 'let pix = dcmPixList.object(at: Int(Int16(clamping: SeriesDisplay.clampedIndex(index, count: dcmPixList.count)))) as? DCMPix' not in set_index
+            or 'self.curDCM = pix' not in set_index):
         failures.append('setIndex: no longer shows the pix at the requested index')
 
 # The reason is a notice under the top orientation letter (AnnotationOverlayLayout).

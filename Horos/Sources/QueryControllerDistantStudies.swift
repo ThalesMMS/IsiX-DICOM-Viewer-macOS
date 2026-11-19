@@ -10,6 +10,7 @@
 
 import Foundation
 import IsiXDatabase
+import IsiXDICOMNetwork
 import IsiXPreferences
 
 /// A study a node found, kept as the query node the study list, the history
@@ -25,6 +26,13 @@ final class DistantQueryNode: @unchecked Sendable {
     init(_ node: DCMTKStudyQueryNode) {
         self.node = node
     }
+}
+
+/// A node of the comparative searches, as QueryController asks it: a property
+/// list the query only reads, handed to the thread of each of its queries
+/// unchanged.
+struct DistantServer: @unchecked Sendable {
+    let properties: [String: Any]
 }
 
 /// The patient of a history: a local study by its object ID in the database it
@@ -70,6 +78,25 @@ struct QueryControllerDistantStudies: DistantStudyQuerying {
         await ActivityThread.run(name: activity) { studiesNow(matching: filters) }
     }
 
+    /// Each node searched on its own, each of its queries on a thread the
+    /// Activity window lists under `activity`; what the nodes found merged as
+    /// QueryController.mergeStudies merges the nodes' answers.
+    func studies(activity: String,
+                 searchingEachNode search: @escaping @Sendable (
+                     _ query: @Sendable ([String: PropertyListValue]) async -> DistantNodeAnswer) async -> [DistantStudySummary])
+        async -> [DistantStudySummary] {
+        var studies: [AnyObject] = []
+        for server in comparativeServers().map(DistantServer.init) {
+            if Task.isCancelled { break }
+            let found = await search { filters in
+                await ActivityThread.run(name: activity) { studiesNow(matching: filters, on: server) }
+            }
+            QueryResultMerge.merge(Self.nodes(of: found).map { $0 as AnyObject }, into: &studies, indexingAdditions: true,
+                                   uid: QueryController.queryUID, images: QueryController.queryImageCount)
+        }
+        return Self.summaries(of: studies)
+    }
+
     func patientStudies(of patient: DistantHistoryPatient, activity: String) async -> [DistantStudySummary] {
         await ActivityThread.run(name: activity) {
             switch patient.study {
@@ -89,6 +116,13 @@ struct QueryControllerDistantStudies: DistantStudyQuerying {
         }
     }
 
+    /// The Query window's other spellings of a patient name
+    /// (PatientNameMatching): in capitals, then in capitals without
+    /// diacritics, those the query's character set can carry.
+    func nameSpellings(of name: String, characterSet: String?) -> [String] {
+        PatientNameMatching.alternativeRemoteTerms(for: name, encoding: NSString.encoding(forDICOMCharacterSet: characterSet))
+    }
+
     // MARK: On the calling thread
 
     /// The studies the nodes find for `filters`, asked on this thread.
@@ -96,6 +130,13 @@ struct QueryControllerDistantStudies: DistantStudyQuerying {
         let servers = comparativeServers()
         let found = QueryController.queryStudies(forFilters: filters.mapValues(\.object), servers: servers, showErrors: false)
         return Self.summaries(of: (found as? [Any]) ?? [])
+    }
+
+    /// What the node `server` finds for `filters`, asked on this thread, and
+    /// whether it answered.
+    func studiesNow(matching filters: [String: PropertyListValue], on server: DistantServer) -> DistantNodeAnswer {
+        let found = QueryController.queryStudies(forFilters: filters.mapValues(\.object), server: server.properties, showErrors: false)
+        return DistantNodeAnswer(studies: Self.summaries(of: found.studies ?? []), answered: found.answered)
     }
 
     /// The studies of the patient of `study`, a local study or a node's, asked

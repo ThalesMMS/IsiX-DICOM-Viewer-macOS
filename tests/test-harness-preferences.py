@@ -13,7 +13,12 @@ defaults' writes to the process's argument domain.
   -removeObjectForKey:, set(_:forKey:), removeObject(forKey:), directly or
   through a variable bound to them) without compiling harness_defaults in.
   The two tests whose harness has a domain of its own, removed when it ends,
-  are named below. Text quoted from an app source for a check is not a write.
+  are named below. A test that compiles nothing but a plugin bundle, which the
+  development application loads (tools/native_app.py, --LoadPlugin), has no
+  harness: its source runs in the application, whose standard defaults are
+  the domain of the development identifier and no file of a harness's name,
+  and harness_defaults there would take over the application's own writes.
+  Text quoted from an app source for a check is not a write.
 - objc, swift: a harness named "test" with harness_defaults.OBJC (or SWIFT)
   reads back what it set with -setBool:, -setInteger:, -setObject: and Swift's
   set(_:forKey:), removes it, leaves a suite's persistent domain as it was
@@ -83,20 +88,66 @@ def read(path):
     return (root / path).read_text() if (root / path).exists() else None
 
 
+def helper_builders():
+    """The functions of the helper modules of tests/ (not tests themselves)
+    that compile harness_defaults into the harness they build, by module: a
+    test that builds its harness through one of them is guarded as well."""
+    if revision:
+        names = subprocess.check_output(['git', '-C', str(root), 'ls-tree', '--name-only', f'{revision}:tests'],
+                                        text=True).split()
+    else:
+        names = [path.name for path in (root / 'tests').glob('*.py')]
+    builders = {}
+    for name in sorted(names):
+        if not name.endswith('.py') or name.startswith('test-') or name == 'harness_defaults.py':
+            continue
+        text = read(f'tests/{name}') or ''
+        for function in re.finditer(r'^def (\w+)\(.*?(?=^\S|\Z)', text, re.M | re.S):
+            if 'harness_defaults.OBJC' in function.group(0) or 'harness_defaults.SWIFT' in function.group(0):
+                builders.setdefault(name[:-3], set()).add(function.group(1))
+    return builders
+
+
+COMPILER = re.compile(r"'xcrun',\s*'(?:clang|clang\+\+|swiftc)'")
+LOADED_PLUGIN = re.compile(r"\bnative_app\.launch\([^)]*'--LoadPlugin'")
+
+
+def runs_in_the_application(text):
+    """Whether the test has no harness of its own: every compiler it calls
+    links a bundle (-bundle among the arguments of that call), and it launches
+    the development application with --LoadPlugin. One executable built beside
+    the plugin, or a plugin that nothing loads, and the test is scanned as any
+    other."""
+    calls = [text[match.start():text.find(']', match.start())] for match in COMPILER.finditer(text)]
+    return bool(calls) and all("'-bundle'" in call for call in calls) and LOADED_PLUGIN.search(text) is not None
+
+
+def compiles_defaults_in(text, builders):
+    if 'harness_defaults.OBJC' in text or 'harness_defaults.SWIFT' in text:
+        return True
+    return any(re.search(r'\b' + re.escape(module) + r'\.' + function + r'\(', text)
+               for module, functions in builders.items() for function in functions)
+
+
 failures = []
 this = Path(__file__).name
-unguarded = []
+unguarded, in_the_application = [], []
+builders = helper_builders()
 for name, text in tests():
     if name == this or name in OWN_DOMAIN:
         continue
     lines = writes(text)
-    if lines and 'harness_defaults.OBJC' not in text and 'harness_defaults.SWIFT' not in text:
+    if lines and runs_in_the_application(text):
+        in_the_application.append(name)
+    elif lines and not compiles_defaults_in(text, builders):
         unguarded.append(f'{name} ({lines[0]}' + (f'; and {len(lines) - 1} more)' if len(lines) > 1 else ')'))
 if unguarded:
     failures.append('these harnesses write the standard defaults, shared by every harness of their name, without '
                     'tests/harness_defaults.py: ' + '; '.join(unguarded))
 else:
-    print('ok: scan - every harness that writes the standard defaults compiles harness_defaults in')
+    print('ok: scan - every harness that writes the standard defaults compiles harness_defaults in'
+          + (f'; {len(in_the_application)} write them from a plugin the development application loads, in its domain ('
+             + ', '.join(in_the_application) + ')' if in_the_application else ''))
 
 module = read('tests/harness_defaults.py')
 KEY = 'HorosHarnessDefaultsProbe923'

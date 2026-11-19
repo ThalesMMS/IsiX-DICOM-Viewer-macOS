@@ -42,6 +42,12 @@
 
 #import <Cocoa/Cocoa.h>
 #import "MPRHostMessages.h"
+#import "CPRMPRDCMView.h"
+
+// The state of the CPR views' zoom, which they read and write: C globals,
+// because the Horos and OsiriX plugin SDK published them by these names.
+__attribute__((used)) BOOL frameZoomed = NO;
+__attribute__((used)) int splitPosition[3];
 
 #define CROSS(dest,v1,v2) \
           dest[0]=v1[1]*v2[2]-v1[2]*v2[1]; \

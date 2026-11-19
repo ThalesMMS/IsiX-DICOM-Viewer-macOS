@@ -1,0 +1,51 @@
+{
+ "about": "Symbols of Foundation and of the Swift libraries of the system that the built application may import weakly: the ones it imported when this list was made, all of them present in every released macOS that reports the version their call is guarded by. tests/test-weak-system-imports.py refuses any other, and names the ones in \"refused\" with their reason. A new entry needs the same check: the symbol's availability in the SDK is a released system version, and no system that reports that version lacks it.",
+ "allowed": {
+  "Foundation": {
+   "_$s10Foundation15ContiguousBytesP04withC0yqd__qd__s7RawSpanVqd_0_YKXEqd_0_YKs5ErrorRd_0_r0_lFTq": "method descriptor for Foundation.ContiguousBytes.withBytes<A, B where B1: Swift.Error>((Swift.RawSpan) throws(B1) -> A1) throws(B1) -> A1"
+  },
+  "libswiftCore": {
+   "_$ss11InlineArrayVMa": "type metadata accessor for Swift.InlineArray",
+   "_$ss8DurationV10componentss5Int64V7seconds_AE11attosecondstvg": "Swift.Duration.components.getter : (seconds: Swift.Int64, attoseconds: Swift.Int64)",
+   "_$ss8DurationV11nanosecondsyABxSzRzlFZ": "static Swift.Duration.nanoseconds<A where A: Swift.BinaryInteger>(A) -> Swift.Duration",
+   "_swift_coroFrameAlloc": "$swift_coroFrameAlloc",
+   "_swift_getExtendedExistentialTypeMetadata": "$swift_getExtendedExistentialTypeMetadata",
+   "_swift_getFixedArrayTypeMetadata": "$swift_getFixedArrayTypeMetadata",
+   "_swift_runtimeSupportsNoncopyableTypes": "$swift_runtimeSupportsNoncopyableTypes"
+  },
+  "libswiftMetal": {
+   "_$sSo12MTL4CompilerP5MetalE23makeRenderPipelineState10descriptor24dynamicLinkingDescriptor19compilerTaskOptionsSo09MTLRenderfG0_pSo0afK0C_So0aef7DynamicjK0CSgSo0abmN0CSgtKF": "(extension in Metal):__C.MTL4Compiler.makeRenderPipelineState(descriptor: __C.MTL4PipelineDescriptor, dynamicLinkingDescriptor: __C.MTL4RenderPipelineDynamicLinkingDescriptor?, compilerTaskOptions: __C.MTL4CompilerTaskOptions?) throws -> __C.MTLRenderPipelineState",
+   "_$sSo16MTL4CommandQueueP5MetalE6commit_7optionsySaySo0aB6Buffer_pG_So0A13CommitOptionsCSgtF": "(extension in Metal):__C.MTL4CommandQueue.commit(_: [__C.MTL4CommandBuffer], options: __C.MTL4CommitOptions?) -> ()",
+   "_$sSo17MTL4CommandBufferP5MetalE16useResidencySetsyySaySo15MTLResidencySet_pGF": "(extension in Metal):__C.MTL4CommandBuffer.useResidencySets([__C.MTLResidencySet]) -> ()"
+  },
+  "libswift_Concurrency": {
+   "_$sScF7enqueueyys11ExecutorJobVnFTq": "method descriptor for Swift.Executor.enqueue(__owned Swift.ExecutorJob) -> ()",
+   "_$sScF7enqueueyys3JobVnFTq": "method descriptor for Swift.Executor.enqueue(__owned Swift.Job) -> ()",
+   "_$sScFsE7enqueueyyScJF": "(extension in Swift):Swift.Executor.enqueue(Swift.UnownedJob) -> ()",
+   "_$sScFsE7enqueueyys3JobVnF": "(extension in Swift):Swift.Executor.enqueue(__owned Swift.Job) -> ()",
+   "_$sScI4next9isolation7ElementQzSgScA_pSgYi_tYa7FailureQzYKFTj": "dispatch thunk of Swift.AsyncIteratorProtocol.next(isolation: isolated Swift.Actor?) async throws(A.Failure) -> A.Element?",
+   "_$sScI4next9isolation7ElementQzSgScA_pSgYi_tYa7FailureQzYKFTjTu": "async function pointer to dispatch thunk of Swift.AsyncIteratorProtocol.next(isolation: isolated Swift.Actor?) async throws(A.Failure) -> A.Element?",
+   "_$sScIsE4next9isolation7ElementQzSgScA_pSgYi_tYa7FailureQzYKF": "(extension in Swift):Swift.AsyncIteratorProtocol.next(isolation: isolated Swift.Actor?) async throws(A.Failure) -> A.Element?",
+   "_$sScIsE4next9isolation7ElementQzSgScA_pSgYi_tYa7FailureQzYKFTu": "async function pointer to (extension in Swift):Swift.AsyncIteratorProtocol.next(isolation: isolated Swift.Actor?) async throws(A.Failure) -> A.Element?",
+   "_$sScJyScJs11ExecutorJobVncfC": "Swift.UnownedJob.init(__owned Swift.ExecutorJob) -> Swift.UnownedJob",
+   "_$sScJyScJs3JobVncfC": "Swift.UnownedJob.init(__owned Swift.Job) -> Swift.UnownedJob",
+   "_$sSce15complexEqualityScexh_tcScfRzlufC": "Swift.UnownedSerialExecutor.init<A where A: Swift.SerialExecutor>(complexEquality: __shared A) -> Swift.UnownedSerialExecutor",
+   "_$sScf13checkIsolatedyyFTq": "method descriptor for Swift.SerialExecutor.checkIsolated() -> ()",
+   "_$sScf25isIsolatingCurrentContextSbSgyFTq": "method descriptor for Swift.SerialExecutor.isIsolatingCurrentContext() -> Swift.Bool?",
+   "_$sScf31isSameExclusiveExecutionContext5otherSbx_tFTq": "method descriptor for Swift.SerialExecutor.isSameExclusiveExecutionContext(other: A) -> Swift.Bool",
+   "_$sScf7enqueueyys11ExecutorJobVnFTq": "method descriptor for Swift.SerialExecutor.enqueue(__owned Swift.ExecutorJob) -> ()",
+   "_$sScf7enqueueyys3JobVnFTq": "method descriptor for Swift.SerialExecutor.enqueue(__owned Swift.Job) -> ()",
+   "_$sScfsE13checkIsolatedyyF": "(extension in Swift):Swift.SerialExecutor.checkIsolated() -> ()",
+   "_$sScfsE25isIsolatingCurrentContextSbSgyF": "(extension in Swift):Swift.SerialExecutor.isIsolatingCurrentContext() -> Swift.Bool?",
+   "_$ss11ExecutorJobVyABScJcfC": "Swift.ExecutorJob.init(Swift.UnownedJob) -> Swift.ExecutorJob",
+   "_$ss31withCheckedThrowingContinuation9isolation8function_xScA_pSgYi_SSyScCyxs5Error_pGXEtYaKlF": "Swift.withCheckedThrowingContinuation<A>(isolation: isolated Swift.Actor?, function: Swift.String, _: (Swift.CheckedContinuation<A, Swift.Error>) -> ()) async throws -> A",
+   "_$ss31withCheckedThrowingContinuation9isolation8function_xScA_pSgYi_SSyScCyxs5Error_pGXEtYaKlFTu": "async function pointer to Swift.withCheckedThrowingContinuation<A>(isolation: isolated Swift.Actor?, function: Swift.String, _: (Swift.CheckedContinuation<A, Swift.Error>) -> ()) async throws -> A",
+   "_swift_task_deinitOnExecutor": "$swift_task_deinitOnExecutor",
+   "_swift_task_isCancelledWithFlags": "$swift_task_isCancelledWithFlags"
+  }
+ },
+ "refused": {
+  "_$s10Foundation4DateV2geoiySbAC_ACtFZ": "static Foundation.Date.>= infix: back deployed before macOS 27.2, so the call is guarded by a version check a 27.2 beta without the symbol passes; write !(a < b)",
+  "_$s10Foundation4DateV2leoiySbAC_ACtFZ": "static Foundation.Date.<= infix: back deployed before macOS 27.2, so the call is guarded by a version check a 27.2 beta without the symbol passes; write !(a > b)"
+ }
+}

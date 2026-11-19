@@ -422,6 +422,7 @@ def swift_class_pieces():
     end = loading.index('}', loading.index('self.loadAbsentPixelData()', at)) + 1
     return {
         'ARRAYS': between(pix, 'struct DCMPixArrays {', '\n}\n', include_end=True),
+        'ARRAY_FIELDS': between(pix, '    final var horos_orientationArray', 'DCMPixArrays(of: self) }\n', include_end=True),
         'SLICELOCATION': between(pix, '    func computeSliceLocation() {', '\n    }\n', include_end=True),
         'FRAMEMETHODS': between(frames, '    final func frameLoad() -> FrameLoad {', '    // MARK: - The VOI LUT'),
         'LOAD': loading[at:end],
@@ -486,7 +487,7 @@ final class DCMPix: NSObject {
     final var horos_pixelSpacingX: Double = 0
     final var horos_pixelSpacingY: Double = 0
     final var horos_sliceLocation: Double = 0
-    final let horos_arrays = DCMPixArrays()
+ARRAY_FIELDS
     var srcFile: String!
     var missingPixelsReason: String!
 
@@ -494,12 +495,15 @@ SLICELOCATION
 
     // The VOI LUT step stays in the app: here it records what it was handed and
     // marks it, so that a difference in when it runs or on what shows.
-    final func applyVOILUT(from dcmObject: DCMObject, to samples: UnsafeMutablePointer<UInt16>?) {
-        guard let samples else { return }
+    // It answers that the samples are not a table's output, so that they go
+    // through the conversion every other frame goes through.
+    final func applyVOILUT(from dcmObject: DCMObject, to samples: UnsafeMutablePointer<UInt16>?) -> Bool {
+        guard let samples else { return false }
         var sum: UInt = 0
         for i in 0..<(horos_width * horos_height) { sum = sum &* 31 &+ UInt(samples[i]) }
         harnessVOICalls.append(sum)
         for i in 0..<(horos_width * horos_height) { samples[i] ^= 0x5 }
+        return false
     }
 
     final func videoFrame(_ index: Int, ofStreamIn pixelAttr: DCMPixelDataAttribute?, reason: inout String?) -> Data? {
@@ -655,7 +659,7 @@ def compile_swift_class(work, name, module_folder):
                      'DCMObject : NSObject'):
         start = objc.index('@interface ' + declared)
         objc = objc[:start] + objc[objc.index('@end\n', start) + len('@end\n'):]
-    (work / 'Harness.h').write_text(SWIFT_HEADER)
+    (work / 'Harness.h').write_text('#import <Foundation/Foundation.h>\n#import "%s"\n' % (ROOT / 'Horos/Sources/LegacyPluginIvarStorage.h') + SWIFT_HEADER)
     (work / (name + '-standins.m')).write_text(objc, encoding='latin1')
     program = SWIFT_PROGRAM
     for key, value in parts.items():

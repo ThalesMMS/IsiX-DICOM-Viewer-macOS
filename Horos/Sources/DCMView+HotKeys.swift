@@ -87,10 +87,10 @@ extension DCMView {
         switch command {
         case .defaultWindowLevel:
             self.setWLWW(self.curDCM?.savedWL ?? 0, self.curDCM?.savedWW ?? 0)	// default WW/WL
-
+            announceWindowLevelPreset(NSLocalizedString("Default WL & WW", comment: ""), from: self)
         case .fullDynamic:
             self.setWLWW(0, 0)											// full dynamic WW/WL
-
+            announceWindowLevelPreset(NSLocalizedString("Full dynamic", comment: ""), from: self)
         case .opacityPreset(let preset):
             // The stored tables in the order of their names; none stored is no list at all.
             let stored = PreferencesSource.process.preferences[ImagePresetPreferences.opacityTables.reading(as: [String: PropertyListValue]?.self)]
@@ -99,18 +99,14 @@ extension DCMView {
             let told: NSString?
             switch choice {
             case .linear:
-                // First is always linear
-                controller?.inputApplyOpacityString(NSLocalizedString("Linear Table", comment: "") as NSString)
-                // The menu was told the table at index -1 of the list, which
-                // raised NSRangeException when there was a list, as it did.
-                if names != nil {
-                    NSException(name: .rangeException, reason: "*** -[NSArray objectAtIndex:]: index -1 beyond bounds", userInfo: nil).raise()
-                }
-                told = nil
+                // First is always linear. The menus are told its name, as for
+                // a stored table: a window that titles its opacity menu with
+                // the name it is told would show an empty title without one.
+                told = NSLocalizedString("Linear Table", comment: "") as NSString
             case .stored(let index):
                 told = names.map { $0[index] as NSString }
-                controller?.inputApplyOpacityString(told)
             }
+            controller?.inputApplyOpacityString(told)
             NotificationCenter.default.post(name: .OsirixUpdateOpacityMenu, object: told, userInfo: nil)
 
         case .windowLevelPreset(let presetIndex):
@@ -122,7 +118,7 @@ extension DCMView {
                 let name = preset.name as NSString
                 if self.is2DViewer() == true { controller?.inputSetCurWLWWMenu(name) }
 
-                NotificationCenter.default.post(name: .OsirixUpdateWLWWMenu, object: name, userInfo: nil)
+                announceWindowLevelPreset(name as String, from: self)
             }
 
             // Flip

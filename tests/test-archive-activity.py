@@ -185,6 +185,12 @@ nonisolated(unsafe) var answers: [String?] = []
     }
 }
 
+/// The application's preferences, which give the budget of an expansion.
+struct PreferencesSource {
+    static let process = PreferencesSource()
+    var preferences: UserDefaults { .standard }
+}
+
 ACTIVITY
 
 EXTRACTION
@@ -375,7 +381,7 @@ with tempfile.TemporaryDirectory(prefix='horos-archive-activity-') as temporary:
     at = export_rules.index('public enum ZipCommand {')
     (folder/'ZipCommand.swift').write_text('import Foundation\n' + export_rules[at:export_rules.index('\n}\n', at) + 3])
     zip_sources = [str(root/'Modules/IsiXDatabase/Sources'/name) for name in
-                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift')] + [str(folder/'ZipCommand.swift')]
+                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift', 'ArchiveExpansionBudget.swift')] + [str(folder/'ZipCommand.swift')]
     for command in (['xcrun','clang','-c','-fblocks','-I',str(folder),'-I',str(sources),str(folder/'native.m'),'-o',str(folder/'native.o')],
                     ['xcrun','clang','-c','-fobjc-arc','-I',str(sources),str(sources/'HorosObjCException.m'),'-o',str(folder/'exception.o')],
                     ['xcrun','swiftc','-swift-version','6','-import-objc-header',str(folder/'Harness.h'),'-Xcc','-I','-Xcc',str(sources),

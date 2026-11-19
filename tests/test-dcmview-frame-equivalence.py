@@ -159,6 +159,16 @@ NS_SWIFT_NAME(SeriesListIdentification)
 @property(class, readonly) NSColor *neutralColor;
 @end
 
+// Whether a window has a frame, and its colour, is ViewerWindowBorder's, over
+// the rule of IsiXImaging (WindowFrameRule, with its own tests: one window on
+// screen, another in the Dock, a study other than the one the window was
+// opened with). Here it answers as the former frame did, by the count of the
+// viewers: none for one, the study's colour or the neutral one among several.
+NS_SWIFT_NAME(ViewerWindowBorder)
+@interface HorosViewerWindowBorder : NSObject
++ (nullable NSColor *)colorForViewer:(id)viewer active:(BOOL)active NS_SWIFT_NAME(color(for:active:));
+@end
+
 @interface OSIEnvironment : NSObject
 + (instancetype)sharedEnvironment NS_SWIFT_NAME(shared());
 - (void)drawDCMView:(DCMView *)dcmView NS_SWIFT_NAME(drawDCMView(_:));
@@ -247,7 +257,7 @@ OBJC_FRAME@end
 @property NSInteger horos_imageColumns, horos_imageRows;
 @property int horos_repulsorRadius;
 @property(nonatomic, assign) ROI *horos_lengthPendingMarker;
-@property(nonatomic, retain) HorosAnnotationBox *horos_showDescriptionInLargeText;
+@property(nonatomic, retain) HorosAnnotationBox *largeDescriptionBox;
 @property(readonly) unsigned char *horos_redTable, *horos_greenTable, *horos_blueTable;
 @property(readonly) float *horos_sliceFromTo, *horos_sliceFromToS, *horos_sliceFromToE, *horos_sliceFromTo2, *horos_sliceVector, *horos_slicePoint3D;
 @property float horos_sliceFromToThickness;
@@ -316,6 +326,12 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) { NSLog(
 + (BOOL)showsColorsIn:(NSUserDefaults *)defaults { return YES; }
 + (NSColor *)colorForViewer:(id)viewer { return [HorosViewerWindowColors colorForViewer:viewer]; }
 + (NSColor *)neutralColor { return [HorosViewerWindowColors colorForViewer:nil]; }
+@end
+@implementation HorosViewerWindowBorder
++ (NSColor *)colorForViewer:(id)viewer active:(BOOL)active {
+    if (viewerCount <= 1) return nil;
+    return active ? [HorosSeriesListIdentification colorForViewer:viewer] : [HorosSeriesListIdentification neutralColor];
+}
 @end
 
 @implementation DCMView
@@ -401,8 +417,8 @@ static NSRecursiveLock *staticDrawLock = nil;
 - (NSInteger)horos_imageRows { return _imageRows; } - (void)setHoros_imageRows:(NSInteger)v { _imageRows = v; }
 - (int)horos_repulsorRadius { return repulsorRadius; } - (void)setHoros_repulsorRadius:(int)v { repulsorRadius = v; }
 - (ROI *)horos_lengthPendingMarker { return lengthPendingMarker; } - (void)setHoros_lengthPendingMarker:(ROI *)v { lengthPendingMarker = v; }
-- (HorosAnnotationBox *)horos_showDescriptionInLargeText { return showDescriptionInLargeText; }
-- (void)setHoros_showDescriptionInLargeText:(HorosAnnotationBox *)v { [v retain]; [showDescriptionInLargeText release]; showDescriptionInLargeText = v; }
+- (HorosAnnotationBox *)largeDescriptionBox { return showDescriptionInLargeText; }
+- (void)setLargeDescriptionBox:(HorosAnnotationBox *)v { [v retain]; [showDescriptionInLargeText release]; showDescriptionInLargeText = v; }
 - (unsigned char *)horos_redTable { return redTable; } - (unsigned char *)horos_greenTable { return greenTable; } - (unsigned char *)horos_blueTable { return blueTable; }
 - (float)horos_sliceFromToThickness { return sliceFromToThickness; } - (void)setHoros_sliceFromToThickness:(float)v { sliceFromToThickness = v; }
 - (float *)horos_sliceFromTo { return &sliceFromTo[0][0]; } - (float *)horos_sliceFromToS { return &sliceFromToS[0][0]; }

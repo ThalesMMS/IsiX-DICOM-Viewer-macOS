@@ -337,7 +337,7 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
     @IBAction @objc(setTitle:)
     public func setTitle(_ sender: Any?) {
         if let selectedAnnotation = selectedAnnotationValue {
-            selectedAnnotation.title = (sender as? NSControl)?.stringValue
+            selectedAnnotation.title = CIAAnnotation.storedTitle((sender as? NSControl)?.stringValue, replacing: selectedAnnotation.title)
 
             selectedAnnotation.placeHolder?.updateFrameAroundAnnotations()
             layoutView?.updatePlaceHolderOrigins()
@@ -508,7 +508,7 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
         setCustomDICOMFieldEditingEnable(true)
 
         if let title = anAnnotation?.title {
-            pane?.titleTextField?.stringValue = title
+            pane?.titleTextField?.stringValue = CIAAnnotation.displayedTitle(title) ?? title
         }
         pane?.contentTokenField?.objectValue = anAnnotation?.content
 
@@ -710,6 +710,63 @@ public final class CIALayoutController: NSWindowController, NSTokenFieldDelegate
     public func tokenField(_ tokenField: NSTokenField, shouldAdd tokens: [Any], at index: Int) -> [Any] {
         perform(#selector(resizeTokenField), with: nil, afterDelay: 0.1)
         return tokens
+    }
+
+    // The content's tokens are keys (DICOM_name, DB_level.field, Special_title):
+    // the layout saves them, DCMPix reads them, and the completions offer them.
+    // The field shows the name of what each key stands for, in the user's
+    // language where the catalog has it, and keeps the key for editing, copying
+    // and dragging, so a layout saved in one language reads the same in another.
+
+    public func tokenField(_ tokenField: NSTokenField, displayStringForRepresentedObject representedObject: Any) -> String? {
+        let token = ciaDescription(representedObject)
+        return isEqualTo(tokenField, prefPane?.contentTokenField) ? displayString(forToken: token) : token
+    }
+
+    public func tokenField(_ tokenField: NSTokenField, editingStringForRepresentedObject representedObject: Any) -> String? {
+        return ciaDescription(representedObject)
+    }
+
+    public func tokenField(_ tokenField: NSTokenField, writeRepresentedObjects objects: [Any], to pboard: NSPasteboard) -> Bool {
+        // The format -tokenField:readFromPasteboard: reads back.
+        pboard.clearContents()
+        return pboard.setString(objects.map { ciaDescription($0) }.joined(separator: ", "), forType: .string)
+    }
+
+    /// The name the content field shows for a token. A key the pane does not
+    /// know shows as it is; a key without its field (the token the Add buttons
+    /// insert before a field is chosen) shows its group's label.
+    func displayString(forToken token: String) -> String {
+        if token.hasPrefix("Special_") {
+            let title = String(token.dropFirst("Special_".count))
+            if title.isEmpty { return NSLocalizedString("Other infos", comment: "") + "…" }
+            let index = specialFieldsTitles().index(of: title)
+            return index == NSNotFound ? title : ciaDescription(specialFieldsLocalizedTitles().object(at: index))
+        }
+        if token.hasPrefix("DB_") {
+            let path = token.dropFirst("DB_".count)
+            if path.isEmpty { return NSLocalizedString("Database fields", comment: "") + "…" }
+            guard let dot = path.firstIndex(of: ".") else { return String(path) }
+            let levels = ["study": NSLocalizedString("Study", comment: ""), "series": NSLocalizedString("Series", comment: ""),
+                          "image": NSLocalizedString("Image", comment: "")]
+            let level = String(path[..<dot])
+            return "\(levels[level] ?? level): \(path[path.index(after: dot)...])"
+        }
+        if token.hasPrefix("DICOM_") {
+            let name = String(token.dropFirst("DICOM_".count))
+            if name.isEmpty { return NSLocalizedString("DICOM fields", comment: "") + "…" }
+            // As the save reads the token: a known field by its name, case aside, else DICOM_group_element(_name).
+            for case let field as CIADICOMField in DICOMFieldsArray ?? [] where field.name()?.caseInsensitiveCompare(name) == .orderedSame {
+                return field.name()
+            }
+            let components = token.components(separatedBy: "_")
+            if components.count >= 3, let group = hexTagComponent(components[1]), let element = hexTagComponent(components[2]) {
+                let tag = String(format: "(%04X,%04X)", group, element)
+                return components.count == 4 ? "\(components[3]) \(tag)" : tag
+            }
+            return name
+        }
+        return token
     }
 
     @objc public func prepareDatabaseFields() {

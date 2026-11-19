@@ -7,7 +7,7 @@ when the application went away. The note was written to `/tmp/PluginCrashed`
 while the startup check read `Plugin_Loading` in the application support folder:
 two different files, so nothing ever read what was written and the recovery
 could not run at all. `/tmp` was the wrong place besides - writable by everybody
-on the machine, and shared by every Horos and OsiriX on it.
+on the machine, and shared by every application on it that used the same path.
 
 One file now, inside the folder Horos keeps its plugins in, one per bundle
 identifier so a development build and an installed one do not accuse each other.
@@ -65,7 +65,7 @@ manager = source_text('PluginManager')
 # --- one file, and not in /tmp ------------------------------------------------
 if 'PluginCrashed' in manager:
     failures.append('the crash note is still written to /tmp, where every user and every copy of '
-                    'Horos and OsiriX on the machine shares one file')
+                    'an application on the machine shares one file')
 if manager.count('class func crashMarkerPath()') != 1:
     failures.append('there is no single place that says where the crash note lives')
 for what, near in (('writeCrashMarker(forPluginAt', 'writes'),
@@ -125,7 +125,7 @@ if not re.search(r'@objc public class func crashMarkerPath\(\) -> String!', mana
 # is on disk; quitting, or the installation of an update, ends the process from
 # there. The note went nowhere, and the next launch blamed the plugin.
 lifecycle = source_text('ApplicationLifecycle')
-for signature, what in (('    func finishTermination(_ sender: Any?) {', 'the Quit command and the update'),
+for signature, what in (('    private func beginQuitting() {', 'a quit asked for and agreed to, before its waits'),
                         ('    func willTerminate() {', 'every orderly end')):
     at = lifecycle.find(signature)
     body = swift_block(lifecycle, at) if at >= 0 else ''

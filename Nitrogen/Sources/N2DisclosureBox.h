@@ -45,10 +45,15 @@
 
 @class N2DisclosureButtonCell;
 
-static NSNotificationName const N2DisclosureBoxDidToggleNotification = @"N2DisclosureBoxDidToggleNotification";
-static NSNotificationName const N2DisclosureBoxWillExpandNotification = @"N2DisclosureBoxWillExpandNotification";
-static NSNotificationName const N2DisclosureBoxDidExpandNotification = @"N2DisclosureBoxDidExpandNotification";
-static NSNotificationName const N2DisclosureBoxDidCollapseNotification = @"N2DisclosureBoxDidCollapseNotification";
+#ifndef NS_SWIFT_NONISOLATED_UNSAFE
+#define NS_SWIFT_NONISOLATED_UNSAFE
+#endif
+// Defined in Nitrogen+CAPI.m, and not const, as the Horos and OsiriX plugin
+// SDK declared them: plugins built for it look these names up. Nothing writes them.
+extern NSNotificationName N2DisclosureBoxDidToggleNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName N2DisclosureBoxWillExpandNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName N2DisclosureBoxDidExpandNotification NS_SWIFT_NONISOLATED_UNSAFE;
+extern NSNotificationName N2DisclosureBoxDidCollapseNotification NS_SWIFT_NONISOLATED_UNSAFE;
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

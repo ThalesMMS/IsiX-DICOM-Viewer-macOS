@@ -67,8 +67,9 @@ public struct PreferenceChange: Sendable, Equatable {
     public var viewerRefresh = false
     /// The viewers read their series again: the DICOM overlays.
     public var viewerReload = false
-    /// The viewers are only redrawn, their images are not touched: the mark of
-    /// a previous study.
+    /// The viewers and the database's preview are only redrawn, their images
+    /// are not touched: the mark of a previous study, the polarity of the
+    /// document pages in Dark Mode.
     public var viewerRedraw = false
     /// The measurements write their lengths otherwise (unit or decimals).
     public var lengthPresentation = false
@@ -110,6 +111,7 @@ public struct PreferenceChange: Sendable, Equatable {
             || compared.integerChanged(ViewerPreferences.noInterpolation)
             || compared.integerChanged(ViewerPreferences.softwareInterpolation)
         viewerRedraw = compared.switchChanged(ViewerPreferences.showPreviousExamLabel)
+            || compared.switchChanged(ViewerPreferences.invertsDocumentPagesInDarkMode)
         lengthPresentation = compared.numberChanged(ViewerPreferences.roiLengthUnit)
             || compared.numberChanged(ViewerPreferences.roiLengthDecimals)
         viewerRefresh = viewerRefresh || lengthPresentation

@@ -21,6 +21,12 @@ import IsiXStorage
 // comments and states. The files go through the import every dropped file
 // goes through (DroppedFilesImport), copied or indexed where they are, on a
 // thread of the Activity list.
+//
+// The files of the earlier image folder that its database no longer lists
+// (LegacyFileIndex) are what that application took out of its list and left
+// on disk, the studies deleted there among them: they are left out, counted,
+// and imported too only when asked. A database that cannot be read, or that
+// does not say where its files are, leaves no file out, and that is said.
 
 /// The import of the studies of an earlier application's data folder.
 @MainActor final class LegacyStudiesImport: NSObject {
@@ -58,9 +64,9 @@ import IsiXStorage
         }
 
         let dialog = LegacyImportDialog(folders: folders, openFolder: openFolder)
-        guard let (choice, survey) = dialog.run() else { return }
+        guard let (choice, survey, files) = dialog.run() else { return }
         prepareNotes(survey.contents, in: database)
-        browser.droppedFiles.importFiles(survey.files.paths, options: [
+        browser.droppedFiles.importFiles(files, options: [
             "COPYDATABASE": NSNumber(value: choice == .copy),
             "COPYDATABASEMODE": NSNumber(value: DatabaseCopyRule.always),
             "async": NSNumber(value: true),
@@ -68,21 +74,107 @@ import IsiXStorage
     }
 
     /// What the command does without its dialog, for scripts and checks: reads
-    /// the data folder at `path` and starts the import, copying or not. The
-    /// number of files handed to the import, -1 when the folder holds no such
-    /// database or the database shown cannot take them.
+    /// the data folder at `path` and starts the import, copying or not, the
+    /// files its database no longer lists left out. The number of files handed
+    /// to the import, -1 when the folder holds no such database or the
+    /// database shown cannot take them.
     func importFolder(atPath path: String, copying: Bool, into browser: BrowserController) -> Int {
+        importFolder(atPath: path, copying: copying, includingUnlisted: false, into: browser)
+    }
+
+    /// The same, with the files the earlier database no longer lists when
+    /// `includingUnlisted` says so.
+    func importFolder(atPath path: String, copying: Bool, includingUnlisted: Bool, into browser: BrowserController) -> Int {
         guard Self.canImport(into: browser), let database = browser.database,
               let legacy = LegacyDatabase.resolving(URL(fileURLWithPath: path, isDirectory: true)),
-              !Self.isSame(legacy, as: database.dataDirPath() ?? ""),
-              let contents = try? legacy.contents(), let files = legacy.files(linked: contents.linkedFiles) else { return -1 }
-        prepareNotes(contents, in: database)
-        browser.droppedFiles.importFiles(files.paths, options: [
+              !Self.isSame(legacy, as: database.dataDirPath() ?? ""), let survey = legacy.survey() else { return -1 }
+        let files = survey.files.paths + (includingUnlisted ? survey.files.unlisted : [])
+        Self.log(survey, imported: files.count)
+        prepareNotes(survey.contents, in: database)
+        browser.droppedFiles.importFiles(files, options: [
             "COPYDATABASE": NSNumber(value: copying),
             "COPYDATABASEMODE": NSNumber(value: DatabaseCopyRule.always),
             "async": NSNumber(value: true),
         ])
-        return files.paths.count
+        return files.count
+    }
+
+    // MARK: - An image folder chosen on the way to a database
+
+    /// Imports the image folder of an earlier application's database, as
+    /// choosing that database at first use or as the database location asks:
+    /// through the import of dropped files, which copies or links as the
+    /// settings say. When its database lies beside the folder, the files it
+    /// no longer lists are left out, and an alert counts them and offers to
+    /// import them too; a database that cannot be read leaves none out, which
+    /// the alert says. A folder without a database beside it is imported whole.
+    func importImagesFolder(_ folder: String, into browser: BrowserController) {
+        guard let legacy = LegacyDatabase.holding(imagesFolder: URL(fileURLWithPath: folder, isDirectory: true)) else {
+            browser.subSelectFilesAndFolders(toAdd: [folder])
+            return
+        }
+        // The folder is read on a thread of the Activity list, which can
+        // cancel it; the alert comes from the main run loop, where a modal
+        // holds neither the main queue nor the main actor.
+        ActivityThread.startListed(name: NSLocalizedString("Reading the database…", comment: "")) {
+            guard let survey = legacy.survey(isCancelled: { Thread.current.isCancelled }) else { return }
+            onMainRunLoop { self.importSurveyed(survey, into: browser) }
+        }
+    }
+
+    private func importSurveyed(_ survey: LegacyDatabase.Survey, into browser: BrowserController) {
+        let title = NSLocalizedString("Import Studies from Horos or OsiriX", comment: "")
+        var files = survey.files.paths
+        if let unread = Self.unreadText(survey.listing) {
+            _ = HorosAlertPanel.runInformational(title: title, message: unread, defaultButton: NSLocalizedString("OK", comment: ""),
+                                                 alternateButton: nil, otherButton: nil)
+        } else if !survey.files.unlisted.isEmpty {
+            let answer = HorosAlertPanel.runInformational(title: title, message: Self.unlistedText(survey.files),
+                                                          defaultButton: NSLocalizedString("OK", comment: ""),
+                                                          alternateButton: NSLocalizedString("Import Them Too", comment: ""), otherButton: nil)
+            if answer == HorosAlertPanel.alternateResponse { files += survey.files.unlisted }
+        }
+        Self.log(survey, imported: files.count)
+        guard !files.isEmpty else { return }
+        browser.droppedFiles.add(files)
+    }
+
+    /// How many files of the folder the database no longer lists, and what
+    /// becomes of them: imported too when `imported` says they were asked
+    /// for, else left out unless asked for.
+    fileprivate static func unlistedText(_ files: LegacyDatabase.Files, imported: Bool = false) -> String {
+        let format = imported
+            ? NSLocalizedString("Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are imported too.", comment: "")
+            : NSLocalizedString("Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are left out unless you choose to import them too.", comment: "")
+        return String(format: format,
+                      NumberFormatter.localizedString(from: NSNumber(value: files.unlisted.count), number: .decimal),
+                      ByteCountFormatter.string(fromByteCount: files.unlistedBytes, countStyle: .file))
+    }
+
+    /// Why no file of the folder is left out, when the database did not say
+    /// which it lists; nil when it did.
+    fileprivate static func unreadText(_ listing: LegacyDatabase.Survey.Listing) -> String? {
+        let everything = NSLocalizedString("Every file in the folder is imported, including those of studies deleted in the earlier application.", comment: "")
+        switch listing {
+        case .read:
+            return nil
+        case .unreadable(let failure):
+            return String(format: NSLocalizedString("This database could not be read: %@", comment: ""), failure.description) + "\n" + everything
+        case .unknown:
+            return NSLocalizedString("This database does not record where its files are.", comment: "") + " " + everything
+        }
+    }
+
+    /// The counts of an import, without a path or a name.
+    fileprivate static func log(_ survey: LegacyDatabase.Survey, imported: Int) {
+        let listing: String
+        switch survey.listing {
+        case .read: listing = "read"
+        case .unreadable: listing = "unreadable"
+        case .unknown: listing = "without file paths"
+        }
+        NSLog("Database: importing %ld files of an earlier database (index %@); %ld files it no longer lists, %ld listed or linked",
+              imported, listing, survey.files.unlisted.count, survey.files.paths.count)
     }
 
     /// Whether a data folder is the one of the database that is open.
@@ -217,15 +309,13 @@ import IsiXStorage
 @MainActor private final class LegacyImportDialog: NSObject {
     enum Choice { case copy, link }
 
-    struct Survey: Sendable {
-        let database: LegacyDatabase
-        let contents: LegacyDatabase.Contents
-        let files: LegacyDatabase.Files
-    }
+    typealias Survey = LegacyDatabase.Survey
 
     private let alert = NSAlert()
     private let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 440, height: 26), pullsDown: false)
     private let summary = NSTextField(wrappingLabelWithString: "")
+    /// Shown when the folder holds files its database no longer lists.
+    private let unlisted = NSButton(checkboxWithTitle: NSLocalizedString("Also import the files the database no longer lists", comment: ""), target: nil, action: nil)
     private var folders: [LegacyDatabase]
     private var selected = 0
     private let openFolder: String
@@ -244,25 +334,42 @@ import IsiXStorage
 
         popup.target = self
         popup.action = #selector(folderChosen(_:))
-        summary.frame = NSRect(x: 0, y: 0, width: 440, height: 72)
+        summary.frame = NSRect(x: 0, y: 26, width: 440, height: 128)
         summary.preferredMaxLayoutWidth = 440
         summary.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         summary.textColor = .secondaryLabelColor
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 106))
-        popup.setFrameOrigin(NSPoint(x: 0, y: 80))
+        unlisted.frame = NSRect(x: 0, y: 0, width: 440, height: 18)
+        unlisted.target = self
+        unlisted.action = #selector(unlistedChosen(_:))
+        unlisted.isHidden = true
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 188))
+        popup.setFrameOrigin(NSPoint(x: 0, y: 162))
         accessory.addSubview(popup)
         accessory.addSubview(summary)
+        accessory.addSubview(unlisted)
         alert.accessoryView = accessory
         fillPopup()
     }
 
-    /// The choice and what was read of the chosen folder; nil when cancelled.
-    func run() -> (Choice, Survey)? {
+    /// The choice, what was read of the chosen folder and the files to
+    /// import; nil when cancelled.
+    func run() -> (Choice, Survey, [String])? {
         read()
         let response = alert.runModal()
         reading?.cancel()
         guard let survey, response != .alertThirdButtonReturn else { return nil }
-        return (response == .alertFirstButtonReturn ? .copy : .link, survey)
+        LegacyStudiesImport.log(survey, imported: chosenFiles(of: survey).count)
+        return (response == .alertFirstButtonReturn ? .copy : .link, survey, chosenFiles(of: survey))
+    }
+
+    /// The files the database lists, and with the box checked the files of
+    /// its folder it no longer lists.
+    private func chosenFiles(of survey: Survey) -> [String] {
+        survey.files.paths + (unlisted.state == .on ? survey.files.unlisted : [])
+    }
+
+    @objc private func unlistedChosen(_ sender: Any?) {
+        if let survey { show(survey) }
     }
 
     private func fillPopup() {
@@ -298,44 +405,51 @@ import IsiXStorage
         reading?.cancel()
         survey = nil
         setButtons(copy: false, link: false)
+        unlisted.isHidden = true
+        unlisted.state = .off
         summary.stringValue = NSLocalizedString("Reading the database…", comment: "")
         let database = folders[selected]
         reading = Task.detached(priority: .userInitiated) { [weak self] in
-            let outcome: Result<Survey, LegacyDatabase.Failure>
-            do {
-                let contents = try database.contents()
-                guard let files = database.files(linked: contents.linkedFiles, isCancelled: { Task.isCancelled }) else { return }
-                outcome = .success(Survey(database: database, contents: contents, files: files))
-            } catch let failure as LegacyDatabase.Failure {
-                outcome = .failure(failure)
-            } catch {
-                outcome = .failure(LegacyDatabase.Failure(description: error.localizedDescription))
+            guard let read = database.survey(isCancelled: { Task.isCancelled }), !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                guard let self, self.folders[self.selected] == database else { return }
+                self.survey = read
+                self.show(read)
             }
-            guard !Task.isCancelled else { return }
-            await MainActor.run { [weak self] in self?.show(outcome, of: database) }
         }
     }
 
-    private func show(_ outcome: Result<Survey, LegacyDatabase.Failure>, of database: LegacyDatabase) {
-        guard folders[selected] == database else { return }
-        switch outcome {
-        case .failure(let failure):
-            summary.stringValue = String(format: NSLocalizedString("This database could not be read: %@", comment: ""), failure.description)
-        case .success(let read):
-            let free = LegacyDatabase.freeSpace(at: URL(fileURLWithPath: openFolder, isDirectory: true))
-            let bytes = ByteCountFormatter.string(fromByteCount: read.files.bytes, countStyle: .file)
-            var text = String(format: NSLocalizedString("Studies: %@\nFiles: %@\nSpace needed to copy: %@\nFree space on the database disk: %@", comment: ""),
-                              NumberFormatter.localizedString(from: NSNumber(value: read.contents.studies.count), number: .decimal),
-                              NumberFormatter.localizedString(from: NSNumber(value: read.files.paths.count), number: .decimal),
-                              bytes, free.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "—")
-            let fits = free.map { $0 > read.files.bytes } ?? true
-            if !fits {
-                text += "\n" + NSLocalizedString("There is not enough free space to copy these files.", comment: "")
+    /// The summary of what was read, for the files chosen now, and the
+    /// buttons that can import them.
+    private func show(_ read: Survey) {
+        let files = chosenFiles(of: read).count
+        let needed = read.files.bytes + (unlisted.state == .on ? read.files.unlistedBytes : 0)
+        let free = LegacyDatabase.freeSpace(at: URL(fileURLWithPath: openFolder, isDirectory: true))
+        var studies = NumberFormatter.localizedString(from: NSNumber(value: read.contents.studies.count), number: .decimal)
+        var text = ""
+        if let unread = LegacyStudiesImport.unreadText(read.listing) {
+            // Nothing of the database came, when it could not be read at all.
+            if case .unreadable = read.listing {
+                studies = "—"
+                text = unread + " " + NSLocalizedString("Albums, comments and states do not come with them.", comment: "") + "\n"
+            } else {
+                text = unread + "\n"
             }
-            summary.stringValue = text
-            guard !read.files.paths.isEmpty else { return }
-            survey = read
-            setButtons(copy: fits, link: true)
         }
+        text += String(format: NSLocalizedString("Studies: %@\nFiles: %@\nSpace needed to copy: %@\nFree space on the database disk: %@", comment: ""),
+                       studies, NumberFormatter.localizedString(from: NSNumber(value: files), number: .decimal),
+                       ByteCountFormatter.string(fromByteCount: needed, countStyle: .file),
+                       free.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "—")
+        if !read.files.unlisted.isEmpty {
+            // Shown again whenever the box changes: the line says what the box asks for now.
+            text += "\n" + LegacyStudiesImport.unlistedText(read.files, imported: unlisted.state == .on)
+        }
+        let fits = free.map { $0 > needed } ?? true
+        if !fits {
+            text += "\n" + NSLocalizedString("There is not enough free space to copy these files.", comment: "")
+        }
+        summary.stringValue = text
+        unlisted.isHidden = read.files.unlisted.isEmpty
+        setButtons(copy: fits && files > 0, link: files > 0)
     }
 }

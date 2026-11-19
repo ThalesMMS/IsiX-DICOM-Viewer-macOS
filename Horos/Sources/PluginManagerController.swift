@@ -55,6 +55,7 @@ public final class PluginManagerController: NSWindowController {
 #else
 import AppKit
 import IsiXPluginLoading
+import IsiXStorage
 import Synchronization
 import UniformTypeIdentifiers
 
@@ -131,6 +132,22 @@ public final class PluginManagerController: NSWindowController {
     @IBOutlet @objc var downloadStatusProgressIndicator: NSProgressIndicator?
 
     @IBOutlet @objc var protectedModeLabel: NSTextField?
+
+    // Instance variables of an older header of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with it. Its statusTextField and statusProgressIndicator are the two
+    // outlets of the status line above. downloadURL and downloadedFilePath
+    // are written as the download of an update is asked for and as its file
+    // is installed, and never read: several downloads may run at once, each
+    // kept by its path (downloadingPlugins), and these name the last one
+    // asked for and the last one installed. The others stay NO and nil,
+    // never retained: the catalog of the plugins to download, its web view,
+    // its tab, its list and its button left the window, and a change of the
+    // plugins asks for a restart at once, with no reload pending.
+    final var downloadURL: NSString?, downloadedFilePath: NSString?
+    final var pluginsNeedToReload = false
+    final unowned(unsafe) var webView: AnyObject?, webViewTabViewItem: NSTabViewItem?, pluginsListURLs: NSArray?, pluginsListPopUp: NSPopUpButton?
+    final unowned(unsafe) var downloadButton: NSButton?
 
     /// What -plugins returns: the array PluginManager.xib's controller binds
     /// to, emptied and refilled in place by -refreshPluginList.
@@ -390,6 +407,17 @@ public final class PluginManagerController: NSWindowController {
     static let protectedModeNoticeInset: CGFloat = 11
     static let protectedModeNoticeHeight: CGFloat = 44
 
+    /// What Loading Details says of a row: why the plugin is in its state, and
+    /// where its bundle is. A row can be a symbolic link or an alias to a
+    /// bundle kept elsewhere, and two rows can be one bundle: the location is
+    /// the row's path with every link and alias in it resolved, and is left
+    /// out when that leads nowhere.
+    static func loadDetails(reason: String, path: String?) -> String {
+        guard let path, let location = PluginFolderScan.destination(ofEntryAt: path) else { return reason }
+        let line = String(format: NSLocalizedString("Bundle location: %@", comment: "Where the bundle of a plugin is on disk"), location)
+        return reason.isEmpty ? line : reason + "\n\n" + line
+    }
+
     @objc(showPluginLoadDetails:)
     public func showPluginLoadDetails(_ sender: Any!) {
         let rows = pluginsArrayController?.arrangedObjects as? NSArray
@@ -400,7 +428,7 @@ public final class PluginManagerController: NSWindowController {
         } else {
             let plugin = rows?.object(at: row) as? NSDictionary
             alert.messageText = "\(Self.formatted(plugin?["name"])): \(Self.formatted(plugin?["loadState"]))"
-            alert.informativeText = plugin?["loadReason"] as? String ?? ""
+            alert.informativeText = Self.loadDetails(reason: plugin?["loadReason"] as? String ?? "", path: plugin?["path"] as? String)
         }
         alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
         if let window = self.window {
@@ -512,6 +540,7 @@ public final class PluginManagerController: NSWindowController {
     /// plugin list.
     @objc(downloadPluginUpdate:)
     public func downloadPluginUpdate(_ downloadURL: String!) {
+        self.downloadURL = downloadURL as NSString?
         downloadPlugin(from: downloadURL)
     }
 
@@ -545,6 +574,7 @@ public final class PluginManagerController: NSWindowController {
 
     @objc(installDownloadedPluginAtPath:)
     public func installDownloadedPlugin(atPath path: String!) {
+        downloadedFilePath = path as NSString?
         let statusTextField = downloadStatusTextField
         let statusProgressIndicator = downloadStatusProgressIndicator
 

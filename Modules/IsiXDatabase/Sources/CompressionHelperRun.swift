@@ -78,6 +78,10 @@ public enum CompressionHelperRun {
         public var logLaunchFailure: (Error) -> Void
         /// A compressing helper crashed: what to do with all the files given.
         public var crashed: ([String]) -> Void
+        /// Asked once a chunk has ended: whether the run stops there, the
+        /// chunks after it not started. Never, unless set: a caller whose
+        /// thread may be cancelled between two chunks sets it.
+        public var cancelled: () -> Bool = { false }
 
         public init(progress: @escaping (Double) -> Void, now: @escaping () -> TimeInterval,
                     sleep: @escaping (TimeInterval) -> Void, logStackTrace: @escaping (String) -> Void,
@@ -94,7 +98,8 @@ public enum CompressionHelperRun {
     /// Runs `makeProcess(arguments)` over `files` in chunks, the arguments
     /// being the destination ("sameAsDestination" for none), the mode
     /// ("compress" or "decompressList") and the chunk's files. NO when a chunk
-    /// failed.
+    /// failed. The chunks after one at whose end the environment says the run
+    /// is cancelled are not started.
     public static func run(_ files: [String], mode: String, destination: String?,
                            chunkSize: Int = chunkSize, secondsPerFile: Double = secondsPerFile,
                            environment: Environment,
@@ -141,6 +146,7 @@ public enum CompressionHelperRun {
                 environment.logLaunchFailure(error)
             }
             i += no
+            if environment.cancelled() { break }
         }
         return succeeded
     }

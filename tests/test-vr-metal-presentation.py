@@ -70,7 +70,9 @@ header = code(read('Horos/Sources/VRView.h'))
 # still has VRView.m is checked the former way.
 view = code(read('Horos/Sources/VRView.m'))
 swift_class = '' if view else code(read('Horos/Sources/VRView.swift'))
-if not re.search(r'@interface VRView\s*:\s*NSView\b', header) and not re.search(r'public class VRView: NSView\b', swift_class):
+# VTKView is the base the plugin SDK of Horos and OsiriX gave VRView: an NSView that renders nothing.
+if (not re.search(r'@interface VRView\s*:\s*NSView\b', header) and not re.search(r'public class VRView: (NSView|VTKView)\b', swift_class)
+        or not re.search(r'@interface VTKView\s*:\s*NSView\b', read('Horos/Sources/VTKView.h'))):
     failures.append('VRView is not an NSView')
 if 'horosPresenter' not in header + swift_class:
     failures.append('VRView has no horosPresenter')

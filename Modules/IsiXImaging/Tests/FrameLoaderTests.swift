@@ -119,11 +119,26 @@ struct FrameLoaderTests {
             $0.voiLUT = { samples in
                 seen = Array(UnsafeBufferPointer(start: samples, count: 2))
                 samples[1] = 7
+                return false
             }
         }
         defer { free(image) }
         #expect(seen == [0xFFFF, 2])
         #expect(Array(UnsafeBufferPointer(start: image, count: 2)) == [-1, 7])
+    }
+
+    /// What a table wrote is its output: unsigned, and past the modality LUT.
+    @Test func theOutputOfAVOILUTIsNeitherSignedNorRescaled() throws {
+        let layout = FrameLayout(width: 2, height: 1, bitsAllocated: 16, bitsStored: 16, isSigned: true, slope: 2, offset: -1024)
+        let (_, image) = try load(words([0x0001, 0x0002]), layout: layout, dataset: FakeDataset(["PhotometricInterpretation": "MONOCHROME2"])) {
+            $0.voiLUT = { samples in
+                samples[0] = 40000
+                samples[1] = 7
+                return true
+            }
+        }
+        defer { free(image) }
+        #expect(Array(UnsafeBufferPointer(start: image, count: 2)) == [40000, 7])
     }
 
     @Test func aShortColourFrameIsBlackPastItsEndInTheSeriesBuffer() throws {
@@ -184,5 +199,45 @@ struct FrameLoaderTests {
         #expect(try FramePosition.gridFrameOffset(of: 1, in: dose) == 2.5)
         #expect(try FramePosition.gridFrameOffset(of: 0, in: FakeDataset(["Modality": "CT"])) == nil)
         #expect(throws: AttributeReadException.self) { try FramePosition.gridFrameOffset(of: 2, in: dose) }
+    }
+
+    /// PS 3.3 C.8.8.3.2, and its worked example: planes 2 mm apart from
+    /// (4, 5, 6) are 0, 2, 4 written as distances and 6, 8, 10 written as z.
+    @Test func anRTDosePlaneIsPlacedTheSameByDistancesAndByZCoordinates() throws {
+        let axial: [Double] = [1, 0, 0, 0, 1, 0]
+        for vector in [["0", "2", "4"], ["6", "8", "10"]] {
+            let dose = FakeDataset(["Modality": "RTDOSE", "GridFrameOffsetVector": vector])
+            for (frame, z) in [(0, 6.0), (1, 8.0), (2, 10.0)] {
+                let load = FrameLoad()
+                #expect(load.readFrameOffset(frame, from: dose))
+                #expect(load.frameOrigin(from: [4, 5, 6], orientation: axial) == [4, 5, z])
+            }
+        }
+        // Z coordinates from 50: the plane at 53 is at 53, and not 53 past 50.
+        let absolute = FakeDataset(["Modality": "RTDOSE", "GridFrameOffsetVector": ["50", "53", "56"]])
+        #expect(try FramePosition.gridFrameStep(of: 1, in: absolute) == 3)
+        #expect(try FramePosition.gridFrameStep(of: 0, in: absolute) == 0)
+        #expect(try FramePosition.gridFrameStep(of: 0, in: FakeDataset(["Modality": "CT"])) == nil)
+        #expect(throws: AttributeReadException.self) { try FramePosition.gridFrameStep(of: 3, in: absolute) }
+    }
+
+    /// Distances are along the cross product of the row and column directions.
+    @Test func anObliqueRTDosePlaneMovesAlongTheNormalOfItsGrid() throws {
+        let dose = FakeDataset(["Modality": "RTDOSE", "GridFrameOffsetVector": ["0", "6", "12"]])
+        let load = FrameLoad()
+        #expect(load.readFrameOffset(1, from: dose))
+        // Rows along x and columns along z: the normal is -y.
+        #expect(load.frameOrigin(from: [10, 20, 30], orientation: [1, 0, 0, 0, 0, 1]) == [10, 14, 30])
+        // Columns turned over: the normal is -z, and the planes go down.
+        #expect(load.frameOrigin(from: [10, 20, 30], orientation: [1, 0, 0, 0, -1, 0]) == [10, 20, 24])
+        // A grid turned 30 degrees about x.
+        let c = 0.75.squareRoot(), tilted = load.frameOrigin(from: [0, 0, 0], orientation: [1, 0, 0, 0, c, 0.5])
+        #expect(abs(tilted[0]) < 1e-12 && abs(tilted[1] + 3) < 1e-12 && abs(tilted[2] - 6 * c) < 1e-12)
+        // No orientation: along z, as the planes of such an object always were.
+        #expect(load.frameOrigin(from: [10, 20, 30], orientation: [0, 0, 0, 0, 0, 0]) == [10, 20, 36])
+        // A frame of another object stays where the object is.
+        let other = FrameLoad()
+        #expect(other.readFrameOffset(1, from: FakeDataset(["Modality": "CT"])))
+        #expect(other.frameOrigin(from: [10, 20, 30], orientation: [1, 0, 0, 0, 0, 1]) == [10, 20, 30])
     }
 }

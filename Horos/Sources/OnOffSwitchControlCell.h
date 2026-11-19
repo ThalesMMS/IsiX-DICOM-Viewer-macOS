@@ -67,3 +67,14 @@ typedef enum {
 #else
 #import "Horos-Swift.h"
 #endif
+
+// A C function of the Horos and OsiriX plugin SDK, implemented in Swift with
+// this name: plugins built for that SDK look it up in the application.
+#ifdef __cplusplus
+extern "C" {
+#endif
+// The rectangle of the size of the first, centred in the second (OnOffSwitchControlCell.swift).
+extern NSRect DKCenterRect(NSRect smallRect, NSRect bigRect);
+#ifdef __cplusplus
+}
+#endif

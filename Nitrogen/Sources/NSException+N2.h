@@ -38,7 +38,8 @@
 #import <Cocoa/Cocoa.h>
 
 
-static NSString* const N2ErrorDomain = @"N2";
+// Defined in Nitrogen+CAPI.m, where plugins built for Horos or OsiriX find it.
+extern NSString* const N2ErrorDomain;
 
 
 @interface NSException (N2)

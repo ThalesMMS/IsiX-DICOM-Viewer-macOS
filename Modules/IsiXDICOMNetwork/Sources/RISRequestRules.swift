@@ -29,6 +29,34 @@ public enum RISRequestRules {
         return string
     }
 
+    // MARK: Parameter names
+
+    /// PACS links in the field differ in the case of parameter names
+    /// (`ServerName`, `serverName`), so names are read whatever their case.
+    /// A parameter under the name asked for, as it is written, comes first;
+    /// else the one whose name equals it without regard to case, the first in
+    /// the order of the names when a request holds several.
+    ///
+    /// These are the parameters of a method. `methodName` is not one of them:
+    /// the parser of the link reads it, and has always read it under that
+    /// exact spelling, so a link that writes it otherwise names no method.
+    public static func parameters(_ request: [AnyHashable: Any]?) -> (String) -> Any? {
+        var folded: [String: Any] = [:]
+        let named = (request ?? [:]).compactMap { entry in (entry.key as? String).map { (name: $0, value: entry.value) } }
+        for entry in named.sorted(by: { $0.name < $1.name }) where folded[entry.name.lowercased()] == nil {
+            folded[entry.name.lowercased()] = entry.value
+        }
+        return { name in request?[name] ?? folded[name.lowercased()] }
+    }
+
+    /// A yes or no parameter, as `-boolValue` reads text ("yes", "true",
+    /// "1") and a number by its value; anything else is no.
+    public static func flag(_ value: Any?) -> Bool {
+        if let string = value as? NSString { return string.boolValue }
+        if let number = value as? NSNumber { return number.boolValue }
+        return false
+    }
+
     // MARK: DisplayStudy
 
     /// The identifiers of a study that DisplayStudy accepts, each under its
@@ -157,6 +185,61 @@ public enum RISRequestRules {
             }
         }
         return filters
+    }
+
+    /// What a Retrieve does with the first study once images of it are here:
+    /// the `then` of the request, in any case. `open` and `display` open the
+    /// study, `select` selects it in the database window. Any other value
+    /// only retrieves: a Retrieve did nothing else before `then` was read,
+    /// and a value this app does not know keeps that behaviour.
+    public enum RetrieveFollowUp: Equatable, Sendable {
+        case none
+        case open
+        case select
+
+        public init(then value: Any?) {
+            switch RISRequestRules.text(value)?.trimmingCharacters(in: .whitespaces).lowercased() {
+            case "open", "display": self = .open
+            case "select": self = .select
+            default: self = .none
+            }
+        }
+    }
+
+    /// Why a Retrieve is not sent to the node.
+    public enum RetrieveFilterRefusal: Equatable, Sendable {
+        /// No filter has a value: the node would be asked for every study.
+        case noValue
+        /// These filter keys name no attribute a node can be asked for.
+        /// Leaving one out asks for more than was meant, the whole node when
+        /// it was the only one.
+        case unknownKeys([String])
+    }
+
+    /// Why the filters of a Retrieve are not sent, or nil when each names an
+    /// attribute (`isAttribute`) and one at least has a value that is more
+    /// than blanks and wildcards.
+    public static func refusal(ofRetrieveFilters filters: [(name: Any, value: Any)],
+                               isAttribute: (String) -> Bool) -> RetrieveFilterRefusal? {
+        let unknown = filters.compactMap { filter -> String? in
+            guard let key = text(filter.name), isAttribute(key) else { return String(describing: filter.name as AnyObject) }
+            return nil
+        }
+        if !unknown.isEmpty { return .unknownKeys(unknown) }
+        let wildcards = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "*?"))
+        let valued = filters.contains { filter in
+            let value = text(filter.value) ?? String(describing: filter.value as AnyObject)
+            return !value.trimmingCharacters(in: wildcards).isEmpty
+        }
+        return valued ? nil : .noValue
+    }
+
+    /// Whether a study a Retrieve found is fetched when the request says
+    /// only if needed: not while every instance the node counts is here.
+    /// A node that counts none says nothing of what it has, and the study
+    /// goes the usual way, which lists what the node holds before moving.
+    public static func retrieveIsNeeded(localInstances: Int, reportedInstances: Int) -> Bool {
+        reportedInstances <= 0 || localInstances < reportedInstances
     }
 
     /// The accession number a CMove asks for, as text: a value that is not a

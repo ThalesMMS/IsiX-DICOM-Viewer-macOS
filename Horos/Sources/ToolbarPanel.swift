@@ -64,6 +64,17 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
     /// Retained, as before; readonly in the former header.
     @objc public private(set) var viewer: ViewerController?
 
+    // Three instance variables of the former Horos and OsiriX plugin SDK that
+    // only older copies of its header declare, exported at their offsets.
+    // screen is the place, among the screens, of the one the panel was last
+    // laid out on: a copy written there and not read. Nothing stands behind
+    // the other two: a panel belongs to one viewer and has that viewer's
+    // toolbar from its first moment, so it has no toolbar to show while no
+    // viewer uses it, and no first layout to tell from the next ones.
+    final var screen: Int = 0
+    final var emptyToolbar: NSToolbar?
+    final var firstTime = false
+
     public override var windowNibName: NSNib.Name? {
         return "ToolbarPanel"
     }
@@ -129,6 +140,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
         // reason as the thumbnails list: a strip across the whole display would cross
         // whatever the reserved part is for.
         let thisScreen = viewer?.window?.screen
+        if let thisScreen, let place = NSScreen.screens.firstIndex(of: thisScreen) { screen = place }
         let screenRect = TilingArea.rect(for: thisScreen, visibleFrame: thisScreen?.visibleFrame ?? NSZeroRect)
 
         var dstframe = NSZeroRect
@@ -191,6 +203,7 @@ public final class ToolbarPanelController: NSWindowController, NSToolbarDelegate
     }
 
     public override func close() {
+        (self.window as? ToolBarNSWindow)?.willClose = true
         self.window?.orderOut(self)
 
         super.close()

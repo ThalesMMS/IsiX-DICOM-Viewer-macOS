@@ -69,9 +69,9 @@ private let VIEW_COLOR_LABEL_SIZE: Float = 25
 private let BS: Double = 10.0
 private let PRECISION: Double = 0.0001
 /// The divider positions before a double click zoomed one view, shared by the three views.
-@MainActor private var splitPosition: [Int32] = [0, 0]
+@MainActor private var mprSplitPosition: [Int32] = [0, 0]
 /// Whether a double click zoomed one view to the whole window.
-@MainActor private var frameZoomed = false
+@MainActor private var mprFrameZoomed = false
 
 // The OpenGL enumerants ROICanvasGL.h names, which Swift cannot import: that
 // header imports Horos-Swift.h.
@@ -132,15 +132,15 @@ public final class MPRDCMView: DCMView {
 
     private var viewID: Int32 = 0
     private var mouseDownTool: ToolMode = .tWL
-    /// vrView: assigned, not retained; the MPR's hidden VRView, which its
-    /// VRController owns.
-    private unowned(unsafe) var _vrView: (NSView & HorosMPRVRViewMessages)? = nil
+    /// vrView: weak; the MPR's hidden VRView, which its VRController owns and
+    /// lets go when the window closes, while the view can still be drawn.
+    private weak var _vrView: (NSView & HorosMPRVRViewMessages)?
     /// pix: assigned, not retained; the last pix of the view's list.
     private unowned(unsafe) var _pix: DCMPix? = nil
     /// camera, retained.
     private var _camera: Camera? = nil
-    /// windowController: assigned, the MPRController of the view's window.
-    private unowned(unsafe) var windowControllerIvar: MPRController? = nil
+    /// windowController: weak, the MPRController of the view's window, gone when it closes.
+    private weak var windowControllerIvar: MPRController?
     private var _angleMPR: Float = 0
     private var _dontUseAutoLOD = false
     /// _ROIManager: made once, retained, and released with the view.
@@ -160,6 +160,7 @@ public final class MPRDCMView: DCMView {
 
     private var _rotateLines = false
     private var _moveCenter = false
+    private var moveCenterOffset = NSPoint.zero // From the pointer to the cross's centre, as the press on the centre found them.
     private var _displayCrossLines = false
     private var lastRenderingWasMoveCenter = false
 
@@ -284,13 +285,13 @@ public final class MPRDCMView: DCMView {
                                                name: NSNotification.Name.OsirixRemoveROI,
                                                object: nil)
 
-        self.horos_rotation = 0
+        self.viewport.rotation = 0
 
         _pix = pixList?.lastObject as? DCMPix
 
         self.horos_currentTool = .t3DRotate
 
-        frameZoomed = false
+        mprFrameZoomed = false
         _displayCrossLines = true
 
         windowControllerIvar = self.windowController() as? MPRController
@@ -303,6 +304,13 @@ public final class MPRDCMView: DCMView {
         viewID = i
         _vrView = v
         _vrView?.prepareFullDepthCapture()
+    }
+
+    /// Sent by the MPRController as its window closes, before it lets itself and
+    /// the hidden VRView go: the window can still have the view drawn after that.
+    func detachFromWindowController() {
+        windowControllerIvar = nil
+        _vrView = nil
     }
 
     @objc public dynamic func saveCamera() {
@@ -554,7 +562,7 @@ public final class MPRDCMView: DCMView {
                     lastRenderingWasMoveCenter = false
                 }
 
-                if isLoading == false {
+                if isLoading == false || _vrView?.hasFullDepthPicture() != true {
                     _vrView?.render()
                 }
             }
@@ -804,23 +812,9 @@ public final class MPRDCMView: DCMView {
                    Float(color?.blueComponent ?? 0), Float(color?.alphaComponent ?? 0))
     }
 
+    /// The colour of view 1, 2 or 3 is that of its axis; another view sets none.
     private func colorForView(_ v: Int32) {
-        switch v {
-        case 1:
-            //roiColor4f (VIEW_1_RED, VIEW_1_GREEN, VIEW_1_BLUE, VIEW_1_ALPHA);
-            self.roiColor(axis: 1)
-
-        case 2:
-            //roiColor4f (VIEW_2_RED, VIEW_2_GREEN, VIEW_2_BLUE, VIEW_2_ALPHA);
-            self.roiColor(axis: 2)
-
-        case 3:
-            //roiColor4f (VIEW_3_RED, VIEW_3_GREEN, VIEW_3_BLUE, VIEW_3_ALPHA);
-            self.roiColor(axis: 3)
-
-        default:
-            break
-        }
+        if (1...3).contains(v) { self.roiColor(axis: Int(v)) }
     }
 
     /// Runs `body` with a float[2][3] copy of `lines`, which DCMView's
@@ -896,9 +890,9 @@ public final class MPRDCMView: DCMView {
 
     public override dynamic func drawTextualData(_ size: NSRect, _ annotations: Int) {
         let copyScale = self.horos_scaleValue
-        self.horos_scaleValue = 1
+        self.viewport.scale = 1
         super.drawTextualData(size, annotations)
-        self.horos_scaleValue = copyScale
+        self.viewport.scale = copyScale
     }
 
     public override dynamic func subDraw(_ r: NSRect) {
@@ -906,7 +900,13 @@ public final class MPRDCMView: DCMView {
             return
         }
 
-        self.horos_rotation = 0
+        // The lines, their colours, the colour label and the mouse position
+        // come from the controller: a view whose window closed has none left.
+        guard windowControllerIvar != nil else {
+            return
+        }
+
+        self.viewport.rotation = 0
 
         roiBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         roiEnable(GL_BLEND)
@@ -914,7 +914,7 @@ public final class MPRDCMView: DCMView {
         roiEnable(GL_LINE_SMOOTH)
         roiPointSize(Float(12 * backingScaleFactor))
 
-        if _displayCrossLines && frameZoomed == false {
+        if _displayCrossLines && mprFrameZoomed == false {
             // All pix have the same thickness
             let thickness = Float(_pix?.sliceThickness ?? 0)
 
@@ -976,7 +976,7 @@ public final class MPRDCMView: DCMView {
         self.colorForView(viewID)
 
         // Red Square
-        if self.window?.firstResponder === self && frameZoomed == false {
+        if self.window?.firstResponder === self && mprFrameZoomed == false {
             roiLineWidth(Float(8.0 * backingScaleFactor))
             roiBegin(GL_LINE_LOOP)
             roiVertex2f(-widthhalf, -heighthalf)
@@ -996,7 +996,7 @@ public final class MPRDCMView: DCMView {
         roiLineWidth(Float(1.0 * backingScaleFactor))
 
         let controller = windowControllerIvar
-        if _displayCrossLines && frameZoomed == false && (controller?.displayMousePosition ?? false)
+        if _displayCrossLines && mprFrameZoomed == false && (controller?.displayMousePosition ?? false)
             && !(controller?.mprView1?.rotateLines ?? false) && !(controller?.mprView2?.rotateLines ?? false) && !(controller?.mprView3?.rotateLines ?? false)
             && !(controller?.mprView1?.moveCenter ?? false) && !(controller?.mprView2?.moveCenter ?? false) && !(controller?.mprView3?.moveCenter ?? false)
             && _vrView != nil && _pix != nil {
@@ -1070,7 +1070,6 @@ public final class MPRDCMView: DCMView {
                 }
                 if viewID != (controller?.mouseViewID ?? 0) {
                     self.colorForView(viewID)
-                    //[self colorForView: windowController.mouseViewID];
                     let pt = controller?.mousePosition
                     var sc = [Float](repeating: 0, count: 3)
                     var dc: [Float] = [pt?.x ?? 0, pt?.y ?? 0, pt?.z ?? 0]
@@ -1225,13 +1224,11 @@ public final class MPRDCMView: DCMView {
         var pixToDicomTransform: N3AffineTransform
         let spacingX: Double
         let spacingY: Double
-        //    double spacingZ;
         var orientation = [Double](repeating: 0, count: 9)
 
         _pix?.orientationDouble(&orientation)
         spacingX = _pix?.pixelSpacingX ?? 0
         spacingY = _pix?.pixelSpacingY ?? 0
-        //    spacingZ = pix.sliceInterval;
 
         pixToDicomTransform = N3AffineTransformIdentity
         pixToDicomTransform.m41 = CGFloat(_pix?.originX ?? 0)
@@ -1462,7 +1459,7 @@ public final class MPRDCMView: DCMView {
             return 0
         }
 
-        if _displayCrossLines == false || frameZoomed {
+        if _displayCrossLines == false || mprFrameZoomed {
             return 0
         }
 
@@ -1571,69 +1568,23 @@ public final class MPRDCMView: DCMView {
         self.scheduleDelayedFullLODRendering(self, afterDelay: 0.2)
     }
 
+    // The right button takes the left one's way, with the tool chosen for it
+    // (currentToolRight), as the middle one does: a 2D tool here, the others in
+    // the hidden VRView, over the cross lines too. Its double-click is two
+    // presses: only the left button's fills the window with the plane.
     public override dynamic func rightMouseDown(with theEvent: NSEvent) {
         self.flagsChanged(with: theEvent)
-
-        windowControllerIvar?.add(toUndoQueue: "mprCamera")
-
-        if self.window?.firstResponder !== self {
-            self.window?.makeFirstResponder(self)
-        }
-
-        self.magicTrick()
-
-        _rotateLines = false
-        _moveCenter = false
-
-        self.restoreCamera()
-
-        _vrView?.rightMouseDown(with: theEvent)
-
-        self.updateViewMPR()
+        self.mouseDown(with: reconstructionPlanePress(theEvent))
     }
 
     public override dynamic func rightMouseDragged(with theEvent: NSEvent) {
         self.flagsChanged(with: theEvent)
-
-        self.restoreCamera()
-
-        windowControllerIvar?.lowLOD = true
-
-        _vrView?.rightMouseDragged(with: theEvent)
-
-        self.updateViewMPR(false)
-
-        self.updateMousePosition(theEvent)
-
-        self.scheduleDelayedFullLODRendering(nil, afterDelay: 0.4)
+        self.mouseDragged(with: theEvent)
     }
 
     public override dynamic func rightMouseUp(with theEvent: NSEvent) {
         self.flagsChanged(with: theEvent)
-
-        if let windowController = windowControllerIvar {
-            NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: MPRDCMView.delayedFullLODRendering, object: nil)
-        }
-
-        windowControllerIvar?.lowLOD = false
-
-        windowControllerIvar?.mprView1?.LOD = Float(Double(windowControllerIvar?.mprView1?.LOD ?? 0) * 0.9)
-        windowControllerIvar?.mprView2?.LOD = Float(Double(windowControllerIvar?.mprView2?.LOD ?? 0) * 0.9)
-        windowControllerIvar?.mprView3?.LOD = Float(Double(windowControllerIvar?.mprView3?.LOD ?? 0) * 0.9)
-
-        self.restoreCamera()
-
-        _vrView?.rightMouseUp(with: theEvent)
-
-        if (_vrView?.lowResLODFactor ?? 0) > 1 {
-            windowControllerIvar?.mprView1?.camera?.forceUpdate = true
-            windowControllerIvar?.mprView2?.camera?.forceUpdate = true
-            windowControllerIvar?.mprView3?.camera?.forceUpdate = true
-        }
-
-        self.updateViewMPR()
-
-        self.updateMousePosition(theEvent)
+        self.mouseUp(with: theEvent)
     }
 
     /// Dont ask me to explain this function... it's just magic : rendering time is increased by 2 after this call...
@@ -1645,6 +1596,14 @@ public final class MPRDCMView: DCMView {
         self.updateViewMPR(false)
         _moveCenter = false
         _dontUseAutoLOD = false
+    }
+
+    /// `work`, then this plane's window given to the other views only when `work` changed it. A click with a 2D tool that windows
+    /// nothing copied the plane's window over the others' own (each automatic after «Full dynamic») and, in VR, over the rendering's.
+    private func propagatingWindowChange(_ work: () -> Void) {
+        let before = (self.curWL, self.curWW)
+        work()
+        if (self.curWL, self.curWW) != before { windowControllerIvar?.propagateWLWW(self) }
     }
 
     public override dynamic func mouseDown(with theEvent: NSEvent) {
@@ -1672,20 +1631,20 @@ public final class MPRDCMView: DCMView {
                 (self.windowController() as? MPRController)?.roiGetInfo(self)
             } else {
                 let controller = windowControllerIvar
-                if frameZoomed == false {
+                if mprFrameZoomed == false {
                     if controller?.horizontalSplit?.isVertical ?? false {
-                        splitPosition[0] = cInt32(Double(controller?.mprView2?.frame.origin.x ?? 0))
+                        mprSplitPosition[0] = cInt32(Double(controller?.mprView2?.frame.origin.x ?? 0))
                     } else {
-                        splitPosition[0] = cInt32(Double(controller?.mprView2?.frame.origin.y ?? 0))
+                        mprSplitPosition[0] = cInt32(Double(controller?.mprView2?.frame.origin.y ?? 0))
                     }
 
                     if controller?.verticalSplit?.isVertical ?? false {
-                        splitPosition[1] = cInt32(Double(controller?.mprView3?.frame.origin.x ?? 0))
+                        mprSplitPosition[1] = cInt32(Double(controller?.mprView3?.frame.origin.x ?? 0))
                     } else {
-                        splitPosition[1] = cInt32(Double(controller?.mprView3?.frame.origin.y ?? 0))
+                        mprSplitPosition[1] = cInt32(Double(controller?.mprView3?.frame.origin.y ?? 0))
                     }
 
-                    frameZoomed = true
+                    mprFrameZoomed = true
                     switch viewID {
                     case 1:
                         controller?.horizontalSplit?.setPosition(controller?.horizontalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
@@ -1703,9 +1662,9 @@ public final class MPRDCMView: DCMView {
                         break
                     }
                 } else {
-                    frameZoomed = false
-                    controller?.verticalSplit?.setPosition(CGFloat(splitPosition[1]), ofDividerAt: 0)
-                    controller?.horizontalSplit?.setPosition(CGFloat(splitPosition[0]), ofDividerAt: 0)
+                    mprFrameZoomed = false
+                    controller?.verticalSplit?.setPosition(CGFloat(mprSplitPosition[1]), ofDividerAt: 0)
+                    controller?.horizontalSplit?.setPosition(CGFloat(mprSplitPosition[0]), ofDividerAt: 0)
                 }
 
                 self.restoreCamera()
@@ -1715,16 +1674,15 @@ public final class MPRDCMView: DCMView {
         } else {
             self.magicTrick()
 
-            windowControllerIvar?.add(toUndoQueue: "mprCamera")
+            windowControllerIvar?.planePressBegan()
 
             _rotateLines = false
             _moveCenter = false
 
-            let mouseOnLines = self.mouseOnLines(self.convert(theEvent.locationInWindow, from: nil))
+            let mouseOnLines = theEvent.type == .rightMouseDown ? 0 : self.mouseOnLines(self.convert(theEvent.locationInWindow, from: nil))
             if mouseOnLines == 2 {
                 _moveCenter = true
-
-                self.mouseDragged(with: theEvent)
+                moveCenterOffset = ReconstructionCrossDrag.offset(ofCentre: self.centerLines(), from: theEvent, in: self)
 
                 NSCursor.closedHand.set()
             } else if mouseOnLines == 1 {
@@ -1749,7 +1707,7 @@ public final class MPRDCMView: DCMView {
 
                 _vrView?.keep3DRotateCentered = true
                 if mouseDownTool == .tCamera3D {
-                    if _displayCrossLines == false || frameZoomed == true {
+                    if _displayCrossLines == false || mprFrameZoomed == true {
                         _vrView?.keep3DRotateCentered = false
                     } else {
                         if theEvent.modifierFlags.contains(.option) {
@@ -1761,8 +1719,7 @@ public final class MPRDCMView: DCMView {
                 self.restoreCamera()
 
                 if self.is2DTool(mouseDownTool) {
-                    super.mouseDown(with: theEvent)
-                    windowControllerIvar?.propagateWLWW(self)
+                    self.propagatingWindowChange { super.mouseDown(with: theEvent) }
 
                     for case let r as ROI in self.curRoiList ?? NSMutableArray() {
                         var mode: Int32
@@ -1776,7 +1733,13 @@ public final class MPRDCMView: DCMView {
                         }
                     }
                 } else {
-                    _vrView?.mouseDown(with: theEvent)
+                    // The right and middle buttons tell the VRView their tool here,
+                    // which it would take for zoom and pan; the left one's is its own.
+                    if let tool = self.volumeButtonTool(of: theEvent) {
+                        _vrView?.mouseDown(theEvent, withButtonTool: tool)
+                    } else {
+                        _vrView?.mouseDown(with: theEvent)
+                    }
 
                     if _vrView?._tool() == .tRotate {
                         self.updateViewMPR(false)
@@ -1790,7 +1753,7 @@ public final class MPRDCMView: DCMView {
 
     public override dynamic func mouseUp(with theEvent: NSEvent) {
         self.checkCursor()
-
+        defer { windowControllerIvar?.planePressEnded() } // Whatever the press did.
         if let windowController = windowControllerIvar {
             NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: MPRDCMView.delayedFullLODRendering, object: nil)
         }
@@ -1825,8 +1788,7 @@ public final class MPRDCMView: DCMView {
             self.cursor?.set()
         } else {
             if self.is2DTool(mouseDownTool) {
-                super.mouseUp(with: theEvent)
-                windowControllerIvar?.propagateWLWW(self)
+                self.propagatingWindowChange { super.mouseUp(with: theEvent) }
 
                 if mouseDownTool == .tNext {
                     // This brings the other planes to the cross now; the pass a
@@ -1907,20 +1869,31 @@ public final class MPRDCMView: DCMView {
         self.scheduleDelayedFullLODRendering(self, afterDelay: 0.2)
     }
 
+    /// The end of a pinch or of a rotation, or its cancellation: the deferred
+    /// pass is cancelled and the plane reconstructed at full resolution now.
+    /// False while the gesture goes on.
+    private func finishGesture(_ anEvent: NSEvent) -> Bool {
+        guard anEvent.phase.contains(.ended) || anEvent.phase.contains(.cancelled) else { return false }
+        if let controller = windowControllerIvar {
+            NSObject.cancelPreviousPerformRequests(withTarget: controller,
+                selector: MPRDCMView.delayedFullLODRendering, object: nil)
+            controller.lowLOD = false
+        }
+        _camera?.forceUpdate = true
+        self.restoreCamera()
+        self.updateViewMPR(false)
+        return true
+    }
+
     public override dynamic func magnify(with anEvent: NSEvent) {
         guard _camera != nil, _pix != nil, _vrView != nil else { return }
-        defer {
-            if anEvent.phase.contains(.ended) || anEvent.phase.contains(.cancelled) {
-                if let controller = windowControllerIvar {
-                    NSObject.cancelPreviousPerformRequests(withTarget: controller,
-                        selector: MPRDCMView.delayedFullLODRendering, object: nil)
-                    controller.lowLOD = false
-                }
-                _camera?.forceUpdate = true
-                self.restoreCamera()
-                self.updateViewMPR(false)
-            }
-        }
+        // The plane under the pinch is the selected one, as the plane under
+        // the wheel is: the cross-reference lines carry the zoom of the
+        // selected plane to the others, and would take the pinch back.
+        if self.window?.firstResponder !== self { self.window?.makeFirstResponder(self) }
+        // With Sync Zoom on, the other planes take the zoom the pinch left,
+        // once it has ended: not at each of its steps.
+        defer { if self.finishGesture(anEvent) { windowControllerIvar?.zoomSync.pinchEnded(in: self) } }
         guard anEvent.magnification != 0, let camera = _camera,
               let scale = MPRTrackpadGesture.parallelScale(camera.parallelScale,
                                                          magnification: anEvent.magnification) else { return }
@@ -1935,18 +1908,7 @@ public final class MPRDCMView: DCMView {
 
     public override dynamic func rotate(with anEvent: NSEvent) {
         guard _camera != nil, _pix != nil, _vrView != nil else { return }
-        defer {
-            if anEvent.phase.contains(.ended) || anEvent.phase.contains(.cancelled) {
-                if let controller = windowControllerIvar {
-                    NSObject.cancelPreviousPerformRequests(withTarget: controller,
-                        selector: MPRDCMView.delayedFullLODRendering, object: nil)
-                    controller.lowLOD = false
-                }
-                _camera?.forceUpdate = true
-                self.restoreCamera()
-                self.updateViewMPR(false)
-            }
-        }
+        defer { _ = self.finishGesture(anEvent) }
         guard anEvent.rotation != 0, let camera = _camera,
               let up = camera.viewUp, let position = camera.position,
               let focalPoint = camera.focalPoint,
@@ -1987,9 +1949,7 @@ public final class MPRDCMView: DCMView {
         } else if _moveCenter {
             windowControllerIvar?.lowLOD = true
 
-            var point = self.convert(theEvent.locationInWindow, from: nil)
-
-            point = self.convertToBacking(point)
+            var point = self.convertToBacking(ReconstructionCrossDrag.centre(at: theEvent, offset: moveCenterOffset, in: self))
 
             if self.yFlipped {
                 point.y = self.convertToBacking(self.frame.size).height - point.y
@@ -2006,8 +1966,7 @@ public final class MPRDCMView: DCMView {
             self.scheduleDelayedFullLODRendering(nil, afterDelay: 0.4)
         } else {
             if self.is2DTool(mouseDownTool) {
-                super.mouseDragged(with: theEvent)
-                windowControllerIvar?.propagateWLWW(self)
+                self.propagatingWindowChange { super.mouseDragged(with: theEvent) }
             } else {
                 var before = [Float](repeating: 0, count: 9), after = [Float](repeating: 0, count: 9)
 
@@ -2055,7 +2014,8 @@ public final class MPRDCMView: DCMView {
             return
         }
 
-        if windowControllerIvar?.windowWillClose() ?? false {
+        // A view without its controller is one whose window closed.
+        if windowControllerIvar?.windowWillClose() ?? true {
             return
         }
 

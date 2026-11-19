@@ -41,7 +41,7 @@ if 'externalScenes.removeAll { $0.rendererIdentity == closing.rendererIdentity }
     failures.append('the panel keeps the closed VR window\'s renderer')
 for contract in ('nc.addObserver(self, selector: #selector(sourceClosed(_:)), name: .OsirixViewerWillChange, object: viewer)',
                  'nc.addObserver(self, selector: #selector(sourceVolumeChanged(_:)), name: .OsirixUpdateVolumeData, object: nil)',
-                 '(image.frameID?.intValue ?? 0) + 1', 'SEGViewerSession(volume: volume, sourceFrames: references)'):
+                 '(image.frameID?.intValue ?? 0) + 1', 'SEGViewerSession(volume: volume, sourceFrames: references, preferences: .standard, origins: origins)'):
     if contract not in source:
         failures.append('the panel lost ' + contract)
 if failures:

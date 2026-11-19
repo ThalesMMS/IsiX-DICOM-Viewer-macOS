@@ -177,6 +177,16 @@ private enum PreviousBurnReading {
         #expect(memory[ApplicationPreferences.splitViewFrames("PluginSplit")] == frames)
     }
 
+    @Test func theSkippedUpdateBuildIsStoredAsText() {
+        let key = ApplicationPreferences.skippedUpdateBuild
+        #expect(key.name == "SkippedUpdateBuild")
+        let memory = MemoryPreferences(registered: factory)
+        #expect(memory[key] == nil)
+        memory.set("2026111601", for: key)
+        #expect(memory.object(forKey: "SkippedUpdateBuild") as? String == "2026111601")
+        #expect(memory[key] == "2026111601")
+    }
+
     @Test func keysWithNoRegisteredValueReadAsAbsent() {
         let memory = MemoryPreferences(registered: factory)
         let absent: [any CataloguedPreference] = [ApplicationPreferences.addDICOMDIRForExport, ApplicationPreferences.burnDestination,
@@ -188,7 +198,8 @@ private enum PreviousBurnReading {
                                                   ApplicationPreferences.hidesToolbarIfNotActive,
                                                   ApplicationPreferences.moveToApplicationsFolderAlertSuppressed,
                                                   ApplicationPreferences.osiEnvironmentActivated,
-                                                  ApplicationPreferences.screenCaptureSeriesName]
+                                                  ApplicationPreferences.screenCaptureSeriesName,
+                                                  ApplicationPreferences.skippedUpdateBuild]
         for key in absent {
             #expect(key.registration == nil, "\(key.name)")
             #expect(factory[key.name] == nil, "\(key.name)")

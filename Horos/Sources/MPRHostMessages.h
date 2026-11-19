@@ -64,6 +64,8 @@
 @property (retain) NSString *dcmSeriesString;
 
 - (void) prepareFullDepthCapture;
+// Whether the ray caster has rendered a picture that -imageInFullDepthWidth:height:isRGB: can read.
+- (BOOL) hasFullDepthPicture;
 - (void) restoreFullDepthCapture;
 - (float*) imageInFullDepthWidth: (long*) w height:(long*) h isRGB:(BOOL*) isRGB;
 - (float*) imageInFullDepthWidth: (long*) w height:(long*) h isRGB:(BOOL*) rgb blendingView:(BOOL) blendingView;
@@ -76,10 +78,14 @@
 - (void) setLOD:(float)f;
 - (void) setCurrentTool:(ToolMode) i;
 - (ToolMode) _tool;
+// A press of the plane's right or middle button, with the tool that button has in the plane.
+- (void) mouseDown:(NSEvent*) event withButtonTool:(ToolMode) tool;
 - (void) setWLWW:(float) wl :(float) ww;
 - (void) getWLWW:(float*) wl :(float*) ww;
 - (void) getBlendingWLWW:(float*) iwl :(float*) iww;
 - (void) setCLUT:( unsigned char*) r : (unsigned char*) g : (unsigned char*) b;
+// Whether the view renders with shading: 0 when it does not.
+- (NSInteger) shading;
 - (IBAction) switchShading:(id) sender;
 - (IBAction) resetImage:(id) sender;
 - (void) setBlendingMode: (long) modeID;

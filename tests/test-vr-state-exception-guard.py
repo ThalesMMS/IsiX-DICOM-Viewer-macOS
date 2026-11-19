@@ -89,6 +89,7 @@ setter = re.search(r'    func set3DStateDictionary\(_ dict: \[AnyHashable: Any\]
 readers = re.search(r'\n(/// `\[x floatValue\]`.*?)\nextension VRView \{', view, re.S)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import objc_exception_guards
+import isix_modules
 helper = objc_exception_guards.source()
 if not (setter and readers and helper and load):
     print('FAIL: the sources this probe compiles moved; the test needs a new look')
@@ -114,6 +115,7 @@ void _N2LogExceptionImpl(NSException *e, BOOL logStack, const char *pf) {
 '''
 MAIN = r'''
 import Foundation
+import IsiXPreferences
 
 @@HELPER@@
 
@@ -171,7 +173,10 @@ with tempfile.TemporaryDirectory() as tmp:
     if objc.returncode:
         print('FAIL: the Objective-C part does not build:\n' + objc.stderr[-3000:])
         sys.exit(1)
-    swift = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-import-objc-header', str(t / 'stub.h'),
+    # The view brings the saved shading within the panel's ranges (IsiXPreferences).
+    target = ['-target', 'arm64-apple-macos15.0']
+    flags = isix_modules.module_flags('IsiXPreferences', t / 'modules', target)
+    swift = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', *target, *flags, '-import-objc-header', str(t / 'stub.h'),
                             '-I', str(sources), str(t / 'main.swift'), 'HorosObjCException.o', 'stub.o', '-o', 'probe'],
                            cwd=t, capture_output=True, text=True, timeout=300)
     if swift.returncode:

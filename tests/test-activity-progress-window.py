@@ -31,6 +31,7 @@ they call in the rest of the app, and driven as the app drives them:
 revision, the negative control.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import former_sdk_objects
 import isix_modules
 import objc_exception_guards
 from pathlib import Path
@@ -427,6 +428,11 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
         production_objc = [path for path in ('Nitrogen/Sources/NSThread+N2+CAPI.m', 'Nitrogen/Sources/N2Debug.mm',
                                              'Nitrogen/Sources/N2Debug+CAPI.m', 'Nitrogen/Sources/NSException+N2.mm')
                            if present(path)]
+        # Where the header declares the thread keys extern, Nitrogen+CAPI.m defines
+        # them, beside callbacks that call the N3 geometry this slice does not link.
+        if present('Nitrogen/Sources/Nitrogen+CAPI.m') and 'NSThreadNameKey' in source('Nitrogen/Sources/Nitrogen+CAPI.m'):
+            production_objc.append('Nitrogen/Sources/Nitrogen+CAPI.m')
+            thread_objects.append(former_sdk_objects.bezier_stubs(tmp))
         # Where the Swift class does not define the key, it is an Objective-C
         # constant: in ThreadModalForWindowController+CAPI.m in older revisions,
         # in Notifications.m (exported for plugins) in current ones.

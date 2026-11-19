@@ -34,7 +34,7 @@ public final class FederatedSearch: NSObject {
 
     /// When the preference has never been written, the default database is
     /// included so a search from a section folder still sees the documents
-    /// database that OsiriX used as the waystation.
+    /// database, which the legacy design used as the waystation.
     @objc public static var isDefaultDatabaseIncluded: Bool {
         get {
             NetworkPreferences.isOn(NetworkPreferences.federatedSearchIncludesDefaultDatabase, in: PreferencesSource.process.preferences,

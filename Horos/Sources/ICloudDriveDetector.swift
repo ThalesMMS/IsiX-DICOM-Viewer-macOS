@@ -139,6 +139,16 @@ public final class ICloudDriveDetector: NSWindowController {
 
     @objc(performStartupICloudDriveTasks:)
     public class func performStartupICloudDriveTasks(_ browserController: BrowserController!) {
+        // While the application is launching, the check waits for the end of
+        // the launch and its warning is then shown from the main run loop:
+        // the window is modal, and the browser asks for it while the main nib
+        // loads, before the link that launched the application has been
+        // handed over, which would wait for an answer with it.
+        let browser: BrowserController? = browserController
+        if LaunchEnd.keeps("ICloudDriveDetector", { ICloudDriveDetector.performStartupICloudDriveTasks(browser) }) {
+            return
+        }
+
         if ICloudDriveDetector.requiresUserNotificationOnICloudDrive() {
             //Launch the assistant
             let detector = ICloudDriveDetector(windowNibName: "ICloudDriveDetector")
@@ -219,7 +229,9 @@ public final class ICloudDriveDetector: NSWindowController {
         let myPath = String(format: "%s", (Bundle.main.executablePath! as NSString).fileSystemRepresentation)
         _ = Process.launchedProcess(launchPath: myPath, arguments: [String(format: "%d", processIdentifier)])
 
-        NSApp.terminate(self)
+        // The database window agreed before anything was moved: the rest of
+        // quitting, with its stops, and no second question.
+        processGraph.appController?.lifecycle.finishTermination(self)
     }
 
     @IBAction @objc(dontSync:)
@@ -311,9 +323,8 @@ public final class ICloudDriveDetector: NSWindowController {
                 let preferences = self.processGraph.preferences
                 preferences.set(.folder(newDatabasePath), for: DatabasePreferences.defaultLocation)
 
-                let chosen = preferences[DatabasePreferences.defaultLocation]
-                preferences.set(chosen.mode, for: DatabasePreferences.databaseLocation)
-                preferences.set(chosen.folder, for: DatabasePreferences.databaseLocationURL)
+                // The default location is the one opened; one given at the launch is not stored.
+                LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: preferences)
 
                 preferences.synchronize()
 

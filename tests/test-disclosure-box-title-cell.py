@@ -32,6 +32,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import former_sdk_objects
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -204,6 +205,8 @@ with tempfile.TemporaryDirectory(prefix='horos-disclosure-box-') as tmp:
         compile(['xcrun', 'clang', '-c', '-fobjc-arc', '-Wno-deprecated-declarations',
                  '-I', str(src), '-I', str(p), str(src / name), '-o', str(obj)])
         objects.append(str(obj))
+    # The constants the Nitrogen headers declare extern; their Bézier callbacks call the N3 geometry, which is not here.
+    objects += [former_sdk_objects.nitrogen(p), former_sdk_objects.bezier_stubs(p)]
     compile(swiftc + [str(p / 'main.swift'), *objects, '-lc++', '-o', str(p / 'probe')])
 
     try:

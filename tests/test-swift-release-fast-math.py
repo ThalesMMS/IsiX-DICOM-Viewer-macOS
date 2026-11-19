@@ -54,7 +54,9 @@ args = parser.parse_args()
 revision = args.revision
 # The Objective-C CPR generator the Swift one must match, from the last
 # revision that has it.
+import former_sdk_objects
 import history_reference
+import isix_modules
 import n3_geometry_harness
 REFERENCE = history_reference.before_removal('Horos/Sources/CPRGenerator.m')
 
@@ -262,6 +264,11 @@ func run() {
     let projections: [CPRProjectionMode] = [CPRProjectionMode(CPRProjectionModeNone.rawValue), CPRProjectionMode(CPRProjectionModeMIP.rawValue),
                                             CPRProjectionMode(CPRProjectionModeMinIP.rawValue), CPRProjectionMode(CPRProjectionModeMean.rawValue)]
     let slabs: [CGFloat] = [0, 2.5, 7]
+    // The distance between the planes of a slab, fixed by the request: left to the operation, it was the
+    // volume's finest spacing in the Objective-C and is now what divides the slab's width evenly, another
+    // sampling of the same slab. A fixed distance is one rule on both sides, and no width here is a whole
+    // number of steps, where the last plane hangs on the division's last bit.
+    let slabStep: CGFloat = 0.6
     for path in paths {
         putV(path.initialNormal); putV(path.stretchedProjectionNormal())
         putD(path.leftTransverseSectionPosition); putD(path.rightTransverseSectionPosition)
@@ -275,13 +282,13 @@ func run() {
         for interp in interps { for projection in projections { for slab in slabs {
             let s = CPRStraightenedGeneratorRequest()
             s.pixelsWide = 180; s.pixelsHigh = 64
-            s.slabWidth = slab; s.interpolationMode = interp; s.projectionMode = projection
+            s.slabWidth = slab; s.slabSampleDistance = slabStep; s.interpolationMode = interp; s.projectionMode = projection
             s.bezierPath = path.bezierPath; s.initialNormal = path.initialNormal
             putVolume(CPRGenerator.synchronousRequestVolume(s, volumeData: volume))
 
             let t = CPRStretchedGeneratorRequest()
             t.pixelsWide = 180; t.pixelsHigh = 64
-            t.slabWidth = slab; t.interpolationMode = interp; t.projectionMode = projection
+            t.slabWidth = slab; t.slabSampleDistance = slabStep; t.interpolationMode = interp; t.projectionMode = projection
             t.bezierPath = path.bezierPath; t.projectionNormal = N3VectorNormalize(N3VectorMake(0.1, 0.2, 1))
             t.midHeightPoint = dicom(36, 32, 20)
             putVolume(CPRGenerator.synchronousRequestVolume(t, volumeData: volume))
@@ -291,7 +298,7 @@ func run() {
     for (i, basis) in [(N3VectorMake(0.9, 0.1, 0), N3VectorMake(-0.1, 0.8, 0.3)), (N3VectorMake(0.5, 0.5, 0.5), N3VectorMake(0.6, -0.6, 0))].enumerated() {
         for interp in interps2 { for projection in projections { for slab in [CGFloat(0), 4] {
             let o = unwrap(CPRObliqueSliceGeneratorRequest(center: dicom(36 + CGFloat(i), 30, 18), pixelsWide: 96, pixelsHigh: 80, xBasis: basis.0, yBasis: basis.1))
-            o.slabWidth = slab; o.interpolationMode = interp; o.projectionMode = projection
+            o.slabWidth = slab; o.slabSampleDistance = slabStep; o.interpolationMode = interp; o.projectionMode = projection
             putVolume(CPRGenerator.synchronousRequestVolume(o, volumeData: volume))
         }}}
     }
@@ -411,7 +418,11 @@ def build(directory, kind, configuration):
             '#define HOROS_BRIDGING_HEADER 1\n#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n#import "DCMPix.h"\n'
             + ''.join(f'#import "{n}.h"\n' for n in NITROGEN + ['CPRVolumeData', 'CPRProjectionOperation', 'CPRCurvedPath',
                                                                  'CPRUnsignedInt16ImageRep']))
+        # The constants CPRCurvedPath.h declares extern, which the slice reads.
+        objects.append(former_sdk_objects.app(directory / 'n3'))
         run([*swift, '-wmo', '-import-objc-header', str(directory / 'bridge.h'),
+             # The slab of the straightened view is counted by IsiXImaging.
+             *isix_modules.module_flags('IsiXImaging', directory / 'modules', TARGET),
              *[str(directory / f'{n}.swift') for n in SWIFT_CPR], str(directory / 'main.swift'), *objects,
              '-o', str(directory / 'harness')])
     return directory / 'harness'

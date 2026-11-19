@@ -88,6 +88,8 @@ __attribute__((used)) NSString* const OsirixChangeFocalPointNotification = @"cha
 __attribute__((used)) NSString* const OsirixWindow3dCloseNotification = @"Window3DClose";
 __attribute__((used)) NSString* const OsirixDisplay3dPointNotification = @"Display3DPoint";
 __attribute__((used)) NSString* const AppPluginDownloadInstallDidFinishNotification = @"PluginManagerControllerDownloadAndInstallDidFinish";
+// The name of the same notification in the OsiriX plugin SDK.
+__attribute__((used)) NSString* const OsirixPluginDownloadInstallDidFinishNotification = @"PluginManagerControllerDownloadAndInstallDidFinish";
 __attribute__((used)) NSString* const OsirixXMLRPCMessageNotification = @"OsiriXXMLRPCMessage";
 __attribute__((used)) NSString* const OsirixDragMatrixImageMovedNotification = @"DragMatrixImageMoved";
 __attribute__((used)) NSString* const OsirixNotification = @"VRCameraDidChange";

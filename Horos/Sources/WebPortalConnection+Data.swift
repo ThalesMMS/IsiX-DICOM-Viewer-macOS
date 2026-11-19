@@ -45,6 +45,7 @@ import IsiXDICOMFile
 import IsiXDICOMNetwork
 import Synchronization
 import IsiXDatabase
+import IsiXMail
 import IsiXPreferences
 
 // The former static volatile ints. The loader threads decrement the first one
@@ -1580,14 +1581,8 @@ extension WebPortalConnection {
 
     @objc(sendEmailOnMainThread:)
     func sendEmailOnMainThread(_ dict: NSDictionary?) {
-        autoreleasepool {
-            let ts = dict?.object(forKey: "template") as? NSString
-            let messageHeaders = dict?.object(forKey: "headers") as? NSDictionary
-
-            // [[CSMailMailClient mailClient] deliverMessage:ts headers:messageHeaders], by selector
-            let client = (CSMailMailClient.self as AnyObject).perform(NSSelectorFromString("mailClient"))?.takeUnretainedValue()
-            _ = client?.perform(NSSelectorFromString("deliverMessage:headers:"), with: ts, with: messageHeaders)
-        }
+        // The same delivery as the portal's other emails, which tells how it ended.
+        WebPortalMailDelivery.process.send(PortalMail(body: dict?.object(forKey: "template") as? String, headers: dict?.object(forKey: "headers") as? [String: Any]))
     }
 
     @objc(processPasswordForgottenHtml)
@@ -1625,6 +1620,11 @@ extension WebPortalConnection {
                                 let emailSubject = NSLocalizedString("Your password has been reset.", comment: "")
                                 let emailMessage = NSMutableString(string: "")
 
+                                // An email known not to leave resets nothing: the new password would reach no one.
+                                if WebPortalMailDelivery.process.refuses(PortalMail(body: "", subject: emailSubject, sender: fromEmailAddress, recipients: u.email ?? "")) {
+                                    response.tokens.addError(NSLocalizedString("The email with your new password could not be sent. Contact the administrator of this server.", comment: "Web portal, password forgotten, the email cannot leave"))
+                                    continue
+                                }
                                 u.generatePassword()
 
                                 var webPortalDefaultTitle = PreferencesSource.process.preferences[WebPortalPreferences.title] as NSString?

@@ -448,15 +448,15 @@ extension ROI {
         ROIGL.enable(ROIGL.blend)
         ROIGL.blendFunc(ROIGL.srcAlpha, ROIGL.oneMinusSrcAlpha)
 
-        if stringTex == nil { self.name = self.name }
+        if textString == nil { self.name = self.name }
 
         // Blended on the colour's alpha, as the texture was. The picture is
         // upright however the view is flipped, as the flipped texture was.
         let textFont = stanStringAttrib?[NSAttributedString.Key.font] as? NSFont
         let box = labelBoxColor()
-        if let stringTex, let textFont, let box {
+        if let textString, let textFont, let box {
             // A text ROI gets the labels' box and lightened colour too.
-            let picture = textPicture(stringTex as String, font: textFont)
+            let picture = textPicture(textString as String, font: textFont)
             if let canvas = ROICanvas.current, let view {
                 let a = canvas.devicePoint(x: tPt.x, y: tPt.y)
                 let b = canvas.devicePoint(x: tPt.x + CGFloat(picture.pixelWidth), y: tPt.y + CGFloat(picture.pixelHeight))
@@ -468,8 +468,8 @@ extension ROI {
                             ROILabelContrast.textColor(for: NSColor(deviceRed: CGFloat(Double(color.red) / 65535.0), green: CGFloat(Double(color.green) / 65535.0),
                                                                     blue: CGFloat(Double(color.blue) / 65535.0), alpha: 1), overBox: box),
                             NSColor.black, true)
-        } else if let stringTex, let textFont {
-            ROI.overlayText(view, textPicture(stringTex as String, font: textFont), Float(tPt.x), Float(tPt.y),
+        } else if let textString, let textFont {
+            ROI.overlayText(view, textPicture(textString as String, font: textFont), Float(tPt.x), Float(tPt.y),
                             NSColor(deviceRed: CGFloat(Double(color.red) / 65535.0), green: CGFloat(Double(color.green) / 65535.0),
                                     blue: CGFloat(Double(color.blue) / 65535.0), alpha: CGFloat(_opacity)),
                             NSColor(deviceRed: 0, green: 0, blue: 0, alpha: CGFloat(_opacity)), true)

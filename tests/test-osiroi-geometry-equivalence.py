@@ -715,7 +715,8 @@ for s in slices {
         }
         let copy = slab, other = OSISlabMake(N3PlaneMake(N3VectorAdd(plane.point, plane.normal), plane.normal), CGFloat(d(thickness)))
         emit(key + " equal", [OSISlabEqualTo(slab, copy), OSISlabEqualTo(slab, other), OSISlabIsCoincidentToSlab(slab, other), OSISlabIsCoincidentToSlab(slab, copy)])
-        let dict = OSISlabCreateDictionaryRepresentation(slab)
+        // +1, as the name says: the caller releases it.
+        let dict = OSISlabCreateDictionaryRepresentation(slab)?.takeRetainedValue()
         var back = OSISlab()
         let made = OSISlabMakeWithDictionaryRepresentation(dict, &back)
         emit(key + " dictionary", [made, vec(back.plane.point), vec(back.plane.normal), num(Double(back.thickness)),

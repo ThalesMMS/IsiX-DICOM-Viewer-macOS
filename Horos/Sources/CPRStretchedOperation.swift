@@ -37,61 +37,32 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import IsiXImaging
 import Cocoa
 import Synchronization
 
 private let FILL_HEIGHT = 40
-private let fillOperationsContext = IdentityToken()
-
-/// A double converted to NSUInteger as arm64 does it (fcvtzu): NaN and negative
-/// values give 0, values past the top give the largest value.
-private func unsignedTruncating(_ value: CGFloat) -> UInt {
-    if value.isNaN || value < 1 {
-        return 0
-    }
-    if value >= 18446744073709551616.0 {
-        return UInt.max
-    }
-    return UInt(value)
-}
-
-/// assert() of the Objective-C: checked in Debug only.
-@inline(__always)
-private func debugAssert(_ condition: @autoclosure () -> Bool) {
-    #if DEBUG
-    precondition(condition())
-    #endif
-}
 
 /// Generates the stretched CPR volume of a CPRStretchedGeneratorRequest:
 /// CPRHorizontalFillOperations sample the volume along the curve projected on
-/// the plane normal to projectionNormal, then a CPRProjectionOperation
-/// projects the slab.
+/// the plane normal to projectionNormal, and a CPRSlabProjector projects the
+/// slab while its planes are sampled, so that only a few planes of a thick
+/// slab are in memory at once.
 ///
 /// Implemented in Swift: the Objective-C name, the selectors and
 /// <Horos/CPRStretchedOperation.h> are those of the former class.
 ///
 /// @unchecked Sendable, restated from Operation: the generator's queue runs it,
-/// the fill operations report to it from their threads and `cancel()` may come
-/// from any. The three state flags are atomics; the fill set and
-/// `projectionOperation` are touched only under objc_sync on `fillOperations`;
-/// `floatBytes` and `sampleSpacing` are written by `fill()` before any fill operation is queued
-/// and read by the one that finishes last, which the sequentially consistent
-/// countdown of `outstandingFillOperationCount` orders after them.
+/// the projector reports to it from the thread of the fill that finished last,
+/// and `cancel()` may come from any thread. The three state flags are atomics
+/// and the projector is kept under a mutex.
 @objc(CPRStretchedOperation)
 public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Sendable {
-    private let outstandingFillOperationCount = Atomic<Int32>(0)
-
-    private var floatBytes: UnsafeMutablePointer<Float>?
-    /// Also the lock of the former @synchronized (_fillOperations), which
-    /// guards the projection operation too.
-    private let fillOperations = NSMutableSet()
-    private var projectionOperation: Operation?
+    /// The projector of the slab, once `fill()` has made it, for `cancel()`.
+    private let slabProjector = Mutex<CPRSlabProjector?>(nil)
     private let operationExecuting = Atomic<Bool>(false)
     private let operationFinished = Atomic<Bool>(false)
     private let operationFailed = Atomic<Bool>(false)
-
-    private var sampleSpacing: CGFloat = 0
 
     private static let fillQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -125,16 +96,10 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
     }
 
     public override func cancel() {
-        let projectionOperation: Operation?
-        objc_sync_enter(fillOperations)
-        for case let operation as Operation in fillOperations {
-            operation.cancel()
-        }
-        projectionOperation = self.projectionOperation
-        objc_sync_exit(fillOperations)
-        projectionOperation?.cancel()
-
+        // The flag before the projector: `fill()` publishes the projector
+        // before it reads the flag, so one of the two cancels it.
         super.cancel()
+        slabProjector.withLock { $0 }?.cancel()
     }
 
     public override func start() {
@@ -166,6 +131,18 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
         didChangeValue(forKey: CPROperationKeyPath.isFinished)
     }
 
+    private func fail() {
+        willChangeValue(forKey: CPROperationKeyPath.didFail)
+        willChangeValue(forKey: CPROperationKeyPath.isFinished)
+        willChangeValue(forKey: CPROperationKeyPath.isExecuting)
+        operationExecuting.store(false, ordering: .releasing)
+        operationFinished.store(true, ordering: .releasing)
+        operationFailed.store(true, ordering: .releasing)
+        didChangeValue(forKey: CPROperationKeyPath.isExecuting)
+        didChangeValue(forKey: CPROperationKeyPath.isFinished)
+        didChangeValue(forKey: CPROperationKeyPath.didFail)
+    }
+
     private func fill() {
         // A request of another class is what the former unchecked @dynamic
         // property would have messaged into an exception: the operation ends.
@@ -187,40 +164,26 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
         let projectedBezierLength = N3BezierCoreLength(projectedBezierCore)
         var numVectors = pixelsWide
         _ = bezierLength
-        sampleSpacing = projectedBezierLength / CGFloat(pixelsWide)
+        let sampleSpacing = projectedBezierLength / CGFloat(pixelsWide)
 
         let vectorBytes = MemoryLayout<N3Vector>.size &* pixelsWide
-        let newFloatBytes = malloc(Int(bitPattern: UInt(MemoryLayout<Float>.size) &* UInt(bitPattern: pixelsWide) &* UInt(bitPattern: pixelsHigh) &* UInt(bitPattern: pixelsDeep)))?
-            .assumingMemoryBound(to: Float.self)
-        floatBytes = newFloatBytes
+        let projector = CPRSlabProjector(projectionMode: request.projectionMode, pixelsWide: pixelsWide, pixelsHigh: pixelsHigh, pixelsDeep: pixelsDeep,
+                                         fillHeight: FILL_HEIGHT,
+                                         volumeTransform: N3AffineTransformMakeScale(1.0 / sampleSpacing, 1.0 / sampleSpacing, 1.0 / _slabSampleDistance()),
+                                         outOfBoundsValue: volumeData?.outOfBoundsValue ?? 0)
         let vectors = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
-        let fillVectors = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
         let fillNormals = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
         let tangents = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
         let normals = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
         let inSlabNormals = malloc(vectorBytes)?.assumingMemoryBound(to: N3Vector.self)
 
-        guard let floatBytes = newFloatBytes, let vectors, let fillVectors, let fillNormals, let tangents, let normals, let inSlabNormals else {
-            free(newFloatBytes)
+        guard let projector, let vectors, let fillNormals, let tangents, let normals, let inSlabNormals else {
             free(vectors)
-            free(fillVectors)
             free(fillNormals)
             free(tangents)
             free(normals)
             free(inSlabNormals)
-
-            self.floatBytes = nil
-
-            willChangeValue(forKey: CPROperationKeyPath.didFail)
-            willChangeValue(forKey: CPROperationKeyPath.isFinished)
-            willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting.store(false, ordering: .releasing)
-            operationFinished.store(true, ordering: .releasing)
-            operationFailed.store(true, ordering: .releasing)
-            didChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            didChangeValue(forKey: CPROperationKeyPath.isFinished)
-            didChangeValue(forKey: CPROperationKeyPath.didFail)
-
+            fail()
             N3BezierCoreRelease(flattenedBezierCore)
             N3BezierCoreRelease(projectedBezierCore)
             return
@@ -260,134 +223,51 @@ public final class CPRStretchedOperation: CPRGeneratorOperation, @unchecked Send
         N3VectorCrossProductWithVectors(inSlabNormals, tangents, pixelsWide)
         N3VectorScalarMultiplyVectors(_slabSampleDistance(), inSlabNormals, pixelsWide)
 
-        let fillOperations = NSMutableSet()
-
-        var z = 0
-        while z < pixelsDeep {
-            var y = 0
-            while y < pixelsHigh {
-                let fillDistance = CGFloat(y) - CGFloat(pixelsHigh - 1) / 2.0 // the distance to go out from the centerline
-                let slabDistance = CGFloat(z) - CGFloat(pixelsDeep - 1) / 2.0 // the distance to go out from the centerline
-                // Unchecked pointer access: the arrays hold pixelsWide vectors.
-                for i in 0..<pixelsWide {
-                    fillVectors[i] = N3VectorAdd(N3VectorAdd(vectors[i], N3VectorScalarMultiply(fillNormals[i], fillDistance)), N3VectorScalarMultiply(inSlabNormals[i], slabDistance))
-                }
-
-                let horizontalFillOperation = CPRHorizontalFillOperation(volumeData: volumeData, interpolationMode: request.interpolationMode,
-                                                                         floatBytes: floatBytes + (y &* pixelsWide) + (z &* pixelsWide &* pixelsHigh),
-                                                                         width: UInt(bitPattern: pixelsWide), height: UInt(min(FILL_HEIGHT, pixelsHigh - y)),
-                                                                         vectors: fillVectors, normals: fillNormals)
-                horizontalFillOperation.queuePriority = queuePriority
-                fillOperations.add(horizontalFillOperation)
-                horizontalFillOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
-                _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
-                y += FILL_HEIGHT
-            }
-            z += 1
-        }
-
-        objc_sync_enter(self.fillOperations)
-        // -setSet: without bridging to a Swift Set and back, which hashed every
-        // operation through AnyHashable twice.
-        self.fillOperations.removeAllObjects()
-        for operation in fillOperations {
-            self.fillOperations.add(operation)
-        }
-        objc_sync_exit(self.fillOperations)
-
-        if isCancelled {
-            for case let horizontalFillOperation as Operation in fillOperations {
-                horizontalFillOperation.cancel()
-            }
-        }
-
-        outstandingFillOperationCount.store(Int32(truncatingIfNeeded: fillOperations.count), ordering: .sequentiallyConsistent)
-
-        let fillQueue = CPRStretchedOperation.fillQueue
-        for case let horizontalFillOperation as Operation in fillOperations {
-            fillQueue.addOperation(horizontalFillOperation)
-        }
+        // From here on the straightened CPR's sampling.
+        let slab = CPRCurveSlab(vectors: vectors, fillNormals: fillNormals, inSlabNormals: inSlabNormals,
+                                pixelsWide: pixelsWide, pixelsHigh: pixelsHigh, pixelsDeep: pixelsDeep)
 
         free(vectors)
-        free(fillVectors)
         free(fillNormals)
         free(tangents)
         free(normals)
         free(inSlabNormals)
         N3BezierCoreRelease(flattenedBezierCore)
         N3BezierCoreRelease(projectedBezierCore)
+
+        project(slab, with: projector, interpolationMode: request.interpolationMode)
     }
 
-    public override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        guard context == fillOperationsContext.pointer else {
-            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
-            return
+    /// Samples and projects the slab; the operation finishes when the
+    /// projector ends, with its volume, or with none when it was cancelled.
+    private func project(_ slab: CPRCurveSlab, with projector: CPRSlabProjector, interpolationMode: CPRInterpolationMode) {
+        slabProjector.withLock { $0 = projector }
+        let queuePriority = self.queuePriority
+        projector.start(on: CPRStretchedOperation.fillQueue, planeFills: { [self] plane, floatBytes in
+            slab.fills(ofPlane: plane, into: floatBytes, volumeData: volumeData, interpolationMode: interpolationMode, queuePriority: queuePriority)
+        }, completion: { [self] volume in
+            generatedVolume = volume
+            finish()
+        })
+        if isCancelled {
+            projector.cancel()
         }
-        debugAssert(object is Operation)
-        let operation = object as! Operation
+    }
 
-        guard keyPath == CPROperationKeyPath.isFinished, operation.isFinished else {
-            return
-        }
-        operation.removeObserver(self, forKeyPath: CPROperationKeyPath.isFinished)
-        _ = Unmanaged.passUnretained(self).autorelease() // to balance the retain when we observe operations
-        let oustandingFillOperationCount = outstandingFillOperationCount.wrappingSubtract(1, ordering: .sequentiallyConsistent).newValue
-        if oustandingFillOperationCount == 0 { // done with the fill operations, now do the projection
-            let request = self.request
-            let volumeTransform = N3AffineTransformMakeScale(1.0 / sampleSpacing, 1.0 / sampleSpacing, 1.0 / _slabSampleDistance())
-            let generatedVolume = CPRVolumeData(floatBytesNoCopy: floatBytes, pixelsWide: numericCast(request?.pixelsWide ?? 0), pixelsHigh: numericCast(request?.pixelsHigh ?? 0),
-                                                pixelsDeep: numericCast(_pixelsDeep()), volumeTransform: volumeTransform,
-                                                outOfBoundsValue: volumeData?.outOfBoundsValue ?? 0, freeWhenDone: true)
-            floatBytes = nil
-            let projectionOperation = CPRProjectionOperation()
-            projectionOperation.queuePriority = queuePriority
-
-            projectionOperation.volumeData = generatedVolume
-            projectionOperation.projectionMode = request?.projectionMode ?? 0
-            if isCancelled {
-                projectionOperation.cancel()
-            }
-
-            projectionOperation.addObserver(self, forKeyPath: CPROperationKeyPath.isFinished, options: [], context: fillOperationsContext.pointer)
-            _ = Unmanaged.passUnretained(self).retain() // so we don't get released while the operation is going
-            objc_sync_enter(fillOperations)
-            self.projectionOperation = projectionOperation
-            objc_sync_exit(fillOperations)
-            CPRStretchedOperation.fillQueue.addOperation(projectionOperation)
-        } else if oustandingFillOperationCount == -1 {
-            debugAssert(operation is CPRProjectionOperation)
-            let projectionOperation = operation as? CPRProjectionOperation
-            generatedVolume = projectionOperation?.generatedVolume
-
-            willChangeValue(forKey: CPROperationKeyPath.isFinished)
-            willChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            operationExecuting.store(false, ordering: .releasing)
-            operationFinished.store(true, ordering: .releasing)
-
-            didChangeValue(forKey: CPROperationKeyPath.isExecuting)
-            didChangeValue(forKey: CPROperationKeyPath.isFinished)
-        }
+    /// The planes of the slab and the distance between them (CurvedSlabSampling):
+    /// the request's own distance, or what divides the slab's width evenly at
+    /// the volume's finest spacing or less. That spacing should be halved to
+    /// hit the Nyquist spacing, but it is too slow.
+    private func slabPlanes() -> (count: Int, distance: Double) {
+        CurvedSlabSampling.planes(width: Double(request?.slabWidth ?? 0), spacing: Double(volumeData?.minPixelSpacing ?? 0),
+                                  fixedDistance: Double(request?.slabSampleDistance ?? 0))
     }
 
     private func _slabSampleDistance() -> CGFloat {
-        let request = self.request
-        if (request?.slabSampleDistance ?? 0) != 0.0 {
-            return request!.slabSampleDistance
-        } else {
-            return volumeData?.minPixelSpacing ?? 0 // this should be /2.0 to hit nyquist spacing, but it is too slow, and with this implementation to memory intensive
-        }
+        CGFloat(slabPlanes().distance)
     }
 
     private func _pixelsDeep() -> UInt {
-        // MAX(slabWidth / slabSampleDistance, 0) + 1, converted to NSUInteger.
-        let slabs = (request?.slabWidth ?? 0) / _slabSampleDistance()
-        // A zero sample distance (none in the request and a volume whose
-        // minPixelSpacing is 0) gave 0/0 = NaN, hence no plane and an operation
-        // that never finished, or width/0 = inf and a wrapped allocation size.
-        // A slab that cannot be sampled is the one plane of the curve.
-        guard slabs.isFinite else {
-            return 1
-        }
-        return unsignedTruncating((slabs < 0 ? 0 : slabs) + 1)
+        UInt(slabPlanes().count)
     }
 }

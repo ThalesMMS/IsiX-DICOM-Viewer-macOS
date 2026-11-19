@@ -49,10 +49,13 @@ import IsiXPreferences
 /// hands both back here, as the nib and the menus have always reached the
 /// browser. The patient's name column is not hidden: its item hides the
 /// names (HIDEPATIENTNAME). The order of the items, their checks and what is
-/// saved are IsiXDatabase's StudyListColumns.
+/// saved are IsiXDatabase's StudyListColumns. After the columns come the items
+/// of the named column presets, which StudyListColumnPresetMenu makes and answers.
 @MainActor final class StudyListColumnController {
     private unowned let browser: BrowserController
     private let preferences: any PreferenceStore
+
+    private let presets: StudyListColumnPresetMenu
 
     /// The header's menu of columns, made again whenever the columns change.
     private(set) var menu: NSMenu?
@@ -60,11 +63,18 @@ import IsiXPreferences
     init(browser: BrowserController, preferences: any PreferenceStore) {
         self.browser = browser
         self.preferences = preferences
+        self.presets = StudyListColumnPresetMenu(browser: browser, preferences: preferences)
     }
 
     private var outline: MyOutlineView? { browser.horos_databaseOutline }
 
-    /// Makes the header's menu: one item per column, by title.
+    /// The items of the columns: the menu's other items are the presets'.
+    private var columnItems: [NSMenuItem] {
+        (menu?.items ?? []).filter { $0.action == #selector(BrowserController.columnsMenuAction(_:)) }
+    }
+
+    /// Makes the header's menu: one item per column, by title, then the
+    /// items of the column presets.
     func buildMenu() {
         let menu = NSMenu(title: "")
         self.menu = menu
@@ -77,20 +87,24 @@ import IsiXPreferences
                                     keyEquivalent: "")
             item.representedObject = column.identifier.rawValue
         }
+        presets.addItems(to: menu)
 
         outline?.headerView?.menu = menu
     }
 
-    /// Checks the items of the columns shown, and the name's unless the names
-    /// are hidden.
+    /// Checks the items of the columns shown, the name's unless the names
+    /// are hidden, and those of the presets the list is arranged as.
     func menuWillOpen() {
         let columns = outline?.tableColumns ?? []
         let identifiers: [Any?] = columns.map { $0.identifier.rawValue }
         let hidePatientName = preferences[DatabasePreferences.hidesPatientName]
-        for item in menu?.items ?? [] {
+        for item in columnItems {
             let checked = StudyListColumns.isChecked(identifier: item.representedObject, hidePatientName: hidePatientName,
                                                      identifiers: identifiers, hidden: { columns[$0].isHidden })
             item.state = checked ? .on : .off
+        }
+        if let menu {
+            presets.menuWillOpen(menu)
         }
     }
 
@@ -102,11 +116,30 @@ import IsiXPreferences
         if BrowserObjC.literallyEqual(item.representedObject as? String, "name") {
             preferences.set(item.state.rawValue == 0, for: DatabasePreferences.hidesPatientName)
         } else {
-            let items = menu?.items ?? []
+            let items = columnItems
             let saved = StudyListColumns.saved(titles: items.map(\.title), states: items.map { $0.state.rawValue })
             preferences.set(saved, forKey: DatabasePreferences.databaseColumns.name)
             refresh()
         }
+    }
+
+    /// Saves the columns as the list shows them now, after something other
+    /// than an item of a column arranged them: the state of each column for
+    /// COLUMNSDATABASE, the name's as the hiding of the names has it, and the
+    /// columns shown with their widths, as the closing of the window keeps
+    /// them. Then makes the menu again.
+    func saveShownColumns() {
+        guard let outline else { return }
+        let columns = outline.tableColumns
+        let namesShown = !preferences[DatabasePreferences.hidesPatientName]
+        let states = columns.map { column -> Int in
+            let shown = column.identifier.rawValue == StudyListColumnPreset.fixedColumn ? namesShown : !column.isHidden
+            return shown ? 1 : 0
+        }
+        preferences.set(StudyListColumns.saved(titles: columns.map { $0.headerCell.stringValue }, states: states),
+                        forKey: DatabasePreferences.databaseColumns.name)
+        preferences.set(outline.columnState(), forKey: DatabasePreferences.databaseColumnState.name)
+        buildMenu()
     }
 
     /// Shows and hides the columns as COLUMNSDATABASE says, then makes the

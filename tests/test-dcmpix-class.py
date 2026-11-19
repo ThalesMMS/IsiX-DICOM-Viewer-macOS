@@ -120,7 +120,7 @@ static NSDictionary *raw( DCMPix *p)
                       @(IV( p, int, numberOfFrames)), @(IV( p, BOOL, isBonjour)), @(IV( p, BOOL, generated))],
         @"external": @(IV( p, float*, fExternalOwnedImage) != NULL),
         @"externalIsImage": @(IV( p, float*, fExternalOwnedImage) != NULL && IV( p, float*, fExternalOwnedImage) == f),
-        @"stack": @[@(IV( p, short, stack)), @(IV( p, short, stackMode)), @(IV( p, short, stackDirection)), @(IV( p, NSInteger, pixPos))],
+        @"stack": @[@(IV( p, short, stack)), @(IV( p, short, stackMode)), @(IV( p, short, stackDirection)), @(IV( p, short, pixPos))],
         @"flags": @[@(IV( p, BOOL, needToCompute8bitRepresentation)), @(IV( p, BOOL, updateToBeApplied)),
                     @(IV( p, BOOL, notAbleToLoadImage)), @(IV( p, BOOL, VOILUTApplied)), @(IV( p, BOOL, SUVConverted)),
                     @(IV( p, BOOL, hasSUV)), @(IV( p, BOOL, displaySUVValue)), @(IV( p, BOOL, shutterEnabled))],
@@ -672,7 +672,7 @@ def main():
             print('skipped: %s' % error, file=sys.stderr)
             sys.exit(SKIPPED)
         except (subprocess.CalledProcessError, RuntimeError) as error:
-            print(f'FAIL: the harness did not build: {str(error)[-4000:]}')
+            print(f'FAIL: the harness did not build: {str(error)[:1500]} ... {str(error)[-1500:]}')
             sys.exit(1)
         files = tmp / 'files'
         files.mkdir()

@@ -13,6 +13,7 @@ The arithmetic is a pure function, so the cases that matter can be stated: a
 fraction that runs off the edge, a reservation so large that nothing usable is
 left, and a screen nobody has configured.
 """
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -46,6 +47,18 @@ else:
 for wanted in ('func buildTilingAreaMenu(', '#selector(AppController.setTilingArea(_:))', 'TilingArea.presetNames'):
     if wanted not in arranger:
         failures.append('ViewerWindowArranger no longer has %s' % wanted)
+# The titles of the items are the names of the areas read from each catalog: the names are no
+# literal of a NSLocalizedString call, so nothing else asks the catalogs for them.
+tiling_source = (root / 'Horos/Sources/TilingArea.swift').read_text()
+names = re.findall(r'"([^"]+)"', re.search(r'presetNames: \[String\] = \[(.*?)\]', tiling_source, re.S).group(1))
+if len(names) != 7:
+    failures.append('the names of the areas were not read from TilingArea.swift: %r' % names)
+for catalog in sorted((root / 'Horos/Resources').glob('*.lproj/Localizable.strings')):
+    language = catalog.parent.stem
+    texts = json.loads(subprocess.check_output(['plutil', '-convert', 'json', '-o', '-', str(catalog)]))
+    for name in names:
+        if name not in texts or (language != 'en' and texts[name] == name):
+            failures.append('%s: the area "%s" has no translation' % (language, name))
 # The menu items show the area chosen for the key window's screen.
 if 'TilingArea.presetName(for:' not in application:
     failures.append('AppController no longer checks the Screen Area item of the chosen area')

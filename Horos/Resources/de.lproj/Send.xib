@@ -11,7 +11,6 @@
                 <outlet property="keyImageMatrix" destination="31" id="63"/>
                 <outlet property="newServerList" destination="108" id="114"/>
                 <outlet property="numberImagesTextField" destination="36" id="40"/>
-                <outlet property="sendSCU" destination="82" id="83"/>
                 <outlet property="syntaxListOffis" destination="11" id="45"/>
                 <outlet property="window" destination="5" id="41"/>
             </connections>
@@ -156,14 +155,14 @@ Gw
                                     <menuItem title="Nur implizit Little Endian" tag="9" id="13"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="116"/>
                                     <menuItem title="JPEG 2000 verlustfrei" tag="1" id="67"/>
-                                    <menuItem title="JPEG 2000 verlustbehaftet – gute Qualität" tag="2" id="71"/>
-                                    <menuItem title="JPEG 2000 verlustbehaftet – mittlere Qualität" tag="3" id="72"/>
-                                    <menuItem title="JPEG 2000 verlustbehaftet – geringe Qualität" tag="4" id="73"/>
+                                    <menuItem title="JPEG 2000 verlustbehaftet – gut" tag="2" id="71"/>
+                                    <menuItem title="JPEG 2000 verlustbehaftet – mittel" tag="3" id="72"/>
+                                    <menuItem title="JPEG 2000 verlustbehaftet – gering" tag="4" id="73"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="147"/>
                                     <menuItem title="JPEG LS verlustfrei" tag="13" id="148"/>
-                                    <menuItem title="JPEG LS verlustbehaftet – gute Qualität" tag="14" id="149"/>
-                                    <menuItem title="JPEG LS verlustbehaftet – mittlere Qualität" tag="15" id="150"/>
-                                    <menuItem title="JPEG LS verlustbehaftet – geringe Qualität" tag="16" id="151"/>
+                                    <menuItem title="JPEG LS verlustbehaftet – gut" tag="14" id="149"/>
+                                    <menuItem title="JPEG LS verlustbehaftet – mittel" tag="15" id="150"/>
+                                    <menuItem title="JPEG LS verlustbehaftet – gering" tag="16" id="151"/>
                                     <menuItem isSeparatorItem="YES" tag="-1" id="117"/>
                                     <menuItem title="JPEG verlustfrei" tag="5" id="16"/>
                                 </items>

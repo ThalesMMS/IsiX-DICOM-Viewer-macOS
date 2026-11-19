@@ -18,7 +18,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="About IsiX DICOM Viewer" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" visibleAtLaunch="NO" animationBehavior="default" titlebarAppearsTransparent="YES" titleVisibility="hidden" id="6" userLabel="Panel" customClass="NSPanel">
+        <window title="IsiX DICOM Viewer について" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" titlebarAppearsTransparent="YES" titleVisibility="hidden" id="6" userLabel="Panel" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="624" height="748"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -32,7 +32,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES" heightSizable="YES"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="About" identifier="" id="8Mr-sd-2aE">
+                            <tabViewItem label="情報" identifier="" id="8Mr-sd-2aE">
                                 <view key="view" ambiguous="YES" id="ufT-es-MWi">
                                     <rect key="frame" x="10" y="33" width="620" height="652"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -48,7 +48,7 @@
                                     </subviews>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="Release Notes" identifier="" id="bYE-FV-4vT">
+                            <tabViewItem label="リリースノート" identifier="" id="bYE-FV-4vT">
                                 <view key="view" id="4r2-Q0-fnR">
                                     <rect key="frame" x="10" y="33" width="620" height="608"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -85,7 +85,7 @@
                     <button fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="26">
                         <rect key="frame" x="-1" y="34" width="625" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                        <buttonCell key="cell" type="square" title="Version Number" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
+                        <buttonCell key="cell" type="square" title="バージョン番号" bezelStyle="shadowlessSquare" alignment="center" inset="2" id="32">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>

@@ -7,6 +7,11 @@ reported success, with fixed 512x512 dimensions. The file was moved into the
 database, found unreadable and deleted. NRRD is now refused at the door and
 kept in the folder of unreadable files whatever DELETEFILELISTENER says, and
 the reader that could not succeed is gone.
+
+-getNRRDFile is a selector of the former plugin SDK, which a plugin built for
+it may still send: DicomFile answers it, with -1 and nothing else, the answer
+for a file that could not be decoded. No other file has it, and nothing of the
+application sends it.
 """
 from pathlib import Path
 import sys
@@ -42,9 +47,24 @@ if refusal != -1 and door != -1:
 # DicomFile is Swift (DicomFile.swift and DicomFile+<category>.swift); its DCMTK
 # category is declared in DicomFileDCMTKCategory.h.
 readers = ['Horos/Sources/DicomFile.swift'] + [str(p.relative_to(root)) for p in sorted((root / 'Horos/Sources').glob('DicomFile+*.swift'))]
+FACADE = 'Horos/Sources/DicomFile+LegacyPluginSDK.swift'
 for name in (*readers, 'Horos/Sources/DicomFileDCMTKCategory.h'):
     text = (root / name).read_text(errors='replace')
-    require('getNRRDFile' not in text and 'nrrdLoad' not in text, '%s still carries the NRRD reader that never reported success' % name)
+    require('nrrdLoad' not in text and ('getNRRDFile' not in text or name == FACADE),
+            '%s still carries the NRRD reader that never reported success' % name)
+# The selector of the former SDK answers that the file could not be decoded, and reads nothing.
+facade = (root / FACADE).read_text()
+declared = '@objc(getNRRDFile) nonisolated func legacyGetNRRDFile() -> Int16 {'
+require(facade.count('getNRRDFile') == 2 and declared in facade, 'DicomFile no longer answers -getNRRDFile as the former SDK declared it')
+if declared in facade:
+    body = facade[facade.index(declared) + len(declared):]
+    body = [line.strip() for line in body[:body.index('\n    }\n')].splitlines() if line.strip()]
+    require(len(body) == 2 and body[0].startswith('FormerSDKFacade.inert("DicomFile", "-getNRRDFile", because: ') and body[1] == 'return -1',
+            '-getNRRDFile does more than answer -1: %s' % body)
+for path in sorted((root / 'Horos/Sources').rglob('*')):
+    if path.suffix in ('.swift', '.m', '.mm', '.h') and path != root / FACADE:
+        source = path.read_text(errors='replace')
+        require('getNRRDFile' not in source and 'legacyGetNRRDFile' not in source, '%s names the NRRD reader' % path.name)
 category = (root / 'Horos/Sources/DicomFile+DCMTKFields.swift').read_text(errors='replace')
 start = category.index('class func isNRRDFile(_ file: String!) -> Bool {')
 require('pathExtension.lowercased() == "nrrd"' in category[start:category.index('\n    }\n', start)], 'NRRD is no longer recognised by its extension')
@@ -53,4 +73,5 @@ if failures:
     for failure in failures:
         print('FAIL: ' + failure)
     sys.exit(1)
-print('PASS: an NRRD file is refused at the incoming door and kept aside; no reader pretends to read it')
+print('PASS: an NRRD file is refused at the incoming door and kept aside; no reader pretends to read it, and the selector of the '
+      'former SDK answers -1 alone')

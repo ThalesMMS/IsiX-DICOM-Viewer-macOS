@@ -108,7 +108,12 @@ public final class OrthogonalMPRPETCTView: OrthogonalMPRView {
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateWLWWMenu, object: self.curWLWWMenu(), userInfo: nil)
         NotificationCenter.default.post(name: NSNotification.Name.OsirixUpdateOpacityMenu, object: self.curOpacityMenu(), userInfo: nil)
 
-        return super.becomeFirstResponder()
+        // The window titles its popups of the colour tables and of the opacity
+        // tables from its key sub-view, which may not be this one yet, and the
+        // notifications do not say who announced: it is told the view itself.
+        let became = super.becomeFirstResponder()
+        if became { (self.window?.windowController as? OrthogonalMPRPETCTViewer)?.showPresetNames(of: self) }
+        return became
     }
 
     // The window's actions, which the view passes on to its window controller.

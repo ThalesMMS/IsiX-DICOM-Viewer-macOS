@@ -36,10 +36,26 @@ import Testing
     }
 
     @Test func makesTheCubicPlaneOnAThinSlabOnly() {
-        #expect(MPRPlaneRules.drawsCubicDisplayPlane(preference: true, fused: false, thickness: 1.0))
-        #expect(MPRPlaneRules.drawsCubicDisplayPlane(preference: true, fused: false, thickness: 1.0005))
-        #expect(!MPRPlaneRules.drawsCubicDisplayPlane(preference: true, fused: false, thickness: 1.01))
-        #expect(!MPRPlaneRules.drawsCubicDisplayPlane(preference: true, fused: true, thickness: 0.5))
-        #expect(!MPRPlaneRules.drawsCubicDisplayPlane(preference: false, fused: false, thickness: 0.5))
+        func draws(_ thickness: Float, thinEnd: Double, preference: Bool = true, fused: Bool = false) -> Bool {
+            MPRPlaneRules.drawsCubicDisplayPlane(preference: preference, fused: fused, thickness: thickness, thinEnd: thinEnd)
+        }
+        // Up to 1 mm, as before, whatever the thin end below it.
+        for thin in [0.4, 0.625, 0.7, 1] {
+            #expect(draws(Float(thin), thinEnd: thin))
+            #expect(draws(1.0, thinEnd: thin))
+            #expect(draws(1.0005, thinEnd: thin))
+            #expect(draws(0.999, thinEnd: thin))
+            #expect(!draws(1.01, thinEnd: thin))
+            #expect(!draws(2, thinEnd: thin))
+        }
+        // A window whose thinnest slab is above 1 mm has it at that slab.
+        #expect(draws(1.2, thinEnd: 1.2))
+        #expect(draws(Float(1.2), thinEnd: Double(Float(1.2))))
+        #expect(draws(1.0, thinEnd: 1.2))
+        #expect(!draws(1.21, thinEnd: 1.2))
+        #expect(!draws(2, thinEnd: 1.2))
+        #expect(draws(1.0, thinEnd: .nan))
+        #expect(!draws(0.5, thinEnd: 0.7, fused: true))
+        #expect(!draws(0.5, thinEnd: 0.7, preference: false))
     }
 }

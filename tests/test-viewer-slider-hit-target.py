@@ -236,10 +236,10 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-slider-hit-') as folder:
     subprocess.run([
         'xcrun', 'swiftc', '-swift-version', '5',
         '-import-objc-header', str(folder / 'Owner.h'),
-        str(helper), str(navigation), str(root / 'Horos/Sources/ThickSlabSliderScale.swift'),
+        str(helper), str(navigation), str(root / 'Horos/Sources/SliderValueBubble.swift'),
         str(root / 'Horos/Sources/HorosThickSlabSlider.swift'), str(root / 'Horos/Sources/PreferencesSource.swift'),
         str(folder / 'Owner.m'), str(folder / 'main.swift'),
-        '-framework', 'AppKit', *isix_modules.module_flags('IsiXPreferences', folder / 'modules'),
+        '-framework', 'AppKit', *isix_modules.module_flags('IsiXImaging', folder / 'modules'), *isix_modules.module_flags('IsiXPreferences', folder / 'modules'),
         '-o', str(folder / 'test'),
     ], check=True)
     subprocess.run([str(folder / 'test'), *[str(n) for n in nibs]], check=True)

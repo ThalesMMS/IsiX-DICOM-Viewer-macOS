@@ -189,6 +189,11 @@ static std::mutex& IsiXDCMTKAdoptedSocketMutex()
 
 // MARK: - Associations
 
+// The associations being served in the process, over every listener: each
+// association's thread counts itself as it starts and uncounts itself as it
+// ends. What waits for the listeners to be idle reads it.
+static std::atomic<NSInteger> IsiXDCMTKAssociationsInProgress{0};
+
 namespace {
 
 /// The association threads of one listener, and the connections it took whose
@@ -400,6 +405,69 @@ IsiXDCMTKListenerCommand CommandOf(const T_DIMSE_Message* message)
     }
 }
 
+// The request a message is, as the message of an association's end names it.
+const char* RequestNameOf(const T_DIMSE_Message* message)
+{
+    switch (message->CommandField) {
+        case DIMSE_C_ECHO_RQ: return "a C-ECHO-RQ";
+        case DIMSE_C_STORE_RQ: return "a C-STORE-RQ";
+        case DIMSE_C_FIND_RQ: return "a C-FIND-RQ";
+        case DIMSE_C_MOVE_RQ: return "a C-MOVE-RQ";
+        case DIMSE_C_GET_RQ: return "a C-GET-RQ";
+        default: return "a command the listener does not serve";
+    }
+}
+
+// Where an association is in its exchange, which the message of its end says.
+// A peer that stops sending leaves one DCMTK condition whether it withheld the
+// rest of a command, the identifier of a query or the data set of a C-STORE:
+// only the phase tells them apart.
+struct AssociationPhase
+{
+    enum Kind { Waiting, Command, Service, Ending };
+    Kind kind;
+    // In Service: the command of the message served and the name of its request.
+    IsiXDCMTKListenerCommand command;
+    const char* request;
+    // In Waiting: the seconds without a command that close the association.
+    int idleLimit;
+};
+
+// What the message of an association's end says after the DCMTK condition:
+// the phase, and the time the listener waits for the peer. `starved` is the
+// condition of a wait that ended with nothing received.
+NSString* EndDetail(const AssociationPhase& phase, bool starved, int timeout)
+{
+    if (phase.kind == AssociationPhase::Waiting)
+        return [NSString stringWithFormat:@": after %d s without a command", phase.idleLimit];
+    NSString* serving = [NSString stringWithFormat:@"serving %s", phase.request ?: "a command"];
+    if (starved) {
+        // What the peer began and did not send the rest of.
+        NSString* awaited = @"ending the association";
+        if (phase.kind == AssociationPhase::Command) awaited = @"reading the rest of a command";
+        else if (phase.kind == AssociationPhase::Service) {
+            switch (phase.command) {
+                case IsiXDCMTKListenerCommandStore:
+                    awaited = [NSString stringWithFormat:@"reading the data set of %s", phase.request ?: "a C-STORE-RQ"];
+                    break;
+                case IsiXDCMTKListenerCommandFind:
+                case IsiXDCMTKListenerCommandMove:
+                case IsiXDCMTKListenerCommandGet:
+                    awaited = [NSString stringWithFormat:@"reading the identifier of %s", phase.request ?: "a query"];
+                    break;
+                default:
+                    awaited = serving;
+                    break;
+            }
+        }
+        return [NSString stringWithFormat:@": nothing received for %d s while %@", timeout, awaited];
+    }
+    NSString* doing = @"ending the association";
+    if (phase.kind == AssociationPhase::Command) doing = @"reading a command";
+    else if (phase.kind == AssociationPhase::Service) doing = serving;
+    return [NSString stringWithFormat:@" while %@ (DIMSE timeout %d s)", doing, timeout];
+}
+
 class QueryRetrieveAssociation : public DcmThreadSCP
 {
 public:
@@ -425,9 +493,13 @@ protected:
 
     NSString* endMessage(const OFCondition& condition) const
     {
-        return [NSString stringWithFormat:@"DICOM association from %.64s to %.64s ended: %04x:%04x %s",
-            association_->params->DULparams.callingAPTitle, association_->params->DULparams.calledAPTitle,
-            condition.module(), condition.code(), condition.text()];
+        // Both AE titles, the peer's address as DCMTK gives it (a host name or
+        // an IP address), the condition, and where the association was.
+        const auto& parameters = association_->params->DULparams;
+        return [NSString stringWithFormat:@"DICOM association from %.64s (%.64s) to %.64s ended: %04x:%04x %s%@",
+            parameters.callingAPTitle, parameters.callingPresentationAddress, parameters.calledAPTitle,
+            condition.module(), condition.code(), condition.text(),
+            EndDetail(phase_, condition == DIMSE_NODATAAVAILABLE, listener_.options.dimse_timeout_)];
     }
 
     void notifyAssociationRequest(const T_ASC_Parameters& parameters, DcmSCPActionType& action) override
@@ -506,6 +578,9 @@ protected:
         auto idleSince = std::chrono::steady_clock::now();
         int idleTimeout = dcmConnectionTimeout.get() > 0 ? dcmConnectionTimeout.get() : 5;
         while (result.good() && !cancelled()) {
+            // Between commands again: an association closed as idle does not
+            // inherit the phase of the command it served before.
+            phase_ = {AssociationPhase::Waiting, IsiXDCMTKListenerCommandEcho, NULL, idleTimeout};
             if (!ASC_dataWaiting(association_, 1)) {
                 if (idleTimeout > 0 && std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::steady_clock::now() - idleSince).count() >= idleTimeout) {
@@ -516,8 +591,10 @@ protected:
             }
             T_DIMSE_Message message = {};
             T_ASC_PresentationContextID id = 0;
+            phase_.kind = AssociationPhase::Command;
             result = receiveDIMSECommand(&id, &message, NULL);
             if (result.good()) {
+                phase_ = {AssociationPhase::Service, CommandOf(&message), RequestNameOf(&message), 0};
                 DcmPresentationContextInfo context;
                 if (!getPresentationContextInfo(association_, id, context)) result = DIMSE_NOVALIDPRESENTATIONCONTEXTID;
                 else result = handleIncomingCommand(&message, context);
@@ -530,15 +607,18 @@ protected:
         if (result != DUL_PEERREQUESTEDRELEASE && database_) [database_->database() associationEndedIncomplete];
         if (result == DUL_PEERREQUESTEDRELEASE) {
             notifyReleaseRequest();
+            phase_.kind = AssociationPhase::Ending;
             result = ASC_acknowledgeRelease(association_);
             if (result.bad()) notifyDIMSEError(result);
         } else if (result == DUL_PEERABORTEDASSOCIATION) {
             notifyAbortRequest();
+            phase_.kind = AssociationPhase::Ending;
             notifyDIMSEError(result);
         } else {
             // A peer that goes quiet between commands has lost nothing: as in
             // Horos, closing its association is not an error to show. A timeout
-            // inside a message comes back from the receive and stays one.
+            // inside a message comes back from the receive with the same
+            // condition, which the host tells from the other failures.
             if (closedForIdling) NSLog(@"%@ - closed as idle", endMessage(result));
             else if (!cancelled()) notifyDIMSEError(result);
             ASC_closeTransportConnection(association_);
@@ -622,6 +702,8 @@ private:
     T_ASC_Association* association_; // Borrowed; DcmThreadSCP owns it after run().
     ListenerContext& listener_;
     std::unique_ptr<IsiXDCMTKSCPDatabaseHandle> database_;
+    // Read and written on the association's thread alone.
+    AssociationPhase phase_ = {AssociationPhase::Waiting, IsiXDCMTKListenerCommandEcho, NULL, 0};
 };
 
 } // namespace
@@ -640,6 +722,7 @@ private:
 @implementation IsiXDCMTKAssociationTask
 - (void)run
 {
+    ++IsiXDCMTKAssociationsInProgress;
     @autoreleasepool {
         @try {
             try { worker->run(association); }
@@ -656,6 +739,7 @@ private:
             @catch (NSException* exception) { NSLog(@"DICOM import scheduling failed: %@", IsiXDCMTKLoggedException(exception)); }
             listener->processes.removeThread([NSThread currentThread]);
             --listener->processes.active;
+            --IsiXDCMTKAssociationsInProgress;
         }
     }
 }
@@ -707,6 +791,11 @@ static void IsiXDCMTKReceiveAssociation(ListenerContext& listener, T_ASC_Network
     std::unique_ptr<ListenerContext> _listener;
     T_ASC_Network *_network;
     DcmTLSTransportLayer *_layer;
+}
+
++ (NSInteger)associationsInProgress
+{
+    return IsiXDCMTKAssociationsInProgress.load();
 }
 
 + (BOOL)dataDictionaryLoaded

@@ -14,8 +14,13 @@ en=strings(root/'Horos/Resources/en.lproj/Localizable.strings')
 it=strings(root/'Horos/Resources/it-IT.lproj/Localizable.strings')
 assert en.keys()<=it.keys(), 'Catalog keys must contain the current English catalog'
 fmt=re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztLq])?[@diuoxXfFeEgGaAcCsSpn%]')
+# Labels of the Viewers settings with a literal percentage, not a format: the number and the sign stay.
+literal_percent={'At 100% of resolution','At 150% of resolution','At 200% of resolution'}
 for key in it:
     original=en.get(key,key)
+    if key in literal_percent:
+        assert re.findall(r'\d+',original)==re.findall(r'\d+',it[key]) and it[key].count('%')==original.count('%'),repr(key)
+        continue
     assert Counter(fmt.findall(original))==Counter(fmt.findall(it[key])),repr(key)
     assert it[key] or not original, f'Unexpected empty translation: {key}'
 # Legacy rendering paths explicitly require ASCII in these catalog comments.

@@ -125,7 +125,8 @@ public enum ViewerMemory {
 }
 
 /// One series cut into the sub-series of a 3D/4D acquisition, by the slice
-/// location (or the comment) of its images, in order.
+/// location (or the comment) of its images, in order, or by the files that
+/// hold a volume each.
 public enum SeriesSplitting {
 
     /// The 4D player's cut of one selected series: where the slice location
@@ -170,6 +171,37 @@ public enum SeriesSplitting {
                 groups[groups.count - 1].append(x)
             }
         }
+        return groups
+    }
+
+    /// The times of a series held in several multi-frame files, one volume a
+    /// file: a time is a file, not a pass of the slice location, which every
+    /// file repeats and which ties between files. `files` names the file of
+    /// each image, `frames` gives the number of frames of that file. A group
+    /// per file, in the order the images first reach it (such a series sorts
+    /// its images file by file, the files by their time), with the images of
+    /// the file in their order.
+    ///
+    /// Nil, for the images to open as any others do, unless every image is of
+    /// a multi-frame file, the files are two to `maximum` (the 4D player's
+    /// limit), they hold as many images each, and the images of each file are
+    /// at distinct slice locations, as the slices of a volume are: the frames
+    /// of a loop, merged by hand, share one and stay a stack.
+    public static func fileGroups<File: Hashable>(files: [File], frames: [Int], sliceLocations: [Float], maximum: Int) -> [[Int]]? {
+        guard files.count == frames.count, files.count == sliceLocations.count, frames.allSatisfy({ $0 > 1 }) else { return nil }
+        var groupOfFile: [File: Int] = [:]
+        var groups: [[Int]] = []
+        for (index, file) in files.enumerated() {
+            if let group = groupOfFile[file] {
+                groups[group].append(index)
+            } else {
+                guard groups.count < maximum else { return nil }
+                groupOfFile[file] = groups.count
+                groups.append([index])
+            }
+        }
+        guard groups.count >= 2, isFourD(groupSizes: groups.map(\.count)) else { return nil }
+        for group in groups where Set(group.map { sliceLocations[$0] }).count != group.count { return nil }
         return groups
     }
 

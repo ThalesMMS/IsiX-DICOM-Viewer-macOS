@@ -57,14 +57,10 @@ extension BrowserController {
         rawDataImport.chooseAndImport()
     }
 
-    /// The meta-data window of the first image of the thumbnails' selection.
+    /// The meta-data window of the selection (DatabaseMetadataWindow).
     @objc(viewXML:)
     func viewXML(_ sender: Any!) {
-        let image = firstObjectForDatabaseMatrixSelection()
-        let name = String(format: NSLocalizedString("Meta-Data: %@", comment: ""),
-                          String(describing: image?.value(forKey: "completePath") ?? "(null)"))
-        let controller = XMLController(image: image, windowName: name, viewer: nil)
-        controller?.showWindow(self)
+        DatabaseMetadataWindow.open(for: self)
     }
 
     // MARK: RTSTRUCT
@@ -85,4 +81,44 @@ extension BrowserController {
     }
 
     #endif
+}
+
+/// The meta-data window the database window opens on its selection.
+@MainActor enum DatabaseMetadataWindow {
+
+    /// Opens the window on the image of the first selected thumbnail that has
+    /// loaded. Without one, the first selected thumbnail still loading
+    /// answers: its cell names its row before its icon loads, and a refresh of
+    /// the row puts the highlighted cells back while they load, so the window
+    /// shows what the browser highlights. Without a selected thumbnail that
+    /// names a row, the row whose thumbnails the browser shows (the first
+    /// selected one) answers. A series gives its first image, a study the
+    /// first image of its first series. Nothing opens without a selected row
+    /// or without an image.
+    static func open(for browser: BrowserController) {
+        guard let row = browser.selectedOutlineItem() else { return }
+        let loading = browser.horos_oMatrix?.selectedCells.lazy
+            .compactMap { ViewerOpener.thumbnailRow($0, of: browser.horos_matrixViewArray) }.first
+        guard let image = browser.firstObjectForDatabaseMatrixSelection() ?? DatabaseRowImage.first(of: loading ?? row) else { return }
+        let name = String(format: NSLocalizedString("Meta-Data: %@", comment: ""), image.completePath() ?? "(null)")
+        guard let controller = XMLController(image: image, windowName: name, viewer: nil) else { return }
+        // Its +1, as [XMLController alloc] left it: the controller lets itself
+        // go when its window closes. Without it the controller went as soon as
+        // it was shown, and its window stayed on screen empty: the outline
+        // reads its rows from the controller through a weak data source.
+        _ = Unmanaged.passRetained(controller)
+        controller.showWindow(browser)
+    }
+}
+
+/// The image the database window shows for a row of its own: an image as it
+/// is, the first image of a series in the series' order, and of a study the
+/// first image of its first series, in the order of its thumbnails.
+enum DatabaseRowImage {
+
+    static func first(of row: Any?) -> DicomImage? {
+        if let image = row as? DicomImage { return image }
+        let series = row is DicomStudy ? DatabaseItemChildren.children(of: row)?.first : row
+        return DatabaseItemChildren.children(of: series)?.first as? DicomImage
+    }
 }

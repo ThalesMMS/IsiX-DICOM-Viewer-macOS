@@ -47,7 +47,7 @@ import Cocoa
 // (DCMView.swift).
 //
 // A message to nil returned nil, NO or 0: it is an optional chain with that
-// default. An @try is HorosObjCException.caughtWithoutAllocation. The Carbon
+// default. An @try is HorosObjCException.caught. The Carbon
 // Pasteboard and the URL it copies are Core Foundation objects Swift manages,
 // so the former CFRelease calls are the releases Swift makes when they go out
 // of scope.
@@ -60,7 +60,7 @@ extension DCMView: NSDraggingSource, NSPasteboardItemDataProvider {
 
     @objc(startDrag:)
     public dynamic func startDrag(_ theTimer: Timer!) {
-        if let localException = HorosObjCException.caughtWithoutAllocation({
+        if let localException = HorosObjCException.caught({
                 let event = theTimer?.userInfo as? NSEvent
 
                 let image = self.nsimage((event?.modifierFlags.rawValue ?? 0) & NSEvent.ModifierFlags.shift.rawValue != 0)

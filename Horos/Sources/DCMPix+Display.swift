@@ -41,6 +41,7 @@ import Accelerate
 import AppKit
 import Foundation
 import IsiXImaging
+import IsiXPreferences
 
 /// What an image shows: its 8-bit picture through the window (linear, a
 /// transfer function, a subtraction, colour), inverted for MONOCHROME1 and
@@ -211,6 +212,16 @@ extension DCMPix {
             needToCompute8bitRepresentation = true
             horos_updateToBeApplied = true
         }
+    }
+
+    /// Whether a view in `appearance` shows this image inverted as a document
+    /// page (DocumentPagePolarity): a PDF page or a structured report's
+    /// rendering, in Dark Mode, unless the Viewers settings turn that off.
+    /// Only the screen: the samples and the 8-bit picture stay the page's.
+    func showsDocumentPageInverted(in appearance: NSAppearance) -> Bool {
+        DocumentPagePolarity.inverts(isDocumentPage: horos_isDocumentPage,
+                                     darkAppearance: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua,
+                                     invertsInDarkMode: PreferencesSource.process.preferences[ViewerPreferences.invertsDocumentPagesInDarkMode])
     }
 
     /// A window level in the stored sign domain (database, workspace) for a calibrated one.

@@ -49,6 +49,7 @@ for key, value in french.items():
 unchanged_french_or_technical = set([' version ',
  'JPEG Baseline',  # a DICOM transfer syntax's own name
  'Action',
+ 'Annotation',  # the name of an annotation just added in the Annotation Layout pane
  'Reconstruction',
  'Surface',
  'Position',
@@ -151,6 +152,7 @@ unchanged_french_or_technical = set([' version ',
  'TLS',
  'Type',
  'Type:',
+ 'UTF8 (Unicode): ISO_IR 192',
  'Version',
  'Volume',
  'Volume (cm3)',
@@ -208,6 +210,9 @@ for path in sources:
     compare(ET.parse(path).getroot(), ET.parse(TARGET / path.name).getroot())
 menu = ET.parse(TARGET / 'MainMenu.xib')
 assert menu.find('.//menuItem[@identifier="org.horos.menu.viewer"]').get('title') == 'Visualiseur 2D'
+# Tiling is how the views are laid out, « disposition » as in the Viewers pane: not a tilt, and not left in English.
+assert french['Tiling:'] == 'Disposition :' and french['Windows Tiling'] == 'Disposition des fenêtres'
+assert not any(re.search('Tiling', value) for value in french.values()), 'Tiling left in English'
 assert french['Cancel'] == 'Annuler'
 assert french['Database'] == 'Base de données'
 assert french['Study'] == 'Examen'

@@ -53,10 +53,16 @@ DROPPED = {
 # feature that added them. They are taken out of what it registers before comparing.
 ADDED = {
     'ModalityWorklistRefreshMinutes': 'the Modality Worklist window, which that revision did not have',
+    'ArchiveExpansionLimitMegabytes': 'the most megabytes one import expands out of ZIP archives, a limit made since',
+    'ArchiveExpansionLimitFiles': 'the most files one import expands out of ZIP archives, a limit made since',
+    'ArchiveExpansionLimitNesting': 'how many archives a ZIP archive being imported may be inside of, a limit made since',
+    'XMLRPCRetrieveOpenWaitSeconds': 'the seconds an XML-RPC retrieve waits for the first images before it gives up opening the study, made since',
     'FirstClickOnlyActivatesViewer': 'the choice of whether the click that activates a viewer also uses the tool, made since',
     'TwoClickLengthMeasurement': 'the choice of whether a click of the Length tool places an end of a measure, made since',
     'CommandShiftHidesROILabels': 'the choice of whether Command-Shift held hides the labels of the measures, made since',
     'SyntheticDWIBValue': 'the b-value the last synthetic diffusion-weighted image was asked at, an export made since',
+    'PatientNameAnyWordOrder': 'the choice of whether a patient name is found whatever the order of its words, made since',
+    'InvertsDocumentPagesInDarkMode': 'the choice of whether PDF pages and rendered structured reports are shown inverted in Dark Mode, made since',
 }
 
 parser = argparse.ArgumentParser()

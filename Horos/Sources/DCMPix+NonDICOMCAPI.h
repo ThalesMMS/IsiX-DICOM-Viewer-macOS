@@ -57,6 +57,13 @@ FOUNDATION_EXPORT void HorosTIFFInitialize(void);
 /// document, for the XML window.
 FOUNDATION_EXPORT NSXMLDocument * _Nullable HorosXMLFromFVTiff(NSString * _Nullable path) NS_RETURNS_RETAINED;
 
+/// The names the three above and libtiff's silent warning handler had in the
+/// Horos and OsiriX plugin SDK, which plugins built for it call. XML_from_FVTiff
+/// answers a document the caller releases, as it did.
+FOUNDATION_EXPORT void FVTIFFInitialize(void);
+FOUNDATION_EXPORT NSXMLDocument * _Nullable XML_from_FVTiff(NSString * _Nullable srcFile) NS_RETURNS_RETAINED;
+FOUNDATION_EXPORT void FV_EMPTY_TIFFWarning(const char * _Nullable module, const char * _Nullable fmt, ...);
+
 // The libtiff calls themselves (HorosTIFFOpen and the rest) are the TIFF
 // adapter's: IsiXVTKTIFF.h.
 

@@ -236,6 +236,8 @@ HarnessWindow *NewWindow(NSString *name);
 - (void) mergeWithTexture:(ROI*)r NS_SWIFT_NAME(merge(withTexture:));
 - (BOOL) reduceTextureIfPossible;
 + (NSPoint) pointBetweenPoint:(NSPoint)a and:(NSPoint)b ratio:(float)r NS_SWIFT_NAME(pointBetweenPoint(_:and:ratio:));
+/// What tells one state of the ROI from another, for the undo of the viewer.
+@property(readonly) NSInteger editSignature;
 @end
 
 @interface HorosVolumeLengthROI : ROI
@@ -757,6 +759,14 @@ static NSString *Points(NSArray *points) {
     r.label = [NSString stringWithFormat: @"%@'%ld", _label, ++copies];
     if ([self isKindOfClass: [HorosVolumeLengthROI class]]) ((HorosVolumeLengthROI*)r).volumeLength = ((HorosVolumeLengthROI*)self).volumeLength;
     return r;
+}
+// Of what a copy keeps (see -copyWithZone:), so that a ROI and its copy answer alike.
+- (NSInteger) editSignature {
+    NSUInteger h = (NSUInteger) _type * 31 + _points.count;
+    for (MyPoint *p in _points) h = (h * 31 + (NSUInteger) llround(p.point.x * 64)) * 31 + (NSUInteger) llround(p.point.y * 64);
+    h = (h * 31 + (_isAliased ? 1 : 0)) * 31 + (NSUInteger) llround(_groupID * 1000);
+    if ([self isKindOfClass: [HorosVolumeLengthROI class]]) h = h * 31 + [[(HorosVolumeLengthROI*) self volumeLength] hash];
+    return (NSInteger) h;
 }
 - (unsigned char*) textureBuffer { return texture; }
 - (int) textureWidth { return textureWidthValue; }

@@ -7,8 +7,8 @@ or split organ both fall outside it. HorosBrushLabelAnchor is compiled and run
 on small textures: a blob gets its centroid, a C shape the piece pixel nearest
 to its centroid, two pieces the larger one, an empty texture nothing.
 
-The ROI's source is checked for the rest: a name-only ROI (-textNameOnly, archived from
-ROI version 16) shows only its name, computes no statistics, and a brush's
+The ROI's source is checked for the rest: a name-only ROI (-textNameOnly, archived among
+the own values of ROI version 18) shows only its name, computes no statistics, and a brush's
 label and leader line use that anchor.
 """
 from pathlib import Path
@@ -70,11 +70,12 @@ if '@objc public dynamic var textNameOnly: Bool' not in roi:
     failures.append('ROI has no textNameOnly property')
 # The archive format is IsiXROI's: ROI hands its fields over and takes them back.
 archive = (root / 'Modules/IsiXROI/Sources/ROIArchiveCoder.swift').read_text()
-if 'public static let currentVersion = 16' not in archive \
-        or 'if version >= 16 {\n            record.textNameOnly = reader.number()?.boolValue ?? false' not in archive \
+if 'public static let currentVersion = 18' not in archive \
+        or 'if reader.string()?.isEqual(to: ownValuesMarker) == true {\n'\
+           '                record.textNameOnly = reader.number()?.boolValue ?? false' not in archive \
         or 'coder.encode(NSNumber(value: record.textNameOnly))' not in archive \
         or '_textNameOnly = record.textNameOnly' not in roi or 'record.textNameOnly = _textNameOnly' not in roi:
-    failures.append('textNameOnly is not archived in ROI version 16')
+    failures.append('textNameOnly is not archived in ROI version 18')
 if 'c._textNameOnly = _textNameOnly' not in roi:
     failures.append('a copy loses textNameOnly')
 brush = roi[roi.index('func labelBrush()'):]

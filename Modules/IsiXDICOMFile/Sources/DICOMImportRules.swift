@@ -131,6 +131,137 @@ public enum DICOMImportRules {
         private func describe(_ value: String?) -> String { value ?? "(null)" }
     }
 
+    // MARK: - Multiframe series
+
+    /// Where a frame of a multiframe file lies: its Image Position (Patient),
+    /// three values, and the Image Orientation (Patient) that serves it, six.
+    public struct FramePlane: Equatable, Sendable {
+        public var position: [Double]
+        public var orientation: [Double]
+
+        public init(position: [Double], orientation: [Double]) {
+            self.position = position
+            self.orientation = orientation
+        }
+    }
+
+    /// What the import reads of a multiframe file to decide its series: the
+    /// class, the size, and the plane of each frame that states its position,
+    /// in the order of the file.
+    public struct MultiframeLayout: Equatable, Sendable {
+        public var sopClassUID: String?
+        public var columns: Int
+        public var rows: Int
+        public var frames: Int
+        public var planes: [FramePlane]
+
+        public init(sopClassUID: String?, columns: Int, rows: Int, frames: Int, planes: [FramePlane]) {
+            self.sopClassUID = sopClassUID
+            self.columns = columns
+            self.rows = rows
+            self.frames = frames
+            self.planes = planes
+        }
+    }
+
+    /// The classes whose multiframe files are volumes: each frame a slice,
+    /// placed by the functional groups. An acquisition in time (a functional
+    /// or a diffusion series, a dynamic one) may come as one such file per
+    /// volume, all of one Series Instance UID. The legacy converted classes
+    /// are single-frame images put in one file with the same functional
+    /// groups, which the reading takes the planes from whatever the class.
+    public static let volumeMultiframeSOPClasses: Set<String> = [
+        "1.2.840.10008.5.1.4.1.1.4.1", // Enhanced MR Image Storage
+        "1.2.840.10008.5.1.4.1.1.2.1", // Enhanced CT Image Storage
+        "1.2.840.10008.5.1.4.1.1.130", // Enhanced PET Image Storage
+        "1.2.840.10008.5.1.4.1.1.4.4", // Legacy Converted Enhanced MR Image Storage
+        "1.2.840.10008.5.1.4.1.1.2.2", // Legacy Converted Enhanced CT Image Storage
+        "1.2.840.10008.5.1.4.1.1.128.1", // Legacy Converted Enhanced PET Image Storage
+    ]
+
+    /// The parts of a millimetre and of a direction cosine that two files of
+    /// one acquisition may differ by and still lie in the same place: a
+    /// hundredth of a millimetre, a thousandth of a cosine.
+    static let positionSteps = 100.0, orientationSteps = 1000.0
+
+    /// The series key of a multiframe file as it has always been: the file
+    /// alone, by its image identifier and its SOP Instance UID after the
+    /// grouping. A database indexed before volumes shared a key holds every
+    /// multiframe file under this one.
+    public static func formerMultiframeSeriesKey(grouping: String?, imageID: String?, sopInstanceUID: String?) -> String {
+        "\(grouping ?? "(null)")-\(imageID ?? "(null)")-\(sopInstanceUID ?? "(null)")"
+    }
+
+    /// The series key that the multiframe files of one volume geometry share,
+    /// nil for a file that keeps a series of its own. A file shares when its
+    /// class is one of `volumeMultiframeSOPClasses`, every frame states its
+    /// position, one orientation serves every frame and no two frames have the
+    /// same slice location: one volume, which another file of the same
+    /// grouping, size and planes repeats at another time. A cine, a file of
+    /// several planes or of several phases, a segmentation and any other class
+    /// do not.
+    ///
+    /// The key is the grouping, "volume", columns x rows x frames, and sixteen
+    /// hexadecimal digits: the FNV-1a hash, of 64 bits, of the orientation in
+    /// thousandths and of the positions in hundredths of a millimetre, the
+    /// positions in the order of their slice locations. The same on every run
+    /// and processor.
+    public static func volumeSeriesKey(grouping: String?, layout: MultiframeLayout) -> String? {
+        guard let sopClassUID = layout.sopClassUID, volumeMultiframeSOPClasses.contains(sopClassUID),
+              layout.frames > 1, layout.columns > 0, layout.rows > 0, layout.planes.count == layout.frames,
+              let first = layout.planes.first, let orientation = steps(first.orientation, count: 6, orientationSteps)
+        else { return nil }
+        var slices: [(location: Int64, position: [Int64])] = []
+        for plane in layout.planes {
+            guard steps(plane.orientation, count: 6, orientationSteps) == orientation,
+                  let position = steps(plane.position, count: 3, positionSteps),
+                  let location = steps([sliceLocation(origin: plane.position, orientation: plane.orientation)],
+                                       count: 1, positionSteps)
+            else { return nil }
+            slices.append((location[0], position))
+        }
+        slices.sort { $0.location < $1.location }
+        for index in slices.indices.dropFirst() where slices[index].location == slices[index - 1].location { return nil }
+        let geometry = ([orientation] + slices.map(\.position))
+            .map { $0.map(String.init).joined(separator: " ") }.joined(separator: "|")
+        return "\(grouping ?? "(null)")-volume-\(layout.columns)x\(layout.rows)x\(layout.frames)-\(stableHash(geometry))"
+    }
+
+    /// The series key of a multiframe file: the one its volume shares, or the
+    /// file's own.
+    public static func multiframeSeriesKey(grouping: String?, imageID: String?, sopInstanceUID: String?,
+                                           layout: MultiframeLayout) -> String {
+        volumeSeriesKey(grouping: grouping, layout: layout)
+            ?? formerMultiframeSeriesKey(grouping: grouping, imageID: imageID, sopInstanceUID: sopInstanceUID)
+    }
+
+    /// `values` in whole steps, `perUnit` of them to one, rounded to the
+    /// nearest; nil unless there are `count` of them, all finite and small
+    /// enough to count.
+    private static func steps(_ values: [Double], count: Int, _ perUnit: Double) -> [Int64]? {
+        guard values.count == count else { return nil }
+        var whole: [Int64] = []
+        for value in values {
+            let scaled = (value * perUnit).rounded(.toNearestOrAwayFromZero)
+            guard scaled.isFinite, abs(scaled) < 1e15 else { return nil }
+            whole.append(Int64(scaled))
+        }
+        return whole
+    }
+
+    /// The FNV-1a hash, of 64 bits, of the UTF-8 of `text`, as sixteen
+    /// hexadecimal digits. Swift's own hash changes from run to run, and this
+    /// one is stored.
+    static func stableHash(_ text: String) -> String {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        let digits = String(hash, radix: 16)
+        return String(repeating: "0", count: 16 - digits.count) + digits
+    }
+
     // MARK: - Pixels
 
     /// What is said of an object that declares a picture of `columns` x

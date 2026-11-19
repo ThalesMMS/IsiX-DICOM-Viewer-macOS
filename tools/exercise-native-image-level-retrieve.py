@@ -16,14 +16,14 @@ local images until 8 s after the retrieve thread has finished.
   slow-import  the first received batch takes 15 s without committing, exceeding
                the retrieve's 10 s idle timeout while the import lock is held
   unsendable  the peer fails the sub-operation of one missing instance with 0xA702, as
-              an OsiriX server does for a file it cannot read, and the failures are
+              a server may do for a file it cannot read, and the failures are
               reported: the main thread must keep running its default run loop mode,
               the notices panel must show them, and that instance dropped into INCOMING
               afterwards must be imported while it does. The study is retrieved
               twice first: the refused instance is remembered, so the second retrieve
               asks the peer for nothing and reports nothing
   absent      the peer counts one instance more than it lists (a series with none listed, as
-              OsiriX does) and fails the sub-operation of one listed instance with 0xA702: the
+              some peers do) and fails the sub-operation of one listed instance with 0xA702: the
               inventory is confirmed by what it lists, the study counts as complete but for those
               expected absences, and the auto-query's -retrieve:onlyIfNotAvailable: then starts
               no transfer
@@ -33,6 +33,13 @@ local images until 8 s after the retrieve thread has finished.
               auto-query's second look
   volume-fresh  the same with nothing local before, so the study is retrieved whole and the peer
               fails the volume's sub-operation: still no notice
+  unlisted    nothing local before, and the peer refuses the SERIES and IMAGE queries (0xA900), as a
+              node that answers the STUDY level alone: the study arrives whole by the STUDY level, the
+              inventory stays unconfirmed and is judged by the peer's counters, no notice is posted,
+              and the auto-query's second look starts no transfer
+  unlisted-empty  the same with the SERIES and IMAGE queries answered in success without a match
+  unlisted-failure  the listing refused and one sub-operation failed by the peer: the retrieve is
+              still reported, with its notice
   nonimage    the study also holds 2 Raw Data and 2 Spatial Registration objects without pixel
               data, none of them local before: the retrieve imports all 34 instances, nothing
               goes to NOT READABLE, and the auto-query's second look starts no transfer
@@ -131,6 +138,12 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         peer_arguments += ["--fail-instance", str(INSTANCES), "--fail-status", "0xA702", "--phantom-series"]
     if scenario == "nonimage":
         peer_arguments.append("--non-image")
+    if scenario in ("unlisted", "unlisted-failure"):
+        peer_arguments.append("--refuse-listing")
+    if scenario == "unlisted-empty":
+        peer_arguments.append("--empty-listing")
+    if scenario == "unlisted-failure":
+        peer_arguments += ["--fail-instance", str(INSTANCES)]
     if scenario in ("volume", "volume-fresh"):
         peer_arguments.append("--siemens-volume")
     served = INSTANCES + {"nonimage": NON_IMAGE, "volume": 1, "volume-fresh": 1}.get(scenario, 0)
@@ -154,13 +167,13 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
         if scenario == "unsendable":
             environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
             environment["HOROS_RETRIEVE_REPEAT"] = "1"
-        if scenario in ("absent", "nonimage", "volume", "volume-fresh"):
+        if scenario in ("absent", "nonimage", "volume", "volume-fresh", "unlisted", "unlisted-empty"):
             environment["HOROS_RETRIEVE_REPEAT"] = "1"
             environment["HOROS_RETRIEVE_AGAIN_IF_NOT_AVAILABLE"] = "1"
-        if scenario in ("volume", "volume-fresh"):
+        if scenario in ("volume", "volume-fresh") or scenario.startswith("unlisted"):
             environment["HOROS_RETRIEVE_SHOW_ERRORS"] = "1"
         launch_arguments = ["-STORESCP", "YES" if move else "NO", "-USESTORESCP", "YES" if move else "NO", "-TLSStoreSCP", "NO",
-                            "-hideListenerError", "NO" if scenario == "unsendable" or recovery else "YES",
+                            "-hideListenerError", "NO" if scenario == "unsendable" or scenario.startswith("unlisted") or recovery else "YES",
                             "-syncDICOMNodes", "NO", "-publishDICOMBonjour", "NO", "-searchDICOMBonjour", "NO",
                             "-AETITLE", "HOROSDEV", "-AEPORT", str(destination_port), "-DICOMTimeout", "8",
                             "-DICOMConnectionTimeout", "5", "-TryIMAGELevelDICOMRetrieveIfLocalImages", "YES",
@@ -176,7 +189,8 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             native_app.wait_for(lambda: any(r.get("probe") == "loaded" for r in records(log)), 30, description="the probe")
             # Half of the study, already local: every other image. The objects without pixels
             # (numbered after them) come only by the retrieve.
-            local = [] if scenario == "volume-fresh" or recovery else sorted(export.glob("*.dcm"))[:INSTANCES][::2]
+            local = [] if scenario == "volume-fresh" or scenario.startswith("unlisted") or recovery \
+                else sorted(export.glob("*.dcm"))[:INSTANCES][::2]
             for path in local:
                 staging = data / "INCOMING.noindex" / f".{path.name}.part"
                 shutil.copyfile(path, staging)
@@ -185,7 +199,7 @@ def run_scenario(app: Path, folder: Path, dylib: Path, scenario: str) -> dict:
             time.sleep(2)
             trigger.write_text("go\n")
             native_app.wait_for(lambda: any("retrieve" in r for r in records(log)), 240, interval=0.5, description="the retrieve")
-            if scenario in ("absent", "nonimage", "volume", "volume-fresh"):
+            if scenario in ("absent", "nonimage", "volume", "volume-fresh", "unlisted", "unlisted-empty"):
                 negotiation = folder / "peer" / "cget-negotiation.json"
                 result["peer_retrievals_first"] = len(json.loads(negotiation.read_text()).get("retrievals", []))
                 native_app.wait_for(lambda: any("retrieve_again" in r for r in records(log)), 240, interval=0.5,
@@ -350,6 +364,32 @@ def check(result: dict) -> list:
                             f"{result['peer_retrievals']} in all)")
         if again.get("local_after") != total or not (again.get("column") or {}).get("isComplete"):
             problems.append(f"after the auto-query the study is not complete: {again}")
+    if scenario in ("unlisted", "unlisted-empty"):
+        column, again = retrieve.get("column") or {}, result.get("retrieve_again") or {}
+        if retrieve["local_after"] != INSTANCES:
+            problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local")
+        if inventory.get("inventoryConfirmed") or inventory.get("expectedCount"):
+            problems.append(f"a listing that named nothing confirmed an inventory: {inventory.get('summary')}")
+        # The notices panel's own count: every notice of the run is in it.
+        if inventory.get("needsAttention") or retrieve.get("notices") != 0 or retrieve.get("notices_showing"):
+            problems.append(f"a study that arrived whole from a node that lists nothing is reported: "
+                            f"{retrieve.get('notices')} notice(s), {inventory.get('summary')}")
+        if "judged by the server's counters" not in (inventory.get("summary") or ""):
+            problems.append(f"the inventory does not say the node's counters judged it: {inventory.get('summary')}")
+        if not column.get("isComplete"):
+            problems.append(f"the Local column does not show the study complete: {column}")
+        first = result.get("peer_retrievals_first", -1)
+        if first < 1 or len(result["peer_retrievals"]) != first:
+            problems.append(f"the auto-query retrieved the study again ({first} retrievals first, "
+                            f"{result['peer_retrievals']} in all)")
+        if again.get("local_after") != INSTANCES:
+            problems.append(f"after the auto-query the study is not whole: {again}")
+    if scenario == "unlisted-failure":
+        if retrieve["local_after"] != INSTANCES - 1:
+            problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local, {INSTANCES - 1} expected")
+        if not inventory.get("needsAttention") or retrieve.get("notices", 0) < 1 or not retrieve.get("notices_showing"):
+            problems.append(f"a retrieve with a failed sub-operation from a node that lists nothing is not reported: "
+                            f"{retrieve.get('notices')} notice(s), {inventory.get('summary')}")
     if scenario == "incomplete":
         if retrieve["local_after"] != INSTANCES - 1:
             problems.append(f"{retrieve['local_after']} of {INSTANCES} instances local, {INSTANCES - 1} expected")
@@ -369,7 +409,7 @@ def check(result: dict) -> list:
             problems.append(f"unexpected recovery result: {retrieve}")
         if (retrieve.get("notices_posted", 0) > 0) != permanent:
             problems.append(f"unexpected notice count: {retrieve.get('notices_posted')}")
-    if "IMAGE" not in levels and scenario != "volume-fresh":
+    if "IMAGE" not in levels and scenario != "volume-fresh" and not scenario.startswith("unlisted"):
         problems.append(f"the IMAGE level was never asked ({levels})")
     if scenario == "failure":
         refused = [i for i, r in enumerate(result["peer_retrievals"]) if r["refused"]]
@@ -390,7 +430,7 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--scenario", action="append",
                         choices=["complete", "failure", "cancel", "incomplete", "slow-import", "unsendable", "absent", "nonimage",
-                                 "volume", "volume-fresh", "retry-get", "retry-get-permanent", "retry-move", "retry-move-permanent",
+                                 "volume", "volume-fresh", "unlisted", "unlisted-empty", "unlisted-failure", "retry-get", "retry-get-permanent", "retry-move", "retry-move-permanent",
                                  "retry-get-failure", "retry-get-failure-permanent",
                                  "retry-move-failure", "retry-move-failure-permanent"])
     arguments = parser.parse_args()

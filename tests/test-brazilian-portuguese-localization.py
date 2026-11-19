@@ -104,6 +104,10 @@ for source in sources:
             assert text in pt or not text, (source, text)
             assert string_text(translated) == pt.get(text, text), (source, text)
 menu = ET.parse(locale / 'MainMenu.xib').getroot()
+# Tiling is how the views are laid out, "disposição" as in the Viewers pane: not tiles of a floor or a wall.
+for key, value in pt.items():
+    assert not re.search('Ladrilh|Azulejo', value), f'Tiling in {key!r}: {value!r}'
+assert pt['Tiling:'] == 'Disposição:' and pt['Right'] == 'Direita'
 assert menu.find('.//menuItem[@identifier="org.horos.menu.viewer"]').get('title') == 'Visualizador 2D'
 if len(sys.argv) > 1:
     resources = Path(sys.argv[1]) / 'Contents/Resources'

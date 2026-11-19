@@ -48,7 +48,7 @@ import IsiXROI
 // them as before. A click picks its tool with -getTool: (IsiXImaging's
 // ViewInput rule), starts a drag, a ROI, the repulsor or the ROI selector, and
 // -mouseDragged: carries it on. An @try is
-// HorosObjCException.caughtWithoutAllocation. Which
+// HorosObjCException.caught. Which
 // ROI a click of a ROI tool takes and the repulsor's ROIs are IsiXROI's rules
 // (ROIEditingSession, ROIRepulsor); the ROI notifications go through
 // ROIEventEmitter.
@@ -129,7 +129,7 @@ extension DCMView {
             DCMView.horos_static_drawLock?.lock()
             defer { DCMView.horos_static_drawLock?.unlock() }
 
-            inputLogException(HorosObjCException.caughtWithoutAllocation {
+            inputLogException(HorosObjCException.caught {
                 self.mouseDownWithImages(event)
             }, "-[DCMView mouseDown:]")
         }
@@ -171,13 +171,13 @@ extension DCMView {
 
         self.horos_startImage = self.horos_curImage
         self.setStartWLWW()
-        self.horos_startScaleValue = self.horos_scaleValue
-        self.horos_rotationStart = self.horos_rotation
+        self.viewport.scaleAtDragStart = self.horos_scaleValue
+        self.viewport.rotationAtDragStart = self.horos_rotation
         self.horos_blendingFactorStart = self.horos_blendingFactor
         self.horos_scrollMode = 0
         self.horos_resizeTotal = 1
 
-        self.horos_originStart = self.horos_origin
+        self.viewport.originAtDragStart = self.horos_origin
 
         var mesure = self.convert(eventLocation, from: nil)
         mesure.y = size.size.height - mesure.y
@@ -222,7 +222,7 @@ extension DCMView {
             current.x -= self.frame.size.width / 2.0
             current.y -= self.frame.size.height / 2.0
 
-            self.horos_rotationStart = ViewInput.rotationStart(self.horos_rotationStart, fromCenter: current,
+            self.viewport.rotationAtDragStart = ViewInput.rotationStart(self.horos_rotationStart, fromCenter: current,
                                                                xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped,
                                                                deg2rad: DCMView.horos_static_deg2rad)
         }
@@ -313,7 +313,7 @@ extension DCMView {
                 wc?.inputAddToUndoQueue("roi")
             }
 
-            if let e = HorosObjCException.caughtWithoutAllocation({ self.mouseDownWithROITool(tool, event: event, clickCount: clickCount) }) {
+            if let e = HorosObjCException.caught({ self.mouseDownWithROITool(tool, event: event, clickCount: clickCount) }) {
                 NSLog("**** mouseDown ROI : %@", e)
             }
         }
@@ -552,11 +552,11 @@ extension DCMView {
 
             DCMView.horos_static_drawLock?.lock()
 
-            inputLogException(HorosObjCException.caughtWithoutAllocation {
+            inputLogException(HorosObjCException.caught {
                 self.mouseUpWithImages(event)
             }, "-[DCMView mouseUp:]")
 
-            inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
+            announceWindowLevelPreset(DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM), from: self, endingPress: true)
 
             DCMView.horos_static_drawLock?.unlock()
         }
@@ -761,7 +761,7 @@ extension DCMView {
             }
         }
 
-        inputPost(.OsirixUpdateWLWWMenu, object: DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
+        announceWindowLevelPreset(DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM), from: self, endingPress: true)
     }
 
     @objc(otherMouseDragged:)

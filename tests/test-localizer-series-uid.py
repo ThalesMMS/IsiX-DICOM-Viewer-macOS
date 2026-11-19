@@ -84,11 +84,13 @@ for value in [value for value in assignments if value != 'seriesUID']:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sources  # noqa: E402
 database = sources.class_text('DicomDatabase')
-lookup = re.search(r'indexOfObject\(curDict\.object\(forKey: "seriesID" \+ seriesNum\)', database)
-if not lookup:
+# The key is the file's seriesID (for a multiframe volume a database indexed as a
+# series of its own, the key it had then), looked up among the stored
+# seriesInstanceUID of the study's series.
+lookup = re.search(r'var seriesKey = curDict\.object\(forKey: "seriesID" \+ seriesNum\)', database)
+if not lookup or 'let index = indexOfObject(seriesKey, in: seriesKeys)' not in database:
     failures.append('the importer no longer finds a series row by its seriesID')
-if not re.search(r'indexOfObject\(curDict\.object\(forKey: "seriesID" \+ seriesNum\), '
-                 r'in: seriesArray\?\.value\(forKey: "seriesInstanceUID"\) as\? NSArray\)', database):
+if 'let seriesKeys = seriesArray?.value(forKey: "seriesInstanceUID") as? NSArray' not in database:
     failures.append('the importer no longer matches the stored seriesInstanceUID attribute')
 
 # --- and why it matters: the SCP answers with it -----------------------------

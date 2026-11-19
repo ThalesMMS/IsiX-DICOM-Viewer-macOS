@@ -36,7 +36,8 @@ public enum XMLRPCAccessDecision: Int {
 @objc(HorosXMLRPCAccessScope)
 public enum XMLRPCAccessScope: Int {
     case thisMac = 0
-    /// Private addresses only, as the intranet option of OsiriX.
+    /// Private addresses only: RFC 1918, link-local, 100.64.0.0/10 and IPv6
+    /// ULA/link-local.
     case localNetwork = 1
     case anyAddress = 2
 }
@@ -45,14 +46,17 @@ public enum XMLRPCAccessScope: Int {
 ///
 /// The interface publishes `KillOsiriX`, `Retrieve`, `DownloadURL` and
 /// `dbwindowfind` - the last one returns the contents of the database, patient
-/// names and identifiers included. Horos answered every host that could reach
-/// the machine and asked for no credential at all, so turning the preference on
-/// for a local script published the database to the network.
+/// names and identifiers included. Once turned on, the interface answers every
+/// host that can reach the machine without a credential, unless the Listener
+/// settings narrow it: the scope registered by default is any address, without
+/// a password. What a page
+/// open in a browser sends is refused before these rules
+/// (`XMLRPCWebPageRequest`), whoever the peer.
 ///
 /// The rules, in the order they are applied to a call:
 ///
-/// 1. A call made on this Mac is answered without a credential, as Horos and
-///    OsiriX answer it, whichever of the Mac's addresses it is sent to. A RIS on
+/// 1. A call made on this Mac is answered without a credential, whichever of
+///    the Mac's addresses it is sent to. A RIS on
 ///    the same Mac often calls the machine's network address rather than
 ///    `127.0.0.1`, so the socket listens on every interface and the peer address
 ///    decides, not the interface the call arrived on.
@@ -62,14 +66,13 @@ public enum XMLRPCAccessScope: Int {
 /// 3. Other computers are answered only within the scope the user chose: none,
 ///    the local network, or any address.
 /// 4. Within it, they send the user name and password, unless the user turned
-///    that off, which is what Horos and OsiriX do for every caller. While a
-///    password is required and none is set, they are refused.
+///    that off. While a password is required and none is set, they are
+///    refused.
 @objc(HorosXMLRPCServerAccess)
 public final class XMLRPCServerAccess: NSObject {
     /// The `XMLRPCAccessScope` other computers are answered within.
     @objc public static let accessScopeKey = "httpXMLRPCServerAccessScope"
-    /// Whether other computers send the user name and password. Off by default,
-    /// as in Horos and OsiriX.
+    /// Whether other computers send the user name and password. Off by default.
     @objc public static let requirePasswordKey = "httpXMLRPCServerRequirePassword"
     /// Addresses and blocks answered without a credential, as typed by the user.
     @objc public static let allowedAddressesKey = "httpXMLRPCServerAllowedAddresses"
@@ -123,7 +126,7 @@ public final class XMLRPCServerAccess: NSObject {
     /// Whether a peer is on a private network: RFC 1918, link-local, the
     /// shared `100.64.0.0/10` block VPNs such as Tailscale hand out, and IPv6
     /// unique local and link-local addresses. These cannot be routed from the
-    /// internet, which is what the intranet option of OsiriX checks too.
+    /// internet.
     @objc(isPrivateNetworkAddress:)
     public static func isPrivateNetworkAddress(_ address: String?) -> Bool {
         guard let address = address, let bytes = addressBytes(address) else { return false }
@@ -262,7 +265,7 @@ public final class XMLRPCServerAccess: NSObject {
     /// What the interface exposes to other computers without a password.
     @objc public static var unauthenticatedExposureWarning: String {
         return NSLocalizedString(
-            "Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer, as with Horos and OsiriX.",
+            "Without a password, any computer that can reach this machine can list the database, including patient names and identifiers, retrieve studies, open URLs and quit IsiX DICOM Viewer.",
             comment: "XML-RPC remote access warning without a password")
     }
 
@@ -479,8 +482,8 @@ public final class XMLRPCServerCredential: NSObject {
     ///
     /// This is read on the connection thread for every request, so it never
     /// puts up a keychain dialog: a credential that cannot be read without one
-    /// counts as absent, which keeps the listener on loopback instead of
-    /// blocking a socket thread on a modal panel.
+    /// counts as absent, and other computers are refused while a password is
+    /// required, instead of a socket thread blocked on a modal panel.
     @objc public static var header: String? {
         let (status, item) = NonInteractiveKeychainRead.read(service: service, account: account, data: true)
         guard status == errSecSuccess,
@@ -495,8 +498,8 @@ public final class XMLRPCServerCredential: NSObject {
         return header != nil
     }
 
-    /// Forgets the credential. The listener returns to loopback on its next
-    /// start.
+    /// Forgets the credential. While a password is required, other computers
+    /// are refused from then on.
     @objc(removeAndReturnError:)
     public static func remove() throws {
         let status = SecItemDelete(query as CFDictionary)

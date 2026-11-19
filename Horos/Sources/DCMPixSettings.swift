@@ -92,13 +92,6 @@ enum DCMPixSettings {
     /// The annotation templates by modality, from the preferences.
     static var customImageAnnotations: NSDictionary? { snapshot.value.templates }
 
-    /// Turns the VOI LUT off, for every image from now on and in the preferences:
-    /// what an image whose table is corrupted does.
-    static func turnOffVOILUT(in source: PreferencesSource = .process) {
-        snapshot.update { $0.settings.usesVOILUT = false }
-        source.preferences.set(false, for: ViewerPreferences.useVOILUT)
-    }
-
     /// No image is loaded in the protected mode.
     static var protectedMode: Bool {
         get { protectedModeFlag.load(ordering: .relaxed) }

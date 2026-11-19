@@ -144,4 +144,39 @@ public enum GantryTiltCorrection {
         let distance = (offset[1] * m[7]).addingProduct(offset[0], m[6]).addingProduct(offset[2], m[8])
         return [origin[0].addingProduct(distance, m[6]), origin[1].addingProduct(distance, m[7]), origin[2].addingProduct(distance, m[8])]
     }
+
+    /// The translation of the transform that reorients a slice, from its
+    /// `offset` to the model's origin (in the patient's axes): the slice is
+    /// resampled in the slices' own frame (rows, columns, normal), where it
+    /// is brought to the model's place along the normal alone, by the
+    /// distance of its plane. What is left of the offset, within the plane,
+    /// is then the shift of its pixels. The whole offset given as the
+    /// translation shifted nothing when the stack is sheared along its own
+    /// rows or columns (the slices not tilted, each further across than the
+    /// one before); for slices tilted about an axis of their plane, stepping
+    /// along the table, the two are the same shift.
+    public static func frameTranslation(offset: [Double], model m: [Double]) -> [Double] {
+        [0, 0, (offset[1] * m[7]).addingProduct(offset[0], m[6]).addingProduct(offset[2], m[8])]
+    }
+
+    /// The slice a stack was corrected onto the plane of, told from where its
+    /// slices are now (`origins`) and where their files put them
+    /// (`fileOrigins`): the one slice that did not move, when every other one
+    /// is where the correction leaves it, on the line through that slice
+    /// along the normal of the stack's orientation `m`. Nil for a stack as its
+    /// files give it, and for one moved in another way.
+    public static func modelSlice(fileOrigins: [[Double]], origins: [[Double]], orientation m: [Double],
+                                  tolerance: Double = 0.01) -> Int? {
+        guard fileOrigins.count == origins.count, origins.count > 1, m.count >= 9 else { return nil }
+        func same(_ a: [Double], _ b: [Double]) -> Bool {
+            (0..<3).allSatisfy { abs(a[$0] - b[$0]) <= tolerance }
+        }
+        let unmoved = origins.indices.filter { same(origins[$0], fileOrigins[$0]) }
+        guard unmoved.count == 1, let model = unmoved.first else { return nil }
+        for i in origins.indices where i != model {
+            let offset = (0..<3).map { fileOrigins[i][$0] - fileOrigins[model][$0] }
+            if !same(origins[i], projectedOrigin(modelOrigin: fileOrigins[model], model: m, offset: offset)) { return nil }
+        }
+        return model
+    }
 }

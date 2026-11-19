@@ -85,8 +85,11 @@ for name in family:
     calls = sorted(set(GL_CALL.findall(text)))
     if calls:
         failures.append('%s still calls OpenGL: %s' % (name, ', '.join(calls[:6])))
+    # The fields the former plugin SDK declared for the OpenGL fonts stay
+    # declared, at zero, for the offsets its plugins read: a use is anything else.
+    uses = '\n'.join(line for line in text.split('\n') if not re.match(r'\s*final var \w+(: \w+)? = [^{]*$', line))
     for token in ('openGLContext', 'CGLContextObj', 'withContext:', 'fontListGL'):
-        if token in text:
+        if token in (uses if token == 'fontListGL' else text):
             failures.append('%s still uses %s' % (name, token))
 
 if drawing:

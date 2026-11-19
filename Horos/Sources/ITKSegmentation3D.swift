@@ -54,6 +54,14 @@ public final class ITKSegmentation3D: NSObject {
     /// The series' volume, as ITK reads it.
     let volume: IsiXITKVolume
 
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared. The volume above is what the
+    // application hands to ITK, so nothing stands behind itkImage, which the
+    // object releases when it goes; _resampledData is written once, when the
+    // object is made, and not read.
+    final var itkImage: AnyObject?
+    final var _resampledData = false
+
     @objc(initWith:::)
     public convenience init?(_ pix: NSMutableArray?, _ volumeData: UnsafeMutablePointer<Float>?, _ slice: Int) {
         self.init(pix: pix, volume: volumeData, slice: slice, resampleData: false)
@@ -70,6 +78,7 @@ public final class ITKSegmentation3D: NSObject {
             return nil
         }
         self.volume = volume
+        _resampledData = resampleData
         super.init()
     }
 

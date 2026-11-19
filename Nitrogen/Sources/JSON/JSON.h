@@ -28,10 +28,11 @@
  */
 
 // The vendored SBJson framework left the repository. Its categories,
-// -JSONRepresentation, -JSONFragment, -JSONValue and -JSONFragmentValue, are
-// implemented in Swift (NSObject+SBJSON.swift, NSString+SBJSON.swift); the
-// SBJSON, SBJsonParser, SBJsonWriter and SBJsonBase classes are gone. This
-// header keeps <Horos/JSON.h> for the categories.
+// -JSONRepresentation, -JSONFragment, -JSONValue and -JSONFragmentValue, and
+// its classes, SBJSON, SBJsonParser, SBJsonWriter and SBJsonBase, are
+// implemented in Swift, in the files named after them beside this header,
+// which keeps <Horos/JSON.h>.
 
+#import "SBJSON.h"
 #import "NSObject+SBJSON.h"
 #import "NSString+SBJSON.h"

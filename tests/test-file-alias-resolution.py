@@ -14,7 +14,13 @@ category. Two checks:
   Objective-C category of the last revision that had it, read from git and
   compiled as it was: an ordinary file and folder, an alias to each, absolute
   and relative links, a link to an alias, a link to nothing, a link to a link,
-  an alias inside a path, a missing path and a relative one.
+  an alias inside a path, a missing path and a relative one;
+- links that lead back to one another, and a link that names itself, cannot
+  be followed: the two selectors that follow a path to its end answer nil.
+  Checked on the Swift side alone, under a time limit. The Objective-C
+  category of that revision is not asked: it followed such links for ever and
+  never returned, which is what kept a launch that found them in a plugins
+  folder from finishing.
 
 Everything happens in a temporary folder.
 """
@@ -181,6 +187,30 @@ with tempfile.TemporaryDirectory(prefix='isix-alias-resolution-') as temporary:
             print(f'PASS: the six selectors answer as the Objective-C category of {reference[:10]} on {len(paths)} paths')
     else:
         print('note: no revision of this history has the Objective-C category; the comparison was not run')
+
+    # Links that never end, resolved by the new implementation only.
+    import os
+    loops = work / 'loops'
+    loops.mkdir()
+    os.symlink('second', loops / 'first')
+    os.symlink(str(loops / 'first'), loops / 'second')
+    os.symlink('itself', loops / 'itself')
+    endless = [str(loops / name) for name in ('first', 'second', 'itself', 'first/inside')]
+    try:
+        answered = json.loads(subprocess.run([str(work / 'new'), *endless], check=True, capture_output=True, text=True, timeout=60).stdout)
+    except subprocess.TimeoutExpired:
+        failures.append('links that lead back to one another were followed for more than 60 seconds')
+    else:
+        following = [SELECTORS.index(name) + 1 for name in ('stringByResolvingSymlinksAndAliases',
+                                                            'stringByIterativelyResolvingSymlinkOrAlias')]
+        for row in answered:
+            # A path through such a link asks the whole path's resolution only: its last component does not exist.
+            asked = following[:1] if row[0].endswith('/inside') else following
+            wrong = {SELECTORS[index - 1]: row[index] for index in asked if row[index] != '<nil>'}
+            if wrong:
+                failures.append(f'{Path(row[0]).relative_to(loops)}: links that lead back to one another answered {wrong}')
+        if not any('lead back' in failure for failure in failures):
+            print(f'PASS: links that lead back to one another cannot be followed, on {len(endless)} paths')
 
 for failure in failures:
     print('FAIL:', failure)

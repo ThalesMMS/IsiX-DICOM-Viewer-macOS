@@ -157,7 +157,18 @@ import IsiXROI
 
     /// Undoes or redoes one step: the current state goes to the other queue
     /// and the last state of this one is restored; a beep with none.
+    ///
+    /// What was undone can be done again only while the ROIs are as the last
+    /// step left them. A ROI drawn or changed since starts another course:
+    /// the states left to redo are of the one given up, and restoring one
+    /// would put back what was undone in place of the new edit. They go, and
+    /// Redo has nothing to do. A click that changed nothing records a state
+    /// as an edit does, so the queue is not emptied when a state is
+    /// recorded: the ROIs themselves are compared.
     static func step(_ direction: Direction, in viewer: ViewerController) {
+        if !ROIUndoQueuePolicy.redoStillApplies(lastStep: lastStepSignature(of: viewer), now: signature(of: viewer)) {
+            viewer.horos_redoQueue?.removeAllObjects()
+        }
         let from = direction == .undo ? viewer.horos_undoQueue : viewer.horos_redoQueue
         let to = direction == .undo ? viewer.horos_redoQueue : viewer.horos_undoQueue
         guard let from, from.count != 0 else {
@@ -167,6 +178,33 @@ import IsiXROI
         let state = viewer.prepareObject(forUndo: (from.lastObject as? ViewerUndoState)?.kind)
         if let to { viewerArrayAdd(state, to: to) }
         viewer.executeUndo(from)
+        objc_setAssociatedObject(viewer, &lastStepKey, signature(of: viewer), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    // MARK: Telling one state of the ROIs from another
+
+    /// Under it a viewer keeps the signature of its ROIs after its last undo or redo.
+    private static var lastStepKey: UInt8 = 0
+
+    private static func lastStepSignature(of viewer: ViewerController) -> Int? {
+        objc_getAssociatedObject(viewer, &lastStepKey) as? Int
+    }
+
+    /// What tells one state of the ROIs of `viewer` from another: for each
+    /// time point and image, what each ROI says of itself (-editSignature).
+    static func signature(of viewer: ViewerController) -> Int {
+        var hasher = Hasher()
+        for movie in 0..<Int(viewer.horos_maxMovieIndex) {
+            guard let slices = ViewerROISlices(viewer, movie: movie) else { continue }
+            for index in 0..<slices.count {
+                for roi in slices.rois(at: index) {
+                    hasher.combine(movie)
+                    hasher.combine(index)
+                    hasher.combine(roi.editSignature)
+                }
+            }
+        }
+        return hasher.finalize()
     }
 
     /// Puts back the ROIs of `last` (a state of the queue) in every image and

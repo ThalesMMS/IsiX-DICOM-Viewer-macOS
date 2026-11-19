@@ -13,7 +13,8 @@ import QuartzCore
 import IsiXVolumeRendering
 
 /// A VTK scene presented by Metal, without VTK's OpenGL view: what VTKView and
-/// vtkCocoaGLView gave the surface and ROI volume views. The scene
+/// vtkCocoaGLView gave the surface and ROI volume views. VTKView is still their
+/// ancestor, as in the former SDK, with nothing of that view in it. The scene
 /// (IsiXVTKScene, the VTK adapter) keeps the camera and the props and renders
 /// through the adapter's render window and renderer, which draw with the
 /// view's VRPresenter into a CAMetalLayer. The mouse moves the camera through
@@ -25,7 +26,7 @@ import IsiXVolumeRendering
 /// private external, which a Release build, having no testability, leaves
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(HorosSceneView) @usableFromInline
-class HorosSceneView: NSView {
+class HorosSceneView: VTKView {
     /// The renderer, the render window and the interactor.
     let scene: IsiXVTKScene
     private var presenter: VRPresenter?
@@ -35,9 +36,27 @@ class HorosSceneView: NSView {
     private(set) var pickedActor: IsiXVTKActor?
 
     /// Whether the annotated orientation cube is drawn in the top right corner.
-    @objc var horosOrientationCubeShown = false {
-        didSet { needsDisplay = true }
+    @objc var horosOrientationCubeShown: Bool {
+        get { sceneCubeShown }
+        set {
+            sceneCubeShown = newValue
+            needsDisplay = true
+        }
     }
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared: a plugin reads and writes them at
+    // the exported offset. sceneCubeShown is the state of the property above;
+    // a plugin's write is drawn with the next frame. The scene, the presenter,
+    // the stereo presentation and the picked prop are kept above under the
+    // application's own classes, so nothing stands behind the others: they
+    // stay nil and 0 unless a plugin writes them. The render window, the
+    // renderer and the interactor were C++ objects, never retained.
+    final var sceneCubeShown = false
+    final unowned(unsafe) var sceneWindow: AnyObject?, sceneRenderer: AnyObject?, sceneInteractor: AnyObject?
+    final var scenePresenter: AnyObject?, sceneStereo: AnyObject?
+    final var scenePicked: UnsafeMutableRawPointer?
+    final var sceneOverlayTag: UInt = 0
 
     override init(frame: NSRect) {
         scene = HorosSceneView.makeScene()
@@ -78,13 +97,13 @@ class HorosSceneView: NSView {
     // MARK: VTK objects, for the Objective-C++ that asks a view for them
 
     /// The vtkRenderer * and vtkRenderWindow *, as vtkCocoaGLView gave them.
-    @objc func renderer() -> UnsafeMutableRawPointer? { scene.vtkRenderer }
-    @objc func renderWindow() -> UnsafeMutableRawPointer? { scene.vtkRenderWindow }
+    @objc override func renderer() -> UnsafeMutableRawPointer? { scene.vtkRenderer }
+    @objc override func renderWindow() -> UnsafeMutableRawPointer? { scene.vtkRenderWindow }
     @objc func getVTKRenderWindow() -> UnsafeMutableRawPointer? { scene.vtkRenderWindow }
 
     /// Kept for callers of VTKView's: nothing to unlink any more.
-    @objc func prepareForRelease() {}
-    @objc func removeAllActors() { scene.removeAllViewProps() }
+    @objc override func prepareForRelease() {}
+    @objc override func removeAllActors() { scene.removeAllViewProps() }
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }

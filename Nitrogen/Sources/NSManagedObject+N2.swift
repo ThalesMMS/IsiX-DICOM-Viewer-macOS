@@ -40,14 +40,20 @@
 import CoreData
 
 // NSManagedObject (N2) is implemented in Swift; the selectors and
-// <Horos/NSManagedObject+N2.h> are those of the former category, less
-// +UrlForXid:, which nothing called.
+// <Horos/NSManagedObject+N2.h> are those of the former category.
 
 @objc(N2) @implementation extension NSManagedObject {
     /// The URI string of the object an identifier of -XID names.
     @objc(UidForXid:)
     class func uid(forXid xid: String!) -> String! {
         coreDataURLPrefix.appending(xid)
+    }
+
+    /// +UidForXid: as a URL. Nothing in the application asks for it; plugins
+    /// built for Horos or OsiriX may.
+    @objc(UrlForXid:)
+    class func url(forXid xid: String!) -> URL! {
+        URL(string: coreDataURLPrefix.appending(xid))
     }
 
     /// The object's URI without its "x-coredata://" scheme: the identifier

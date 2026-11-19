@@ -713,44 +713,19 @@ extension DCMView {
         let pixList = self.horos_dcmPixList
         let roiList = self.horos_dcmRoiList
         let curImage = Int(self.horos_curImage)
-        // One distance at a time: the nearest images with a ROI the contour
-        // covers decide, and the ROIs further away are not measured.
         let contour = (self.planePoints(of: roi, onImage: curImage) as? [NSValue]) ?? []
         let neighbours = ROIEditingSession.joinedImages(around: curImage, imageCount: pixList?.count ?? 0, roiListCount: roiList?.count ?? 0)
-        var next = 0
-        while next < neighbours.count {
-            let distance = neighbours[next].distance
-            var candidates: [[NSValue]] = [], names: [String] = []
-            while next < neighbours.count, neighbours[next].distance == distance {
-                let image = neighbours[next].image
-                next += 1
-
-                var there = [Double](repeating: 0, count: 9)
-                (pixList?.object(at: image) as? DCMPix)?.orientationDouble(&there)
-                if !ROIEditingSession.planesAreParallel(here, there) {
-                    continue
-                }
-
-                for other in ViewROIEditing.rois(roiList?.object(at: image)) {
-                    if !other.isValidForVolume() || ROIObjectJoin.isUnnamed(other.name) {
-                        continue
-                    }
-
-                    candidates.append((self.planePoints(of: other, onImage: image) as? [NSValue]) ?? [])
-                    names.append(other.name ?? "")
-                }
-            }
-
-            let index = ROIObjectJoin.candidate(for: contour, candidates: candidates,
-                                                imageDistances: [Int](repeating: distance, count: candidates.count))
-            if index < 0 {
-                continue
-            }
-            if let name = ROIEditingSession.joinedName(candidate: index, names: names, current: roi.name) {
-                roi.name = name
-                ROIEventEmitter.changed(roi)
-            }
-            return
+        let name = ROIContourJoin.name(current: roi.name, neighbours: neighbours, candidates: { image in
+            var there = [Double](repeating: 0, count: 9)
+            (pixList?.object(at: image) as? DCMPix)?.orientationDouble(&there)
+            guard ROIEditingSession.planesAreParallel(here, there) else { return [] }
+            return ViewROIEditing.rois(roiList?.object(at: image))
+                .filter { $0.isValidForVolume() && !ROIObjectJoin.isUnnamed($0.name) }
+                .map { (name: $0.name ?? "", contour: (self.planePoints(of: $0, onImage: image) as? [NSValue]) ?? []) }
+        }, chosen: { ROIObjectJoin.candidate(for: contour, candidates: $0, imageDistances: $1) })
+        if let name {
+            roi.name = name
+            ROIEventEmitter.changed(roi)
         }
     }
 }

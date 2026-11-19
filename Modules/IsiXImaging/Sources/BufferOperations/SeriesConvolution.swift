@@ -12,7 +12,8 @@ import Accelerate
 import Foundation
 
 /// A convolution filter applied to a whole series, on several cores: the
-/// "apply on source" of a 2D viewer. Each slice is filtered in its own plane
+/// "apply on source" of a 2D viewer, and of a volume rendering window on the
+/// volume it keeps (filterVolume). Each slice is filtered in its own plane
 /// (by the slices themselves, ImageConvolution), and a series that is a
 /// volume is filtered again across its slices, one row of the volume at a
 /// time. The work is split into one share per worker, the shares run at once
@@ -59,6 +60,57 @@ public struct SeriesConvolution: Sendable {
         perform(over: height) { rows in
             Self.filterRows(rows, of: base.address, width: width, height: height, depth: depth, kernel: kernel, size: size)
         }
+    }
+
+    /// What "apply on source" ends with on a grey volume whose slices went
+    /// through the filter in their own planes: the pass across the slices
+    /// (filterAcrossSlices), then the first row of every slice takes `edge`,
+    /// which keeps the edges free of NaN.
+    public func finishGreyVolume(_ volume: UnsafeMutablePointer<Float>, width: Int, height: Int, depth: Int,
+                                 kernel: [Float], size: Int, edge: Float) {
+        filterAcrossSlices(volume, width: width, height: height, depth: depth, kernel: kernel, size: size)
+        for slice in 0..<max(0, depth) {
+            (volume + slice &* width &* height).update(repeating: edge, count: max(0, width))
+        }
+    }
+
+    /// "Apply on source" on a volume handed whole, as a 2D viewer applies it to
+    /// its series: `depth` slices of `width` × `height` pixels one after the
+    /// other at `volume` (floats, or for a colour volume ARGB bytes in the
+    /// same four bytes a pixel), `byteCount` bytes long. Each slice goes
+    /// through `kernel` in its own plane (ImageConvolution); a grey volume then
+    /// goes through it across its slices, and the first row of every slice
+    /// takes the first pixel of the first slice, which keeps the edges free of
+    /// NaN. False, with nothing changed, for a volume shorter than its slices.
+    @discardableResult
+    public func filterVolume(_ volume: UnsafeMutableRawPointer, byteCount: Int, width: Int, height: Int, depth: Int,
+                             kernel: ConvolutionKernelBook.Kernel, colour: Bool) -> Bool {
+        let slicePixels = width &* height
+        let sliceBytes = slicePixels &* MemoryLayout<Float>.size
+        guard width > 0, height > 0, depth > 0, byteCount >= sliceBytes &* depth else { return false }
+        let base = VolumeBase(address: volume.assumingMemoryBound(to: Float.self))
+        let first = base.address.pointee
+
+        perform(over: depth) { slices in
+            let filter = kernel.weights.withUnsafeBufferPointer {
+                ImageConvolution(weights: $0.baseAddress!, size: kernel.size, normalization: kernel.normalization)
+            }
+            for slice in slices {
+                let pixels = base.address + slice &* slicePixels
+                let filtered = colour ? filter.filtered(argb: UnsafeRawPointer(pixels), width: width, height: height)
+                    : filter.filtered(pixels, width: width, height: height).map { UnsafeMutableRawPointer($0) }
+                guard let filtered else { continue }
+                memcpy(pixels, filtered, sliceBytes)
+                free(filtered)
+            }
+        }
+        if colour { return true }
+
+        let acrossSlices = kernel.weights.withUnsafeBufferPointer {
+            Self.kernel(weights: $0.baseAddress!, normalization: kernel.normalization)
+        }
+        finishGreyVolume(base.address, width: width, height: height, depth: depth, kernel: acrossSlices, size: kernel.size, edge: first)
+        return true
     }
 
     /// The rows `rows` of the pass across the slices, with a buffer of its own.

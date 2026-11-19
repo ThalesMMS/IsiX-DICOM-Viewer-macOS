@@ -24,6 +24,83 @@ level into folders that only group plugins, such as `_obsolete`). --plugin
 treats the listed paths (directories or files, comma-separated) as one plugin.
 --macos-sdk adds the selectors of Foundation, AppKit and related system
 headers, so that a selector shared with Cocoa is not attributed to the host.
+
+--registry writes the registry of the binary surface that
+tests/test-legacy-plugin-abi.py checks: the registry given with
+--registry-base, of which nothing is taken out, with what the SDK headers
+(--api-headers) and the headers of the Horos the fork started from
+(--baseline-headers, --baseline-public-headers) declare and an application
+had. A header and a definition count together when one SDK had both: an item
+the baseline's headers declare is added when a source the baseline's project
+compiled defined it (--baseline-project, --baseline-sources), and any item
+when the reference application or the current build exports or implements it
+(--reference-exports, --reference-objc, --current-exports, --current-objc:
+listings of `nm -gUj` and of `dyld_info -objc`). What a branch of a
+preprocessor conditional declares or defines for PowerPC alone is not read.
+The use counts are those of the plugins given with --collection and --plugin,
+read against the headers of both SDKs; a count the registry already has only
+rises.
+
+"isix5_additions" of the registry is written again at each run: the classes
+and symbols that the SDK headers declare and no compiled source of the
+baseline defined, each with the header that declares it. "sdk_selectors" too:
+the selectors the baseline's headers declare and its sources implement, each
+with the header and the line. "osirix_selectors" is never read from headers:
+it names the selectors that only later headers of the OsiriX SDK declare and
+the application answers, each with the source of its name and types, and is
+kept as --registry-base has it, every one of its entries in "selectors" too.
+
+In "missing", an entry whose item the current build has again leaves; a class
+or a symbol of isix5_additions that the build lacks is listed as an addition,
+an instance variable it does not export and no plugin scanned reads with what
+it waits for, and a selector or an instance variable whose class is listed,
+with that. Nothing else is excused by this tool: a class or a symbol of the
+baseline that the build lacks is left for the test to refuse, and so are an
+instance variable a plugin reads and a selector of a class that is there,
+since the listings do not show what a class of the system or Core Data
+answers; one that no SDK of Horos had is then listed by hand with the reason
+true of it. The about is the text given with --registry-about, where
+{left_out} stands for what was left out and why, or, without it, the about of
+--registry-base with its sentence "Left out: ... ." written again. A second
+run over the registry written changes nothing.
+
+--recount-ivars rewrites, in the registry given, the use count of every entry
+of ivars with the number of plugins scanned whose sources read or write the
+instance variable directly, in a subclass or in a category of the host's
+class; nothing else of the registry changes. The headers given with
+--api-headers say which class declares each variable: give those of every SDK
+the registry's variables come from.
+
+--export-table-ivars rewrites, in the registry given, what the table of the
+instance variables that Swift classes export decides
+(Horos/Scripts/Horos/legacy-plugin-ivars.json, or the one given with
+--ivar-table): an entry of the table leaves missing; one the registry does not
+have enters ivars with its use counted as --recount-ivars counts it, and must
+be declared by a header given with --api-headers, so that its count is not a
+zero for want of the declaration; an instance variable left in missing with
+the reason that a Swift stored property has no _OBJC_IVAR_$_ symbol, which the
+table disproves, gets the reason that its storage is not yet in the SDK's
+layout; and about says where the exported ones come from and names the ones
+added, at the end of the sentence a former run left when there is one. Nothing else of the registry changes, and a second run changes nothing.
+
+--older-sdk-headers gives a third source of declarations: a copy of the
+headers of an older SDK of OsiriX, as plugins carry one in their sources. Only
+its instance variables count, and only those that no header of the other two
+sources declares in that class: a plugin built with that copy looks each up by
+name, under the class the copy declares it in, as it does the others. They are
+declared for the uses to be counted and for --export-table-ivars, which names
+apart in about the ones it adds from this source.
+
+--baseline-zlib-header gives the zlib.h of the copy of zlib the baseline linked
+statically into its executable, under the library's own names (in Horos,
+GDCM/Utilities/gdcmzlib/zlib.h): no header of an SDK declares those functions,
+and a plugin linked with the executable as its bundle loader had its zlib
+references bound to the executable all the same. Every function that header
+declares ZEXTERN, outside its comments, enters symbols, and host_resolution
+says where they come from. --registry does it with the rest, and
+--static-zlib-symbols does it alone in the registry given, without reading a
+plugin or an SDK: nothing else of the registry changes, and a second run
+changes nothing.
 """
 import argparse
 import json
@@ -286,9 +363,15 @@ def strip_source(text, swift=False):
             j = i + 1
             while j < n and text[j] != c and text[j] != "\n":
                 j += 2 if text[j] == "\\" else 1
-            j = min(j + 1, n)
+            j = min(j, n)
+            # A quote the line does not close (an apostrophe in a #pragma mark, an
+            # #import that ends with >) ends with the line, whose newline stays:
+            # taking it would join the next line to this one, and every line after
+            # would be counted one short.
+            closed = j < n and text[j] == c
+            j += 1 if closed else 0
             nc.append(text[i:j])
-            code.append(c + " " * max(0, j - i - 2) + (c if j - i >= 2 else ""))
+            code.append(c + re.sub(r"[^\n]", " ", text[i + 1:j - 1 if closed else j]) + (c if closed else ""))
             i = j
         else:
             j = i
@@ -300,6 +383,43 @@ def strip_source(text, swift=False):
             code.append(text[i:j])
             i = j
     return "".join(nc), "".join(code)
+
+
+OTHER_PROCESSORS = {"__ppc__", "__ppc64__", "__POWERPC__", "__powerpc__", "__powerpc64__"}
+CONDITIONAL = re.compile(r"[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)\b(.*)")
+
+
+def only_other_processors(condition):
+    """Whether a preprocessor condition holds for no processor the application was built for."""
+    condition = re.sub(r"/\*.*?\*/|//.*", " ", condition)
+    words = [word for word in re.findall(r"[A-Za-z_]\w*", condition) if word != "defined"]
+    return bool(words) and set(words) <= OTHER_PROCESSORS and not re.search(r"[!&<>=]", condition)
+
+
+def without_other_processors(text):
+    """`text` with the lines blanked of every branch of a conditional that only a
+    PowerPC build takes (`#if __ppc__ || __ppc64__` up to its #elif, #else or #endif).
+
+    What such a branch declares or defines was never in an Intel or an Apple
+    silicon build: no plugin that loads today found it. Line numbers are kept.
+    """
+    lines, dead = [], []                     # dead: per open conditional, whether the branch being read is of another processor
+    for line in text.split("\n"):
+        directive = CONDITIONAL.match(line)
+        if not directive:
+            lines.append(" " * len(line) if any(dead) else line)
+            continue
+        word, rest = directive.groups()
+        if word in ("if", "ifdef", "ifndef"):
+            dead.append(word != "ifndef" and only_other_processors(rest))
+        elif dead and word == "elif":
+            dead[-1] = only_other_processors(rest)
+        elif dead and word == "else":
+            dead[-1] = False
+        elif dead and word == "endif":
+            dead.pop()
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def balanced(text, start, opening, closing):
@@ -334,13 +454,22 @@ DEPRECATED = re.compile(r"(?i)deprecated|DEPRECATED|__deprecated|unavailable")
 def selector_of(signature):
     """Selector of a method declaration such as `computeROI:(ROI*) roi mean:(float*) m`."""
     signature = MACRO_CALL.sub(" ", signature)
-    signature = re.sub(r"\b[A-Z][A-Z0-9_]{2,}\b", " ", signature)
+    signature = ATTRIBUTE_WORD.sub(" ", signature)
     signature = signature.split(",")[0]
+    # An attribute macro in capitals comes after the declaration: after the name
+    # of a method without arguments or after the name of the last argument. A
+    # word in capitals anywhere else is a label (UID:, AET:) or an argument's name.
+    flat = flatten_depth0(signature, "#")
+    while True:
+        trailing = re.search(r"(?<=\w)\s+[A-Z][A-Z0-9_]{2,}\s*$", flat)
+        if not trailing:
+            break
+        flat = flat[:trailing.start()]
+    signature = signature[:len(flat)]
     if ":" not in signature:
         match = re.match(r"\s*([A-Za-z_]\w*)", signature)
         return match.group(1) if match else None
     # Each part is `keyword:(type) name`; an anonymous part is `:(type) name`.
-    flat = flatten_depth0(signature, "#")
     parts = [m.group(1) + ":" for m in re.finditer(r"([A-Za-z_]\w*|)\s*:[\s#]*[A-Za-z_]\w*", flat)]
     return "".join(parts) or None
 
@@ -352,8 +481,12 @@ class HostSDK:
         self.protocols = {}
         self.selectors = defaultdict(set)
         self.notifications = {}  # name -> header
-        self.constants = {}
+        self.constants = {}      # name -> header: data declared const
+        self.globals = {}        # name -> header: data a plugin can also write
+        self.data = {}           # name -> dict(header, type, mutable), notifications included
         self.functions = {}
+        self.inline_functions = set()  # static or inline in the header: no symbol to look up
+        self.c_linkage = set()   # functions a header declares extern "C"
         self.headers = {}        # basename -> label
         self.headers_lower = set()
         self.system_selectors = set()
@@ -396,15 +529,12 @@ class HostSDK:
 
 
 def parse_header(sdk, path, raw):
+    raw = without_other_processors(raw)
     nc, code = strip_source(raw)
     raw_lines = raw.splitlines()
     basename = path.name
     sdk.headers[basename] = str(path)
     sdk.headers_lower.add(basename.lower())
-    for match in re.finditer(r"\bextern\s+(?:const\s+)?(?:NSString|NSNotificationName|CFStringRef)\s*\*?\s*"
-                             r"(?:const\s+)?(?:_Nonnull\s+)?([A-Za-z_]\w*)", code):
-        name = match.group(1)
-        (sdk.notifications if "Notification" in name else sdk.constants)[name] = basename
     # As above, a name with "Notification" in it: the notification or a key of its userInfo.
     for match in re.finditer(r"#\s*define\s+([A-Za-z_]\w*Notification\w*)\s+@\"", nc):
         sdk.notifications[match.group(1)] = basename
@@ -419,6 +549,7 @@ def parse_header(sdk, path, raw):
         head = code[match.end():code.find("\n", match.end()) if "\n" in code[match.end():] else len(code)]
         name = match.group(2)
         body = code[match.end():end]
+        body_start = match.end()             # where `body` starts in `code`, for the lines of what it declares
         if match.group(1) == "protocol":
             target = sdk.protocols.setdefault(name, {"methods": {}, "header": basename})
         else:
@@ -437,7 +568,10 @@ def parse_header(sdk, path, raw):
             if ivar_open and not category:
                 close = balanced(body, ivar_open.end() - 1, "{", "}")
                 if close > 0:
+                    visibility = "protected"
                     for statement in body[ivar_open.end():close - 1].split(";"):
+                        marks = re.findall(r"@(public|private|protected|package)", statement)
+                        visibility = marks[-1] if marks else visibility
                         statement = re.sub(r"@(public|private|protected|package)", " ", statement).strip()
                         statement = re.sub(r"\[[^\]]*\]", "", statement)
                         names = re.findall(r"([A-Za-z_]\w*)\s*(?:,|$)", statement)
@@ -445,56 +579,115 @@ def parse_header(sdk, path, raw):
                         if names and len(statement.split()) >= 2:
                             for ivar in names:
                                 target["ivars"][ivar] = decl_type
+                                target.setdefault("ivar_visibility", {})[ivar] = visibility
                     body = body[close:]
+                    body_start += close
         for prop in re.finditer(r"@property\s*(\([^)]*\))?\s*([^;]+);", body):
             attrs = prop.group(1) or ""
-            decl = MACRO_CALL.sub(" ", prop.group(2)).strip()
-            segments = decl.split(",")
+            # Each declarator of the list has its own attributes after its name:
+            # «NSString *old __deprecated, *current;» declares two properties, and
+            # one marked unavailable declares nothing a caller can send.
+            raw_segments = MACRO_CALL.sub(
+                lambda call: " NS_UNAVAILABLE " if "UNAVAILABLE" in call.group(0)
+                else " __deprecated " if "DEPRECATED" in call.group(0).upper() else " ", prop.group(2)).split(",")
+            segments = [ATTRIBUTE_WORD.sub(" ", seg).rstrip() for seg in raw_segments]
             first = re.search(r"([A-Za-z_]\w*)\s*$", segments[0])
             if not first:
                 continue
             prop_type = type_name(segments[0][:first.start()])
-            prop_names = [first.group(1)] + [m.group(1) for m in
-                                             (re.search(r"([A-Za-z_]\w*)\s*$", seg) for seg in segments[1:]) if m]
-            line = code.count("\n", 0, match.end() + prop.start())
-            deprecated = bool(DEPRECATED.search(raw_lines[line] if line < len(raw_lines) else ""))
+            declared = [(first.group(1), raw_segments[0])] + [
+                (m.group(1), raw) for m, raw in ((re.search(r"([A-Za-z_]\w*)\s*$", seg), raw)
+                                                 for seg, raw in zip(segments[1:], raw_segments[1:])) if m]
+            prop_names = [name for name, raw in declared if "UNAVAILABLE" not in raw]
+            line = code.count("\n", 0, body_start + prop.start())
+            deprecated_names = {name for name, raw in declared if DEPRECATED.search(raw)}
             getter = re.search(r"getter\s*=\s*(\w+)", attrs)
+            custom_setter = re.search(r"setter\s*=\s*(\w+:)", attrs)
             for prop_name in prop_names:
+                deprecated = prop_name in deprecated_names
                 target.setdefault("props", {})[prop_name] = prop_type
                 info = {"ret": prop_type, "class_method": "class" in attrs, "deprecated": deprecated,
-                        "property": True}
+                        "property": True, "header": basename, "line": line + 1}
                 target["methods"][getter.group(1) if getter and len(prop_names) == 1 else prop_name] = info
                 if "readonly" not in attrs:
-                    setter = "set" + prop_name[:1].upper() + prop_name[1:] + ":"
+                    # setter= names the one selector that sets it.
+                    setter = (custom_setter.group(1) if custom_setter and len(prop_names) == 1
+                              else "set" + prop_name[:1].upper() + prop_name[1:] + ":")
                     target["methods"][setter] = dict(info, ret="void")
         for method in re.finditer(r"(?m)^\s*([-+])\s*\(((?:[^()]|\([^()]*\))*)\)\s*([^;{]+?)\s*[;{]", body):
             selector = selector_of(method.group(3))
-            if not selector:
+            # What ends an object is NSObject's: a class answers -dealloc whether or not it declares it.
+            if not selector or selector in ("dealloc", "finalize"):
                 continue
-            line = code.count("\n", 0, match.end() + method.start(3))
+            line = code.count("\n", 0, body_start + method.start(3))
             nearby = " ".join(raw_lines[max(0, line - 1):line + 2]) if raw_lines else ""
             info = {"ret": type_name(method.group(2)) if method.group(2).strip() not in ("id", "instancetype")
                     else method.group(2).strip(),
                     "class_method": method.group(1) == "+",
                     "deprecated": bool(DEPRECATED.search(method.group(3)) or DEPRECATED.search(nearby)),
-                    "property": False}
+                    "property": False, "header": basename, "line": line + 1}
             target["methods"][selector] = info
     # C functions declared outside @interface blocks.
     outside = list(code)
     for start, end in blocks:
+        end = min(len(outside), end + len("@end"))
         outside[start:end] = " " * (end - start)
     outside = "".join(outside)
-    for name in c_functions(outside):
+    cxx = path.suffix in (".hh", ".hpp", ".hxx")
+    for name, inline, c_linkage in c_function_declarations(outside, linkage=True):
         sdk.functions[name] = basename
+        if inline:
+            sdk.inline_functions.add(name)
+        # C linkage where the header says so; the others have it or not by the
+        # language of the file that defines them.
+        if c_linkage and not cxx:
+            sdk.c_linkage.add(name)
+    # Data declared extern outside @interface blocks. As above, a name with
+    # "Notification" in it is the notification or a key of its userInfo.
+    for name, decl_type, mutable in extern_data(outside):
+        sdk.data[name] = {"header": basename, "type": decl_type, "mutable": mutable}
+        if "Notification" in name:
+            sdk.notifications[name] = basename
+        else:
+            (sdk.globals if mutable else sdk.constants)[name] = basename
 
 
-FUNCTION_DECL = re.compile(r"(?m)^[ \t]*(?:extern\s+(?:\"C\"\s+)?|FOUNDATION_EXPORT\s+|CF_EXPORT\s+|APPKIT_EXTERN\s+|"
-                           r"NS_INLINE\s+|CG_INLINE\s+|static\s+inline\s+|inline\s+|static\s+)?"
-                           r"(?:const\s+)?[A-Za-z_]\w*(?:\s*\*+\s*|\s+)\**\s*([A-Za-z_]\w*)\s*\([^;{}]*\)\s*[;{]")
+# What stands before a declaration with external linkage. strip_source() blanks
+# the "C" of extern "C", so the linkage string is matched by its quotes.
+LINKAGE = (r"extern\s+\"[^\"\n]*\"|extern\b|EXTERNC\b|FOUNDATION_EXPORT\b|FOUNDATION_EXTERN\b|APPKIT_EXTERN\b|"
+           r"CF_EXPORT\b|OBJC_EXTERN\b")
+EXTERN_PREFIX = re.compile(r"\s*(?:" + LINKAGE + r")\s*")
+NO_SYMBOL = r"NS_INLINE\b|CG_INLINE\b|CF_INLINE\b|static\b|inline\b|__inline__\b|__inline\b"
+# Attributes and annotations that are neither the type nor the name of a declaration.
+ATTRIBUTE_WORD = re.compile(r"\b(?:__(?:deprecated|unused|used|nonnull|nullable|null_unspecified|strong|weak|"
+                            r"unsafe_unretained|autoreleasing|kindof|block)|_Nonnull|_Nullable|_Null_unspecified|"
+                            r"DEPRECATED_ATTRIBUTE|UNAVAILABLE_ATTRIBUTE|NS_SWIFT_\w+|API_\w+|"
+                            r"(?:NS|CF|CG)_\w*(?:DEPRECATED|UNAVAILABLE|AVAILABLE)\w*)\b")
+PARENS = r"\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)"
+FUNCTION_DECL = re.compile(r"(?m)^[ \t]*((?:(?:" + LINKAGE + "|" + NO_SYMBOL + r")\s*)*)"
+                           r"(?:(?:const|unsigned|signed|struct|enum)\s+)*[A-Za-z_]\w*(?:\s*\*+\s*|\s+)\**\s*"
+                           r"(?:const\s+)?([A-Za-z_]\w*)\s*\((?!\s*[*^])[^;{}]*\)\s*"
+                           r"(?:\b[A-Za-z_]\w*\b(?:\s*" + PARENS + r")?\s*)*[;{]")
 
 
-def c_functions(code):
-    """Names of C functions declared at brace depth 0 (not C++ members)."""
+def file_level(code):
+    """`code` with its preprocessor lines blanked and each `extern "C" { ... }` opened.
+
+    A header declares most of its C functions and some of its data inside such
+    a block, which is file level for the declarations in it; the braces of the
+    block go, and what they held is left at depth 0. Offsets are kept.
+    """
+    code = re.sub(r"(?m)^[ \t]*#(?:[^\n\\]|\\\n|\\.)*", lambda m: re.sub(r"[^\n]", " ", m.group(0)), code)
+    chars = list(code)
+    for match in re.finditer(r"\bextern\s+\"[^\"\n]*\"\s*\{", code):
+        close = balanced(code, match.end() - 1, "{", "}")
+        chars[match.start():match.end()] = " " * (match.end() - match.start())
+        if close > 0:
+            chars[close - 1] = " "
+    return "".join(chars)
+
+
+def brace_depths(code):
     depth, depths = 0, []
     for ch in code:
         depths.append(depth)
@@ -502,18 +695,116 @@ def c_functions(code):
             depth += 1
         elif ch == "}":
             depth = max(0, depth - 1)
-    names = []
+    return depths
+
+
+def c_function_declarations(code, linkage=False, defined=False):
+    """(name, inline) of each C function declared at file level (not a C++ member).
+
+    inline is true for a function the header defines static or inline: it is
+    part of the API a plugin compiles against, and the host has no symbol for it.
+    With `linkage`, a third value says whether the declaration is extern "C",
+    by its own prefix or by the block it is in. With `defined`, only the
+    functions that have a body here.
+    """
+    blocks = [(match.start(), balanced(code, match.end() - 1, "{", "}"))
+              for match in re.finditer(r"\bextern\s+\"[^\"\n]*\"\s*\{", code)]
+    code = file_level(code)
+    depths = brace_depths(code)
+    found = []
     for match in FUNCTION_DECL.finditer(code):
-        name = match.group(1)
-        if depths[match.start(1)] == 0 and name not in STOP_IDENTIFIERS and not name.isupper():
-            names.append(name)
-    return names
+        name = match.group(2)
+        if depths[match.start(2)] != 0 or name in STOP_IDENTIFIERS or name.isupper():
+            continue
+        if defined and not match.group(0).endswith("{"):
+            continue
+        inline = bool(re.search(NO_SYMBOL, match.group(1)))
+        c_linkage = bool(re.search(r"extern\s+\"|EXTERNC", match.group(1))) or any(
+            start < match.start() and (end < 0 or match.start() < end) for start, end in blocks)
+        found.append((name, inline, c_linkage) if linkage else (name, inline))
+    return found
+
+
+def c_functions(code):
+    """Names of C functions declared at file level (not C++ members)."""
+    return [name for name, _ in c_function_declarations(code)]
+
+
+def extern_data(code, definitions=False):
+    """(name, type, mutable) of each datum declared with external linkage at file level.
+
+    With `definitions`, the data a source file defines instead: the statements
+    of file level that are neither extern, static nor a typedef.
+
+    Reads `extern` and the export macros before any type (object pointer,
+    scalar, struct or typedef), const on either side of the `*`, a list of
+    declarators with their own `*`, const and `[n]`, and attributes anywhere in
+    the declaration. Function prototypes and function pointers are not data.
+    mutable is false when the datum itself is const.
+    """
+    code = file_level(code)
+    if definitions:
+        # A definition may come right after the line that opens an implementation.
+        code = re.sub(r"@(?:implementation|interface)\b[^\n]*|@end\b", lambda m: " " * len(m.group(0)), code)
+    found = []
+    depth, start, initializer = 0, 0, False
+    for index, ch in enumerate(code):
+        if ch == "{":
+            # The braces of an initializer are part of the statement they are in.
+            if depth == 0:
+                initializer = code[start:index].rstrip().endswith("=") or (initializer and "=" in code[start:index])
+            depth += 1
+        elif ch == "}":
+            depth = max(0, depth - 1)
+            if depth == 0 and not initializer:
+                start = index + 1
+        elif ch == ";" and depth == 0:
+            statement, start, initializer = code[start:index], index + 1, False
+            statement = re.sub(r"=\s*\{[^;]*\}", "= 0", statement) if definitions else statement
+            prefix = EXTERN_PREFIX.match(statement)
+            if definitions:
+                if prefix or re.match(r"\s*(?:%s|typedef\b|@|using\b|namespace\b|class\b|struct\b|enum\b|union\b|return\b)"
+                                      % NO_SYMBOL, statement):
+                    continue
+                prefix = re.match(r"\s*", statement)
+            elif not prefix:
+                continue
+            body = ATTRIBUTE_WORD.sub(" ", MACRO_CALL.sub(" ", statement[prefix.end():]))
+            body = EXTERN_PREFIX.sub(" ", body, count=1) if EXTERN_PREFIX.match(body) else body
+            if definitions:
+                # An initializer may call or send: only the declarators count.
+                body = re.sub(r"=(?:[^,\[(]|\[[^\]]*\]|\([^)]*\))*", "", body)
+            if "(" in body or re.match(r"\s*(?:" + NO_SYMBOL + ")", body):
+                continue
+            declarators = [part.split("=")[0] for part in body.split(",")]
+            base = None
+            for position, declarator in enumerate(declarators):
+                tokens = re.findall(r"[A-Za-z_]\w*|\*|\[[^\]]*\]", declarator)
+                arrays = [token for token in tokens if token.startswith("[")]
+                tokens = [token for token in tokens if not token.startswith("[")]
+                if not tokens or tokens[-1] in ("*", "const"):
+                    break
+                name, own = tokens[-1], tokens[:-1]
+                if position == 0:
+                    words = [token for token in own if token not in ("*", "const", "struct", "enum", "union")]
+                    if not words:
+                        break
+                    base = own[:own.index("*")] if "*" in own else own
+                    own = own[len(base):]
+                stars = own.count("*")
+                if stars:
+                    constant = "const" in own[len(own) - own[::-1].index("*"):]
+                else:
+                    constant = "const" in base
+                found.append((name, " ".join(base + own) + "".join(arrays), not constant))
+    return found
 
 
 def load_sdk(dirs, macos_sdk=None):
+    """The model of the headers in `dirs`; an entry that is a file is one header."""
     sdk = HostSDK()
     for directory in dirs:
-        for path in sorted(Path(directory).glob("*.h")):
+        for path in [Path(directory)] if Path(directory).is_file() else sorted(Path(directory).glob("*.h")):
             parse_header(sdk, path, path.read_text(errors="replace"))
     for name, info in sdk.classes.items():
         for selector in info["methods"]:
@@ -608,21 +899,28 @@ def parse_receiver(inner):
     return s[:k], s[k:]
 
 
-def parse_message(inner):
+def message_parts(inner):
+    """(receiver, parts) of the message whose text between [ and ] is `inner`, or None.
+
+    Each part is (keyword, start): the name of a message without arguments, or
+    `keyword:` for each argument, with where the keyword starts in `inner`
+    (None for a part without a keyword, `: b`).
+    """
     split = parse_receiver(inner)
     if not split:
         return None
     receiver, rest = split
+    base = len(inner) - len(rest)
     first = re.match(r"\s+([A-Za-z_]\w*)\s*", rest)
     if not first or first.group(1) in STOP_IDENTIFIERS:
         return None
     tail = rest[first.end():]
     if not tail.strip():
-        return receiver, first.group(1)
+        return receiver, [(first.group(1), base + first.start(1))]
     if not tail.startswith(":"):
         return None
     flat = flatten_depth0(rest, "#")
-    selector, ternary = [], 0
+    parts, ternary = [], 0
     for token in re.finditer(r"\?|(?<![\w#.])([A-Za-z_]\w*)?\s*:(?!:)", flat):
         if token.group(0) == "?":
             ternary += 1
@@ -632,12 +930,18 @@ def parse_message(inner):
             continue
         keyword = token.group(1) or ""
         before = flat[:token.start()].rstrip()
-        if keyword and selector and before and not re.search(r"[\w#\])\"']$", before):
+        if keyword and parts and before and not re.search(r"[\w#\])\"']$", before):
             # `[r k: a : b]` or `[r k: &a : b]`: `a` starts the argument of `k:`,
             # so the colon after it opens an anonymous part.
             keyword = ""
-        selector.append(keyword + ":")
-    return receiver, "".join(selector)
+        parts.append((keyword + ":", base + token.start(1) if keyword else None))
+    return receiver, parts
+
+
+def parse_message(inner):
+    """(receiver, selector) of the message whose text between [ and ] is `inner`, or None."""
+    parsed = message_parts(inner)
+    return (parsed[0], "".join(keyword for keyword, _ in parsed[1])) if parsed else None
 
 
 def message_sends(code):
@@ -1170,6 +1474,99 @@ def declared_vars(code, sdk):
     return found
 
 
+# A word before a name that is not the type of a declaration of that name.
+NOT_A_TYPE = STOP_IDENTIFIERS | {"goto", "in", "break", "continue"}
+TYPE_QUALIFIERS = (r"(?:(?:const|volatile|static|register|unsigned|signed|long|short|struct|enum|union|"
+                   r"__block|__strong|__weak|__unsafe_unretained|__autoreleasing)\s+)*")
+
+
+def implementation_methods(body):
+    """(declaration, start, end) of each method the text of an @implementation defines.
+
+    The declaration is what follows the return type; start and end are those
+    of the method's braces in `body`.
+    """
+    depths = brace_depths(body)
+    for method in re.finditer(r"(?m)^[ \t]*[-+]\s*\((?:[^()]|\([^()]*\))*\)\s*([^;{]+?)\s*(?:;\s*)?\{", body):
+        if depths[method.start()] == 0:
+            end = balanced(body, method.end() - 1, "{", "}")
+            yield method.group(1), method.end() - 1, len(body) if end < 0 else end
+
+
+def direct_ivar_uses(body, names):
+    """How many times the text of an @implementation reads or writes each of `names` as a variable.
+
+    A binary that does so looks the variable's offset up by name when it
+    loads. Counted: the bare name inside a method, and self->name. Not
+    counted, because the compiler does not take them for the variable: the
+    name as the selector of a message or a part of one ([view count],
+    [view setWL: a count: b]) or inside @selector(), as the member of
+    something else (other.count, other->count), called as a function, in the
+    declaration of a method, outside any method (a C function has no self),
+    and where a parameter of the method or a local variable declared before
+    it in the block has that name and hides the variable.
+    """
+    found = Counter()
+    for declaration, start, end in implementation_methods(body):
+        text = body[start:end]
+        present = [name for name in names if name in text]
+        if not present:
+            continue
+        chars, stack = list(text), []
+        for index, ch in enumerate(text):
+            if ch == "[":
+                stack.append(index)
+            elif ch == "]" and stack:
+                opening = stack.pop()
+                if opening > 0 and text[opening - 1] == "@":
+                    continue
+                inner = text[opening + 1:index]
+                parsed = message_parts(inner)
+                selectors = [(keyword.rstrip(":"), position) for keyword, position in parsed[1]] if parsed else []
+                if not parsed:
+                    # A receiver the parser does not read, as in [*view count]: two
+                    # operands in a row before the bracket closes are a receiver and
+                    # the name of a message.
+                    last = re.search(r"[\w\]]\s+([A-Za-z_]\w*)\s*$", inner)
+                    selectors = [(last.group(1), last.start(1))] if last else []
+                for keyword, position in selectors:
+                    if position is not None:
+                        at = opening + 1 + position
+                        chars[at:at + len(keyword)] = " " * len(keyword)
+        for selector in re.finditer(r"@selector\s*\(([^()]*)\)", text):
+            chars[selector.start(1):selector.end(1)] = " " * (selector.end(1) - selector.start(1))
+        text = "".join(chars)
+        parameters = set(re.findall(r":\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*([A-Za-z_]\w*)", declaration))
+        for name in present:
+            # Where a local variable of that name is in scope: from its declaration,
+            # at the start of a statement, to the end of the block it is in.
+            hidden = []
+            for local in re.finditer(r"(?:(?<=[;{}])|(?<=\bfor)\s*\()\s*" + TYPE_QUALIFIERS + r"([A-Za-z_]\w*)(?:\s*<[^;{}<>]*>)?"
+                                     r"(?:\s*\*+\s*(?:const\s+)?|\s+)(" + re.escape(name) + r")\s*(?==(?!=)|[;,\[]|in\b)", text):
+                if local.group(1) in NOT_A_TYPE:
+                    continue
+                depth, close = 0, len(text)
+                for index in range(local.start(2), len(text)):
+                    if text[index] == "{":
+                        depth += 1
+                    elif text[index] == "}":
+                        if depth == 0:
+                            close = index
+                            break
+                        depth -= 1
+                hidden.append((local.start(2), close))
+            for use in re.finditer(r"(?<!\w)%s\b" % re.escape(name), text):
+                before, after = text[max(0, use.start() - 80):use.start()].rstrip(), text[use.end():use.end() + 80].lstrip()
+                if before.endswith("->"):
+                    if re.search(r"(?<![\w.>])self\s*$", before[:-2]):
+                        found[name] += 1
+                elif before.endswith(".") or after.startswith("("):
+                    continue
+                elif name not in parameters and not any(a <= use.start() < b for a, b in hidden):
+                    found[name] += 1
+    return found
+
+
 def scan_objc(scan, sdk, own, nc, code):
     for match in re.finditer(r"(?m)^\s*#\s*(?:import|include)\s*([<\"])([^>\"]+)[>\"]", nc):
         target = match.group(2).strip()
@@ -1195,12 +1592,13 @@ def scan_objc(scan, sdk, own, nc, code):
         if match.group(1) in sdk.classes:
             scan.categories[match.group(1)] += 1
     # Host class names mentioned anywhere in code.
-    for word in re.findall(r"\b[A-Z][A-Za-z0-9_]+\b", code):
+    # A constant or a global of the SDK may start in lower case (pasteBoardOsiriX).
+    for word in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]+\b", code):
         if word in sdk.defined and word not in own:
             scan.classes[word] += 1
         elif word in sdk.notifications:
             scan.notifications[(word, True)] += 1
-        elif word in sdk.constants:
+        elif word in sdk.constants or word in sdk.globals:
             scan.functions[word] += 1
     for word in re.findall(r"\b([A-Za-z_]\w*)\s*\(", code):
         if word in sdk.functions and word not in STOP_IDENTIFIERS and word not in sdk.system_functions:
@@ -1258,18 +1656,25 @@ def scan_objc(scan, sdk, own, nc, code):
             owner, _ = sdk.ivar(cls, match.group(2))
             if owner:
                 scan.ivars[(owner, match.group(2), "->")] += 1
-    for start, name in impls:
-        host = context.host_chain_class(name)
-        if not host or name in sdk.classes:
+    for match in re.finditer(r"@implementation\s+([A-Za-z_]\w*)\s*(\(\s*\w*\s*\))?", code):
+        name = match.group(1)
+        if name in sdk.classes:
+            # A category of a host class reaches the class's instance variables as a
+            # subclass does. The class under its own name is a copy of the host's
+            # source, not a plugin's access.
+            host = name if match.group(2) else None
+        else:
+            host = context.host_chain_class(name)
+        if not host:
             continue
-        end = code.find("@end", start)
-        body = code[start:end if end > 0 else len(code)]
+        end = code.find("@end", match.end())
+        body = code[match.end():end if end > 0 else len(code)]
         chain, _ = sdk.chain(host)
+        uses = direct_ivar_uses(body, {ivar for cls in chain for ivar in sdk.classes[cls]["ivars"]})
         for cls in chain:
             for ivar in sdk.classes[cls]["ivars"]:
-                hits = len(re.findall(r"(?<![\w.>])%s\b" % re.escape(ivar), body))
-                if hits:
-                    scan.ivars[(cls, ivar, "inherited")] += hits
+                if uses[ivar]:
+                    scan.ivars[(cls, ivar, "inherited")] += uses[ivar]
     # Dot syntax on typed receivers (attributes).
     for match in re.finditer(r"\b([a-zA-Z_]\w*)\.([a-zA-Z_]\w*)\b", code):
         cls = context.vars.get(match.group(1))
@@ -1444,6 +1849,7 @@ def to_json(scan):
 LIMITS = [
     "Análise estática e textual: nada foi compilado, carregado ou executado; macros, #if e código gerado não são avaliados.",
     "Receptores Objective-C são tipados só por declarações `Classe *nome`, casts, `self`/`super`, ivars herdadas e tipos de retorno do SDK; o resto conta como correspondência por nome (`name-only`/`ambiguous`).",
+    "Ivars herdadas (`inherited`) contam o nome usado como variável dentro de um método de uma subclasse ou de uma categoria de classe do host, e `self->nome`; não contam mensagens (`[x nome]`), partes de seletor, membros de outro objeto, nem o nome encoberto por parâmetro ou variável local. Só as ivars dos headers dados em --api-headers são vistas: uma ivar que só a cópia do SDK do próprio plugin declara não aparece.",
     "Seletores comuns do Cocoa (lista interna e, com --macos-sdk, os headers do sistema) não são atribuídos ao host por nome.",
     "Swift é lido sem resolução de tipos: membros são casados com o primeiro rótulo dos seletores do SDK (`swift-member`).",
     "Acessos dinâmicos (performSelector, NSClassFromString, KVC, predicados) são contados; só argumentos literais são resolvidos.",
@@ -1638,6 +2044,552 @@ def markdown(report):
     return "\n".join(out) + "\n"
 
 
+# ---------------------------------------------------------------- registry of the binary surface
+#
+# tests/legacy-plugin-abi.json: what a plugin built for Horos or OsiriX looks
+# up in the application without being rebuilt. --registry writes it from the
+# registry there is (--registry-base, nothing of which is taken out), the SDK
+# headers (--api-headers), the headers and the compiled sources of the Horos
+# the fork started from (--baseline-*), and the listings of nm -gUj and
+# dyld_info -objc of the reference application and of the current build
+# (--reference-*, --current-*). Every input is a text file.
+
+REGISTRY_ITEMS = ("frameworks", "classes", "selectors", "used_outside_sdk", "ivars", "symbols")
+# The sentence of the registry's about that says what was left out and why,
+# written again at each run. No reason has a full stop in it.
+LEFT_OUT = re.compile(r"Left out: [^.]*\.")
+ISIX5_ADDITION = "added by the IsiX 5 SDK: Horos did not define it"
+# A class whose superclass in Horos was a class of the system or of a library
+# that the application no longer has or no longer descends from: the registry
+# keeps the superclass it has today, which is the decided exception.
+SUPERCLASS_TODAY = {"DCMView": "NSView", "NavigatorView": "NSView", "DCMCalendarDate": "NSDate", "VTKView": "NSView"}
+METHOD_DEFINITION = re.compile(r"(?m)^[ \t]*([-+])\s*\(((?:[^()]|\([^()]*\))*)\)\s*([^;{]+?)\s*[;{]")
+OBJC_INTERFACE = re.compile(r"^@interface ([^\s(:]+)(\([^)]*\))?\s*(?::\s*(\S+))?")
+OBJC_METHOD = re.compile(r"^(?:0x[0-9A-Fa-f]+\s+)?([-+])\[(\S+) (\S+)\]$")
+
+
+def render_registry(registry):
+    """The registry's canonical text: sections and entries sorted, one entry per line."""
+    lines = ["{"]
+    names = sorted(registry)
+    for i, name in enumerate(names):
+        value = registry[name]
+        comma = "," if i < len(names) - 1 else ""
+        if not isinstance(value, dict):
+            lines.append(" %s: %s%s" % (json.dumps(name), json.dumps(value, ensure_ascii=False), comma))
+            continue
+        lines.append(" %s: {" % json.dumps(name))
+        keys = sorted(value)
+        for j, key in enumerate(keys):
+            lines.append("  %s: %s%s" % (json.dumps(key, ensure_ascii=False),
+                                         json.dumps(value[key], sort_keys=True, ensure_ascii=False),
+                                         "," if j < len(keys) - 1 else ""))
+        lines.append(" }" + comma)
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def read_exports(paths):
+    """The symbol names of listings of `nm -gUj`."""
+    names = set()
+    for path in paths:
+        names.update(line.strip() for line in Path(path).read_text(errors="replace").splitlines()
+                     if line.strip() and not line.rstrip().endswith(":"))
+    return names
+
+
+def read_objc_metadata(paths):
+    """{class: {super, defined, '-': {selector}, '+': {selector}}} of listings of `dyld_info -objc`."""
+    classes = {}
+    for path in paths:
+        in_class = False
+        for line in Path(path).read_text(errors="replace").splitlines():
+            text = line.strip()
+            if text.startswith("@protocol"):
+                in_class = False
+                continue
+            interface = OBJC_INTERFACE.match(text)
+            if interface:
+                in_class = True
+                entry = classes.setdefault(interface.group(1), {"super": None, "defined": False, "-": set(), "+": set()})
+                if not interface.group(2):
+                    entry["defined"] = True
+                    entry["super"] = interface.group(3)
+                continue
+            if text == "@end":
+                in_class = False
+                continue
+            method = OBJC_METHOD.match(text) if in_class else None
+            if method:
+                entry = classes.setdefault(method.group(2), {"super": None, "defined": False, "-": set(), "+": set()})
+                entry[method.group(1)].add(method.group(3))
+    return classes
+
+
+def project_names(project_text, phase):
+    """The file names a project lists `in <phase>` (Sources, Headers)."""
+    return set(re.findall(r"/\* ([^*]+?) in %s \*/" % phase, project_text))
+
+
+def public_headers(project_text):
+    """The names of the headers a project builds with the Public attribute."""
+    return set(re.findall(r"/\* ([^*]+?) in Headers \*/ = \{[^}]*settings = \{ATTRIBUTES = \((?:[^)]*\b)?Public\b",
+                          project_text))
+
+
+class BaselineSources:
+    """What the compiled sources of the baseline define: Objective-C classes and
+    their methods, and the functions and data of file level with external linkage."""
+
+    def __init__(self):
+        self.classes = set()                 # with an @implementation, or a Swift class named with @objc(Name)
+        self.methods = {}                    # class -> {'-': {selector}, '+': {selector}}, categories included
+        self.functions = {}                  # name -> True when the file that defines it is C or Objective-C
+        self.data = set()
+        self.dynamic = {}                    # class -> the properties its implementation declares @dynamic
+
+    def read(self, path):
+        raw = without_other_processors(Path(path).read_text(errors="replace"))
+        suffix = Path(path).suffix
+        if suffix == ".swift":
+            _, code = strip_source(raw, swift=True)
+            self.classes.update(re.findall(r"@objc\(\s*([A-Za-z_]\w*)\s*\)[^{;]*?\bclass\s+[A-Za-z_]\w*", code))
+            return
+        _, code = strip_source(raw)
+        for match in re.finditer(r"@implementation\s+([A-Za-z_]\w*)\s*(\([^)]*\))?", code):
+            end = code.find("@end", match.end())
+            body = code[match.end():len(code) if end < 0 else end]
+            if not match.group(2):
+                self.classes.add(match.group(1))
+            depths = brace_depths(body)
+            methods = self.methods.setdefault(match.group(1), {"-": set(), "+": set()})
+            for dynamic in re.finditer(r"@dynamic\s+([^;]+);", body):
+                self.dynamic.setdefault(match.group(1), set()).update(name.strip() for name in dynamic.group(1).split(","))
+            for method in METHOD_DEFINITION.finditer(body):
+                selector = selector_of(method.group(3))
+                if selector and depths[method.start()] == 0:
+                    methods[method.group(1)].add(selector)
+        c_file = suffix in (".m", ".c")
+        for name, inline, c_linkage in c_function_declarations(code, linkage=True, defined=True):
+            if not inline:
+                self.functions[name] = self.functions.get(name, False) or c_file or c_linkage
+        self.data.update(name for name, _, _ in file_level_data(code))
+
+
+def file_level_data(code):
+    """(name, type, mutable) of each datum a source file defines at file level with external linkage."""
+    return extern_data(code, definitions=True)
+
+
+def mangled_function(symbol):
+    """The name of the C++ function outside any namespace or class that `symbol` is, or None."""
+    match = re.match(r"__Z(\d+)", symbol)
+    if not match:
+        return None
+    length = int(match.group(1))
+    name = symbol[match.end():match.end() + length]
+    return name if len(name) == length and re.fullmatch(r"[A-Za-z_]\w*", name) else None
+
+
+class Surface:
+    """What one or more builds give a plugin, from their listings."""
+
+    def __init__(self, exports, objc):
+        self.exports, self.objc = exports, objc
+        self.mangled = defaultdict(set)      # function name -> its C++ symbols
+        for symbol in exports:
+            name = mangled_function(symbol)
+            if name:
+                self.mangled[name].add(symbol)
+
+    def chain(self, name):
+        seen = []
+        while name and name in self.objc and name not in seen:
+            seen.append(name)
+            name = self.objc[name]["super"]
+        return seen
+
+    def implements(self, name, kind, selector):
+        return any(selector in self.objc[cls][kind] for cls in self.chain(name) or [name] if cls in self.objc)
+
+    def has_class(self, name, superclass=None):
+        """Whether the class is exported and, where the listings can tell, still descends from `superclass`.
+
+        The listings hold the application's classes alone: a superclass of the
+        system is past what they show, and is not held against the class."""
+        if "_OBJC_CLASS_$_" + name not in self.exports:
+            return False
+        known = superclass and self.objc.get(superclass, {}).get("defined") and self.objc.get(name, {}).get("defined")
+        return not known or superclass in self.chain(name)[1:]
+
+
+def use_counts(plugins):
+    """How many plugins use each selector, ivar and name of the SDK, as the inventory attributes it."""
+    selectors, ivars, names, outside = defaultdict(set), defaultdict(set), defaultdict(set), defaultdict(set)
+    for plugin in plugins:
+        for entry in plugin["selectors"]:
+            if entry["class"]:
+                selectors[(entry["class"], entry["selector"])].add(plugin["name"])
+        for entry in plugin["ivars_and_attributes"]:
+            if entry["how"] == "inherited":
+                ivars[(entry["class"], entry["name"])].add(plugin["name"])
+        for entry in plugin["host_functions_and_constants"]:
+            names[entry["name"].rstrip("()")].add(plugin["name"])
+        for entry in plugin["notifications"]:
+            if entry["declared_by_host"]:
+                names[entry["name"]].add(plugin["name"])
+        for entry in plugin["selectors_not_in_sdk"] + plugin["host_methods_declared_by_plugin"]:
+            if entry.get("class"):
+                outside[(entry["class"], entry["selector"])].add(plugin["name"])
+    return {"selectors": selectors, "ivars": ivars, "names": names, "outside": outside}
+
+
+NO_SWIFT_SYMBOL = ": a Swift stored property has no _OBJC_IVAR_$_ symbol"
+NOT_IN_SDK_LAYOUT = ": its storage is not yet in the SDK's layout, a stored field of the class with the SDK's type"
+ABOUT_EXPORTED_IVARS = (
+    "The instance variables of a class implemented in Swift are exported from stored fields of the class, each through a linker "
+    "alias of its field's offset: Horos/Scripts/Horos/legacy-plugin-ivars.json is the table of those fields, with the type the "
+    "SDK declared, the state and the ownership of each, and every entry of it is in ivars and none in missing. One that is still "
+    "in missing waits for its storage to be a field of the class with the SDK's type, and says so; one a known plugin reads may "
+    "not wait.")
+ABOUT_ADDED_IVARS = ("Added to ivars with that table, declared by the headers of the SDK and exported by the application though "
+                     "the 5.3.4 executable no longer exported them: %s.")
+ABOUT_ADDED_OLDER_IVARS = ("Added to ivars with that table, declared only by the copies of an older SDK of OsiriX that plugins "
+                           "carry in their sources, which neither the headers of the SDK nor those of Horos declare, and "
+                           "exported by the application for the plugins built with such a copy: %s.")
+
+
+STATIC_ZLIB = "7 static zlib"
+HOST_STATIC_ZLIB = (
+    "The executable also carried the copy of zlib %s inside GDCM (GDCM/Utilities/gdcmzlib): GDCM was built without "
+    "GDCM_USE_SYSTEM_ZLIB, so that copy was linked statically, under the library's own names, which it prefixes only under "
+    "Z_PREFIX, and its globals were exported like every other. A plugin linked with BUNDLE_LOADER, which did not need to name "
+    "the system's zlib, had its zlib references bound to the executable. Dead-code stripping kept the functions the "
+    "application reached, a set no source gives: symbols has every function that copy's zlib.h declares ZEXTERN, %d of "
+    "them, and the executable defines each one, as a call into the system's zlib.")
+
+
+def zlib_functions(header):
+    """The version a zlib.h gives and the names of the functions it declares ZEXTERN.
+
+    What its comments declare is not read: they document as functions the
+    macros over the entry points that take the version and the size."""
+    code = re.sub(r"/\*.*?\*/", " ", header, flags=re.S)
+    version = re.search(r'^\s*#\s*define\s+ZLIB_VERSION\s+"([^"]+)"', code, re.M)
+    names = re.findall(r"\bZEXTERN\b[^;()]*?\b([A-Za-z_]\w*)\s*(?:OF\s*\(\(|\()", code)
+    return (version.group(1) if version else None), sorted(set(names))
+
+
+def enter_static_zlib(registry, header):
+    """Enters in `registry` the functions of the zlib the baseline's executable carried; answers the symbols added.
+
+    A count the registry has stays. Raises ValueError for a header that is not a zlib.h."""
+    version, names = zlib_functions(header)
+    if not version or not names:
+        raise ValueError("the header defines no ZLIB_VERSION or declares no function ZEXTERN")
+    added = [symbol for symbol in ("_" + name for name in names) if symbol not in registry["symbols"]]
+    for symbol in added:
+        registry["symbols"][symbol] = 0
+    registry.setdefault("host_resolution", {})[STATIC_ZLIB] = HOST_STATIC_ZLIB % (version, len(names))
+    return added
+
+
+def declare_older_ivars(sdk, older):
+    """Declares in `sdk` the instance variables only `older` declares; answers their names.
+
+    A class `sdk` has takes them by its own declaration: a copy that declares in
+    a class what `sdk` declares in its superclass gave the plugins built with it
+    the symbol of the class itself. A class `sdk` does not have is declared with
+    its instance variables alone, for the table to name them."""
+    only = set()
+    for cls, info in older.classes.items():
+        known = cls in sdk.classes
+        own = sdk.klass(cls)["ivars"]
+        for ivar, decl_type in info["ivars"].items():
+            if ivar not in own:
+                own[ivar] = decl_type
+                if not known or sdk.ivar(cls, ivar)[0] == cls:
+                    only.add("%s.%s" % (cls, ivar))
+    return only
+
+
+def export_table_ivars(registry, table, sdk, counts, older_only=frozenset()):
+    """The registry with what the table of exported instance variables decides; answers what changed.
+
+    older_only names the instance variables only a copy of an older SDK declares.
+    Raises ValueError for an entry of the table that cannot enter the registry."""
+    added, restored, reworded, wrong = [], [], 0, []
+    for name in table:
+        cls, _, ivar = name.partition(".")
+        if name not in registry["ivars"]:
+            if cls not in registry["classes"]:
+                wrong.append("%s: %s is not in classes of the registry" % (name, cls))
+            elif ivar not in sdk.classes.get(cls, {}).get("ivars", {}):
+                wrong.append("%s: no header given with --api-headers declares it in %s, and its use cannot be counted" % (name, cls))
+            else:
+                registry["ivars"][name] = len(counts.get((cls, ivar), ()))
+                added.append(name)
+        if registry["missing"].pop("ivars " + name, None) is not None:
+            restored.append(name)
+    if wrong:
+        raise ValueError("; ".join(wrong))
+    for key, reason in registry["missing"].items():
+        if key.startswith("ivars ") and isinstance(reason, str) and reason.endswith(NO_SWIFT_SYMBOL):
+            registry["missing"][key] = reason[:-len(NO_SWIFT_SYMBOL)] + NOT_IN_SDK_LAYOUT
+            reworded += 1
+    if ABOUT_EXPORTED_IVARS not in registry["about"]:
+        registry["about"] = registry["about"].rstrip() + " " + ABOUT_EXPORTED_IVARS
+    for sentence, names in ((ABOUT_ADDED_IVARS, [name for name in added if name not in older_only]),
+                            (ABOUT_ADDED_OLDER_IVARS, [name for name in added if name in older_only])):
+        if names:
+            # The sentence a former run left takes the new names at its end.
+            before, after = (re.escape(part) for part in sentence.split("%s"))
+            listed = None
+            for listed in re.finditer(before + r"(\w+\.\w+(?:, \w+\.\w+)*)" + after, registry["about"]):
+                pass
+            if listed:
+                registry["about"] = registry["about"][:listed.end(1)] + ", " + ", ".join(names) + registry["about"][listed.end(1):]
+            else:
+                registry["about"] = registry["about"].rstrip() + " " + sentence % ", ".join(names)
+    return {"added": added, "restored": restored, "reworded": reworded}
+
+
+def build_registry(base, sdk, baseline_sdk, baseline, reference, current, counts, about):
+    """The registry: `base` with what the headers declare and a build or the baseline had.
+
+    sdk and baseline_sdk are the models of the later SDK's headers and of the
+    baseline's; baseline is its BaselineSources; reference and current are the
+    Surface of the reference application and of the current build. Returns
+    the registry and what was left out, by kind.
+    """
+    registry = {name: (dict(value) if isinstance(value, dict) else value) for name, value in base.items()}
+    for section in REGISTRY_ITEMS + ("missing", "isix5_additions", "sdk_selectors", "osirix_selectors"):
+        registry.setdefault(section, {})
+    # What only later headers of the other SDK declare is entered by hand, with
+    # its source, and kept as the base has it: no header given here declares
+    # it. Each is a selector of the registry like the others.
+    for key in registry["osirix_selectors"]:
+        registry["selectors"].setdefault(key, 0)
+    # What the baseline declared and implemented is read again each time: it is
+    # derived from the baseline alone, and nothing of the base's list is kept.
+    registry["sdk_selectors"] = {}
+    registry["about"] = about
+    left, left_seen = Counter(), set()
+    both = Surface(reference.exports | current.exports, None)
+
+    def leave(what, item):
+        """Count `item` as left out for the reason `what`, once whichever headers declare it."""
+        if (what, item) not in left_seen:
+            left_seen.add((what, item))
+            left[what] += 1
+
+    def kind_of(info):
+        return "+" if info.get("class_method") else "-"
+
+    def baseline_implements(name, kind, selector, info):
+        seen = []
+        while name and name not in seen:
+            seen.append(name)
+            if selector in baseline.methods.get(name, {}).get(kind, ()):
+                return True
+            # A property of a class the baseline implemented is synthesized, unless
+            # the implementation says @dynamic: then the class has no method for
+            # it, and what answers is the runtime (Core Data, from the model).
+            if info.get("property") and name in baseline.classes and selector in baseline_sdk.classes.get(name, {}).get("methods", {}):
+                prop = selector[3:4].lower() + selector[4:-1] if selector.endswith(":") else selector
+                if {prop, selector[3:-1] if selector.endswith(":") else selector} & baseline.dynamic.get(name, set()):
+                    leave("properties the baseline declared @dynamic, which the runtime answers", (name, kind, selector))
+                    return False
+                return True
+            name = baseline_sdk.classes.get(name, {}).get("super")
+        return False
+
+    def leads_to(name, ancestor):
+        """Whether the superclasses the registry records lead from `name` to `ancestor`."""
+        seen = []
+        while name and name not in seen:
+            if name == ancestor:
+                return True
+            seen.append(name)
+            name = registry["classes"].get(name)
+        return False
+
+    # Classes: by their Objective-C runtime name, with the superclass of the
+    # baseline for its classes and of the later SDK for the others. A header
+    # and a definition count together when one SDK had both: a class the
+    # baseline's headers declare, with the baseline's sources; one that only
+    # the later SDK declares, with a build that exports it. A class the
+    # baseline kept out of its headers, which the later SDK declared when no
+    # build of it exported the class, was never one a plugin could bind.
+    for source, is_baseline in ((baseline_sdk, True), (sdk, False)):
+        for name in sorted(source.defined):
+            in_baseline = name in baseline.classes
+            exported = "_OBJC_CLASS_$_" + name in both.exports
+            if name not in registry["classes"] and not exported and not (is_baseline and in_baseline):
+                if in_baseline:
+                    leave("classes the baseline compiled and kept out of its headers, which the later SDK declared and "
+                          "no build of it exported", name)
+                else:
+                    leave("classes no build exported and the baseline did not compile", name)
+                continue
+            if in_baseline and name in baseline_sdk.defined:
+                superclass = SUPERCLASS_TODAY.get(name, baseline_sdk.classes[name]["super"])
+                # The superclass the registry has stays when it leads to the baseline's:
+                # it asks for that one and for the class a later SDK put between them.
+                if name in registry["classes"] and leads_to(registry["classes"][name], superclass):
+                    superclass = registry["classes"][name]
+            else:
+                superclass = registry["classes"].get(name, source.classes[name]["super"])
+            registry["classes"][name] = superclass
+
+    # Selectors and ivars, by the class that declares them.
+    for source, is_baseline in ((baseline_sdk, True), (sdk, False)):
+        for name, info in sorted(source.classes.items()):
+            for selector, method in sorted(info["methods"].items()):
+                kind = kind_of(method)
+                key = "%s %s%s" % (name, kind, selector)
+                # A class the baseline's headers declare and its project never
+                # compiled had no method of its own, whatever its ancestors had.
+                compiled_there = name in baseline.classes or name in baseline.methods
+                in_baseline = is_baseline and compiled_there and baseline_implements(name, kind, selector, method)
+                if in_baseline:
+                    registry["sdk_selectors"][key] = "%s:%d" % (method["header"], method["line"])
+                count = len(counts["selectors"].get((name, selector), ()))
+                if key in registry["selectors"]:
+                    registry["selectors"][key] = max(registry["selectors"][key], count)
+                elif in_baseline or reference.implements(name, kind, selector) or current.implements(name, kind, selector):
+                    registry["selectors"][key] = count
+                else:
+                    leave("selectors no class implemented", key)
+            for ivar in sorted(info["ivars"]):
+                key = "%s.%s" % (name, ivar)
+                count = len(counts["ivars"].get((name, ivar), ()))
+                if key in registry["ivars"]:
+                    registry["ivars"][key] = max(registry["ivars"][key], count)
+                elif info.get("ivar_visibility", {}).get(ivar) in ("private", "package"):
+                    leave("instance variables that were @private or @package", key)
+                elif "_OBJC_IVAR_$_" + key in both.exports or (is_baseline and name in baseline.classes):
+                    registry["ivars"][key] = count
+                else:
+                    leave("instance variables no build exported", key)
+
+    # Symbols: the data and the functions the headers declare with external linkage.
+    defined_by_baseline = set()
+    for source, is_baseline in ((baseline_sdk, True), (sdk, False)):
+        declared = [(name, False) for name in source.data] + [(name, True) for name in source.functions]
+        for name, is_function in sorted(declared):
+            if is_function and name in source.inline_functions:
+                leave("C functions the header defines static or inline", name)
+                continue
+            count = len(counts["names"].get(name, ()))
+            in_baseline = name in (baseline.functions if is_function else baseline.data)
+            # The C++ name of the function as the reference application had it. The
+            # current build's says which function it is only where the reference
+            # has none and the baseline defined it: a function of that name the
+            # application has today with other arguments is another function.
+            mangled = set()
+            if is_function:
+                mangled = reference.mangled.get(name, set()) or (current.mangled.get(name, set()) if in_baseline else set())
+            if "_" + name in both.exports:
+                symbols = {"_" + name}
+            elif mangled:
+                symbols = mangled
+            elif (in_baseline and not is_baseline and "_" + name not in registry["symbols"]
+                  and name not in baseline_sdk.data and name not in baseline_sdk.functions):
+                # As for a class: the baseline defined it without declaring it, and
+                # no build that declared it had it.
+                leave("names the baseline defined and kept out of its headers, which the later SDK declared and no "
+                      "build of it exported", name)
+                continue
+            elif in_baseline and (not is_function or baseline.functions[name] or name in source.c_linkage):
+                symbols = {"_" + name}
+            elif in_baseline:
+                leave("C++ functions of the baseline whose mangled name no build has", name)
+                continue
+            else:
+                leave("names only declared, which neither a build nor the baseline defined", name)
+                continue
+            if in_baseline:
+                defined_by_baseline.update(symbols)
+            for symbol in symbols:
+                registry["symbols"][symbol] = max(registry["symbols"].get(symbol, 0), count)
+
+    # Host methods the plugins call without the SDK declaring them.
+    for (name, selector), plugins in sorted(counts["outside"].items()):
+        for kind in "-+":
+            key = "%s %s%s" % (name, kind, selector)
+            if key in registry["selectors"] or key in registry["used_outside_sdk"]:
+                break
+            if name in registry["classes"] and (reference.implements(name, kind, selector)
+                                                or selector in baseline.methods.get(name, {}).get(kind, ())):
+                registry["used_outside_sdk"][key] = len(plugins)
+                break
+
+    # What the later SDK added to the baseline: the classes and symbols of the
+    # registry that its headers declare and the baseline did not define, each
+    # with the header that declares it. A name neither had (one that only
+    # another SDK's headers declare) is not an addition of the later SDK.
+    registry["isix5_additions"] = {}
+    for name in registry["classes"]:
+        if name not in baseline.classes and name in sdk.defined:
+            registry["isix5_additions"]["classes " + name] = sdk.classes[name]["header"]
+    for symbol in registry["symbols"]:
+        bare = mangled_function(symbol) or symbol[1:]
+        header = sdk.functions.get(bare) or sdk.data.get(bare, {}).get("header")
+        if header and symbol not in defined_by_baseline and bare not in baseline.functions and bare not in baseline.data:
+            registry["isix5_additions"]["symbols " + symbol] = header
+
+    # missing: what the current build lacks. Only selectors and ivars may be
+    # listed there, and a class or a symbol the baseline did not define.
+    lacking_classes = {name for name, superclass in registry["classes"].items() if not current.has_class(name, superclass)}
+    # A class that is there under another superclass is lacking as the SDK's class and still answers its selectors.
+    absent_classes = {name for name in lacking_classes if not current.has_class(name)}
+    # What the registry there is listed as missing and the current build has again is no longer missing.
+    for entry in sorted(registry["missing"]):
+        section, _, key = entry.partition(" ")
+        if section == "classes":
+            back = key not in lacking_classes
+        elif section == "symbols":
+            back = key in current.exports
+        elif section == "ivars":
+            back = "_OBJC_IVAR_$_" + key in current.exports
+        else:
+            parts = re.match(r"^(\S+) ([-+])(\S+)$", key)
+            back = bool(parts) and current.implements(*parts.groups())
+        if back:
+            del registry["missing"][entry]
+    for name in sorted(lacking_classes):
+        key = "classes " + name
+        if key in registry["isix5_additions"]:
+            registry["missing"][key] = ISIX5_ADDITION
+    for symbol in sorted(registry["symbols"]):
+        key = "symbols " + symbol
+        if symbol not in current.exports and key in registry["isix5_additions"]:
+            registry["missing"][key] = ISIX5_ADDITION
+    # A selector is excused here only by its class being missing, which the
+    # listings decide. Whether a class that is there answers a selector they do
+    # not: a class of the system or Core Data may, past what they show. The test
+    # of the registry says which selectors the build lacks, and one that no SDK
+    # of Horos had is then listed by hand, with the reason that is true of it.
+    for section in ("selectors", "used_outside_sdk"):
+        for key in sorted(registry[section]):
+            name = key.split(" ", 1)[0]
+            entry = "%s %s" % (section, key)
+            if entry not in registry["missing"] and name in absent_classes and "classes " + name in registry["missing"]:
+                registry["missing"][entry] = "its class is missing (classes %s)" % name
+    # An instance variable a known plugin reads is not excused either: that plugin is
+    # refused whole without it.
+    for key in sorted(registry["ivars"]):
+        entry = "ivars " + key
+        if entry not in registry["missing"] and "_OBJC_IVAR_$_" + key not in current.exports and not registry["ivars"][key]:
+            name = key.split(".", 1)[0]
+            registry["missing"][entry] = ("its class is missing (classes %s)" % name
+                                          if name in absent_classes and "classes " + name in registry["missing"]
+                                          else "%s exports no _OBJC_IVAR_$_ symbol for it%s" % (name, NOT_IN_SDK_LAYOUT))
+    return registry, left
+
+
+
 def parse_named(value):
     if "=" not in value:
         raise argparse.ArgumentTypeError("expected NAME=PATH")
@@ -1647,8 +2599,9 @@ def parse_named(value):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--api-headers", action="append", required=True, type=Path,
-                        help="directory with the host SDK headers (repeatable)")
+    parser.add_argument("--api-headers", action="append", default=[], type=Path,
+                        help="directory with the host SDK headers (repeatable; required, except with "
+                        "--static-zlib-symbols alone)")
     parser.add_argument("--collection", action="append", default=[], type=parse_named,
                         help="NAME=DIR whose subdirectories are plugins")
     parser.add_argument("--plugin", action="append", default=[], type=parse_named,
@@ -1656,17 +2609,99 @@ def main(argv=None):
     parser.add_argument("--macos-sdk", type=Path, help="macOS SDK root, to recognise Cocoa selectors")
     parser.add_argument("--markdown", type=Path, help="write the Markdown report here (default: stdout)")
     parser.add_argument("--json", type=Path, help="write the JSON report here")
+    group = parser.add_argument_group("registry of the binary surface (tests/legacy-plugin-abi.json)")
+    group.add_argument("--registry", type=Path, help="write the registry here")
+    group.add_argument("--registry-base", type=Path, help="the registry there is: nothing of it is taken out")
+    group.add_argument("--registry-about", type=Path, help="text file with the registry's about, where {left_out} "
+                       "stands for what was left out and why (default: the about of --registry-base, with its "
+                       "sentence \"Left out: ... .\" written again)")
+    group.add_argument("--recount-ivars", type=Path, metavar="REGISTRY",
+                       help="rewrite in this registry the use count of every entry of ivars, and nothing else")
+    group.add_argument("--export-table-ivars", type=Path, metavar="REGISTRY",
+                       help="rewrite in this registry what the table of exported instance variables decides")
+    group.add_argument("--ivar-table", type=Path, default=Path(__file__).resolve().parents[1]
+                       / "Horos/Scripts/Horos/legacy-plugin-ivars.json",
+                       help="the table of the instance variables that Swift classes export (default: the application's)")
+    group.add_argument("--older-sdk-headers", action="append", default=[], type=Path,
+                       help="directory or header of a copy of an older SDK of OsiriX that plugins carry: the instance "
+                       "variables only it declares count as declared (repeatable)")
+    group.add_argument("--baseline-headers", action="append", default=[], type=Path,
+                       help="directory or header of the SDK the baseline published (repeatable)")
+    group.add_argument("--baseline-public-headers", action="append", default=[], type=Path,
+                       help="directory of which only the headers --baseline-project builds Public count (repeatable)")
+    group.add_argument("--baseline-project", type=Path, help="project.pbxproj of the baseline")
+    group.add_argument("--baseline-sources", action="append", default=[], type=Path,
+                       help="directory searched for the sources --baseline-project compiles (repeatable)")
+    group.add_argument("--baseline-zlib-header", type=Path,
+                       help="zlib.h of the copy of zlib the baseline linked statically into its executable: every function "
+                       "it declares ZEXTERN enters symbols")
+    group.add_argument("--static-zlib-symbols", type=Path, metavar="REGISTRY",
+                       help="rewrite in this registry the symbols of --baseline-zlib-header and what host_resolution says "
+                       "of them, and nothing else")
+    for name in ("reference", "current"):
+        group.add_argument("--%s-exports" % name, action="append", default=[], type=Path,
+                           help="listing of nm -gUj of the %s application (repeatable)" % name)
+        group.add_argument("--%s-objc" % name, action="append", default=[], type=Path,
+                           help="listing of dyld_info -objc of the %s application (repeatable)" % name)
     args = parser.parse_args(argv)
+    zlib_header = None
+    if args.baseline_zlib_header:
+        if not args.baseline_zlib_header.is_file():
+            parser.error("missing: %s" % args.baseline_zlib_header)
+        zlib_header = args.baseline_zlib_header.read_text(errors="replace")
+    if args.static_zlib_symbols:
+        if zlib_header is None:
+            parser.error("--static-zlib-symbols needs --baseline-zlib-header")
+        registry = json.loads(args.static_zlib_symbols.read_text(encoding="utf-8"))
+        try:
+            added = enter_static_zlib(registry, zlib_header)
+        except ValueError as error:
+            parser.error("--baseline-zlib-header: %s" % error)
+        args.static_zlib_symbols.write_text(render_registry(registry), encoding="utf-8")
+        sys.stderr.write("%s: %d symbols of the baseline's static zlib entered (%s)\n"
+                         % (args.static_zlib_symbols, len(added), ", ".join(added) or "none"))
+        if not (args.api_headers or args.collection or args.plugin or args.registry):
+            return 0
+    if not args.api_headers:
+        parser.error("the following arguments are required: --api-headers")
     if not args.collection and not args.plugin:
         parser.error("give at least one --collection or --plugin")
     for directory in args.api_headers:
         if not directory.is_dir():
             parser.error("not a directory: %s" % directory)
     sdk = load_sdk(args.api_headers, args.macos_sdk)
+    scan_sdk, baseline_headers = sdk, []
+    if args.registry:
+        if not (args.registry_base and args.baseline_project):
+            parser.error("--registry needs --registry-base and --baseline-project")
+        project = args.baseline_project.read_text(errors="replace")
+        baseline_headers = list(args.baseline_headers)
+        for directory in args.baseline_public_headers:
+            baseline_headers += [path for path in sorted(directory.glob("*.h")) if path.name in public_headers(project)]
+        # The uses are counted against both SDKs at once: a plugin written for
+        # the baseline's headers uses what only they declare, and the classes
+        # descend as the baseline's did, which is read last.
+        scan_sdk = load_sdk(list(args.api_headers) + baseline_headers, args.macos_sdk)
+    older_only = set()
+    if args.older_sdk_headers:
+        for path in args.older_sdk_headers:
+            if not path.exists():
+                parser.error("missing: %s" % path)
+        # In the model the uses are counted against, which is also the one
+        # --export-table-ivars asks: what --registry writes from the headers
+        # of the two SDKs does not change.
+        older_only = declare_older_ivars(scan_sdk, load_sdk(args.older_sdk_headers))
     report = {"sdk": {"headers": len(sdk.headers), "classes": len(sdk.classes), "selectors": len(sdk.selectors),
                       "notifications": len(sdk.notifications), "functions": len(sdk.functions),
                       "dirs": [str(d) for d in args.api_headers], "git": [git_info(d) for d in args.api_headers],
-                      "system_selectors": len(sdk.system_selectors)},
+                      "system_selectors": len(sdk.system_selectors),
+                      "constants": len(sdk.constants), "globals": len(sdk.globals),
+                      # What a plugin looks up by name: each datum with its header, its type and
+                      # whether a plugin can write it, and each function, marked when the header
+                      # defines it static or inline and the host therefore has no symbol for it.
+                      "data": sdk.data,
+                      "function_names": {name: {"header": header, "inline": name in sdk.inline_functions}
+                                         for name, header in sdk.functions.items()}},
               "limits": LIMITS, "sources": [], "plugins": []}
     for name, paths in args.collection:
         root = paths[0]
@@ -1681,7 +2716,7 @@ def main(argv=None):
                 counts["no_sources"] += 1
                 counts["no_source_names"].append(entry_name)
                 continue
-            scan = scan_plugin(entry_name, "%s/%s" % (name, kind), [path], sdk)
+            scan = scan_plugin(entry_name, "%s/%s" % (name, kind), [path], scan_sdk)
             scan.git = git
             data = to_json(scan)
             data["source"] = name
@@ -1697,7 +2732,7 @@ def main(argv=None):
         for path in paths:
             if not path.exists():
                 parser.error("missing: %s" % path)
-        scan = scan_plugin(name, "plugin", paths, sdk)
+        scan = scan_plugin(name, "plugin", paths, scan_sdk)
         scan.git = git_info(paths[0] if paths[0].is_dir() else paths[0].parent)
         data = to_json(scan)
         data["source"] = name
@@ -1707,6 +2742,50 @@ def main(argv=None):
                   "not_plugins": []}
         report["sources"].append({"name": name, "label": ", ".join(p.name for p in paths), "git": scan.git,
                                   "counts": counts})
+    if args.registry:
+        compiled = project_names(project, "Sources")
+        baseline_sdk = load_sdk(baseline_headers)
+        baseline = BaselineSources()
+        for directory in args.baseline_sources:
+            for path in sorted(directory.rglob("*")):
+                if path.is_file() and path.name in compiled and path.suffix in SOURCE_SUFFIXES:
+                    baseline.read(path)
+        base = json.loads(args.registry_base.read_text(encoding="utf-8"))
+        registry, left = build_registry(
+            base, sdk, baseline_sdk, baseline,
+            Surface(read_exports(args.reference_exports), read_objc_metadata(args.reference_objc)),
+            Surface(read_exports(args.current_exports), read_objc_metadata(args.current_objc)),
+            use_counts(report["plugins"]), "")
+        left_out = "; ".join("%d %s" % (count, what) for what, count in sorted(left.items()))
+        if args.registry_about:
+            registry["about"] = args.registry_about.read_text(encoding="utf-8").strip().replace("{left_out}", left_out)
+        elif not LEFT_OUT.search(base.get("about", "")):
+            parser.error("the about of --registry-base has no sentence \"Left out: ... .\" to write again: give --registry-about")
+        else:
+            registry["about"] = LEFT_OUT.sub(lambda _: "Left out: %s." % left_out, base["about"], count=1)
+        if zlib_header is not None:
+            try:
+                enter_static_zlib(registry, zlib_header)
+            except ValueError as error:
+                parser.error("--baseline-zlib-header: %s" % error)
+        args.registry.write_text(render_registry(registry), encoding="utf-8")
+    if args.recount_ivars:
+        registry = json.loads(args.recount_ivars.read_text(encoding="utf-8"))
+        counts = use_counts(report["plugins"])["ivars"]
+        registry["ivars"] = {key: len(counts.get(tuple(key.split(".", 1)), ())) for key in registry["ivars"]}
+        args.recount_ivars.write_text(render_registry(registry), encoding="utf-8")
+    if args.export_table_ivars:
+        registry = json.loads(args.export_table_ivars.read_text(encoding="utf-8"))
+        table = json.loads(args.ivar_table.read_text(encoding="utf-8"))["ivars"]
+        try:
+            changed = export_table_ivars(registry, table, scan_sdk, use_counts(report["plugins"])["ivars"], older_only)
+        except ValueError as error:
+            parser.error("--export-table-ivars: %s" % error)
+        args.export_table_ivars.write_text(render_registry(registry), encoding="utf-8")
+        sys.stderr.write("%s: %d entries of the table left missing, %d entered ivars (%s), %d reasons of missing instance "
+                         "variables reworded\n" % (args.export_table_ivars, len(changed["restored"]), len(changed["added"]),
+                                                   ", ".join("%s %d" % (name, registry["ivars"][name]) for name in changed["added"])
+                                                   or "none", changed["reworded"]))
     text = markdown(report)
     if args.markdown:
         args.markdown.write_text(text)

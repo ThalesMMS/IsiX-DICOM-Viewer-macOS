@@ -106,16 +106,17 @@ public final class PlanarThickSlab: NSObject {
 
     /// The slices the volume-rendering slab composes (modes 4 and 5), in
     /// the order `-[ThickSlabVR renderSlab]` composes them. `-[DCMPix
-    /// computeThickSlab]` hands it `stack + 1` slices ending at `position` when
-    /// `direction` is non-zero, `stack` slices starting there otherwise, fewer
-    /// at either end of the series; they lie in memory in index order, and
-    /// `setWLWW::` reverses them unless `memoryOrder`.
+    /// computeThickSlab]` hands it `stack` slices, ending at `position` when
+    /// `direction` is non-zero and starting there otherwise, fewer at either
+    /// end of the series: `position` and the slices of `sliceIndices`. They
+    /// lie in memory in index order, and `setWLWW::` reverses them unless
+    /// `memoryOrder`.
     @objc public static func volumeSliceIndices(position: Int, stack: Int, direction: Int, count: Int,
                                                 memoryOrder: Bool) -> [NSNumber] {
         guard position >= 0, position < count, stack >= 1 else { return [] }
         let first: Int, size: Int
         if direction != 0 {
-            size = position - stack < 0 ? position + 1 : stack + 1
+            size = min(stack, position + 1)
             first = position - size + 1
         } else {
             size = position + stack < count ? stack : count - position
@@ -166,6 +167,10 @@ struct PlanarFrame: Equatable {
     let pixels: Data, clut: Data
     let identifier: String
     let background: Float
+    /// How many times larger than the image the uploaded texture is: the
+    /// host's enlargement of its 8-bit bytes. A scalar image's float samples
+    /// are never enlarged: the fragment interpolates them with a bounded cubic
+    /// instead (`window.w` 2).
     let softwareScale: Int
     /// A scalar image's opacity table; nil without one, and for colour, whose
     /// table is already in `clut`.
@@ -283,10 +288,10 @@ struct PlanarFrame: Equatable {
         self.bytesCarryAlpha = bytesCarryAlpha
         self.colourTable = colourTable
         background = (value["background"] as? NSNumber)?.boolValue == true ? 1 : 0
-        softwareScale = (value["softwareScale"] as? NSNumber)?.intValue ?? 1
+        let hostScale = (value["softwareScale"] as? NSNumber)?.intValue ?? 1
         // The host enlarges only small images; an enlarged one stays a texture.
-        guard (1...3).contains(softwareScale), softwareScale == 1 || (width * softwareScale <= 16384 &&
-              height * softwareScale <= 16384 && data.count <= 512 * 1024 * 1024 / (softwareScale * softwareScale))
+        guard (1...3).contains(hostScale), hostScale == 1 || (width * hostScale <= 16384 &&
+              height * hostScale <= 16384 && data.count <= 512 * 1024 * 1024 / (hostScale * hostScale))
         else { throw fail() }
         mapping = SIMD4(points[0].floatValue, points[1].floatValue,
                         points[2].floatValue - points[0].floatValue,
@@ -308,7 +313,22 @@ struct PlanarFrame: Equatable {
         }
         // The host enlarges a scalar image's samples or bytes, and a colour
         // image's bytes; never with nearest sampling, which turns it off.
-        guard softwareScale == 1 || (window.w == 0 && (window.z == 0 || hostBytes != nil)) else { throw fail() }
+        let sampling = window
+        guard hostScale == 1 || (sampling.w == 0 && (sampling.z == 0 || hostBytes != nil)) else { throw fail() }
+        // The enlargement of a scalar image's float samples, Lanczos in HU
+        // before the window, rang across an edge of thousands of HU: the
+        // padding a CT writes outside its field of view (-8192 HU on one
+        // scanner) turned the edge of the field into a dotted ring, and the
+        // body it cuts into white streaks. The fragment interpolates those
+        // samples itself, with a Catmull-Rom over the samples held within the
+        // window and kept within the four texels a linear sample reads: no edge
+        // overshoots, whatever the window, an edge against a value outside the
+        // window is smoothed as the host's windowed bytes are, and the window is
+        // still a uniform. Bytes keep the host's enlargement: windowed already,
+        // they cannot leave the window.
+        let boundedCubic = hostScale > 1 && hostBytes == nil && transfer == nil && sampling.z == 0
+        softwareScale = boundedCubic ? 1 : hostScale
+        if boundedCubic { window.w = 2 }
         guard [mapping.x,mapping.y,mapping.z,mapping.w,geometry.x,geometry.y,geometry.z,geometry.w,
                window.x-window.y*0.5].allSatisfy({ $0.isFinite }) else { throw fail() }
         if window.z != 0 {
@@ -350,28 +370,6 @@ struct PlanarFrame: Equatable {
             && convolution == other.convolution && transfer == other.transfer
     }
 
-    /// Match the host's optional vImage scalar enlargement, retaining float
-    /// intensities through both resampling stages. CLUT and windowing follow
-    /// the final GPU sample; the source used by ROI measurements stays intact.
-    /// `samples` is what the host enlarges: the image, or its thick slab.
-    func texturePixels(_ samples: Data? = nil) throws -> Data {
-        let samples = samples ?? pixels
-        if softwareScale == 1 { return samples }
-        let w = width * softwareScale, h = height * softwareScale
-        var result = Data(count: w * h * 4)
-        let status = result.withUnsafeMutableBytes { destination in
-            samples.withUnsafeBytes { source in
-                var input = vImage_Buffer(data: UnsafeMutableRawPointer(mutating: source.baseAddress!),
-                    height: vImagePixelCount(height), width: vImagePixelCount(width), rowBytes: width * 4)
-                var output = vImage_Buffer(data: destination.baseAddress!,
-                    height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
-                return vImageScale_PlanarF(&input, &output, nil, vImage_Flags(kvImageNoFlags))
-            }
-        }
-        guard status == kvImageNoError else { throw PlanarMetalRenderer.failure() }
-        return result
-    }
-
     /// The pixels both backends upload, and their format: the host's float
     /// samples, its ARGB bytes, or, with an opacity table, the display bytes
     /// `PlanarTransferPass` made from the float samples. An enlarged table image
@@ -402,7 +400,8 @@ struct PlanarFrame: Equatable {
         if let convolution {
             samples = try PlanarConvolutionPass.shared(for: device).apply(convolution, to: samples, width: width, height: height)
         }
-        guard let transfer else { return (try texturePixels(samples), window.z == 0 ? .r32Float : .rgba8Unorm, 4) }
+        // Float samples go up as they are: the fragment interpolates them.
+        guard let transfer else { return (samples, window.z == 0 ? .r32Float : .rgba8Unorm, 4) }
         let bytes = try PlanarTransferPass.shared(for: device).apply(transfer, to: samples, count: width * height)
         return (try PlanarFrame.enlarge(bytes: bytes, width: width, height: height, scale: softwareScale), .r8Unorm, 1)
     }
@@ -1065,6 +1064,39 @@ final class PlanarMetalRenderer {
         float normalized=clamp((sampled.r-minimum)/p.window.y,0.0,1.0);
         return clut.read(uint2(uint(normalized*255.0+0.5),0));
     }
+    // Catmull-Rom weights of the four texels at offsets -1, 0, 1, 2 for a
+    // fraction t: (0, 1, 0, 0) at t = 0, so texel centres come back exactly.
+    static float4 planarCatmullRom(float t) {
+        float t2=t*t, t3=t2*t;
+        return float4(-0.5f*t3+t2-0.5f*t, 1.5f*t3-2.5f*t2+1.0f, -1.5f*t3+2.0f*t2+0.5f*t, 0.5f*t3-0.5f*t2);
+    }
+    // A scalar sample at texel coordinates `xy` (texel centres at integers):
+    // Catmull-Rom over the 4 x 4 texels around it, kept within the four a
+    // linear sample reads, so an edge gains no ring or halo. Each texel is
+    // first held within the window [`low`, `high`]: the interpolation runs on
+    // what the window shows, as the host's 8-bit path interpolates windowed
+    // bytes, so an edge between a value far outside the window and one inside
+    // it - a CT's padding outside its field of view against tissue - ramps
+    // across the texel instead of snapping to the texel grid. Weights are
+    // computed in float, as the bilinear path computes its own.
+    static float planarBoundedCubic(texture2d<float> image, float2 xy, float shownLow, float shownHigh) {
+        int2 base=int2(floor(xy)), last=int2(image.get_width()-1,image.get_height()-1);
+        float2 t=xy-floor(xy);
+        float4 wx=planarCatmullRom(t.x), wy=planarCatmullRom(t.y);
+        // Seeded from the texel at the base.
+        float low=clamp(image.read(uint2(clamp(base,int2(0),last))).r,shownLow,shownHigh), high=low, sum=0.0;
+        for(int dy=0;dy<4;++dy) {
+            int y=clamp(base.y-1+dy,0,last.y);
+            float row=0.0;
+            for(int dx=0;dx<4;++dx) {
+                float c=clamp(image.read(uint2(clamp(base.x-1+dx,0,last.x),y)).r,shownLow,shownHigh);
+                row+=wx[dx]*c;
+                if((dx==1||dx==2)&&(dy==1||dy==2)) { low=min(low,c); high=max(high,c); }
+            }
+            sum+=wy[dy]*row;
+        }
+        return clamp(sum,low,high);
+    }
     // The colour an image contributes at a target position; `inside` is false
     // off the view or the image.
     static float4 planarShade(float2 position, constant Params &p, texture2d<float> image,
@@ -1081,8 +1113,13 @@ final class PlanarMetalRenderer {
         constexpr sampler linearSampler(coord::normalized,address::clamp_to_edge,filter::linear);
         constexpr sampler nearestSampler(coord::normalized,address::clamp_to_edge,filter::nearest);
         float4 sampled;
-        if(p.window.w != 0) sampled=image.sample(nearestSampler,pixel/dimensions);
+        if(p.window.w == 1.0) sampled=image.sample(nearestSampler,pixel/dimensions);
         else if(p.window.z != 0) sampled=image.sample(linearSampler,pixel/dimensions);
+        else if(p.window.w == 2.0) {
+            // An inverted window has a negative width: its bounds swap.
+            float a=p.window.x-p.window.y*0.5, b=p.window.x+p.window.y*0.5;
+            sampled=float4(planarBoundedCubic(image,pixel*p.output.w-0.5,min(a,b),max(a,b)),0,0,1);
+        }
         else {
             // Hardware sampler weights can be quantized. Compute scalar
             // weights in float so an oblique sample does not jump across a
@@ -1124,7 +1161,7 @@ final class PlanarMetalRenderer {
         if(any(pixel<0.0)||any(pixel>=dimensions))return float4(0);
         inside=true;
         float4 sampled;
-        if(p.window.w != 0) sampled=planarTexel(pixels,s,int2(floor(pixel/dimensions*float2(s.width,s.height))));
+        if(p.window.w == 1.0) sampled=planarTexel(pixels,s,int2(floor(pixel/dimensions*float2(s.width,s.height))));
         else {
             float2 xy=pixel*p.output.w-0.5;
             int2 base=int2(floor(xy));

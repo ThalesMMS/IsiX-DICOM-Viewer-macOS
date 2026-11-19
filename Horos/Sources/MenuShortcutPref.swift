@@ -186,9 +186,12 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
         captureTable.usesAlternatingRowBackgroundColors = true
         captureTable.dataSource = self
         captureTable.delegate = self
-        addColumn(id: "group", heading: NSLocalizedString("Group", comment: "Shortcut table column"), width: 120)
-        addColumn(id: "command", heading: NSLocalizedString("Command", comment: "Shortcut table column"), width: 260)
-        addColumn(id: "shortcut", heading: NSLocalizedString("Shortcut", comment: "Shortcut table column"), width: 120)
+        // The table is made before it has a width, and spread what it then got over its columns alike: the names
+        // of the commands, the longest texts ("3D-Oberflächendarstellung"), were cut in a third of the table. The
+        // two other columns keep their widths, and the commands take the rest.
+        addColumn(id: "group", heading: NSLocalizedString("Group", comment: "Shortcut table column"), width: 120, takesTheRest: false)
+        addColumn(id: "command", heading: NSLocalizedString("Command", comment: "Shortcut table column"), width: 260, takesTheRest: true)
+        addColumn(id: "shortcut", heading: NSLocalizedString("Shortcut", comment: "Shortcut table column"), width: 120, takesTheRest: false)
 
         let scroll = NSScrollView(frame: .zero)
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -228,10 +231,13 @@ public final class MenuShortcutPref: NSPreferencePane, NSTableViewDataSource, NS
         return view
     }
 
-    private func addColumn(id: String, heading: String, width: CGFloat) {
+    private func addColumn(id: String, heading: String, width: CGFloat, takesTheRest: Bool) {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
         column.title = heading
         column.width = width
+        column.minWidth = width
+        if !takesTheRest { column.maxWidth = width }
+        column.resizingMask = takesTheRest ? .autoresizingMask : []
         captureTable.addTableColumn(column)
     }
 }

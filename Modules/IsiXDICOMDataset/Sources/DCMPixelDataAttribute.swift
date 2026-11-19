@@ -61,14 +61,33 @@ public final class DCMPixelDataAttribute: DCMAttribute {
     @objc public var isShort = false
     @objc public var compression: Float = 0
     @objc public var isDecoded = false
-    @objc public private(set) var bitsAllocated: Int32 = 0
+    @objc public internal(set) var bitsAllocated: Int32 = 0
     @objc public private(set) var frameSource: DCMPixelFrameSource?
 
-    private var isSigned = false
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each:
+    // stored fields with the type the C declaration has in memory, public so
+    // that the application's link reaches them, never private, constant, lazy,
+    // weak or observed. The geometry, the transfer syntax and the
+    // flags above are among them. The owning object is a weak reference here,
+    // nil once the object is gone, and the SDK's variable is its copy without
+    // a retain, written with it and never read; the smallest and largest
+    // values and the list of decoded frames have no state and stay 0 and nil.
+    // Without its lock, set to nil by a plugin, the frames are made unguarded.
+    public var isSigned = false
     /// The object that owns this attribute; not retained.
-    weak var dcmObject: DCMObject?
-    private var framesCreated = false
-    private let singleThread = NSRecursiveLock()
+    weak var dcmObject: DCMObject? {
+        didSet { dcmObjectOfSDK = dcmObject }
+    }
+    public unowned(unsafe) var dcmObjectOfSDK: DCMObject?
+    public var framesCreated = false
+    public var singleThread: NSRecursiveLock? = NSRecursiveLock()
+    public var _min: Int32 = 0, _max: Int32 = 0
+    /// The bits stored under the name an older copy of the SDK's header gave
+    /// them, _bitsStored: a copy written with pixelDepth, which the attribute
+    /// reads, where it takes them from its object.
+    public var _bitsStored: Int32 = 0
+    public var _framesDecoded: NSMutableArray?
     /// Converted since it was read: the values, not the source, hold the pixels.
     private var detachedFromSource = false
 
@@ -86,9 +105,11 @@ public final class DCMPixelDataAttribute: DCMAttribute {
         super.init(attributeTag: tag, vr: vr, values: values)
         self.vr = vr
         dcmObject = object
+        dcmObjectOfSDK = object
         transferSyntax = syntax
         frameSource = source
         pixelDepth = Self.int(object.attributeValue(withName: "BitsStored"))
+        _bitsStored = pixelDepth
         bitsAllocated = Self.int(object.attributeValue(withName: "BitsAllocated"))
         rows = Self.int(object.attributeValue(withName: "Rows"))
         columns = Self.int(object.attributeValue(withName: "Columns"))
@@ -137,8 +158,9 @@ public final class DCMPixelDataAttribute: DCMAttribute {
         }
         guard let object = dcmObject else { return false }
 
-        singleThread.lock()
-        defer { singleThread.unlock() }
+        let singleThread = singleThread
+        singleThread?.lock()
+        defer { singleThread?.unlock() }
         var status = false
         let exception = DCMHost.catchingObjCException {
             let writer = DCMHost.codec
@@ -169,6 +191,7 @@ public final class DCMPixelDataAttribute: DCMAttribute {
             columns = Self.int(object.attributeValue(withName: "Columns"))
             samplesPerPixel = Self.int(object.attributeValue(withName: "SamplesperPixel"))
             pixelDepth = Self.int(object.attributeValue(withName: "BitsStored"))
+            _bitsStored = pixelDepth
             bitsAllocated = Self.int(object.attributeValue(withName: "BitsAllocated"))
             status = true
         }
@@ -288,7 +311,8 @@ public final class DCMPixelDataAttribute: DCMAttribute {
         }
 
         var data: NSData?
-        singleThread.lock()
+        let frameLock = singleThread
+        frameLock?.lock()
         let exception = DCMHost.catchingObjCException {
             guard let values, values.count > 0 else { return }
             if !framesCreated {
@@ -303,7 +327,7 @@ public final class DCMPixelDataAttribute: DCMAttribute {
             NSLog("exception decodeFrameAtIndex: %@", exception)
             data = nil
         }
-        singleThread.unlock()
+        frameLock?.unlock()
         guard var frame = data else { return nil }
 
         if bitsAllocated > 8

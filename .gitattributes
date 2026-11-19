@@ -1,3 +1,28 @@
-# These trees are checked in as source, not as submodules. Keep them out of
-# GitHub language statistics so the bar reflects the application.
-tests/** linguist-vendored
+# Exclude paths with filenames and extensions specific to the Linguist Python group.
+*.eb -linguist-detectable
+*.gyp -linguist-detectable
+*.gypi -linguist-detectable
+*.lmi -linguist-detectable
+*.numsc -linguist-detectable
+*.numpy -linguist-detectable
+*.numpyw -linguist-detectable
+*.py -linguist-detectable
+*.py3 -linguist-detectable
+*.pyde -linguist-detectable
+*.pyi -linguist-detectable
+*.pyp -linguist-detectable
+*.pyt -linguist-detectable
+*.pytb -linguist-detectable
+*.pyw -linguist-detectable
+*.smk -linguist-detectable
+*.snakefile -linguist-detectable
+*.tac -linguist-detectable
+*.vpy -linguist-detectable
+*.wsgi -linguist-detectable
+*.xpy -linguist-detectable
+.gclient -linguist-detectable
+DEPS -linguist-detectable
+SConscript -linguist-detectable
+SConstruct -linguist-detectable
+Snakefile -linguist-detectable
+wscript -linguist-detectable

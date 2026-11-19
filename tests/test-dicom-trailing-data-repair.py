@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A DICOM file with unparseable bytes after its Pixel Data is imported without them.
 
-The fixtures reproduce two files an OsiriX server held and could not send: an
+The fixtures reproduce two files a PACS held and could not send: an
 Explicit VR CT with an icon whose Pixel Data is followed by zeros and a stray
 element, and an Implicit VR MR followed by zeros and part of another file. Only
 the bytes after a complete Pixel Data are left out; a truncated image, open

@@ -41,14 +41,16 @@ import Foundation
 
 // NSString (NSString_SBJSON) is implemented in Swift; the selectors
 // and <Horos/NSString+SBJSON.h> are those of the category the vendored SBJson
-// framework added. Foundation's JSONSerialization parses now, in place of
-// SBJsonParser.
+// framework added. Foundation's JSONSerialization parses, through
+// SBJsonCompatibleParser (SBJsonParser.swift), which the SBJsonParser class
+// reads with too.
 //
 // What JSONSerialization returns is what SBJsonParser returned, mutable
-// containers and strings included, except numbers: SBJsonParser made every
-// number an NSDecimalNumber; JSONSerialization gives an NSNumber (an integer,
-// or a double for a fraction or an exponent). Booleans are the NSNumber
-// booleans in both. Nothing in the application parses JSON with these methods.
+// containers included, except numbers: SBJsonParser made every number an
+// NSDecimalNumber; these two methods give the NSNumber of JSONSerialization
+// (an integer, or a double for a fraction or an exponent). Booleans are the
+// NSNumber booleans in both. Nothing in the application parses JSON with these
+// methods.
 
 public extension NSString {
 
@@ -76,40 +78,5 @@ public extension NSString {
             NSLog("-JSONValue failed. Error trace is: %@", [error] as NSArray)
             return nil
         }
-    }
-}
-
-fileprivate enum SBJsonCompatibleParser {
-
-    /// SBJSONErrorDomain and the error codes of the former SBJsonBase.h.
-    private static let errorDomain = "org.brautaset.JSON.ErrorDomain"
-    private static let parse = 3      // EPARSE
-    private static let fragment = 4   // EFRAGMENT
-    private static let input = 12     // EINPUT
-
-    static func object(with string: NSString, allowFragments: Bool) -> Result<Any, NSError> {
-        // SBJsonParser read -UTF8String.
-        guard let data = string.data(using: String.Encoding.utf8.rawValue) else {
-            return .failure(NSError(domain: errorDomain, code: input,
-                                    userInfo: [NSLocalizedDescriptionKey: "Input is not UTF-8"]))
-        }
-        var options: JSONSerialization.ReadingOptions = [.mutableContainers, .mutableLeaves]
-        if allowFragments {
-            options.insert(.fragmentsAllowed)
-        }
-        let object: Any
-        do {
-            object = try JSONSerialization.jsonObject(with: data, options: options)
-        } catch {
-            return .failure(NSError(domain: errorDomain, code: parse,
-                                    userInfo: [NSLocalizedDescriptionKey: "Parse error",
-                                               NSUnderlyingErrorKey: error]))
-        }
-        if !allowFragments && !(object is NSDictionary) && !(object is NSArray) {
-            // Unreachable without .fragmentsAllowed; kept from -objectWithString:.
-            return .failure(NSError(domain: errorDomain, code: fragment,
-                                    userInfo: [NSLocalizedDescriptionKey: "Valid fragment, but not JSON"]))
-        }
-        return .success(object)
     }
 }

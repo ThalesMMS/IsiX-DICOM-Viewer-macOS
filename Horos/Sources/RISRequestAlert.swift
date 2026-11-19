@@ -55,6 +55,29 @@ public final class RISRequestAlert: NSObject {
         return String(format: NSLocalizedString("No node named \"%@\" is in Locations. A RIS request designates a node by its description or, for a DICOM node, by its AE title; a DICOMweb node needs Q&R turned on.", comment: "RIS request: node not found"), name)
     }
 
+    /// A Retrieve that names no node.
+    public static func noServerName() -> String {
+        NSLocalizedString("The Retrieve request names no node: it needs a serverName, the description of a node in Locations or, for a DICOM node, its AE title.", comment: "RIS request: no node named")
+    }
+
+    /// A Retrieve that was not sent: without the filter left out, the node
+    /// would be asked for more than was meant, every study it has at worst.
+    public static func retrieveNotSent(server: String, refusal: RISRequestRules.RetrieveFilterRefusal) -> String {
+        switch refusal {
+        case .noValue:
+            return String(format: NSLocalizedString("The Retrieve request for the node \"%@\" has no filter with a value, and was not sent: the node would have been asked for every study it has.", comment: "RIS request: no filter"), server)
+        case .unknownKeys(let keys):
+            return String(format: NSLocalizedString("The Retrieve request for the node \"%@\" was not sent: %@ is no attribute a node can be asked for, and without it the node would have been asked for more than was meant.", comment: "RIS request: unknown filter key; the second %@ is the key, or the keys separated by commas"),
+                          server, keys.joined(separator: ", "))
+        }
+    }
+
+    /// A Retrieve asked to open or select the study, which did not arrive in time.
+    public static func retrievedStudyNotHere(server: String, filters: String, seconds: Int) -> String {
+        String(format: NSLocalizedString("No image of the study retrieved from the node \"%@\" (%@) arrived within %ld seconds: it was not opened.", comment: "RIS request: then=open or select, nothing arrived in time"),
+               server, filters, seconds)
+    }
+
     /// The node answered, with no study.
     @objc(nothingFoundMessageOnServer:filters:)
     public static func nothingFound(server: String, filters: String) -> String {

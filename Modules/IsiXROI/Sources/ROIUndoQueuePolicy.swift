@@ -56,4 +56,12 @@ public struct ROIUndoQueuePolicy: Equatable, Sendable {
 
     /// Whether a queue of `count` states, after a new one, drops its oldest.
     public func dropsOldest(count: Int) -> Bool { count > size }
+
+    /// Whether what was undone can still be done again: only while the ROIs
+    /// are as the last undo or redo left them, each state told by a
+    /// signature of its ROIs. Before any step there is nothing to compare,
+    /// and nothing to redo either.
+    public static func redoStillApplies(lastStep: Int?, now: Int) -> Bool {
+        lastStep == nil || lastStep == now
+    }
 }

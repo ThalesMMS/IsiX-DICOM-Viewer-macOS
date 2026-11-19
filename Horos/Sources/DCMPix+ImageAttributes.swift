@@ -176,6 +176,8 @@ extension DCMPix {
         horos_shutterEnabled = load.shutterEnabled
         horos_shutterRect = load.shutterRect
         horos_shutterCircular = load.shutterCircularCenter
+        horos_olderShutterFieldsFollow()
+        horos_olderImageFieldsFollow()
         horos_shutterCircular_radius = load.shutterCircularRadius
         if let polygon = load.shutterPolygon {
             if let old = horos_shutterPolygonal { free(old) }

@@ -87,8 +87,7 @@ public final class AYDicomPrintPref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "AYDicomPrintPref", bundle: nil)
-        nib?.instantiate(withOwner: self, topLevelObjects: &_tlos)
+        instantiatePaneNib(named: "AYDicomPrintPref", topLevelObjects: &_tlos)
 
         if let contentView = mainWindow?.contentView {
             self.mainView = contentView

@@ -69,6 +69,23 @@ static NSData *IsiXDCMTKBytes(const OFString &value)
     return nil;
 }
 
++ (instancetype)datasetCopyingDCMTKDatasetAtAddress:(const void *)address
+{
+    if (!address) return nil;
+    try { return [[IsiXDCMTKDataset alloc] initTakingOwnership:new DcmDataset(*static_cast<const DcmDataset *>(address))]; }
+    catch (const std::exception &exception) { IsiXDCMTKErrorFromException(exception.what(), "DcmDataset copy"); }
+    catch (...) { IsiXDCMTKErrorFromException("unknown exception", "DcmDataset copy"); }
+    return nil;
+}
+
+- (void *)newDCMTKDatasetCopy
+{
+    try { return new DcmDataset(*_dataset); }
+    catch (const std::exception &exception) { IsiXDCMTKErrorFromException(exception.what(), "DcmDataset copy"); }
+    catch (...) { IsiXDCMTKErrorFromException("unknown exception", "DcmDataset copy"); }
+    return NULL;
+}
+
 + (instancetype)datasetOfFileAtPath:(NSString *)path transferSyntax:(NSString **)transferSyntax error:(NSError **)error
 {
     IsiXDCMTKDataset *result = nil;

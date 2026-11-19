@@ -70,12 +70,18 @@ public struct PluginBundleVersion: Equatable, Sendable {
 /// exactly that behind: a newer version under the other extension, beside the
 /// old one or in another folder.
 ///
-/// The higher declared version stands for the plugin. Between versions that
-/// are equal, or that cannot be compared, the choice is a stated one, never the
-/// order a folder happens to list its entries in nor the alphabet of the
-/// extensions: first the folder with the lower rank, which the caller gives
-/// (the user's before the computer's, for one), then the format, a plugin of
-/// the current API before one made for Horos and that before one for OsiriX.
+/// A bundle this Mac can load comes first: one the loader refuses before
+/// opening it (no code for this process's architecture, as the Intel-only
+/// build of a plugin left beside its universal successor, a newer system, a
+/// missing executable, a signature that no longer validates) would be refused
+/// after the one that loads had been set aside, and the plugin would load from
+/// neither. Then the higher declared version stands for the plugin.
+/// Between versions that are equal, or that cannot be compared, the choice is a
+/// stated one, never the order a folder happens to list its entries in nor the
+/// alphabet of the extensions: first the folder with the lower rank, which the
+/// caller gives (the user's before the computer's, for one), then the format, a
+/// plugin of the current API before one made for Horos and that before one for
+/// OsiriX.
 public enum SameNamePlugins {
     /// A bundle with the name of others.
     public struct Candidate: Equatable, Sendable {
@@ -110,8 +116,22 @@ public enum SameNamePlugins {
         }
     }
 
-    /// Whether `first` stands for the plugin rather than `second`.
-    public static func isPreferred(_ first: Candidate, to second: Candidate) -> Bool {
+    /// Whether this Mac can load the bundle at `path` by what its files say
+    /// (PluginInspector), one of the checks the loader makes before opening a
+    /// bundle: the bundle is not opened. The loader first refuses a bundle
+    /// whose signature does not validate, which this does not check: the
+    /// plugin manager passes the functions below a `canLoad` of its own that
+    /// checks the signature too.
+    public static func canLoad(bundleAt path: String) -> Bool {
+        PluginInspector().inspect(bundleAt: URL(fileURLWithPath: path)).isLoadable
+    }
+
+    /// Whether `first` stands for the plugin rather than `second`. `canLoad`
+    /// answers whether this Mac can load the bundle at a path.
+    public static func isPreferred(_ first: Candidate, to second: Candidate,
+                                   canLoad: (String) -> Bool = SameNamePlugins.canLoad(bundleAt:)) -> Bool {
+        let firstLoads = canLoad(first.path), secondLoads = canLoad(second.path)
+        if firstLoads != secondLoads { return firstLoads }
         if let order = PluginBundleVersion.compare(first.version, second.version), order != .orderedSame {
             return order == .orderedDescending
         }
@@ -124,11 +144,18 @@ public enum SameNamePlugins {
         return first.path < second.path
     }
 
-    /// The candidate that stands for the plugin, whatever the order they are given in.
-    public static func preferred(among candidates: [Candidate]) -> Candidate? {
-        candidates.reduce(nil) { best, next in
+    /// The candidate that stands for the plugin, whatever the order they are
+    /// given in. Each bundle is inspected once.
+    public static func preferred(among candidates: [Candidate],
+                                 canLoad: (String) -> Bool = SameNamePlugins.canLoad(bundleAt:)) -> Candidate? {
+        guard candidates.count > 1 else { return candidates.first }
+        var loads: [String: Bool] = [:]
+        for candidate in candidates where loads[candidate.path] == nil {
+            loads[candidate.path] = canLoad(candidate.path)
+        }
+        return candidates.reduce(nil) { best, next in
             guard let best else { return next }
-            return isPreferred(next, to: best) ? next : best
+            return isPreferred(next, to: best, canLoad: { loads[$0] ?? false }) ? next : best
         }
     }
 
@@ -139,15 +166,15 @@ public enum SameNamePlugins {
     }
 
     /// Among bundles of any names, those set aside because another of their
-    /// name stands for the plugin. The rest are the ones to load or copy.
-    public static func setAside(among candidates: [Candidate]) -> [SetAside] {
-        let groups = Dictionary(grouping: candidates) { nameKey($0.path) }
-        var result: [SetAside] = []
-        for candidate in candidates {
-            guard let group = groups[nameKey(candidate.path)], group.count > 1,
-                  let best = preferred(among: group), best != candidate else { continue }
-            result.append(SetAside(bundle: candidate, preferred: best))
+    /// name stands for the plugin. The rest are the ones to load or copy. Only
+    /// bundles that share a name are inspected.
+    public static func setAside(among candidates: [Candidate],
+                                canLoad: (String) -> Bool = SameNamePlugins.canLoad(bundleAt:)) -> [SetAside] {
+        let groups = Dictionary(grouping: candidates) { nameKey($0.path) }.filter { $0.value.count > 1 }
+        let best = groups.compactMapValues { preferred(among: $0, canLoad: canLoad) }
+        return candidates.compactMap { candidate in
+            guard let chosen = best[nameKey(candidate.path)], chosen != candidate else { return nil }
+            return SetAside(bundle: candidate, preferred: chosen)
         }
-        return result
     }
 }

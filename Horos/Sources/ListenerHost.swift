@@ -54,13 +54,23 @@ final class ListenerHost: NSObject, IsiXDCMTKListenerHost, @unchecked Sendable {
     }
 
     func associationEndedWithError(_ error: any Error, message: String) {
-        // A remote abort ends only this association: its diagnostic stays in
-        // the log, without a notice on the receiving Mac.
-        if IsiXDCMTKError.kind(ofError: error) == .peerAbortedAssociation {
+        // A remote abort, or a peer that stopped sending in the middle of a
+        // message, ends only this association: its diagnostic stays in the
+        // log, without a notice on the receiving Mac. The command of the cut
+        // message is not handed to the host, and the rule does not ask for it.
+        guard ListenerAssociationEndRules.showsNotice(Self.endCondition(of: error), command: nil) else {
             NSLog("%@", message)
             return
         }
         DCMTKQueryRetrieveSCP.displayListenerError(message)
+    }
+
+    private static func endCondition(of error: any Error) -> ListenerEndCondition {
+        switch IsiXDCMTKError.kind(ofError: error) {
+        case .peerAbortedAssociation: return .peerAbort
+        case .noDataAvailable: return .noDataAvailable
+        default: return .other
+        }
     }
 
     func startAssociationThread(_ thread: Thread, peer: String) {

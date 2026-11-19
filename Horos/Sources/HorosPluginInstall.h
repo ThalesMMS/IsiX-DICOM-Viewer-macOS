@@ -66,7 +66,12 @@ static inline BOOL HorosInstallPlugin(NSString *source, NSString *destination, N
             !HorosPluginSignatureAllowsLoading(candidatePath, error))
             return NO;
 
-        unsigned int flags = [manager fileExistsAtPath:destination] ? RENAME_SWAP : RENAME_EXCL;
+        // Whether anything is at the destination, asked without following a
+        // symbolic link there: a link whose target is gone is an entry too,
+        // which an exclusive rename would refuse, and it is swapped out as a
+        // bundle is. Not being a bundle, it is not kept as the previous copy
+        // and goes with the staging folder; a link to a bundle that is there is kept.
+        unsigned int flags = [manager attributesOfItemAtPath:destination error:NULL] != nil ? RENAME_SWAP : RENAME_EXCL;
         if (renamex_np(candidatePath.fileSystemRepresentation, destination.fileSystemRepresentation, flags) != 0) {
             if (error) *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
             return NO;

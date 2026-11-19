@@ -56,9 +56,17 @@ import AppKit
 // is installed on main (even when first requested by a worker).
 @objc(ThreadsManager)
 public final class ThreadsManager: NSObject, @unchecked Sendable {
-    private let _threadsController: NSArrayController
-    /// Installed on main; the timer callback holds the manager weakly.
-    private var _timer: Timer?
+    // Instance variables of the headers of the former Horos and OsiriX plugin
+    // SDK, each exported at its field's offset for the plugins built with
+    // them: stored fields of this class with the C declaration's type, never
+    // private, lazy, weak or observed. The controller is set once, by -init.
+    // The timer is installed on main; its callback holds the manager weakly.
+    // _threads, which only an older header declared, was the array of the
+    // threads before the controller kept them: it is the controller's own
+    // content array, taken once, and nothing here reads it.
+    final var _threadsController: NSArrayController!
+    final var _timer: Timer?
+    final var _threads: NSMutableArray?
 
     /// Read-only in the former header. Set once, by -init.
     @objc public var threadsController: NSArrayController! {
@@ -81,6 +89,7 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
         _threadsController.selectsInsertedObjects = false
         _threadsController.avoidsEmptySelection = false
         _threadsController.objectClass = Thread.self
+        _threads = _threadsController.content as? NSMutableArray
 
         // Legacy/SDK threads supplied by callers cannot be wrapped without changing
         // Thread.current identity. Retain the existing isFinished fallback for
@@ -123,15 +132,15 @@ public final class ThreadsManager: NSObject, @unchecked Sendable {
     /// live array, not a copy.
     @objc(threads)
     public func threads() -> NSArray! {
-        objc_sync_enter(_threadsController)
-        defer { objc_sync_exit(_threadsController) }
+        objc_sync_enter(_threadsController!)
+        defer { objc_sync_exit(_threadsController!) }
         return _threadsController.arrangedObjects as? NSArray
     }
 
     @objc(threadsCount)
     public func threadsCount() -> UInt {
-        objc_sync_enter(_threadsController)
-        defer { objc_sync_exit(_threadsController) }
+        objc_sync_enter(_threadsController!)
+        defer { objc_sync_exit(_threadsController!) }
         return UInt((_threadsController.arrangedObjects as! NSArray).count)
     }
 

@@ -73,12 +73,12 @@ public extension BrowserController {
     /// observer nor ends the deallocation, which the deinit does.
     @objc(deallocActivity)
     func deallocActivity() {
-        let table = windowOutlets.activityTableView
-        if let helper = windowState.activityHelper as AnyObject? {
+        let table = activityTableViewOutlet
+        if let helper = _activityHelper {
             if (table?.delegate as AnyObject?) === helper { table?.delegate = nil }
             if (table?.dataSource as AnyObject?) === helper { table?.dataSource = nil }
         }
-        windowState.activityHelper = nil
+        _activityHelper = nil
     }
 
     @objc(_activityTableView)
@@ -146,6 +146,10 @@ public final class BrowserActivityHelper: NSObject, NSTableViewDataSource, NSTab
         _browser = browser // no retaining here
         _cells = NSMutableArray()
         super.init()
+        // The cells and the observer of the threads, for a plugin built with
+        // an older header of the former SDK, which read them off the browser.
+        browser?._activityCells = _cells
+        browser?._activityObserver = self
         browser?._activityTableView()?.registerForDraggedTypes([Self.queuedRowType])
         browser?._activityTableView()?.setDraggingSourceOperationMask(.move, forLocal: true)
 

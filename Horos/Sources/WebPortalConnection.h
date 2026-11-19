@@ -39,9 +39,11 @@
 // WebPortalConnection is implemented in Swift
 // (Horos/Sources/WebPortalConnection.swift). This header keeps
 // <Horos/WebPortalConnection.h>: it brings in the generated interface, which
-// declares the same class name and selectors.
+// declares the same class name and selectors. WebPortalConnection is a
+// subclass of HTTPConnection, whose interface comes first.
 
 #import <Cocoa/Cocoa.h>
+#import "HTTPConnection.h"
 #import "WebPortalUser.h"
 
 #ifdef HOROS_BRIDGING_HEADER

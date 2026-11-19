@@ -282,7 +282,18 @@ public final class O2DicomPredicateEditorView: NSView, NSMenuDelegate, NSTextFie
 
     /// Retained and atomic in the former header. The key the view observes
     /// ("tag") and the tags pop-up's "selectedTag" depend on it.
-    @objc public dynamic var attributeTag: DICOMAttributeTag!
+    @objc public dynamic var attributeTag: DICOMAttributeTag! {
+        get { _DCMAttributeTag }
+        set {
+            _DCMAttributeTag = newValue
+            _tag = newValue
+        }
+    }
+    /// The tag of the row, under the name the header of the former Horos and
+    /// OsiriX plugin SDK gave the variable, and _tag, the name an older header
+    /// gave it, exported at this field's offset for the plugins built with
+    /// it: written with the tag by its setter, never read.
+    final var _DCMAttributeTag: DICOMAttributeTag?, _tag: DICOMAttributeTag?
 
     /// NSPredicateOperatorType, or one of the O2TimeTag values.
     @objc(operator) public dynamic var operatorTag: Int = 0

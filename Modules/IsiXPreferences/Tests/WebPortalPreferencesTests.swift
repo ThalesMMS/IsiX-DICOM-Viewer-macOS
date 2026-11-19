@@ -24,8 +24,11 @@ import Testing
             "ActivatePACSOnDemandForWebPortalSearch", "WebPortalTitle", "customWebPages", "encryptedWebServer",
             "lastNotificationsDate", "logWebServer", "notificationsEmailsSender", "passwordWebServer",
             "preferStudyWithMoreImages", "smartAlbumStudiesDICOMNodes", "wadoOnlyServer", "wadoOnlyServerPort",
-            "wadoOnlyServerURL", "webPortalAdminCanDeleteStudies", "webServerAddress",
+            "wadoOnlyServerURL", "webPortalAdminCanDeleteStudies", "webPortalMailServerHost", "webPortalMailServerPort",
+            "webPortalMailServerTLSMode", "webPortalMailServerUsername", "webServerAddress",
         ])
+        // The password of the mail server is an item of the Keychain: no key holds it.
+        #expect(!names.contains { $0.lowercased().contains("password") && $0.lowercased().contains("mail") })
         let catalog = DefaultPreferences.catalog.map(\.name)
         for name in names {
             #expect(catalog.filter { $0 == name }.count == 1, "\(name)")
@@ -46,6 +49,25 @@ import Testing
         #expect(store[WebPortalPreferences.notificationsEmailsSender] == nil)
         #expect(store[WebPortalPreferences.lastNotificationsDate] == 0)
         #expect(store[WebPortalPreferences.smartAlbumStudiesDICOMNodes] == nil)
+    }
+
+    @Test func theMailServerReadsAsTheSheetStoresIt() {
+        let none = MemoryPreferences()
+        #expect(none[WebPortalPreferences.mailServerHost] == nil)
+        #expect(none[WebPortalPreferences.mailServerPort] == 0)
+        #expect(none[WebPortalPreferences.mailServerTLSMode] == 0)
+        #expect(none[WebPortalPreferences.mailServerUsername] == nil)
+        let stored = MemoryPreferences()
+        stored.set("smtp.example.test", for: WebPortalPreferences.mailServerHost)
+        stored.set(587, for: WebPortalPreferences.mailServerPort)
+        stored.set(2, for: WebPortalPreferences.mailServerTLSMode)
+        stored.set("tim", for: WebPortalPreferences.mailServerUsername)
+        #expect(stored[WebPortalPreferences.mailServerHost] == "smtp.example.test")
+        #expect(stored[WebPortalPreferences.mailServerPort] == 587)
+        #expect(stored[WebPortalPreferences.mailServerTLSMode] == 2)
+        #expect(stored[WebPortalPreferences.mailServerUsername] == "tim")
+        // A port typed by hand as text still reads.
+        #expect(MemoryPreferences(["webPortalMailServerPort": "465"])[WebPortalPreferences.mailServerPort] == 465)
     }
 
     @Test func theLastCheckIsTextReadAsANumber() throws {

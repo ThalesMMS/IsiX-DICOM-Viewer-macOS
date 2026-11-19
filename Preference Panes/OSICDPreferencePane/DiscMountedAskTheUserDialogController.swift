@@ -45,14 +45,25 @@ import AppKit
 /// DiscMountedAskTheUserDialogController.h are those of the former class.
 @objc(DiscMountedAskTheUserDialogController)
 public final class DiscMountedAskTheUserDialogController: NSWindowController {
-    private var mountedPath: String?
-    private var filesCount = 0
+    // MARK: - Instance variables of the former plugin SDK
 
-    /// Assign in the former header: the label belongs to the window, which
-    /// this controller owns, so the reference is weak.
-    @IBOutlet @objc public weak var label: NSTextField?
+    // A plugin built with an older header of the former Horos and OsiriX
+    // plugin SDK reads and writes these at the offset the application exports
+    // for each, so each is a stored field of this class with the C
+    // declaration's type, never private, lazy, weak or observed; a plugin's
+    // write calls no setter. _choice: the tag of the button that closed the
+    // dialog.
+    final var _mountedPath: NSString?
+    final var _filesCount = 0, _choice = 0
+    // The label was assigned, not retained: it belongs to the window, which
+    // this controller owns. The outlet stays weak, which no offset can
+    // export, and writes beside it the unretained copy the SDK's variable
+    // was; nothing here reads the copy.
+    final unowned(unsafe) var _label: NSTextField?
+
+    @IBOutlet @objc public weak var label: NSTextField? { didSet { _label = label } }
     /// The tag of the button that closed the dialog.
-    @objc public private(set) var choice = 0
+    @objc public var choice: Int { _choice }
 
     public override var windowNibName: NSNib.Name? {
         return "DiscMountedAskTheUserDialog"
@@ -61,8 +72,8 @@ public final class DiscMountedAskTheUserDialogController: NSWindowController {
     /// -initWithWindowNibName:@"DiscMountedAskTheUserDialog".
     @objc(initWithMountedPath:dicomFilesCount:)
     public init(mountedPath path: String?, dicomFilesCount count: Int) {
-        mountedPath = path
-        filesCount = count
+        _mountedPath = path as NSString?
+        _filesCount = count
         super.init(window: nil)
     }
 
@@ -74,12 +85,12 @@ public final class DiscMountedAskTheUserDialogController: NSWindowController {
         super.windowDidLoad()
 
         label?.stringValue = String(format: NSLocalizedString("A disc named %@, containing %d DICOM files, was mounted. What do you want to do with these files?", comment: ""),
-                                    (mountedPath as NSString?)?.lastPathComponent ?? "(null)", Int32(truncatingIfNeeded: filesCount))
+                                    _mountedPath?.lastPathComponent ?? "(null)", Int32(truncatingIfNeeded: _filesCount))
     }
 
     @IBAction @objc(buttonAction:)
     public func buttonAction(_ sender: NSButton) {
-        choice = sender.tag
+        _choice = sender.tag
         NSApp.stopModal()
         window?.orderOut(self)
     }

@@ -38,7 +38,7 @@ public enum PluginContract {
     /// one needs a newer host and is not loaded.
     public static let knownCapabilities: Set<String> = [
         "viewer.read", "viewer.write", "roi", "database.read", "database.import", "database.write",
-        "network.send", "network.query", "xmlrpc",
+        "network.send", "network.query", "xmlrpc", "report",
     ]
 
     /// The SDK framework a plugin links against, and that the host provides.

@@ -28,7 +28,7 @@ def variants(xib_name):
 
 
 PANES = variants('OSIListenerPreferencePanePref.xib')
-TAGGED = re.compile(r'<(button|textField|popUpButton|matrix|box) ([^>]*?)id="([^"]+)"')
+TAGGED = re.compile(r'<(button|textField|popUpButton|matrix|box) ([^>]*?)id="([^"]+)"(?![^>]* identifier=)')
 # Bindings set values and states, not frames; some name value transformers that only the app
 # registers, and a nib whose transformer is missing does not load.
 BINDING = re.compile(r'<binding [^>]*/>|<binding [^>]*[^/]>.*?</binding>', re.S)
@@ -46,14 +46,20 @@ func controls(in view: NSView) -> [NSControl] {
     view.subviews.compactMap { $0 as? NSControl } + view.subviews.flatMap { controls(in: $0) }
 }
 var results: [[String: Any]] = []
-for path in CommandLine.arguments.dropFirst() {
+let everyWindow = CommandLine.arguments.contains("--every-window")
+for path in CommandLine.arguments.dropFirst() where path != "--every-window" {
     let language = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
     let owner = Owner()
     var objects: NSArray?
     let nib = NSNib(nibData: try! Data(contentsOf: URL(fileURLWithPath: path)), bundle: nil)
-    guard nib.instantiate(withOwner: owner, topLevelObjects: &objects), let content = owner.mainWindow?.contentView else {
+    guard nib.instantiate(withOwner: owner, topLevelObjects: &objects), everyWindow || owner.mainWindow?.contentView != nil else {
         results.append(["language": language, "error": "the pane did not load"]); continue
     }
+    // The pane's own window, then the sheets and panels its nib holds, in the order of their titles. A nib that
+    // is no pane's (the main menu's) has no window of its owner's: all of its windows are measured.
+    let others = (objects as? [Any] ?? []).compactMap { $0 as? NSWindow }.filter { $0 !== owner.mainWindow }
+        .sorted { $0.title < $1.title }.compactMap(\.contentView)
+    for content in [owner.mainWindow?.contentView].compactMap({ $0 }) + (everyWindow ? others : []) {
     // A pane laid out by constraints has its frames only after a layout pass.
     content.layoutSubtreeIfNeeded()
     func record(_ id: String, _ title: String, _ cell: NSCell, _ frame: NSRect, oneLine: Bool = false) {
@@ -120,6 +126,7 @@ for path in CommandLine.arguments.dropFirst() {
         if title.isEmpty { continue }
         record(id, title, cell, control.frame)
     }
+    }
 }
 print(String(data: try! JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
 '''
@@ -152,9 +159,14 @@ def hidden_by_binding(xib):
     return hidden
 
 
-def measure(panes=PANES):
+def measure(panes=PANES, separate_nibs=False, every_window=False):
     """[{language, id, title, width, height, needed, wraps, wrappedWidth, wrappedHeight}] for every titled control
-    and every titled cell of a matrix (id "matrix/row.column")."""
+    and every titled cell of a matrix (id "matrix/row.column").
+
+    The variants are copies of one nib, whose ids name the same controls, unless separate_nibs: then each variant
+    is a nib of its own, and only its own bindings say which of its titles are data (an id names another control,
+    bound or not, in another nib). With every_window, the sheets and panels of the nib are measured too, not
+    only the pane's own window."""
     with tempfile.TemporaryDirectory(prefix='horos-pane-titles-') as folder:
         folder = Path(folder)
         nibs = []
@@ -162,7 +174,8 @@ def measure(panes=PANES):
             tagged = folder / f'{language}.xib'
             text = xib.read_text(encoding='utf-8')
             text = BINDING.sub('', text)
-            tagged.write_text(TAGGED.sub(lambda m: f'<{m.group(1)} {m.group(2)}id="{m.group(3)}" identifier="pane-title:{m.group(3)}"', text),
+            tagged.write_text(TAGGED.sub(lambda m: m.group(0) if ' identifier=' in m.group(0) else
+                                         f'<{m.group(1)} {m.group(2)}id="{m.group(3)}" identifier="pane-title:{m.group(3)}"', text),
                               encoding='utf-8')
             nib = folder / f'{language}.nib'
             built = subprocess.run(['xcrun', 'ibtool', '--compile', str(nib), str(tagged)], capture_output=True, text=True)
@@ -172,12 +185,19 @@ def measure(panes=PANES):
         (folder / 'main.swift').write_text(MEASURE)
         subprocess.run(['xcrun', 'swiftc', '-module-cache-path', str(folder / 'modules'), str(folder / 'main.swift'),
                         '-o', str(folder / 'measure')], check=True, capture_output=True)
-        ran = subprocess.run([str(folder / 'measure'), *nibs], capture_output=True, text=True, timeout=300, check=True)
-        bound = set().union(*(bound_titles(xib) for xib in panes.values()))
-        hidden = set().union(*(hidden_by_binding(xib) for xib in panes.values()))
+        ran = subprocess.run([str(folder / 'measure'), *nibs, *(['--every-window'] if every_window else [])],
+                             capture_output=True, text=True, timeout=300, check=True)
+        if separate_nibs:
+            bound = {language: bound_titles(xib) for language, xib in panes.items()}
+            hidden = {language: hidden_by_binding(xib) for language, xib in panes.items()}
+        else:
+            every_bound = set().union(*(bound_titles(xib) for xib in panes.values()))
+            every_hidden = set().union(*(hidden_by_binding(xib) for xib in panes.values()))
+            bound = {language: every_bound for language in panes}
+            hidden = {language: every_hidden for language in panes}
         return [item for item in json.loads(ran.stdout)
-                if ('overlap' in item and not hidden.intersection(item['overlap']))
-                or ('overlap' not in item and item.get('id', '').split('/')[0] not in bound)]
+                if ('overlap' in item and not hidden.get(item['language'], set()).intersection(item['overlap']))
+                or ('overlap' not in item and item.get('id', '').split('/')[0] not in bound.get(item['language'], set()))]
 
 
 def available():

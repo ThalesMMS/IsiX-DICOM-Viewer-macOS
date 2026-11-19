@@ -62,37 +62,50 @@ import Testing
 
     @Test func aDescendingStackIsReversedOnlyWhenItFlipsNow() throws {
         let later = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: [0, 0, 10], origin2: [0, 0, 7.5],
-                                                         firstOrigin: [0, 0, 12.5], spacingBetweenSlices: 0, flipNow: false))
+                                                         firstOrigin: [0, 0, 12.5], firstOriginIsDefined: true, spacingBetweenSlices: 0, flipNow: false))
         #expect(later.spacing.orientation == .axialPositive && later.interval == -2.5 && !later.stacksWithoutPosition)
         #expect(!later.reversesStack && later.sliceInterval == -2.5)
         let now = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: [0, 0, 10], origin2: [0, 0, 7.5],
-                                                       firstOrigin: [0, 0, 12.5], spacingBetweenSlices: 0, flipNow: true))
+                                                       firstOrigin: [0, 0, 12.5], firstOriginIsDefined: true, spacingBetweenSlices: 0, flipNow: true))
         #expect(now.reversesStack && now.reversedSliceInterval == 2.5)
     }
 
     @Test func anObliqueStepGivesTheThreeDimensionalInterval() throws {
         let correction = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: [0, 0, 0], origin2: [3, 0, 4],
-                                                              firstOrigin: [0, 0, -4], spacingBetweenSlices: 0, flipNow: true))
+                                                              firstOrigin: [0, 0, -4], firstOriginIsDefined: true, spacingBetweenSlices: 0, flipNow: true))
         #expect(correction.interval == 4 && correction.interval3D == 5 && correction.sliceInterval == 5 && !correction.reversesStack)
     }
 
     @Test func slicesOfOtherOrientationsAreLeftAlone() {
         let coronal: [Double] = [1, 0, 0, 0, 0, -1, 0, 1, 0]
         #expect(SliceIntervalCorrection(orientation1: axial, orientation2: coronal, origin1: [0, 0, 0], origin2: [0, 0, 1],
-                                        firstOrigin: [0, 0, 0], spacingBetweenSlices: 2, flipNow: true) == nil)
+                                        firstOrigin: [0, 0, 0], firstOriginIsDefined: false, spacingBetweenSlices: 2, flipNow: true) == nil)
     }
 
     @Test func slicesWithoutAPositionAreStackedByTheirSpacing() throws {
         let zero = [Double](repeating: 0, count: 3)
         let correction = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: zero, origin2: zero,
-                                                              firstOrigin: zero, spacingBetweenSlices: 1.5, flipNow: false))
+                                                              firstOrigin: zero, firstOriginIsDefined: false, spacingBetweenSlices: 1.5, flipNow: false))
         #expect(correction.stacksWithoutPosition && correction.interval == 1.5 && correction.interval3D == -1.5)
         // The 3D interval is the negated spacing, as the viewer has always set it.
         #expect(correction.sliceInterval == -1.5)
         let unspaced = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: zero, origin2: zero,
-                                                            firstOrigin: zero, spacingBetweenSlices: 0, flipNow: false))
+                                                            firstOrigin: zero, firstOriginIsDefined: false, spacingBetweenSlices: 0, flipNow: false))
         #expect(!unspaced.stacksWithoutPosition && unspaced.interval == 0)
         #expect(SliceIntervalCorrection.originsWithoutPosition(count: 3, interval: 0.1) == [[0, 0, 0], [0, 0, 0.1], [0, 0, Float(Double(Float(0.1)) + 0.1)]])
+    }
+
+    /// Frames that all say they are at 0, 0, 0 are a cine: their spacing between
+    /// slices places none of them. A volume whose first slice is there has an
+    /// interval of its own.
+    @Test func slicesThatSayTheyAreAtZeroAreNotStacked() throws {
+        let zero = [Double](repeating: 0, count: 3)
+        let cine = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: zero, origin2: zero,
+                                                        firstOrigin: zero, firstOriginIsDefined: true, spacingBetweenSlices: 2.5, flipNow: false))
+        #expect(!cine.stacksWithoutPosition && cine.interval == 0 && cine.interval3D == 0 && cine.sliceInterval == 0)
+        let volume = try #require(SliceIntervalCorrection(orientation1: axial, orientation2: axial, origin1: [0, 0, 2.5], origin2: [0, 0, 5],
+                                                          firstOrigin: zero, firstOriginIsDefined: true, spacingBetweenSlices: 2.5, flipNow: false))
+        #expect(!volume.stacksWithoutPosition && volume.interval == 2.5 && volume.sliceInterval == 2.5)
     }
 
     @Test func gantryTiltAgainstTheTolerance() {

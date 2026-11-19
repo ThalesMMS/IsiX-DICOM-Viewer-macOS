@@ -61,6 +61,18 @@ import IsiXPreferences
         SeriesListLayout.storedPlacement(in: preferences)
     }
 
+    /// The pane of the split view the list was placed in last: where it lives
+    /// unless a floating panel has it, and where a panel puts it back.
+    private weak var placedDock: NSView?
+
+    /// The pane of the split view the series list belongs in.
+    var listDock: NSView? {
+        guard let splitView = viewer.horos_splitView else { return nil }
+        if let home = viewer.horos_previewMatrixScrollView?.superview, splitView.subviews.contains(home) { return home }
+        if let placedDock, splitView.subviews.contains(placedDock) { return placedDock }
+        return SeriesListLayout.dock(of: splitView, placement: placement)
+    }
+
     /// The list is in the floating panel rather than docked.
     var isFloating: Bool {
         preferences[ViewerPreferences.useFloatingThumbnailsList]
@@ -111,6 +123,7 @@ extension SeriesListPresenter {
         if let scrollView = viewer.horos_previewMatrixScrollView {
             SeriesListLayout.place(scrollView, in: splitView, floating: floating, visible: visible, thumbnailWidth: thickness(),
                                    placement: placement)
+            if let home = scrollView.superview, splitView.subviews.contains(home) { placedDock = home }
         }
         splitView.resizeSubviews(withOldSize: splitView.bounds.size)
         if visible && viewer.horos_needsToBuildSeriesMatrix {

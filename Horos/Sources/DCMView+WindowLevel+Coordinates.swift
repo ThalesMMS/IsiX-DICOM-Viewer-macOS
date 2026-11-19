@@ -96,9 +96,12 @@ private func objcProperty(_ receiver: NSObject?, _ getter: Selector) -> AnyObjec
 private let kImageTypeGetter = #selector(getter: DCMPix.imageType)
 
 /// What a synchronization message searches, for a view's slices: the plane of
-/// each one, and what they were read for. The view keeps the last answer and
-/// drops it with its list of slices.
+/// each one, and what they were read for. The view keeps the last answer,
+/// which holds the list it was read from: the view's field for that list is
+/// one a plugin of the former SDK may write at its offset, with no setter to
+/// drop the answer, so another list there is told by its identity.
 struct SyncPlanes {
+    let images: AnyObject
     let imageType: String?
     let volumic: Int32
     let ends: [SIMD3<Float>]
@@ -113,7 +116,7 @@ struct SyncPlanes {
         // A geometry rewritten in the same DCMPix objects moves the ends of the stack.
         let first = images.firstObject.map { objcObject($0, DCMPix.self) }, last = images.lastObject.map { objcObject($0, DCMPix.self) }
         let ends = [first, last].compactMap { $0 }.flatMap { [horosPlaneNormal($0), horosPlaneOrigin($0)] }
-        if let kept, kept.imageType == preferredImageType as String?, kept.volumic == volumic, kept.ends == ends {
+        if let kept, kept.images === images, kept.imageType == preferredImageType as String?, kept.volumic == volumic, kept.ends == ends {
             return kept.planes
         }
         let prefersType = (preferredImageType?.length ?? 0) != 0
@@ -126,7 +129,7 @@ struct SyncPlanes {
             let matchesType = prefersType && ((objcProperty(pix, kImageTypeGetter) as? NSString)?.isEqual(preferredImageType) ?? false)
             planes.append(SliceSynchronizer.Plane(normal: volumeNormal ?? horosPlaneNormal(pix), origin: horosPlaneOrigin(pix), matchesType: matchesType))
         }
-        kept = SyncPlanes(imageType: preferredImageType as String?, volumic: volumic, ends: ends, planes: planes)
+        kept = SyncPlanes(images: images, imageType: preferredImageType as String?, volumic: volumic, ends: ends, planes: planes)
         return planes
     }
 }
@@ -153,6 +156,7 @@ private let annotationPhrases: AnnotationPhrases = {
     phrases.thicknessMicronsLocationMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f %cm", comment: "")
     phrases.thicknessMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f mm", comment: "")
     phrases.thickness = NSLocalizedString("Thickness: %0.2f mm Location: %0.2f mm", comment: "")
+    phrases.slabThickness = NSLocalizedString("Thickness: %@ Location: %0.2f mm", comment: "The slab of an MPR or curved MPR panel: its thickness with its unit, as the slab slider writes it")
     phrases.position = NSLocalizedString("Position: %@ ", comment: "")
     phrases.letters = OrientationLetters(right: NSLocalizedString("R", comment: "R: Right"), left: NSLocalizedString("L", comment: "L: Left"),
                                          anterior: NSLocalizedString("A", comment: "A: Anterior"), posterior: NSLocalizedString("P", comment: "P: Posterior"),
@@ -240,14 +244,16 @@ private struct ViewAnnotationValues: @MainActor AnnotationValueSource {
             locationTuple.withMemoryRebound(to: Float.self, capacity: 3) { locationPointer in
                 let stack = Int(pix?.stack ?? 0)
                 if stack > 1 {
-                    let curImage = Int(view.horos_curImage)
+                    // Midway through the slab as it is fused, cut at the series' end: where its Location is.
                     let list = view.horos_dcmPixList
-                    var middle = view.horos_flippedData ? curImage - (stack - 1) / 2 : curImage + (stack - 1) / 2
-                    if middle < 0 { middle = 0 }
-                    if middle >= (list?.count ?? 0) { middle = (list?.count ?? 0) - 1 }
-                    if middle >= 0, let middlePix = list?.object(at: middle) as? DCMPix {
-                        middlePix.convertX(view.horos_mouseXPos, pixY: view.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
+                    let middle = ViewTransform.thickSlabMidpoint(current: Int(view.horos_curImage), count: list?.count ?? 0, stack: stack,
+                                                                 flipped: view.horos_flippedData) { index in
+                        var point: [Float] = [0, 0, 0]
+                        let image = index >= 0 && index < (list?.count ?? 0) ? list?.object(at: index) as? DCMPix : pix
+                        image?.convertX(view.horos_mouseXPos, pixY: view.horos_mouseYPos, toDICOMCoords: &point, pixelCenter: true)
+                        return SIMD3(point[0], point[1], point[2])
                     }
+                    (locationPointer[0], locationPointer[1], locationPointer[2]) = (middle.x, middle.y, middle.z)
                 } else {
                     pix?.convertX(view.horos_mouseXPos, pixY: view.horos_mouseYPos, toDICOMCoords: locationPointer, pixelCenter: true)
                 }
@@ -270,8 +276,13 @@ private struct ViewAnnotationValues: @MainActor AnnotationValueSource {
 
     func slice() -> AnnotationSlice {
         let pix = view.curDCM
+        // A panel of the MPR or of the curved MPR shows the slab of its window as its thickness, and keeps no location.
+        let reconstruction = view is MPRDCMView || view is CPRMPRDCMView
+        // An image placed in space has a location, also at 0, which is a plane as any other.
+        let placed = !reconstruction && (pix?.isOriginDefined ?? false) && (pix?.is3DPlane() ?? false)
         return AnnotationSlice(thickness: pix?.sliceThickness ?? 0, location: pix?.sliceLocation ?? 0, stack: Int(pix?.stack ?? 0),
-                               viewPosition: pix?.viewPosition, patientPosition: pix?.patientPosition)
+                               viewPosition: pix?.viewPosition, patientPosition: pix?.patientPosition,
+                               hasLocation: (pix?.sliceLocation ?? 0) != 0 || placed, isReconstructionSlab: reconstruction)
     }
 
     func thickSlab() -> (thickness: Float, location: Float) {
@@ -508,8 +519,8 @@ extension DCMView {
         }
         let stringSize = self.horos_stringSize
         let layout = AnnotationOverlayLayout(originX: size.origin.x, originY: size.origin.y, width: size.size.width, height: size.size.height,
-                                             scale: Float(self.window?.backingScaleFactor ?? 0),
-                                             characterWidth: stringSize.width, lineHeight: stringSize.height)
+                                             scale: Float(self.window?.backingScaleFactor ?? 0), characterWidth: stringSize.width, lineHeight: stringSize.height,
+                                             edgeReserve: self.horos_stringID == nil && self.is2DViewer() ? WindowFrameRule.annotationReserve : 0)
 
         var notices: [String] = []
         if let laterality = self.curDCM?.laterality {
@@ -578,12 +589,13 @@ extension DCMView {
 
         // Location zero is a valid physical plane. Clip the slab to available
         // slices in its actual projection direction, including both end slices.
+        // A 2D viewer's slab is as thick as its scale says, the toolbar's own.
         guard let pixList = dcmPixList else { return }
         let last = ViewTransform.thickSlabLastIndex(current: curImage, count: pixList.count, stack: Int(self.curDCM?.stack ?? 0),
                                                     flipped: self.horos_flippedData)
         let endLocation: Double = objcObject(pixList.object(at: last), DCMPix.self).sliceLocation
-        let slab = ViewTransform.thickSlab(thickness: thickness.pointee, location: location.pointee, endLocation: endLocation)
-        thickness.pointee = slab.thickness
+        let slab = ViewTransform.thickSlab(thickness: thickness.pointee, location: location.pointee, endLocation: endLocation, nextLocation: last == curImage ? nil : objcObject(pixList.object(at: curImage + (last > curImage ? 1 : -1)), DCMPix.self).sliceLocation)
+        thickness.pointee = ViewerThickSlab.fusedThickness(in: self) ?? slab.thickness
         location.pointee = slab.location
     }
 
@@ -655,7 +667,7 @@ extension DCMView {
             let colourBoxSize = AnnotationOverlayLayout.colourBoxSize(scale: sf, drawsBox: seriesNumber > 0)
             var layout = AnnotationOverlayLayout(originX: size.origin.x, originY: size.origin.y, width: size.size.width, height: size.size.height,
                                                  scale: sf, characterWidth: stringSize.width, lineHeight: stringSize.height,
-                                                 topLeftInset: self.horosScrollPreviewAnnotationInset(), colourBoxSize: colourBoxSize)
+                                                 topLeftInset: self.horosScrollPreviewAnnotationInset(), colourBoxSize: colourBoxSize, edgeReserve: viewer2D == nil ? 0 : WindowFrameRule.annotationReserve)
             if colourBoxSize != 0 {
                 let badge = SeriesListIdentification.badge(number: seriesNumber, study: SeriesListIdentification.study(of: viewer2D))
                 let boxSize = self.convertToBacking(badge.frameSize)

@@ -40,6 +40,7 @@
 // the same class name and selectors. The viewer nibs name the class.
 
 #import <Cocoa/Cocoa.h>
+#import "N2OpenGLViewWithSplitsWindow.h"
 
 #ifdef HOROS_BRIDGING_HEADER
 // Swift is compiling the class itself: headers it imports may only name it.

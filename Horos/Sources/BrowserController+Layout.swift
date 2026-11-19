@@ -85,12 +85,12 @@ extension BrowserController {
     public func setTableViewRowHeight() {
         let mode = Int32(truncatingIfNeeded: UserDefaults.standard.integer(forKey: "dbFontSize"))
         guard let heights = BrowserRowHeights.forMode(mode, horizontalHistory: BrowserClassState.horizontalHistory) else { return }
-        windowOutlets.albumTable?.rowHeight = heights.albums
-        windowOutlets.sourcesTableView?.rowHeight = heights.sources
-        windowOutlets.databaseOutline?.rowHeight = heights.studyList
-        windowOutlets.comparativeTable?.rowHeight = heights.history
-        windowOutlets.activityTableView?.rowHeight = heights.activity
-        windowOutlets.oMatrix?.cellSize = heights.thumbnailCell
+        _albumTable?.rowHeight = heights.albums
+        _sourcesTableView?.rowHeight = heights.sources
+        _databaseOutline?.rowHeight = heights.studyList
+        _comparativeTable?.rowHeight = heights.history
+        activityTableViewOutlet?.rowHeight = heights.activity
+        _oMatrix?.cellSize = heights.thumbnailCell
     }
 
     /// The reports' mode, the "REPORTSMODE" preference as a number, for every

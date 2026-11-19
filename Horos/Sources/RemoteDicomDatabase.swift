@@ -218,6 +218,11 @@ public final class RemoteDicomDatabase: DicomDatabase {
     private var _host: Host? = nil
     private var _updateLock: NSRecursiveLock? = nil
     private var _updateTimer: Timer? = nil
+    // For the database window, which copies them into instance variables an
+    // older header of the former plugin SDK declared: the lock and the timer
+    // of the updates, and whether the index is being downloaded, observed.
+    var updatesOfOlderSDK: (lock: NSRecursiveLock?, timer: Timer?) { (_updateLock, _updateTimer) }
+    @objc dynamic var downloadingIndexOfOlderSDK = false
     private var _timestamp: TimeInterval = 0
     private var _connectionsSemaphoreId: DispatchSemaphore? = nil
     private var _password: String? = nil
@@ -959,7 +964,7 @@ public final class RemoteDicomDatabase: DicomDatabase {
         let database = ObjectIdentifier(self)
         let openViewers = MainActor.assumeIsolated { Self.openViewers(of: database) }
         guard SharedIndexReplacement.replacesIndex(openViewersOfDatabase: openViewers) else {
-            if let path, path != self.storedSqlFilePath {
+            if let path, path != self.storedSqlFilePath as String? {
                 try? FileManager.default.removeItem(atPath: path)
             }
             NSLog("-- Remote database update dropped: %ld viewer(s) show the current index", openViewers)
@@ -978,7 +983,8 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
             self._sqlFileName = (path as NSString?)?.lastPathComponent
             // The path of N2ManagedDatabase, without -setSqlFilePath:.
-            self.storedSqlFilePath = path
+            self.storedSqlFilePath = path as NSString?
+            self.horos_basePath = path as NSString?
 
             let previousContext = self.managedObjectContext
             if let previousContext { _ = Unmanaged.passRetained(previousContext).autorelease() }
@@ -1039,7 +1045,9 @@ public final class RemoteDicomDatabase: DicomDatabase {
 
         thread.enterOperation()
         _updateLock?.lock()
+        downloadingIndexOfOlderSDK = true
         defer {
+            downloadingIndexOfOlderSDK = false
             _updateLock?.unlock()
             thread.exitOperation()
         }
@@ -1353,7 +1361,10 @@ public final class RemoteDicomDatabase: DicomDatabase {
         let remotePaths = NSMutableArray()
 
         let seriesImages = (image.series?.images as NSSet?)?.allObjects as NSArray?
-        let images: NSArray = seriesImages?.sortedArray(using: (image.series?.sortDescriptorsForImages() as? [NSSortDescriptor]) ?? []) as NSArray? ?? NSArray()
+        // The files after this image's, in the order of the series: file by
+        // file when it is held in several multi-frame files, whose frames the
+        // sort descriptors mix, and every file would be fetched at once.
+        let images: NSArray = DicomSeries.fileByFile(seriesImages?.sortedArray(using: (image.series?.sortDescriptorsForImages() as? [NSSortDescriptor]) ?? [])) as NSArray? ?? NSArray()
 
         var size = 0
         var i = images.index(of: image)

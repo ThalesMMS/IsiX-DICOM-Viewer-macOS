@@ -101,7 +101,11 @@ public enum CrashReportFinder {
                 guard let kind = kind(ofFileName: file.lastPathComponent, baseName: baseName),
                       let values = try? file.resourceValues(forKeys: Set(keys)),
                       let date = values.contentModificationDate, values.isRegularFile == true else { continue }
-                if let since, date <= since { continue }
+                // Not `date <= since`: `<=` and `>=` between two dates are Foundation symbols
+                // only macOS 27.2 has. The compiler links them weakly and calls them when the
+                // system says it is 27.2 or later, and a system that says so without having
+                // them makes the call jump to address 0. `<` and `>` are in every version.
+                if let since, !(date > since) { continue }
                 if kind == .ips {
                     guard let data = try? Data(contentsOf: file, options: .mappedIfSafe),
                           let header = parts(ofReport: data)?.header,

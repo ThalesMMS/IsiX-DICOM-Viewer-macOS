@@ -90,9 +90,19 @@ public final class SendController: NSWindowController {
     /// for a send of the sheet, which goes in the syntax the sheet shows.
     private var _askedTransferSyntax: Int?
 
-    // Outlets the xib sets: ivars of the former class. Send.xib also connects a
-    // `sendSCU` outlet that the former class never had; AppKit logs it and goes
-    // on, as before.
+    // Instance variables of an older header of the former Horos and OsiriX
+    // plugin SDK, each exported at its field's offset for the plugins built
+    // with it. sendROIs is written where a send decides whether the series
+    // of the application go with it, and never read: that is decided for
+    // each send from the preference and from who asked. The other two have
+    // nothing behind them and stay nil, never retained: the send reports in
+    // the Activity window, with no wait window, and the queue of the sends
+    // makes the store of each destination on its own thread. They are typed
+    // as any object: this file names neither class.
+    final var sendROIs = false
+    final unowned(unsafe) var _waitSendWindow: AnyObject?, storeSCU: AnyObject?
+
+    // Outlets the xib sets: ivars of the former class.
     @IBOutlet @objc var newServerList: NSPopUpButton!
     @IBOutlet @objc var keyImageMatrix: NSMatrix!
     @IBOutlet @objc var numberImagesTextField: NSTextField!
@@ -196,6 +206,11 @@ public final class SendController: NSWindowController {
         liveSendControllers.wrappingAdd(1, ordering: .relaxed)
 
         _files = files ?? []
+        // The browser's copies of the files and, below, of the sheet and of
+        // the destination of a send, for a plugin built with an older header
+        // of the former SDK, when the browser itself showed the sheet. The
+        // files leave the browser when the sheet ends or the send is queued.
+        BrowserOlderInstanceVariables.send(files: _files, of: processGraph.browserWindow)
 
         // The files, each once; the images without one count as one more.
         let completePaths = Set(_files.compactMap { $0 as? DicomImage }.map { $0.completePath() })
@@ -263,6 +278,8 @@ public final class SendController: NSWindowController {
 
     public override func windowDidLoad() {
         super.windowDidLoad()
+        BrowserOlderInstanceVariables.sendSheetLoaded(window, keyImages: keyImageMatrix, syntaxes: syntaxListOffis, count: numberImagesTextField,
+                                                      of: processGraph.browserWindow)
 
         if !_files.isEmpty {
             updateDestinationPopup(nil)
@@ -374,6 +391,7 @@ public final class SendController: NSWindowController {
 
         self.window?.orderOutAndEndSheet(returnCode: NSApplication.ModalResponse(rawValue: NSApplication.ModalResponse.RawValue(tag)))
         var objectsToSend = _files
+        BrowserOlderInstanceVariables.send(files: nil, of: processGraph.browserWindow)
 
         if tag != 0 { //User clicks OK Button
             if _keyImageIndex == 1 {
@@ -418,6 +436,7 @@ public final class SendController: NSWindowController {
         }
 
         _destinationServer = node
+        BrowserOlderInstanceVariables.send(destination: node, of: processGraph.browserWindow)
         if let request = sendRequest(to: node, objects: objects ?? _files) {
             processGraph.dicomSendQueue.enqueue(request, through: ActivitySendTransport())
         }
@@ -430,6 +449,7 @@ public final class SendController: NSWindowController {
     private func sendRequest(to node: [AnyHashable: Any]?, objects: [Any]) -> DICOMSendRequest? {
         let preferences = processGraph.preferences
         let sendsAppSeries = _alwaysSendsAppSeries || preferences[NetworkPreferences.sendsROIs]
+        sendROIs = sendsAppSeries
         let images = objects.compactMap { $0 as? DicomImage }
         var items: [DICOMSendSelection.Item] = []
         do {

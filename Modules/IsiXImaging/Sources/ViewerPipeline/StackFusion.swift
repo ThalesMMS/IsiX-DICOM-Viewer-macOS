@@ -81,6 +81,13 @@ public enum StackFusion {
         return .set(stacks)
     }
 
+    /// The thick end of the slab's slider: the whole series, every slice of
+    /// its shortest time fused in one. Never fewer than the two slices a slab
+    /// needs, nor more than the count the images keep, a 16-bit one.
+    public static func sliderMaximum(sliceCounts: [Int]) -> Int {
+        min(Int(Int16.max), max(2, sliceCounts.min() ?? 0))
+    }
+
     /// The number of fused slices after `steps` steps of the scroll wheel or the
     /// keyboard, or nil when it does not change. `maximum` is the most the
     /// slider and every phase allow (nothing changes below 2). An inactive

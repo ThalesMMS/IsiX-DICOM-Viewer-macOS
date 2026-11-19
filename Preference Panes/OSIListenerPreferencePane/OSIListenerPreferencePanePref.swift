@@ -127,9 +127,8 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIListenerPreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSIListenerPreferencePanePref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let view = mainWindow?.contentView {
@@ -192,6 +191,9 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
         // Whether the listener is listening, and why not: ticking its box used
         // to show nothing either way.
         if let view = mainWindow?.contentView { ListenerStatusLine.install(in: view) }
+        // Which application opens the links, and the choice of it: a sheet
+        // built in code, behind a button on the title line of the XML-RPC box.
+        if let view = mainWindow?.contentView { LinkSchemeSettings.installButton(in: view) }
         let defaults = UserDefaults.standard
 
         if defaults.integer(forKey: "DICOMTimeout") < 1 {
@@ -265,8 +267,8 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
     }
 
     /// The scope menu and the password checkbox. Letting other computers in
-    /// without a password is confirmed first, as OsiriX does, and undone if the
-    /// user does not confirm it.
+    /// without a password is confirmed first, because it exposes patient data to
+    /// the network, and undone if the user does not confirm it.
     @IBAction public func xmlrpcAccessChanged(_ sender: Any?) {
         let defaults = UserDefaults.standard
         let open = XMLRPCAccessPolicy.policy(from: defaults).answersOtherComputersWithoutPassword
@@ -314,22 +316,26 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
         }
     }
 
+    /// Opens a pane of System Settings by its address: the scheme System
+    /// Settings registers, then the identifier of the settings extension that
+    /// shows the pane. Opening an address sends no Apple Event, so a sandbox
+    /// allows it. Tells the user where the pane is when System Settings did
+    /// not take the address.
+    private func openSystemSettings(pane: String) {
+        if let url = URL(string: "x-apple.systempreferences:" + pane), NSWorkspace.shared.open(url) { return }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("System Settings could not be opened.", comment: "")
+        alert.informativeText = NSLocalizedString("To change the network addresses or the name of this Mac, open System Settings and choose Network or General > Sharing.", comment: "")
+        alert.runModal()
+    }
+
     @IBAction public func editAddresses(_ sender: Any?) {
-        let script = NSAppleScript(source:
-            "tell application \"System Preferences\"\n" +
-            "activate\n" +
-            "set current pane to pane \"com.apple.preference.network\"\n" +
-            "end tell\n")
-        _ = script?.run(withArguments: nil, error: nil)
+        openSystemSettings(pane: "com.apple.Network-Settings.extension")
     }
 
     @IBAction public func editHostname(_ sender: Any?) {
-        let script = NSAppleScript(source:
-            "tell application \"System Preferences\"\n" +
-            "activate\n" +
-            "set current pane to pane \"com.apple.preferences.sharing\"\n" +
-            "end tell\n")
-        _ = script?.run(withArguments: nil, error: nil)
+        openSystemSettings(pane: "com.apple.Sharing-Settings.extension")
     }
 
     // MARK: TLS

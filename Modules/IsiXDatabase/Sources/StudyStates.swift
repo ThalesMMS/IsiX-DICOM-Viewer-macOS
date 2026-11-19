@@ -73,7 +73,8 @@ public struct StudyState: Sendable, Equatable {
 /// five are the states every version has had, and stay.
 public struct StudyStateList: Sendable, Equatable {
     /// The names of the first states, as keys the application localizes:
-    /// 0 to 4 as they have always been, 5 to 7 as OsiriX names them.
+    /// 0 to 4 as they have always been, 5 to 7 the states a database from
+    /// another workstation may carry with those numbers.
     public static let builtInNames = ["empty", "unread", "reviewed", "dictated", "validated", "printed", "distributed", "archived"]
     /// The states that are never removed.
     public static let fixedCount = 5

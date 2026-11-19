@@ -407,7 +407,7 @@
                         </menu>
                     </popUpButtonCell>
                 </popUpButton>
-                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="24">
+                <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="24" customClass="IsiXTipMatrix">
                     <rect key="frame" x="2" y="16" width="182" height="33"/>
                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     <size key="cellSize" width="32" height="33"/>
@@ -955,6 +955,11 @@
                                         <menuItem title="3D 곡선 MPR" tag="1" id="1090">
                                             <connections>
                                                 <action selector="cprViewer:" target="-2" id="2533"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="혈관 분석" tag="11" id="Vsl-An-Pop">
+                                            <connections>
+                                                <action selector="cprViewer:" target="-2" id="Vsl-An-PAc"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="2D 직교 MPR" tag="8" id="1251">

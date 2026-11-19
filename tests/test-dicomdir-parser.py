@@ -12,6 +12,8 @@ writes with pauses between them:
 - utf8: twenty names of multi-byte characters, a character cut between two
   writes. The parser stopped at the UTF-16 length of a UTF-8 buffer and lost
   the last names; all twenty must be found.
+- fileset: normal names, mixed case and extensions, and an internal symlink
+  resolve. References through links outside the file-set are refused.
 The depth counter is checked in the source: one per parser, not a static.
 
 `<git revision>` as an optional argument reads the parser from that revision,
@@ -22,6 +24,8 @@ import re
 import subprocess
 import sys
 import tempfile
+
+from isix_modules import module_flags
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -35,21 +39,24 @@ if re.search(r'static var validFilePathDepth', source):
 
 LATIN1 = ['IMGÉ%d' % n for n in range(1, 4)]
 UTF8 = ['ÉÉÉÉÉÉÉÉÉÉ%02d' % n for n in range(1, 21)]
+FILE_SET_IDS = [r'DIR\PLAIN', r'DIR\LOCAL', r'DIR\ESCAPE', r'LINK\OUT',
+                r'..\fileset-outside\OUT', '/OUT', r'DIR/PLAIN', r'DIR\\PLAIN']
 
 fake = r'''#!/usr/bin/python3
 import os, sys, time
 here = os.path.dirname(os.path.abspath(__file__))
 mode = open(os.path.join(here, 'mode')).read().strip()
-names = {'latin1': %r, 'utf8': %r}[mode]
+names = {'latin1': %r, 'utf8': %r, 'fileset': %r}[mode]
 encoding = 'latin-1' if mode == 'latin1' else 'utf-8'
 out = sys.stdout.buffer
 out.write(b'\n# Dicom-File-Format\n')
 for name in names:
-    line = ('(0004,1500) CS [DIR\\' + name + '] # 12, 2 ReferencedFileID\n').encode(encoding)
+    file_id = name if mode == 'fileset' else 'DIR\\' + name
+    line = ('(0004,1500) CS [' + file_id + '] # 12, 2 ReferencedFileID\n').encode(encoding)
     cut = line.index(b'[') + 7
     out.write(line[:cut]); out.flush(); time.sleep(0.02)
     out.write(line[cut:]); out.flush(); time.sleep(0.02)
-''' % (LATIN1, UTF8)
+''' % (LATIN1, UTF8, FILE_SET_IDS)
 
 main = r'''
 import Foundation
@@ -60,6 +67,9 @@ for _ in 0..<2 {
     let files = NSMutableArray()
     parser.parseArray(files)
     print("found \(files.count)")
+    for case let file as String in files {
+        print("file \(file.dropFirst(folder.count + 1))")
+    }
 }
 print(String(format: "seconds %.1f", Date().timeIntervalSince(start)))
 '''
@@ -75,17 +85,25 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-parser-') as tmp:
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root / 'Horos/Sources'),
                     str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'HorosObjCException.o')], check=True)
     subprocess.run(['xcrun', 'clang', '-c', str(p / 'n2.m'), '-o', str(p / 'n2.o')], check=True)
-    subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'),
+    modules = module_flags('IsiXDatabase', p / 'modules') if 'import IsiXDatabase' in source else []
+    subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'), *modules,
                     '-Xcc', '-I' + str(root / 'Horos/Sources'), str(p / 'DicomDirParser.swift'), str(p / 'main.swift'),
                     str(root / 'Horos/Sources/HorosObjCException+Guards.swift'),
                     str(p / 'HorosObjCException.o'), str(p / 'n2.o'), '-o', str(p / 'parser')], check=True, capture_output=True)
 
-    for mode, names in (('missing', []), ('latin1', LATIN1), ('utf8', UTF8)):
+    for mode, names in (('missing', []), ('latin1', LATIN1), ('utf8', UTF8), ('fileset', ['plain.dcm'])):
         dicomdir = p / mode
         (dicomdir / 'DIR').mkdir(parents=True)
         (dicomdir / 'DICOMDIR').write_bytes(b'')
         for name in names:
             (dicomdir / 'DIR' / name).write_bytes(b'x')
+        if mode == 'fileset':
+            outside = p / 'fileset-outside'
+            outside.mkdir()
+            (outside / 'OUT').write_bytes(b'x')
+            (dicomdir / 'DIR' / 'local.DCM').symlink_to('plain.dcm')
+            (dicomdir / 'DIR' / 'escape.dcm').symlink_to(outside / 'OUT')
+            (dicomdir / 'LINK').symlink_to(outside, target_is_directory=True)
         tool = p / 'dcmdump'
         if mode == 'missing':
             tool.unlink(missing_ok=True)
@@ -99,9 +117,13 @@ with tempfile.TemporaryDirectory(prefix='horos-dicomdir-parser-') as tmp:
             seconds = float(re.search(r'seconds ([\d.]+)', done.stdout).group(1)) if 'seconds' in done.stdout else None
         except subprocess.TimeoutExpired:
             found, seconds = [], None
-        expected = len(names)
+        expected = 2 if mode == 'fileset' else len(names)
         if found != [expected, expected]:
             failures.append(f'{mode}: found {found or "nothing (the parser did not return in 30 s)"}, expected {expected} twice')
+        elif mode == 'fileset' and sorted(re.findall(r'^file (.+)$', done.stdout, re.MULTILINE)) != [
+            'DIR/local.DCM', 'DIR/local.DCM', 'DIR/plain.dcm', 'DIR/plain.dcm'
+        ]:
+            failures.append(f'{mode}: imported files other than the two in-file-set references: {done.stdout}')
         elif mode == 'missing' and seconds is not None and seconds > 5:
             failures.append(f'missing: two parsers took {seconds} s without a dcmdump')
         else:
@@ -111,4 +133,4 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: a missing dcmdump ends the read; Latin-1 and UTF-8 names are all found; one depth counter per parser')
+print('PASS: missing dcmdump, Latin-1 and UTF-8 names, file-set containment, and parser-local depth')

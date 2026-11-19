@@ -21,8 +21,8 @@ import Foundation
 /// `/tmp/PluginCrashed` while the startup check read `Plugin_Loading` in the
 /// application support folder, so nothing ever read what was written and the
 /// recovery could not run. `/tmp` was the wrong place for it anyway: it is
-/// writable by everybody on the machine, and every Horos and OsiriX on it would
-/// have shared the one file.
+/// writable by everybody on the machine, and every application on it that used
+/// the same path would have shared the one file.
 @objc(HorosPluginQuarantine)
 public final class PluginQuarantine: NSObject {
     /// The note, inside the folder Horos already keeps its plugins in.

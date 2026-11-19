@@ -18,7 +18,8 @@ import Synchronization
 /// What to write, and what to tell the user, when a listen socket cannot bind.
 ///
 /// The DICOM listener, the XML-RPC interface, the web portal and Bonjour
-/// database sharing use OsiriX's default ports. A bind that fails used to leave a CFSocket errno in the log
+/// database sharing use their long-standing default ports, which other DICOM
+/// applications on the Mac may already hold. A bind that fails used to leave a CFSocket errno in the log
 /// with no service name and no port, or - for the web portal - a sentence that
 /// never said which port. XML-RPC and DICOM said nothing to the person who
 /// turned them on.

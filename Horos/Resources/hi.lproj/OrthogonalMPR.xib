@@ -91,7 +91,7 @@
                     <rect key="frame" x="0.0" y="0.0" width="320" height="38"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
-                        <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="62">
+                        <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autosizesCells="NO" translatesAutoresizingMaskIntoConstraints="NO" id="62" customClass="IsiXTipMatrix">
                             <rect key="frame" x="0.0" y="1" width="302" height="34"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -209,7 +209,7 @@
                     <rect key="frame" x="1" y="5" width="30" height="13"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="26" id="Clt-HQ-KNW"/>
+                        <constraint firstAttribute="width" constant="52" id="Clt-HQ-KNW"/>
                     </constraints>
                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="0" id="298">
                         <font key="font" metaFont="label"/>
@@ -235,10 +235,10 @@
                         <action selector="setThickSlabMode:" target="-2" id="159"/>
                     </connections>
                 </popUpButton>
-                <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="145">
+                <slider customClass="HorosThickSlabSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="145">
                     <rect key="frame" x="33" y="1" width="194" height="17"/>
                     <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
-                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="128" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="45" sliderType="linear" id="299">
+                    <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" minValue="2" maxValue="3" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="299">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
                     <connections>

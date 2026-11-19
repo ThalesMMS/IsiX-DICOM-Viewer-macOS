@@ -15,7 +15,7 @@ import Foundation
 ///
 /// The names are a public contract: RIS integrations, scripts, horos:// links
 /// and AppleScript call them. They are matched without regard to case, as the
-/// first XML-RPC interface of OsiriX matched them, and `DBWindowFind` is the
+/// interface has always matched them, and `DBWindowFind` is the
 /// former name of `FindObject`. A name that is not here is not dispatched,
 /// whatever the interface happens to respond to.
 public enum XMLRPCMethodTable {

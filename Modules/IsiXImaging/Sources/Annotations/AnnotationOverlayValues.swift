@@ -147,13 +147,23 @@ public struct AnnotationSlice: Sendable, Equatable {
     public var stack: Int
     /// View Position (0018,5101) and Patient Position (0018,5100), when the image has them.
     public var viewPosition: String?, patientPosition: String?
+    /// Whether the image has a location: one that is not 0, or an image
+    /// placed in space, whose location 0 is a plane as any other.
+    public var hasLocation: Bool
+    /// The thickness is the slab of a reconstruction window (MPR, curved
+    /// MPR), which its slider and its field show too: it is written as they
+    /// write it.
+    public var isReconstructionSlab: Bool
 
-    public init(thickness: Double, location: Double, stack: Int, viewPosition: String?, patientPosition: String?) {
+    public init(thickness: Double, location: Double, stack: Int, viewPosition: String?, patientPosition: String?,
+                hasLocation: Bool, isReconstructionSlab: Bool = false) {
         self.thickness = thickness
         self.location = location
         self.stack = stack
         self.viewPosition = viewPosition
         self.patientPosition = patientPosition
+        self.hasLocation = hasLocation
+        self.isReconstructionSlab = isReconstructionSlab
     }
 }
 
@@ -178,6 +188,10 @@ public struct AnnotationPhrases: Sendable, Equatable {
     public var thicknessMicronsLocationMicrons = "Thickness: %0.2f %cm Location: %0.2f %cm"
     public var thicknessMicrons = "Thickness: %0.2f %cm Location: %0.2f mm"
     public var thickness = "Thickness: %0.2f mm Location: %0.2f mm"
+    /// The slab of a reconstruction: its thickness as the window's slider writes it, unit included.
+    public var slabThickness = "Thickness: %@ Location: %0.2f mm"
+    /// Whose decimal separator that thickness is written with: the user's.
+    public var numberLocale = Locale.autoupdatingCurrent
     public var position = "Position: %@ "
     public var letters = OrientationLetters.english
 

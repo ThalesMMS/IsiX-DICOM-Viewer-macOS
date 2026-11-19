@@ -53,3 +53,14 @@
 - (void) dealloc;
 @end
 #endif
+
+// A C function of the Horos and OsiriX plugin SDK, implemented in Swift with
+// this name: plugins built for that SDK look it up in the application.
+#ifdef __cplusplus
+extern "C" {
+#endif
+// A number from low up to, not including, high (PSGenerator.swift).
+extern int randomNumberBetween(int low, int high);
+#ifdef __cplusplus
+}
+#endif

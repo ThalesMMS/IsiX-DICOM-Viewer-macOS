@@ -64,6 +64,18 @@ import IsiXImaging
 // -setRotation:, -setCurrentTool: and the others). The properties of the former
 // header are declared over that state, with the same selectors, KVC keys and
 // setters, and stay overridable and observable (dynamic).
+//
+// Every instance variable the former Horos and OsiriX plugin SDK declared for
+// this class is a stored field of it, with the type that header gave it: a
+// plugin built for that SDK reads and writes self->ivar at the offset the
+// application exports under the SDK's name, in a subclass or in a category.
+// Such a field is therefore stored in the class, never private, has no
+// observer, and is neither a Swift value type nor an optional scalar; the
+// type of each C array is in LegacyPluginIvarStorage.h. A plugin's write is a
+// write of the memory alone: no setter, no key-value observation, and no
+// publication to the snapshot other threads read, which next changes when
+// the view itself writes. The fields the application has no state for (the
+// OpenGL drawing, the magnifier's textures) are kept at zero and never read.
 
 @objc(DCMView)
 public class DCMView: NSView {
@@ -72,27 +84,37 @@ public class DCMView: NSView {
 
     @objc final var horos_dcmPixList: NSMutableArray!
     @objc final var horos_dcmFilesList: NSArray!
-    @objc final var horos_dcmRoiList: NSMutableArray!
-    @objc final var horos_curRoiList: NSMutableArray!
+    @objc final var horos_dcmRoiList: NSMutableArray!, horos_curRoiList: NSMutableArray!
     /// The DCMPix of the image shown. Read without the main actor's check, as
     /// the Objective-C property was read: it is read at every drawing, event and
     /// ROI computation, from the ROI and plugin threads too.
-    nonisolated(unsafe) final var horos_curDCMStorage: DCMPix!
+    /// It is kept twice, the same image in both: the SDK of Horos named the
+    /// variable _curDCM and the older one of OsiriX curDCM, and a plugin built
+    /// with either reads its own. The view reads the first.
+    nonisolated(unsafe) final var horos_curDCMStorage: DCMPix!, horos_curDCMOfOlderSDK: DCMPix!
     @objc public internal(set) nonisolated dynamic var curDCM: DCMPix! {
         get { return self.horos_curDCMStorage }
-        set { self.horos_curDCMStorage = newValue }
+        set { (self.horos_curDCMStorage, self.horos_curDCMOfOlderSDK) = (newValue, newValue) }
     }
-    /// The image shown, the image a drag through the stack started from and
-    /// the slab scroll's state (IsiXImaging). The accessors below keep the
-    /// names the view's files and subclasses read.
-    final var stackNavigation = StackNavigation()
-    final var horos_curImage: Int {
-        get { return self.stackNavigation.current }
-        set { self.stackNavigation.current = newValue }
-    }
-    final var horos_startImage: Int {
-        get { return self.stackNavigation.start }
-        set { self.stackNavigation.start = newValue }
+    /// The image shown and the image a drag through the stack started from,
+    /// the short the SDK declared: a stack shows 32,767 images at most. The
+    /// view writes the first through stackNavigation, which keeps it in range.
+    final var horos_curImage: Int16 = 0, horos_startImage: Int16 = 0
+    /// The slab scroll's remainder, the time of its last event and whether the
+    /// rest of its gesture is dropped.
+    final var slabScrollRemainder: Double = 0, slabScrollTimestamp: TimeInterval = 0, consumeSlabScrollTail = false
+    /// Those five fields as the navigation of IsiXImaging, whose rules move
+    /// through the stack: read from the fields and written back to them.
+    final var stackNavigation: StackNavigation {
+        get {
+            var navigation = StackNavigation(current: Int(self.horos_curImage), start: Int(self.horos_startImage))
+            (navigation.slabRemainder, navigation.slabTimestamp, navigation.consumesSlabTail) = (self.slabScrollRemainder, self.slabScrollTimestamp, self.consumeSlabScrollTail)
+            return navigation
+        }
+        set {
+            (self.horos_curImage, self.horos_startImage) = (Int16(clamping: newValue.current), Int16(clamping: newValue.start))
+            (self.slabScrollRemainder, self.slabScrollTimestamp, self.consumeSlabScrollTail) = (newValue.slabRemainder, newValue.slabTimestamp, newValue.consumesSlabTail)
+        }
     }
     @objc final var horos_listType: CChar = 0
     @objc final var horos_volumicData: Int32 = 0
@@ -101,127 +123,155 @@ public class DCMView: NSView {
     @objc final var horos_noScale = false
     @objc final var horos_stringID: NSString!
     @objc final var horos_matrix: NSMatrix!
-    @objc final var horos_cleanedOutDcmPixArray: NSArray! {
-        didSet { horos_syncPlanes = nil }
-    }
-    /// The planes a synchronization message searches, kept and dropped with
-    /// horos_cleanedOutDcmPixArray.
+    @objc final var horos_cleanedOutDcmPixArray: NSArray!
+    /// The planes a synchronization message searches, which name the list they
+    /// were read from: another list in horos_cleanedOutDcmPixArray, a plugin's
+    /// included, is read again.
     final var horos_syncPlanes: SyncPlanes?
     /// The last reason logged for a viewer showing no reference lines.
     final var horos_loggedReferenceLineReason: String?
-    /// The patient's age, and at acquisition when different, of the image shown.
-    @objc public internal(set) var yearOld: String?
+    /// The patient's age, and at acquisition when different, of the image shown,
+    /// stored as the NSString the SDK declared.
+    final var horos_yearOld: NSString?
+    @objc public internal(set) final var yearOld: String? {
+        get { return self.horos_yearOld as String? }
+        set { self.horos_yearOld = newValue as NSString? }
+    }
 
     // MARK: - Window level
 
-    /// The view's copy of the window of the image shown (IsiXImaging); the
-    /// image keeps its own and is drawn with it. Each write is published.
-    final var windowLevelState = WindowLevelState() { didSet { publishedPresentation.publish(windowLevel: windowLevelState) } }
-    /// Where a window level drag started, for the image and for the fused one.
-    final var windowLevelDrag = WindowLevelDrag(variant: .image, level: 0, width: 0, minimum: 0, maximum: 0)
-    final var fusedWindowLevelDrag = WindowLevelDrag(variant: .fused, level: 0, width: 0, minimum: 0, maximum: 0)
+    /// The view's copy of the window of the image shown; the image keeps its
+    /// own and is drawn with it. The view writes them through windowLevelState,
+    /// which publishes; a plugin's write of a field is published with the next.
+    final var horos_curWW: Float = 0, horos_curWL: Float = 0, curWLWWSUVFactor: Float = 0, curWLWWSUVConverted = false
+    final var windowLevelState: WindowLevelState {
+        get { return WindowLevelState(level: self.horos_curWL, width: self.horos_curWW, suvConverted: self.curWLWWSUVConverted, suvFactor: self.curWLWWSUVFactor) }
+        set {
+            (self.horos_curWL, self.horos_curWW, self.curWLWWSUVConverted, self.curWLWWSUVFactor) = (newValue.level, newValue.width, newValue.suvConverted, newValue.suvFactor)
+            self.publishedPresentation.publish(windowLevel: newValue)
+        }
+    }
+    /// Where a window level drag started, for the image and for the fused one
+    /// (bd), as the drags of IsiXImaging over those fields.
+    final var startWW: Float = 0, startWL: Float = 0, startMin: Float = 0, startMax: Float = 0
+    final var bdstartWW: Float = 0, bdstartWL: Float = 0, bdstartMin: Float = 0, bdstartMax: Float = 0
+    final var windowLevelDrag: WindowLevelDrag {
+        get { return WindowLevelDrag(variant: .image, level: self.startWL, width: self.startWW, minimum: self.startMin, maximum: self.startMax) }
+        set { (self.startWL, self.startWW, self.startMin, self.startMax) = (newValue.level, newValue.width, newValue.minimum, newValue.maximum) }
+    }
+    final var fusedWindowLevelDrag: WindowLevelDrag {
+        get { return WindowLevelDrag(variant: .fused, level: self.bdstartWL, width: self.bdstartWW, minimum: self.bdstartMin, maximum: self.bdstartMax) }
+        set { (self.bdstartWL, self.bdstartWW, self.bdstartMin, self.bdstartMax) = (newValue.level, newValue.width, newValue.minimum, newValue.maximum) }
+    }
     /// Set while the view takes the window another view posted, so that the
     /// views showing the same pixels do not answer one another.
-    final var takingPostedWindowLevel = false
+    final var avoidChangeWLWWRecursive = false
     @objc final var horos_COPYSETTINGSINSERIES = true
 
     // MARK: - Colour tables
 
     /// Whether the image is drawn through the colour tables (IsiXImaging).
-    /// The tables are the view's, at addresses that never change: -getCLUT:::
-    /// hands them to plugins.
-    final var colourTableState = ColourTableState()
-    final var horos_colorTransfer: Bool {
-        get { return self.colourTableState.colorTransfer }
-        set { self.colourTableState.colorTransfer = newValue }
+    /// The tables are inside the view, as the SDK declared them, at addresses
+    /// that never change while it lives: -getCLUT::: hands them to plugins.
+    /// opaqueTable is written here alone, as the SDK's class wrote it.
+    final var horos_colorTransfer = false
+    final var colourTableState: ColourTableState {
+        get { return ColourTableState(colorTransfer: self.horos_colorTransfer) }
+        set { self.horos_colorTransfer = newValue.colorTransfer }
     }
     /// The colour image's bytes of the former OpenGL texture load, freed when
     /// the tables go back to grey levels.
     final var horos_colorBuf: UnsafeMutablePointer<UInt8>?
-    final let horos_alphaTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { _ in 0xFF }
-    final let horos_redTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
-    final let horos_greenTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
-    final let horos_blueTable: UnsafeMutablePointer<UInt8>! = dcmViewTable { UInt8($0) }
+    final var alphaTable = IsiXDCMViewOpaqueTable(), opaqueTable = IsiXDCMViewOpaqueTable()
+    final var redTable = IsiXDCMViewIdentityTable(), greenTable = IsiXDCMViewIdentityTable(), blueTable = IsiXDCMViewIdentityTable()
+    final var horos_alphaTable: UnsafeMutablePointer<UInt8>! { return self.arrayInside(DCMViewArrayOffsets.alphaTable) }
+    final var horos_redTable: UnsafeMutablePointer<UInt8>! { return self.arrayInside(DCMViewArrayOffsets.redTable) }
+    final var horos_greenTable: UnsafeMutablePointer<UInt8>! { return self.arrayInside(DCMViewArrayOffsets.greenTable) }
+    final var horos_blueTable: UnsafeMutablePointer<UInt8>! { return self.arrayInside(DCMViewArrayOffsets.blueTable) }
+    /// The address of a C array of the former SDK kept inside the view, good
+    /// while the view lives, which a pointer to the field would not be.
+    final func arrayInside<Element>(_ offset: Int) -> UnsafeMutablePointer<Element> {
+        return (Unmanaged.passUnretained(self).toOpaque() + offset).assumingMemoryBound(to: Element.self)
+    }
     final var colourTables: ColourTableState.Tables {
         return ColourTableState.Tables(red: self.horos_redTable, green: self.horos_greenTable, blue: self.horos_blueTable)
     }
-    @objc final var horos_redFactor: Float = 1
-    @objc final var horos_greenFactor: Float = 1
-    @objc final var horos_blueFactor: Float = 1
+    @objc final var horos_redFactor: Float = 1, horos_greenFactor: Float = 1, horos_blueFactor: Float = 1
 
     // MARK: - Fusion
 
     /// The fused view.
     final var horos_blending: DCMView!
-    /// The mode, the factor and the drag's start of the blend (IsiXImaging).
-    final var fusionBlend = FusionBlend()
-    final var horos_blendingFactor: Float {
-        get { return self.fusionBlend.factor }
-        set { self.fusionBlend.factor = newValue }
-    }
-    final var horos_blendingFactorStart: Float {
-        get { return self.fusionBlend.factorAtDragStart }
-        set { self.fusionBlend.factorAtDragStart = newValue }
-    }
-    final var horos_blendingMode: Int {
-        get { return self.fusionBlend.mode }
-        set { self.fusionBlend.mode = newValue }
+    /// The factor, the drag's start and the mode of the blend, and the three
+    /// as the blend of IsiXImaging.
+    final var horos_blendingFactor: Float = 0.5, horos_blendingFactorStart: Float = 0, horos_blendingMode: Int = 0
+    final var fusionBlend: FusionBlend {
+        get { return FusionBlend(mode: self.horos_blendingMode, factor: self.horos_blendingFactor, factorAtDragStart: self.horos_blendingFactorStart) }
+        set { (self.horos_blendingMode, self.horos_blendingFactor, self.horos_blendingFactorStart) = (newValue.mode, newValue.factor, newValue.factorAtDragStart) }
     }
 
     // MARK: - Zoom, pan, rotation and flips
 
-    /// The scale, pan, rotation and flips, and their values when a drag
-    /// began (IsiXImaging); each write is published. The accessors below keep
-    /// the names the view's files and subclasses read; the properties' setters
-    /// (scaleValue, origin, rotation, the flips) apply the rules and save the presentation.
-    final var viewport = ViewportState() { didSet { publishedPresentation.publish(viewport: viewport) } }
+    /// The scale, pan, rotation and flips, and their values when a drag began.
+    /// The view reads the fields and writes them through viewport, which
+    /// publishes; a plugin's write of a field is published with the next. The
+    /// properties' setters (scaleValue, origin, rotation, the flips) apply the
+    /// rules and save the presentation, which a write of a field does not.
+    final var horos_scaleValue: Float = 0, horos_startScaleValue: Float = 0, horos_rotation: Float = 0, horos_rotationStart: Float = 0
+    final var horos_origin = NSPoint.zero, horos_originStart = NSPoint.zero, horos_xFlipped = false, horos_yFlipped = false
+    /// Those eight fields as the viewport of IsiXImaging.
+    final var viewport: ViewportState {
+        get {
+            var viewport = ViewportState(scale: self.horos_scaleValue, origin: self.horos_origin, rotation: self.horos_rotation,
+                                         xFlipped: self.horos_xFlipped, yFlipped: self.horos_yFlipped)
+            (viewport.scaleAtDragStart, viewport.originAtDragStart, viewport.rotationAtDragStart) = (self.horos_startScaleValue, self.horos_originStart, self.horos_rotationStart)
+            return viewport
+        }
+        set {
+            (self.horos_scaleValue, self.horos_origin, self.horos_rotation) = (newValue.scale, newValue.origin, newValue.rotation)
+            (self.horos_xFlipped, self.horos_yFlipped) = (newValue.xFlipped, newValue.yFlipped)
+            (self.horos_startScaleValue, self.horos_originStart, self.horos_rotationStart) = (newValue.scaleAtDragStart, newValue.originAtDragStart, newValue.rotationAtDragStart)
+            self.publishedPresentation.publish(viewport: newValue)
+        }
+    }
     /// The viewport and the window as the main actor last wrote them, behind a
     /// lock: what the viewer's accessors answer plugins and other threads.
     nonisolated final let publishedPresentation = ViewPresentationSnapshot()
-    final var horos_scaleValue: Float { get { viewport.scale } set { viewport.scale = newValue } }
-    final var horos_startScaleValue: Float { get { viewport.scaleAtDragStart } set { viewport.scaleAtDragStart = newValue } }
-    final var horos_rotation: Float { get { viewport.rotation } set { viewport.rotation = newValue } }
-    final var horos_rotationStart: Float { get { viewport.rotationAtDragStart } set { viewport.rotationAtDragStart = newValue } }
-    final var horos_origin: NSPoint { get { viewport.origin } set { viewport.origin = newValue } }
-    final var horos_originStart: NSPoint { get { viewport.originAtDragStart } set { viewport.originAtDragStart = newValue } }
-    final var horos_xFlipped: Bool { get { viewport.xFlipped } set { viewport.xFlipped = newValue } }
-    final var horos_yFlipped: Bool { get { viewport.yFlipped } set { viewport.yFlipped = newValue } }
     @objc final var horos_resizeTotal: Double = 0
     @objc final var horos_scaleToFitNoReentry = false
     @objc final var horos_previousViewSize = NSSize.zero
     @objc final var horos_previousScalingFactor: Float = 0
-    @objc final var horos_zoomIsSoftwareInterpolated = false
-    @objc final var horos_firstTimeDisplay = false
+    @objc final var horos_zoomIsSoftwareInterpolated = false, horos_firstTimeDisplay = false
 
     // MARK: - Reference lines, synchronization and the 3D point
 
-    /// float[2][3] each, reached through a pointer to the first element.
-    @objc final let horos_sliceFromTo: UnsafeMutablePointer<Float>! = dcmViewBuffer(6)
-    @objc final let horos_sliceFromToS: UnsafeMutablePointer<Float>! = dcmViewBuffer(6)
-    @objc final let horos_sliceFromToE: UnsafeMutablePointer<Float>! = dcmViewBuffer(6)
-    @objc final let horos_sliceFromTo2: UnsafeMutablePointer<Float>! = dcmViewBuffer(6)
+    /// float[2][3] and float[3] inside the view, as the SDK declared them,
+    /// each reached through a pointer to its first element. The SDK's
+    /// mprVector and mprPoint are kept at zero.
+    final var sliceFromTo = IsiXDCMViewLineEnds(), sliceFromToS = IsiXDCMViewLineEnds()
+    final var sliceFromToE = IsiXDCMViewLineEnds(), sliceFromTo2 = IsiXDCMViewLineEnds()
+    final var sliceVector = IsiXDCMViewTriple(), slicePoint3D = IsiXDCMViewTriple()
+    final var mprVector = IsiXDCMViewTriple(), mprPoint = IsiXDCMViewTriple()
+    @objc final var horos_sliceFromTo: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.sliceFromTo) }
+    @objc final var horos_sliceFromToS: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.sliceFromToS) }
+    @objc final var horos_sliceFromToE: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.sliceFromToE) }
+    @objc final var horos_sliceFromTo2: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.sliceFromTo2) }
     @objc final var horos_sliceFromToThickness: Float = 0
-    @objc final let horos_sliceVector: UnsafeMutablePointer<Float>! = dcmViewBuffer(3)
-    @objc final let horos_slicePoint3D: UnsafeMutablePointer<Float>! = dcmViewBuffer(3)
+    @objc final var horos_sliceVector: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.sliceVector) }
+    @objc final var horos_slicePoint3D: UnsafeMutablePointer<Float>! { return self.arrayInside(DCMViewArrayOffsets.slicePoint3D) }
     @objc final var horos_syncRelativeDiff: Float = 0
     @objc final var horos_syncSeriesIndex: Int = -1
     @objc final var horos_syncOnLocationImpossible = false
     @objc final var horos_avoidRecursiveSync: Int32 = 0
-    @objc final var horos_thickSlabMode: Int16 = 0
-    @objc final var horos_thickSlabStacks: Int16 = 0
+    @objc final var horos_thickSlabMode: Int16 = 0, horos_thickSlabStacks: Int16 = 0
     @objc final var horos_display2DPoint = NSPoint.zero
     @objc final var horos_display2DPointIndex: Int32 = 0
-    @objc final var horos_studyColorR: Float = 0
-    @objc final var horos_studyColorG: Float = 0
-    @objc final var horos_studyColorB: Float = 0
+    @objc final var horos_studyColorR: Float = 0, horos_studyColorG: Float = 0, horos_studyColorB: Float = 0
     @objc final var horos_studyDateIndex: UInt = 0
-    @objc final var horos_studyDateBox: AnnotationBox!
 
     // MARK: - Tools and the mouse
 
-    @objc final var horos_currentTool: ToolMode = .tWL
-    @objc final var horos_currentToolRight: ToolMode = .tZoom
-    @objc final var horos_currentMouseEventTool: ToolMode = .tWL
+    @objc final var horos_currentTool: ToolMode = .tWL, horos_currentToolRight: ToolMode = .tZoom, horos_currentMouseEventTool: ToolMode = .tWL
     @objc final var horos_cursor: NSCursor!
     @objc final var horos_cursorSet = false
     @objc final var horos_mouseDragging = false
@@ -229,24 +279,16 @@ public class DCMView: NSView {
     @objc final var horos_start = NSPoint.zero
     @objc final var horos_previous = NSPoint.zero
     @objc final var horos_crossMove: Int16 = -1
-    @objc final var horos_mesureA = NSPoint.zero
-    @objc final var horos_mesureB = NSPoint.zero
+    @objc final var horos_mesureA = NSPoint.zero, horos_mesureB = NSPoint.zero
     @objc final var horos_roiRect = NSRect.zero
-    @objc final var horos_mouseXPos: Float = 0
-    @objc final var horos_mouseYPos: Float = 0
+    @objc final var horos_mouseXPos: Float = 0, horos_mouseYPos: Float = 0
     @objc final var horos_pixelMouseValue: Float = 0
-    @objc final var horos_pixelMouseValueR: Int = 0
-    @objc final var horos_pixelMouseValueG: Int = 0
-    @objc final var horos_pixelMouseValueB: Int = 0
-    @objc final var horos_blendingMouseXPos: Float = 0
-    @objc final var horos_blendingMouseYPos: Float = 0
+    @objc final var horos_pixelMouseValueR: Int = 0, horos_pixelMouseValueG: Int = 0, horos_pixelMouseValueB: Int = 0
+    @objc final var horos_blendingMouseXPos: Float = 0, horos_blendingMouseYPos: Float = 0
     @objc final var horos_blendingPixelMouseValue: Float = 0
-    @objc final var horos_blendingPixelMouseValueR: Int = 0
-    @objc final var horos_blendingPixelMouseValueG: Int = 0
-    @objc final var horos_blendingPixelMouseValueB: Int = 0
+    @objc final var horos_blendingPixelMouseValueR: Int = 0, horos_blendingPixelMouseValueG: Int = 0, horos_blendingPixelMouseValueB: Int = 0
     @objc final var horos_avoidMouseMovedRecursive = false
-    @objc final var horos_contextualMenuInWindowPosX: Float = 0
-    @objc final var horos_contextualMenuInWindowPosY: Float = 0
+    @objc final var horos_contextualMenuInWindowPosX: Float = 0, horos_contextualMenuInWindowPosY: Float = 0
     @objc final var horos__mouseDownTimer: Timer!
     @objc final var horos__dragInProgress = false
     @objc final var horos_isKeyView = false
@@ -260,15 +302,13 @@ public class DCMView: NSView {
     @objc final var horos_contourAwaitingJoin: ROI!
     @objc final var horos_drawingROI = false
     @objc final var horos_mouseDraggedForROIUndo = false
-    @objc final var horos_ROISelectorStartPoint = NSPoint.zero
-    @objc final var horos_ROISelectorEndPoint = NSPoint.zero
+    @objc final var horos_ROISelectorStartPoint = NSPoint.zero, horos_ROISelectorEndPoint = NSPoint.zero
     @objc final var horos_ROISelectorSelectedROIList: NSMutableArray!
     @objc final var horos_selectorROIEdition = false
     @objc final var horos_repulsorRadius: Int32 = 0
     @objc final var horos_repulsorPosition = NSPoint.zero
     @objc final var horos_repulsorColorTimer: Timer!
-    @objc final var horos_repulsorAlpha: Float = 0
-    @objc final var horos_repulsorAlphaSign: Float = 0
+    @objc final var horos_repulsorAlpha: Float = 0, horos_repulsorAlphaSign: Float = 0
     @objc final var horos_repulsorROIEdition = false
 
     // MARK: - Two-click Length
@@ -280,18 +320,21 @@ public class DCMView: NSView {
 
     // MARK: - Drawing, text and the magnifier
 
-    @objc final var horos_drawingFrameRect = NSRect.zero
-    @objc final var horos_screenCaptureRect = NSRect.zero
+    @objc final var horos_drawingFrameRect = NSRect.zero, horos_screenCaptureRect = NSRect.zero
     @objc final var horos_exceptionDisplayed = false
     @objc final var horos_annotationType: Int32 = 0
     @objc final var horos_suppress_labels = false
     @objc final var horos_showDescriptionInLarge = false
-    @objc final var horos_showDescriptionInLargeText: AnnotationBox!
+    /// The boxes of the study's date and of the series description in large
+    /// text, under the selectors they answer. The SDK's studyDateBox and
+    /// showDescriptionInLargeText were OpenGL texts, a class that is gone:
+    /// those two fields are kept apart, at nil.
+    @objc(horos_studyDateBox) final var studyDateAnnotationBox: AnnotationBox!
+    @objc(horos_showDescriptionInLargeText) final var largeDescriptionBox: AnnotationBox!
     @objc final var horos_recordAnnotationRects = false
     @objc final var horos_rectArray: NSMutableArray!
     @objc final var horos_stringSize = NSSize.zero
-    @objc final var horos_labelFont: NSFont!
-    @objc final var horos_fontGL: NSFont!
+    @objc final var horos_labelFont: NSFont!, horos_fontGL: NSFont!
     @objc final var horos_fontColor: NSColor!
     @objc final var horos_resampledBaseAddrSize: Int32 = 0
     @objc final var horos_lensActive = false
@@ -303,15 +346,68 @@ public class DCMView: NSView {
 
     // MARK: - Tiles
 
-    @objc final var horos_imageRows: Int = 0
-    @objc final var horos_imageColumns: Int = 0
-    private var tagValue: Int = 0
+    @objc final var horos_imageRows: Int = 0, horos_imageColumns: Int = 0
+    /// The SDK's _tag. Key-value coding of that name answers the tag property.
+    final var _tag: Int = 0
 
     // MARK: - The view's own
 
-    private var cursorTracking: NSTrackingArea?
-    nonisolated(unsafe) final var is2DViewerCached = false
-    nonisolated(unsafe) final var is2DViewerValue = false
+    final var cursorTracking: NSTrackingArea?
+    nonisolated(unsafe) final var is2DViewerCached = false, is2DViewerValue = false
+
+    // MARK: - Fields of the former plugin SDK without state in this view
+
+    // Kept at zero and never read: the OpenGL textures, fonts and capabilities,
+    // the magnifier's textures, and what the SDK declared and never wrote. What
+    // the SDK's class freed or released when it went, a plugin's included,
+    // goes with the view here too.
+    final var blendingColorBuf: UnsafeMutablePointer<UInt8>?
+    final var bdcurWW: Float = 0, bdcurWL: Float = 0, fontRasterY: Float = 0
+    final var scaleStart = NSSize.zero, scaleInit = NSSize.zero
+    final var count: Int = 0
+    final var fontListGL: UInt32 = 0, labelFontListGL: UInt32 = 0
+    final var fontListGLSize = IsiXDCMViewGlyphWidths(), labelFontListGLSize = IsiXDCMViewGlyphWidths()
+    final var textureX: Int = 0, blendingTextureX: Int = 0, textureY: Int = 0, blendingTextureY: Int = 0
+    final var pTextureName: UnsafeMutablePointer<UInt32>?, blendingTextureName: UnsafeMutablePointer<UInt32>?
+    final var textureWidth: Int = 0, blendingTextureWidth: Int = 0, textureHeight: Int = 0, blendingTextureHeight: Int = 0
+    final var f_ext_texture_rectangle = false, f_arb_texture_rectangle = false, f_ext_client_storage = false
+    final var f_ext_packed_pixel = false, f_ext_texture_edge_clamp = false, f_gl_texture_edge_clamp = false
+    final var edgeClampParam: UInt = 0
+    final var maxTextureSize: Int = 0, maxNOPTDTextureSize: Int = 0, TEXTRECTMODE: Int = 0
+    final var stringTextureCache: NSMutableDictionary?
+    unowned(unsafe) final var _rightMouseDownTimer: Timer?
+    final var destinationImage: NSImage?, loupeImage: NSImage?, loupeMaskImage: NSImage?
+    final var needToLoadTexture = false, updateNotificationRunning = false, TextureComputed32bitPipeline = false
+    final var resampledBaseAddr: UnsafeMutablePointer<CChar>?, blendingResampledBaseAddr: UnsafeMutablePointer<CChar>?
+    final var blendingResampledBaseAddrSize: Int32 = 0
+    final var lensTexture: UnsafeMutablePointer<CChar>?
+    final var loupeTextureID: UInt32 = 0, loupeTextureWidth: UInt32 = 0, loupeTextureHeight: UInt32 = 0
+    final var loupeTextureBuffer: UnsafeMutablePointer<UInt8>?
+    final var loupeMaskTextureID: UInt32 = 0, loupeMaskTextureWidth: UInt32 = 0, loupeMaskTextureHeight: UInt32 = 0
+    final var loupeMaskTextureBuffer: UnsafeMutablePointer<UInt8>?
+    final var studyDateBox: AnyObject?, showDescriptionInLargeText: AnyObject?
+
+    // Declared only by the older SDK of OsiriX, with whose headers some plugins
+    // were built: the offset of the origin, the lens's size, the second OpenGL
+    // context, the iChat theatre, the reference lines of the former MPR and
+    // the view's own copies of the hot keys, the locale and the dates. Kept at
+    // zero and never read, as the ones above.
+    final var originOffset = NSPoint.zero, cross = NSPoint.zero
+    final var LENSSIZE: Int32 = 0
+    final var _alternateContext: AnyObject?
+    final var iChatWidth: Float = 0, iChatHeight: Float = 0, angle: Float = 0, slab: Float = 0
+    final var iChatCursorHotSpot = NSPoint.zero, iChatCursorImageSize = NSSize.zero
+    final var iChatCursorTextureBuffer: UnsafeMutablePointer<UInt8>?
+    final var iChatCursorTextureName: UInt32 = 0
+    final var slicePoint = IsiXDCMViewTriple(), slicePointO = IsiXDCMViewTriple(), slicePointI = IsiXDCMViewTriple()
+    final var sliceVector2 = IsiXDCMViewTriple(), slicePoint2 = IsiXDCMViewTriple()
+    final var slicePointO2 = IsiXDCMViewTriple(), slicePointI2 = IsiXDCMViewTriple()
+    final var QuartzExtreme = false, dontEnterReshape = false, iChatDrawing = false
+    final var crossPrev = NSPoint.zero, originOffsetStart = NSPoint.zero, iChatStringSize = NSSize.zero
+    final var switchAngle: Float = 0, iChatFontListGL: UInt32 = 0, iChatFontListGLSize = IsiXDCMViewGlyphWidths()
+    final var resampledTempAddr: UnsafeMutablePointer<CChar>?
+    final var _hotKeyDictionary: AnyObject?, localeDictionnary: AnyObject?, iChatFontGL: AnyObject?, iChatStringTextureCache: AnyObject?
+    final var mouseModifiers: AnyObject?, myImage: AnyObject?, shortDateString: AnyObject?, shortDateTimeString: AnyObject?, warningNotice: AnyObject?
 
     // MARK: - Properties
 
@@ -381,7 +477,7 @@ public class DCMView: NSView {
     @objc public dynamic var studyDateIndex: UInt {
         get { return self.horos_studyDateIndex }
         set {
-            self.horos_studyDateBox = nil
+            (self.studyDateAnnotationBox, self.studyDateBox) = (nil, nil)
             self.horos_studyDateIndex = newValue
         }
     }
@@ -425,7 +521,7 @@ public class DCMView: NSView {
         @objc(setMiddleTool:) set { self.horosSetMiddleTool(newValue) }
     }
 
-    @objc public dynamic var curImage: Int { return self.horos_curImage }
+    @objc public dynamic var curImage: Int { return Int(self.horos_curImage) }
 
     @objc public dynamic var theMatrix: NSMatrix! {
         get { return self.horos_matrix }
@@ -462,13 +558,13 @@ public class DCMView: NSView {
     @objc public dynamic var fontGL: NSFont! { return self.horos_fontGL }
 
     public override dynamic var tag: Int {
-        get { return self.tagValue }
-        set { self.tagValue = newValue }
+        get { return self._tag }
+        set { self._tag = newValue }
     }
 
-    @objc public dynamic var curWW: Float { return self.windowLevelState.width }
+    @objc public dynamic var curWW: Float { return self.horos_curWW }
 
-    @objc public dynamic var curWL: Float { return self.windowLevelState.level }
+    @objc public dynamic var curWL: Float { return self.horos_curWL }
 
     @objc public dynamic var rows: Int {
         get { return self.horos_imageRows }
@@ -518,7 +614,7 @@ public class DCMView: NSView {
     }
 
     @objc(initWithFrame:imageRows:imageColumns:)
-    public init(frame frameRect: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
+    public dynamic init(frame frameRect: NSRect, imageRows rows: Int32, imageColumns columns: Int32) {
         self.horos_previousViewSize = frameRect.size
         super.init(frame: frameRect)
         self.setUp(frame: frameRect, imageRows: Int(rows), imageColumns: Int(columns))
@@ -586,7 +682,7 @@ public class DCMView: NSView {
 
         // The former -initWithFrame:imageRows:imageColumns:.
         self.drawing = true
-        self.tagValue = 0
+        self._tag = 0
         self.horos_imageRows = rows
         self.horos_imageColumns = columns
         self.horos_isKeyView = false
@@ -612,7 +708,7 @@ public class DCMView: NSView {
         NSLog("DCMView released")
 
         // A view decoded from an archive registered no observer.
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
             let defaults = UserDefaults.standard
             defaults.removeObserver(self, forKeyPath: "ANNOTATIONS")
             defaults.removeObserver(self, forKeyPath: "LabelFONTNAME")
@@ -638,16 +734,8 @@ public class DCMView: NSView {
         self.horosHideCursor(forMagnifier: false)
 
         if let colorBuf = self.horos_colorBuf { free(colorBuf) }
-        self.horos_alphaTable.deallocate()
-        self.horos_redTable.deallocate()
-        self.horos_greenTable.deallocate()
-        self.horos_blueTable.deallocate()
-        self.horos_sliceFromTo.deallocate()
-        self.horos_sliceFromToS.deallocate()
-        self.horos_sliceFromToE.deallocate()
-        self.horos_sliceFromTo2.deallocate()
-        self.horos_sliceVector.deallocate()
-        self.horos_slicePoint3D.deallocate()
+        free(self.blendingColorBuf); free(self.resampledBaseAddr); free(self.blendingResampledBaseAddr)
+        free(self.pTextureName); free(self.blendingTextureName); free(self.lensTexture); free(self.iChatCursorTextureBuffer); free(self.resampledTempAddr)
     }
 
     // MARK: - Key-value coding of the former instance variables
@@ -704,7 +792,7 @@ public class DCMView: NSView {
         super.setValue(value, forUndefinedKey: key)
     }
 
-    nonisolated private func formerInstanceVariableKey(_ key: String) -> String? {
+    nonisolated private final func formerInstanceVariableKey(_ key: String) -> String? {
         switch key {
         case "imageRows", "_imageRows": return "horos_imageRows"
         case "imageColumns", "_imageColumns": return "horos_imageColumns"
@@ -759,18 +847,23 @@ public class DCMView: NSView {
     }
 }
 
-/// A buffer of the view's that the Objective-C held as an array ivar, zeroed.
-private func dcmViewBuffer<T: Numeric>(_ count: Int) -> UnsafeMutablePointer<T> {
-    let buffer = UnsafeMutablePointer<T>.allocate(capacity: count)
-    buffer.initialize(repeating: 0, count: count)
-    return buffer
-}
+/// Where the C arrays of the former plugin SDK are inside a DCMView. The
+/// arrays are fields of the view, at the offsets the application exports to
+/// plugins; the code that fills them and hands them out needs their address,
+/// which is the view's plus the field's offset as the runtime has it.
+enum DCMViewArrayOffsets {
+    static let alphaTable = offset("alphaTable"), redTable = offset("redTable")
+    static let greenTable = offset("greenTable"), blueTable = offset("blueTable")
+    static let sliceFromTo = offset("sliceFromTo"), sliceFromToS = offset("sliceFromToS")
+    static let sliceFromToE = offset("sliceFromToE"), sliceFromTo2 = offset("sliceFromTo2")
+    static let sliceVector = offset("sliceVector"), slicePoint3D = offset("slicePoint3D")
 
-/// A colour table of 256 entries: alpha opaque, the colours the identity.
-private func dcmViewTable(_ entry: (Int) -> UInt8) -> UnsafeMutablePointer<UInt8> {
-    let table = UnsafeMutablePointer<UInt8>.allocate(capacity: 256)
-    for i in 0..<256 { (table + i).initialize(to: entry(i)) }
-    return table
+    private static func offset(_ field: String) -> Int {
+        guard let variable = class_getInstanceVariable(DCMView.self, field) else {
+            preconditionFailure("DCMView keeps no field named \(field)")
+        }
+        return ivar_getOffset(variable)
+    }
 }
 
 /// Selectors of DCMView+CAPI.m whose float[2][3] parameter Swift cannot

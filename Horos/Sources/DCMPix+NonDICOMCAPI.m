@@ -47,6 +47,13 @@ void HorosTIFFInitialize(void) { [IsiXVTKTIFF registerFluoViewTags]; }
 
 NSXMLDocument *HorosXMLFromFVTiff(NSString *path) { return [[IsiXVTKTIFF fluoViewXMLOfFileAtPath:path] retain]; }
 
+__attribute__((used)) void FVTIFFInitialize(void) { HorosTIFFInitialize(); }
+
+__attribute__((used)) NSXMLDocument *XML_from_FVTiff(NSString *srcFile) { return HorosXMLFromFVTiff(srcFile); }
+
+// A warning handler that says nothing, for TIFFSetWarningHandler.
+__attribute__((used)) void FV_EMPTY_TIFFWarning(const char *module, const char *fmt, ...) { }
+
 BOOL HorosFVTiffDimensions(NSString *path, HorosFVDimension *dimensions)
 {
     IsiXVTKFluoViewHeader *header = [IsiXVTKTIFF fluoViewHeaderOfFileAtPath:path error:NULL];

@@ -37,6 +37,35 @@ def isolation_arguments(test_root: Path) -> list[str]:
             "-IsolatedPluginsFolder", f"{root}/Isolated Plugins"]
 
 
+def outdated_bundle(app: Path = DEVELOPMENT_APP) -> str | None:
+    """Why `app` is not the application as built now, or None.
+
+    The development bundle is a copy of a built product, signed again, which
+    keeps the executable's LC_UUID. When no product of build/Build/Products has
+    that UUID and one of them was linked after the copy, the bundle is of an
+    earlier build: what it lacks says nothing of the tree, and a test that
+    launches it would report as a defect what the build already has.
+    """
+    name = "Contents/MacOS/IsiX DICOM Viewer"
+
+    def uuid(executable: Path) -> str | None:
+        found = subprocess.run(["xcrun", "dwarfdump", "--uuid", str(executable)], capture_output=True, text=True)
+        words = found.stdout.split()
+        return words[1] if found.returncode == 0 and len(words) > 1 else None
+
+    executable = app / name
+    products = [path for path in (ROOT / "build/Build/Products").glob("*/IsiX DICOM Viewer.app/" + name) if path.is_file()]
+    own = uuid(executable)
+    if own is None or any(uuid(product) == own for product in products):
+        return None
+    newer = [product for product in products if product.stat().st_mtime > executable.stat().st_mtime]
+    if not newer:
+        return None
+    built = " and ".join(sorted(product.parents[3].name for product in newer))
+    return (f"{app} is a copy of an earlier build than the {built} of build/Build/Products: "
+            "prepare it again with script/build_and_run.sh --verify")
+
+
 def user_temporary_directory() -> str:
     return subprocess.run(["/usr/bin/getconf", "DARWIN_USER_TEMP_DIR"], capture_output=True,
                           text=True, check=True).stdout.strip()

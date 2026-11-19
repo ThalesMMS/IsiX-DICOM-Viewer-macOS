@@ -111,7 +111,15 @@ extension QueryController {
                 let listingShort = inventory != nil && DICOMwebSources.isDICOMwebServer(node?.extraParameters()) &&
                     (inventory?.unlistedCount ?? 0) > 0 && localNumber < reported
                 let wanted: Bool
-                if let inventory {
+                if let inventory, inventory.standsByPeerCounters(reported: Int(reported)) {
+                    // A node that lists no series or instances leaves the
+                    // inventory unconfirmed for good: its counters judged the
+                    // last retrieve complete, and while it reports the same
+                    // count and what arrived is still here there is nothing to
+                    // fetch. Held to a confirmed inventory, each retrieve of
+                    // what is missing brought the whole study again.
+                    wanted = false
+                } else if let inventory {
                     wanted = !inventory.matchesReportedCount(Int(reported)) || !inventory.isSatisfied || listingShort
                 } else {
                     wanted = localNumber < reported || reported == 0

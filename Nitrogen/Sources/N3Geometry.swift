@@ -217,7 +217,7 @@ func N3VectorApplyTransformToDirectionalVector(_ vector: N3Vector, _ transform: 
 
 // MARK: - Vectors, lines and planes
 
-@_cdecl("N3VectorIsCoincidentToVector") @implementation
+@_cdecl("N3VectorIsCoincidentToVector") @implementation @usableFromInline
 func N3VectorIsCoincidentToVector(_ vector1: N3Vector, _ vector2: N3Vector) -> Bool {
     vector1.vector3.isCoincident(with: vector2.vector3)
 }
@@ -237,12 +237,12 @@ func N3VectorBend(_ vectorToBend: N3Vector, _ originalDirection: N3Vector, _ new
     N3Vector(vectorToBend.vector3.bent(from: originalDirection.vector3, to: newDirection.vector3))
 }
 
-@_cdecl("N3VectorIsOnLine") @implementation
+@_cdecl("N3VectorIsOnLine") @implementation @usableFromInline
 func N3VectorIsOnLine(_ vector: N3Vector, _ line: N3Line) -> Bool {
     vector.vector3.isOn(line.line3)
 }
 
-@_cdecl("N3VectorIsOnPlane") @implementation
+@_cdecl("N3VectorIsOnPlane") @implementation @usableFromInline
 func N3VectorIsOnPlane(_ vector: N3Vector, _ plane: N3Plane) -> Bool {
     vector.vector3.isOn(plane.plane3)
 }
@@ -271,32 +271,32 @@ func N3LineMakeFromPoints(_ point1: N3Vector, _ point2: N3Vector) -> N3Line {
     return N3Line(line)
 }
 
-@_cdecl("N3LineEqualToLine") @implementation
+@_cdecl("N3LineEqualToLine") @implementation @usableFromInline
 func N3LineEqualToLine(_ line1: N3Line, _ line2: N3Line) -> Bool {
     N3VectorEqualToVector(line1.point, line2.point) && N3VectorEqualToVector(line1.vector, line2.vector)
 }
 
-@_cdecl("N3LineIsCoincidentToLine") @implementation
+@_cdecl("N3LineIsCoincidentToLine") @implementation @usableFromInline
 func N3LineIsCoincidentToLine(_ line1: N3Line, _ line2: N3Line) -> Bool {
     line1.line3.isCoincident(with: line2.line3)
 }
 
-@_cdecl("N3LineIsOnPlane") @implementation
+@_cdecl("N3LineIsOnPlane") @implementation @usableFromInline
 func N3LineIsOnPlane(_ line: N3Line, _ plane: N3Plane) -> Bool {
     line.line3.isOn(plane.plane3)
 }
 
-@_cdecl("N3LineIsParallelToLine") @implementation
+@_cdecl("N3LineIsParallelToLine") @implementation @usableFromInline
 func N3LineIsParallelToLine(_ line1: N3Line, _ line2: N3Line) -> Bool {
     line1.line3.isParallel(to: line2.line3)
 }
 
-@_cdecl("N3LineIsValid") @implementation
+@_cdecl("N3LineIsValid") @implementation @usableFromInline
 func N3LineIsValid(_ line: N3Line) -> Bool {
     line.line3.isValid
 }
 
-@_cdecl("N3LineIntersectsPlane") @implementation
+@_cdecl("N3LineIntersectsPlane") @implementation @usableFromInline
 func N3LineIntersectsPlane(_ line: N3Line, _ plane: N3Plane) -> Bool {
     line.line3.intersects(plane.plane3)
 }
@@ -340,7 +340,7 @@ func N3PlaneEqualToPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> Bool {
     N3VectorEqualToVector(plane1.point, plane2.point) && N3VectorEqualToVector(plane1.normal, plane2.normal)
 }
 
-@_cdecl("N3PlaneIsCoincidentToPlane") @implementation
+@_cdecl("N3PlaneIsCoincidentToPlane") @implementation @usableFromInline
 func N3PlaneIsCoincidentToPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> Bool {
     plane1.plane3.isCoincident(with: plane2.plane3)
 }
@@ -350,7 +350,7 @@ func N3PlaneIsValid(_ plane: N3Plane) -> Bool {
     plane.plane3.isValid
 }
 
-@_cdecl("N3PlanePointClosestToVector") @implementation
+@_cdecl("N3PlanePointClosestToVector") @implementation @usableFromInline
 func N3PlanePointClosestToVector(_ plane: N3Plane, _ vector: N3Vector) -> N3Vector {
     N3Vector(plane.plane3.pointClosest(to: vector.vector3))
 }
@@ -365,7 +365,7 @@ func N3PlaneIsBetweenVectors(_ plane: N3Plane, _ vector1: N3Vector, _ vector2: N
     plane.plane3.isBetween(vector1.vector3, vector2.vector3)
 }
 
-@_cdecl("N3PlaneIntersectionWithPlane") @implementation
+@_cdecl("N3PlaneIntersectionWithPlane") @implementation @usableFromInline
 func N3PlaneIntersectionWithPlane(_ plane1: N3Plane, _ plane2: N3Plane) -> N3Line {
     N3Line(plane1.plane3.intersection(with: plane2.plane3))
 }
@@ -434,7 +434,7 @@ func N3AffineTransformIsRectilinear(_ transform: N3AffineTransform) -> Bool {
     transform.isRectilinear
 }
 
-@_cdecl("N3AffineTransformTranspose") @implementation
+@_cdecl("N3AffineTransformTranspose") @implementation @usableFromInline
 func N3AffineTransformTranspose(_ transform: N3AffineTransform) -> N3AffineTransform {
     transform.transposed
 }
@@ -472,19 +472,19 @@ func N3AffineTransformGetOpenGLMatrixd(_ transform: N3AffineTransform, _ d: Unsa
     }
 }
 
-@_cdecl("N3AffineTransformGetOpenGLMatrixf") @implementation
+@_cdecl("N3AffineTransformGetOpenGLMatrixf") @implementation @usableFromInline
 func N3AffineTransformGetOpenGLMatrixf(_ transform: N3AffineTransform, _ f: UnsafeMutablePointer<Float>?) {
     for (i, value) in openGLValues(transform).enumerated() {
         f![i] = Float(value)
     }
 }
 
-@_cdecl("N3AffineTransformMakeFromOpenGLMatrixd") @implementation
+@_cdecl("N3AffineTransformMakeFromOpenGLMatrixd") @implementation @usableFromInline
 func N3AffineTransformMakeFromOpenGLMatrixd(_ d: UnsafeMutablePointer<Double>?) -> N3AffineTransform {
     makeTransform { CGFloat(d![$0]) }
 }
 
-@_cdecl("N3AffineTransformMakeFromOpenGLMatrixf") @implementation
+@_cdecl("N3AffineTransformMakeFromOpenGLMatrixf") @implementation @usableFromInline
 func N3AffineTransformMakeFromOpenGLMatrixf(_ f: UnsafeMutablePointer<Float>?) -> N3AffineTransform {
     makeTransform { CGFloat(f![$0]) }
 }
@@ -551,7 +551,7 @@ func N3VectorCreateDictionaryRepresentation(_ vector: N3Vector) -> Unmanaged<CFD
     created(vectorDictionary(vector))
 }
 
-@_cdecl("N3LineCreateDictionaryRepresentation") @implementation
+@_cdecl("N3LineCreateDictionaryRepresentation") @implementation @usableFromInline
 func N3LineCreateDictionaryRepresentation(_ line: N3Line) -> Unmanaged<CFDictionary>? {
     created(n3Dictionary(["point": vectorDictionary(line.point), "vector": vectorDictionary(line.vector)]))
 }
@@ -568,7 +568,7 @@ func N3VectorMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ vectorPoi
     return true
 }
 
-@_cdecl("N3LineMakeWithDictionaryRepresentation") @implementation
+@_cdecl("N3LineMakeWithDictionaryRepresentation") @implementation @usableFromInline
 func N3LineMakeWithDictionaryRepresentation(_ dict: CFDictionary?, _ line: UnsafeMutablePointer<N3Line>?) -> Bool {
     guard let (point, vector) = vectors(dictionary(dict), "point", "vector") else { return false }
     line?.pointee = N3Line(point: point, vector: vector)
@@ -586,23 +586,23 @@ private func describe(_ vector: N3Vector) -> String {
     String(format: "{%f, %f, %f}", vector.x, vector.y, vector.z)
 }
 
-@_cdecl("NSStringFromN3AffineTransform") @implementation
+@_cdecl("NSStringFromN3AffineTransform") @implementation @usableFromInline
 func NSStringFromN3AffineTransform(_ t: N3AffineTransform) -> String? {
     String(format: "{{%8.2f, %8.2f, %8.2f, %8.2f}\n {%8.2f, %8.2f, %8.2f, %8.2f}\n {%8.2f, %8.2f, %8.2f, %8.2f}\n {%8.2f, %8.2f, %8.2f, %8.2f}}",
            t.m11, t.m12, t.m13, t.m14, t.m21, t.m22, t.m23, t.m24, t.m31, t.m32, t.m33, t.m34, t.m41, t.m42, t.m43, t.m44)
 }
 
-@_cdecl("NSStringFromN3Vector") @implementation
+@_cdecl("NSStringFromN3Vector") @implementation @usableFromInline
 func NSStringFromN3Vector(_ vector: N3Vector) -> String? {
     describe(vector)
 }
 
-@_cdecl("NSStringFromN3Line") @implementation
+@_cdecl("NSStringFromN3Line") @implementation @usableFromInline
 func NSStringFromN3Line(_ line: N3Line) -> String? {
     "{\(describe(line.point)), \(describe(line.vector))}"
 }
 
-@_cdecl("NSStringFromN3Plane") @implementation
+@_cdecl("NSStringFromN3Plane") @implementation @usableFromInline
 func NSStringFromN3Plane(_ plane: N3Plane) -> String? {
     "{\(describe(plane.point)), \(describe(plane.normal))}"
 }
@@ -673,4 +673,61 @@ extension NSValue {
     func makeN3AffineTransform() -> N3AffineTransform {
         contents(of: self, N3ObjCType.affineTransform, empty: N3AffineTransformIdentity)
     }
+}
+
+// MARK: - Real roots
+
+/// The real root of ax+b; answers the number of roots set.
+@_cdecl("findRealLinearRoot") @implementation @usableFromInline
+func findRealLinearRoot(_ a: CGFloat, _ b: CGFloat, _ root: UnsafeMutablePointer<CGFloat>!) -> CFIndex {
+    if a == 0 { return 0 }
+    root.pointee = -b / a
+    return 1
+}
+
+/// The real roots of ax^2+bx+c; answers the number of roots set.
+@_cdecl("findRealQuadraticRoots") @implementation @usableFromInline
+func findRealQuadraticRoots(_ a: CGFloat, _ b: CGFloat, _ c: CGFloat, _ root1: UnsafeMutablePointer<CGFloat>!,
+                            _ root2: UnsafeMutablePointer<CGFloat>!) -> CFIndex {
+    if a == 0 { return findRealLinearRoot(b, c, root1) }
+    // Fused as clang fused the Objective-C expression, so that the roots are the same to the last bit.
+    let discriminant = (-(4.0 * a * c)).addingProduct(b, b)
+    if discriminant < 0.0 { return 0 }
+    if discriminant == 0 {
+        root1.pointee = b / (a * -2.0)
+        return 1
+    }
+    if b == 0 {
+        root1.pointee = (c / a).squareRoot()
+        root2.pointee = -root1.pointee
+        return 2
+    }
+    let q = (b + CGFloat(copysign(Double(discriminant.squareRoot()), Double(b)))) * 0.5
+    root1.pointee = q / a
+    root2.pointee = c / q
+    return 2
+}
+
+/// The real roots of ax^3+bx^2+cx+d; answers the number of roots set.
+@_cdecl("findRealCubicRoots") @implementation @usableFromInline
+func findRealCubicRoots(_ a: CGFloat, _ b: CGFloat, _ c: CGFloat, _ d: CGFloat, _ root1: UnsafeMutablePointer<CGFloat>!,
+                        _ root2: UnsafeMutablePointer<CGFloat>!, _ root3: UnsafeMutablePointer<CGFloat>!) -> CFIndex {
+    if a == 0 { return findRealQuadraticRoots(b, c, d, root1, root2) }
+    let b = b / a, c = c / a, d = d / a
+    let Q = (-(3.0 * c)).addingProduct(b, b) / 9.0
+    let R = (-(9.0 * b * c)).addingProduct(2.0 * b * b, b).addingProduct(27.0, d) / 54.0
+    let R2 = R * R, Q3 = Q * Q * Q, b3 = b / 3.0
+    if R2 < Q3 {
+        let theta = CGFloat(acos(Double(R / Q3.squareRoot())))
+        let sqrtQ2 = -2.0 * Q.squareRoot()
+        root1.pointee = (-b3).addingProduct(sqrtQ2, CGFloat(cos(Double(theta / 3.0))))
+        root2.pointee = (-b3).addingProduct(sqrtQ2, CGFloat(cos(Double((theta + 2.0 * .pi) / 3.0))))
+        if theta == 0.0 { return 2 }
+        root3.pointee = (-b3).addingProduct(sqrtQ2, CGFloat(cos(Double((theta - 2.0 * .pi) / 3.0))))
+        return 3
+    }
+    let A = -1.0 * CGFloat(copysign(pow(Double(abs(R) + (R2 - Q3).squareRoot()), 1.0 / 3.0), Double(R)))
+    let B = A == 0 ? 0 : Q / A
+    root1.pointee = (A + B) - b3
+    return 1
 }

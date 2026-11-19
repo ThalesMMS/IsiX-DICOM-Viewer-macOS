@@ -64,7 +64,8 @@ final class DCMTKRootQueryNode: DCMTKQueryNode, @unchecked Sendable {
         if childrenStorage == nil { childrenStorage = NSMutableArray() }
         guard let response, let children = childrenStorage else { return }
         let limit = PreferencesSource.process.preferences[NetworkPreferences.maximumNumberOfCFindObjects]
-        if limit > 0 && children.count > limit {
+        // At the limit, not past it: the comparison after the fact kept one more.
+        if limit > 0 && children.count >= limit {
             NSLog("----- C-Find maximumNumberOfCFindObjects reached: %d, %d", Int32(truncatingIfNeeded: children.count),
                   Int32(truncatingIfNeeded: limit))
             return

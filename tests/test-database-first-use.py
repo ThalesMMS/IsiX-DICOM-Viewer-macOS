@@ -14,10 +14,41 @@ location at the folder holding it and imports its studies; keeping it can stop
 the question for that folder, except when opening it would upgrade its model.
 """
 from pathlib import Path
-import subprocess,sys,tempfile
+import plistlib,subprocess,sys,tempfile
+import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'tests'))
 import process_graph_stand_in  # noqa: E402
+
+# In every language, the explanation of a Horos database left alone names the
+# import of Horos and OsiriX databases by the path of its menu in that
+# language's main menu, and no longer the import of DATABASE.noindex as files.
+LEFT_ALONE=('A Horos database was found at %@. It was not opened or changed: IsiX DICOM Viewer keeps a database of its own.\n\n'
+ 'To bring its studies over, choose File > Import > Import Studies from Horos or OsiriX… once this step is done. '
+ 'The import takes the studies the Horos database lists, with their albums, comments and states, leaves out the files of '
+ 'studies deleted in Horos, and asks whether to copy the files or only link to them.')
+literal=LEFT_ALONE.replace('\n','\\n')
+if 'NSLocalizedString("%s", comment: "First use, Horos database left alone")'%literal not in (root/'Horos/Sources/DatabaseFirstUse.swift').read_text():
+ sys.exit('FAIL: DatabaseFirstUse.swift does not show the explanation of a Horos database left alone')
+menus=sorted((root/'Horos/Resources').glob('*.lproj/MainMenu.xib'))
+assert len(menus)==12,len(menus)
+for menu in menus:
+ tree=ET.parse(menu).getroot();parents={child:parent for parent in tree.iter() for child in parent}
+ node=next(item for item in tree.iter('menuItem') if any(a.get('selector')=='importStudiesFromEarlierApplication:' for a in item.iter('action')))
+ path=[]
+ while node is not None:
+  if node.tag=='menuItem':path.insert(0,node.get('title'))
+  node=parents.get(node)
+ strings=menu.parent/'Localizable.strings'
+ text=plistlib.loads(subprocess.check_output(['plutil','-convert','binary1','-o','-',str(strings)])).get(LEFT_ALONE)
+ if text is None:sys.exit(f'FAIL: {menu.parent.name} has no explanation of a Horos database left alone')
+ at=0
+ for title in path:
+  found=text.find(title,at)
+  if found<0:sys.exit(f'FAIL: {menu.parent.name}: the explanation does not name {" > ".join(path)}')
+  at=found+len(title)
+ if 'DATABASE.noindex' in text or text.count('%@')!=1 or text.count('\n')!=2:
+  sys.exit(f'FAIL: {menu.parent.name}: the explanation still names DATABASE.noindex or lost its place holder or paragraphs')
 main=r'''
 import AppKit
 import IsiXPreferences
@@ -26,8 +57,11 @@ import IsiXPreferences
 enum WebPortal { @MainActor static func adoptOpenedDatabase() {} }
 // The application's browser, which the choice hands an import to, through
 // the graph of the database window; there is none in this test.
-final class BrowserController: NSObject {
- func subSelectFilesAndFolders(toAdd: [Any]!) {}
+final class BrowserController: NSObject {}
+// The import of a Horos image folder, which reads the database beside it.
+@MainActor final class LegacyStudiesImport {
+ static let shared = LegacyStudiesImport()
+ func importImagesFolder(_ folder: String, into browser: BrowserController) {}
 }
 @MainActor final class BrowserWindowGraph { let browser = BrowserController() }
 extension ProcessGraph { @MainActor var browserWindow: BrowserWindowGraph? { nil } }
@@ -87,7 +121,9 @@ assert(DatabaseFirstUse.horosDatabase(horosPreferences:nil,documents:empty)==nil
 let plain=DatabaseFirstUse.explanation(documents:documents,horosDatabase:nil)
 let told=DatabaseFirstUse.explanation(documents:documents,horosDatabase:horos.path)
 assert(!plain.contains("Horos") && plain.contains(documents.path))
-assert(told.hasPrefix(plain) && told.contains(horos.path) && told.contains("not opened or changed") && told.contains("File > Import > Import Files...") && told.contains("DATABASE.noindex"))
+assert(told.hasPrefix(plain) && told.contains(horos.path) && told.contains("not opened or changed") && told.contains("File > Import > Import Studies from Horos or OsiriX…"))
+// Not by importing its image folder as files, which brings back the studies deleted in Horos.
+assert(!told.contains("Import Files") && !told.contains("DATABASE.noindex") && told.contains("leaves out the files of studies deleted in Horos"))
 
 // Each answer to the question about a Horos database does what it says.
 MainActor.assumeIsolated {
@@ -158,6 +194,6 @@ print("PASS: fresh install prompts, also beside a Horos database it explains and
 '''
 with tempfile.TemporaryDirectory(prefix='horos-first-use-') as tmp:
  p=Path(tmp);(p/'main.swift').write_text(main)
- sources=['CloudFileAccess.swift','DatabaseLocation.swift','PreferencesContinuity.swift','ForeignDatabaseChoice.swift','DatabaseFirstUse.swift']
+ sources=['CloudFileAccess.swift','DatabaseLocation.swift','PreferencesContinuity.swift','ForeignDatabaseChoice.swift','DatabaseFirstUse.swift','MainActorCallbacks.swift']
  subprocess.run(['xcrun','--sdk','macosx','swiftc',*process_graph_stand_in.swift_flags(p/'isix'),*[str(root/'Horos/Sources'/s) for s in sources],str(p/'main.swift'),'-o',str(p/'test')],check=True,timeout=300)
  subprocess.run([str(p/'test'),str(p/'Documents')],check=True,timeout=120)

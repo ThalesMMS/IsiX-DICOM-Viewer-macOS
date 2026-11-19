@@ -161,6 +161,7 @@ extension DCMPix {
         guard horos_fImage == nil else { return }
         var success = false
         horos_VOILUTApplied = false
+        horos_useVOILUT = false
         horos_needToCompute8bitRepresentation = true
         horos_fileIsOfAnotherImage = false
 
@@ -174,7 +175,9 @@ extension DCMPix {
             if srcFile == nil { return }
         }
 
-        if isDICOMFile(srcFile) {
+        let readAsDICOM = isDICOMFile(srcFile)
+        horos_nonDICOM = !readAsDICOM
+        if readAsDICOM {
             autoreleasepool {
                 var loaded = false
                 if let exception = HorosObjCException.caught({ loaded = self.loadDICOMWithDCMTK() }) {
@@ -233,6 +236,8 @@ extension DCMPix {
             // The alpha of a colour image is the mean of its channels.
             ColourChannels.fillAlpha(UnsafeMutableRawPointer(image).assumingMemoryBound(to: UInt8.self), count: horos_width * horos_height)
         }
+
+        horos_olderImageFieldsFollow()
 
         // One pass of this body is one decode: how the preview proves that
         // drawing a frame and choosing its window share one read of the file.

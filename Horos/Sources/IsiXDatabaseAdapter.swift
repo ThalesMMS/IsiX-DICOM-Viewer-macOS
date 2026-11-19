@@ -117,8 +117,13 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
             .compactMap { $0 as? DicomImage }.filter { $0.sopInstanceUID() == sop }
     }
 
+    /// By instance number and frame. The images of several multi-frame files
+    /// go file by file, as their series sorts them (DicomSeries.fileByFile):
+    /// the files of an acquisition in time number their frames alike, and the
+    /// numbers alone would mix the volumes.
     private static func sortedImages(_ images: [DicomImage]) -> [DicomImage] {
-        images.sorted { ($0.instanceNumber?.intValue ?? 0, $0.frameID?.intValue ?? 0) < ($1.instanceNumber?.intValue ?? 0, $1.frameID?.intValue ?? 0) }
+        let sorted = images.sorted { ($0.instanceNumber?.intValue ?? 0, $0.frameID?.intValue ?? 0) < ($1.instanceNumber?.intValue ?? 0, $1.frameID?.intValue ?? 0) }
+        return (DicomSeries.fileByFile(sorted) as? [DicomImage]) ?? sorted
     }
 
     private func albumObjects() throws -> [DicomAlbum] {

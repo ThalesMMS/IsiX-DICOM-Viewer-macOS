@@ -179,4 +179,35 @@ import Testing
         // Only the part of the offset along the normal is kept.
         #expect(GantryTiltCorrection.projectedOrigin(modelOrigin: [10, 20, 30], model: axial, offset: [0, 1.5, -4]) == [10, 20, 26])
     }
+
+    @Test func theSliceIsBroughtAlongTheNormalAlone() {
+        let axial: [Double] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        // Sheared along its columns: what is left within the plane, 1.5 mm, is the shift of the pixels.
+        #expect(GantryTiltCorrection.frameTranslation(offset: [0, 1.5, -4], model: axial) == [0, 0, -4])
+        // Tilted 20 degrees about x, stepping 2 mm along the table: the distance of the planes, 2 cos 20.
+        let c = cos(20 * Double.pi / 180), s = sin(20 * Double.pi / 180)
+        let tilted: [Double] = [1, 0, 0, 0, c, -s, 0, s, c]
+        let t = GantryTiltCorrection.frameTranslation(offset: [0, 0, 2], model: tilted)
+        #expect(t[0] == 0 && t[1] == 0 && abs(t[2] - 2 * c) < 1e-12)
+    }
+
+    @Test func aCorrectedStackTellsTheSliceItWasBroughtOnto() {
+        let axial: [Double] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        // Five slices of a gantry tilted about x: 2 mm along z, 1 mm along y.
+        let files = (0..<5).map { [0, Double($0), 2 * Double($0)] }
+        func corrected(onto model: Int) -> [[Double]] {
+            files.map { GantryTiltCorrection.projectedOrigin(modelOrigin: files[model], model: axial,
+                                                             offset: zip($0, files[model]).map { $0 - $1 }) }
+        }
+        #expect(GantryTiltCorrection.modelSlice(fileOrigins: files, origins: corrected(onto: 2), orientation: axial) == 2)
+        // The middle of a stack reversed since is another slice.
+        #expect(GantryTiltCorrection.modelSlice(fileOrigins: files, origins: corrected(onto: 3), orientation: axial) == 3)
+        // As the files give it, the stack has no model.
+        #expect(GantryTiltCorrection.modelSlice(fileOrigins: files, origins: files, orientation: axial) == nil)
+        // Moved in another way (every origin typed 5 mm off but one): not a correction.
+        var typed = files.map { [$0[0] + 5, $0[1], $0[2]] }
+        typed[2] = files[2]
+        #expect(GantryTiltCorrection.modelSlice(fileOrigins: files, origins: typed, orientation: axial) == nil)
+        #expect(GantryTiltCorrection.modelSlice(fileOrigins: files, origins: Array(files.dropLast()), orientation: axial) == nil)
+    }
 }

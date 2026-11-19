@@ -10,37 +10,26 @@
 
 import AppKit
 
-/// The ROIs of the viewer as a whole: the lock of the ROI lists, the names offered, the undo and redo queues and the morphology function of the brush.
-final class ViewerROIState: @unchecked Sendable {
-    var roiLock: NSRecursiveLock?
-    /// The names the viewer offered last, read by key as "ROINamesArray".
-    var ROINamesArray: [String]?
-    var undoQueue: NSMutableArray?
-    var redoQueue: NSMutableArray?
-    /// Retained when replaced, never released by the holder (as the instance variable was).
-    @ManuallyRetained var morphoFunction: NSString?
-}
-
 extension ViewerController {
     nonisolated var horos_roiLock: NSRecursiveLock? {
-        get { roiState.roiLock }
-        set { roiState.roiLock = newValue }
+        get { _roiLock }
+        set { _roiLock = newValue }
     }
     var horos_ROINamesArray: [String]? {
-        get { roiState.ROINamesArray }
-        set { roiState.ROINamesArray = newValue }
+        get { _ROINamesArray as? [String] }
+        set { _ROINamesArray = newValue.map { NSMutableArray(array: $0) } }
     }
     var horos_undoQueue: NSMutableArray? {
-        get { roiState.undoQueue }
-        set { roiState.undoQueue = newValue }
+        get { _undoQueue }
+        set { _undoQueue = newValue }
     }
     var horos_redoQueue: NSMutableArray? {
-        get { roiState.redoQueue }
-        set { roiState.redoQueue = newValue }
+        get { _redoQueue }
+        set { _redoQueue = newValue }
     }
     var horos_morphoFunction: String? {
-        get { roiState.morphoFunction as String? }
-        set { roiState.morphoFunction = newValue as NSString? }
+        get { _morphoFunction.wrappedValue as String? }
+        set { _morphoFunction.wrappedValue = newValue as NSString? }
     }
 
     /// A new ROI of `type`, answered as -newROI: answers it: -newROI: is in

@@ -24,6 +24,7 @@ Two halves, because neither alone would be honest:
   flag restores the original reading;
 * the source half shows that the writer, `loadTextureIn:`, is gone:
   the view draws with Metal from copies, and nothing writes over the cache.
+  The selector answers a plugin of the former SDK and does nothing.
 """
 from pathlib import Path
 import re
@@ -52,8 +53,13 @@ pix = class_text('DCMPix')
 
 # The writer is gone: the view draws its picture with Metal from copies
 # of the host's bytes, and nothing transforms the measurement cache in place.
-if 'loadTextureIn:' in view:
+# The selector itself answers again, for a plugin of the former SDK that sends
+# it: a facade that makes no texture and touches no buffer.
+facade = (root / 'Horos/Sources/DCMView+LegacyPluginSDK.swift').read_text(encoding='utf-8')
+if 'loadTextureIn:' in view.replace(facade, ''):
     failures.append('loadTextureIn: is back in DCMView; it wrote the colour transfer over baseAddr')
+if re.search(r'baseAddr|vImage|reapplyWindowLevel|pointee', facade):
+    failures.append('the facade of the former OpenGL selectors of DCMView reads or writes a buffer')
 for name, text in (('DCMView', view), ('DCMView+PlanarSnapshot.swift', bridge)):
     if re.search(r'vImageTableLookUp_ARGB8888\(\s*&dest,\s*&dest,', text):
         failures.append('%s transforms a buffer in place again; check that it is not baseAddr' % name)

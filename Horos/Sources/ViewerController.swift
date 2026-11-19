@@ -53,41 +53,146 @@ public final class ViewerController: OSIWindowController {
 
     // MARK: - State, by responsibility
 
-    /// Viewer.nib's outlets.
-    let windowOutlets = ViewerWindowOutlets()
-    /// ViewerPanels.nib's outlets, loaded on demand.
-    let panelOutlets = ViewerPanelOutlets()
-    /// The series shown: slices, files, ROIs and volumes per movie frame.
-    let seriesState = ViewerSeriesState()
     /// The loading of the images and the closing of the window.
     let loadingState = ViewerLoadingState()
     /// The image views and the fit asked at opening.
     let imageViewsState = ViewerImageViews()
     /// The geometry of the data set.
     let geometryState = ViewerGeometryState()
-    /// The cine of the slices and 4D frames.
-    let playbackState = ViewerPlaybackState()
-    /// The presets chosen in the menus.
-    let presetState = ViewerPresetState()
-    /// The fusion and the mask subtraction.
-    let fusionState = ViewerFusionState()
-    /// The SUV conversion.
-    let suvState = ViewerSUVState()
-    /// The ROI lists' lock, names and undo.
-    let roiState = ViewerROIState()
-    /// The processing threads.
-    let processingState = ViewerProcessingState()
-    /// The toolbar and the toolbar panel.
-    let toolbarState = ViewerToolbarState()
-    /// The full screen, the window frames and the saved layout's name.
-    let windowLayoutState = ViewerWindowLayoutState()
     /// The series list and the series menu.
     let seriesListState = ViewerSeriesListState()
-    /// The movie, DICOM and print exports.
-    let exportState = ViewerExportState()
     /// The viewer's graph, made by the initializer: the process graph, the
     /// preferences, the register of the viewers, and the viewer's life.
     private(set) var sessionGraph: ViewerSessionGraph!
+
+    // MARK: - Instance variables of the former plugin SDK
+
+    // Plugins built for the former Horos or OsiriX SDK read and write these at
+    // the offset the application exports for each, so each is a stored field
+    // of this class with the C declaration's type and ownership, never
+    // private, lazy, weak or observed; a plugin's write calls no setter.
+    // nonisolated(unsafe): key-value coding and nonisolated accessors read them.
+    // Retained: the image views and the presets; not retained: the outlets;
+    // retained when replaced and never released: the slots of _pixList (used
+    // in place, ViewerController+SeriesState), _blendingController, _thickSlab.
+    nonisolated(unsafe) var horos_imageView: DCMView?, horos_seriesView: SeriesView?
+    var _pixList = IsiXViewerPixListStorage()
+    nonisolated(unsafe) var horos_maxMovieIndex: Int16 = 0
+    nonisolated(unsafe) unowned(unsafe) var _wlwwPopup: NSPopUpButton?, _convPopup: NSPopUpButton?, _clutPopup: NSPopUpButton?, _OpacityPopup: NSPopUpButton?
+    nonisolated(unsafe) unowned(unsafe) var _blendingPopupMenu: NSPopUpButton?, _blendingPercentage: NSTextField?, _blendingSlider: NSSlider?
+    nonisolated(unsafe) var _curConvMenu: NSString?, _curWLWWMenu: NSString?, _curCLUTMenu: NSString?, _backCurCLUTMenu: NSString?, _curOpacityMenu: NSString?
+    nonisolated(unsafe) var _blendingController = ManuallyRetained<ViewerController>(), _thickSlab = ManuallyRetained<ThickSlabController>()
+
+    // The outlets of Viewer.nib and of ViewerPanels.nib, as the nibs set them,
+    // without a retain: the windows and their views keep them. Those of the
+    // second nib are nil until it is loaded, on demand, which reading one
+    // through its horos_ accessor does. The scroll view of the series list is
+    // retained: a floating panel takes it out of the window.
+    nonisolated(unsafe) unowned(unsafe) var _clutName: NSTextField?, _CommentsEditField: NSTextField?, _customInterval: NSTextField?, _customXSpacing: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _customYSpacing: NSTextField?, _dcmFromText: NSTextField?, _dcmIntervalText: NSTextField?, _dcmNumber: NSTextField?, _dcmSeriesName: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _dcmToText: NSTextField?, _fromset: NSTextField?, _matrixName: NSTextField?, _matrixNorm: NSTextField?, _maxValueText: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _minValueText: NSTextField?, _movieTextSlide: NSTextField?, _newName: NSTextField?, _newValueText: NSTextField?, _OpacityName: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _printFromText: NSTextField?, _printIntervalText: NSTextField?, _printPagesToPrint: NSTextField?, _printText: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _printToText: NSTextField?, _quicktimeFromText: NSTextField?, _quicktimeIntervalText: NSTextField?, _quicktimeNumber: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _quicktimeToText: NSTextField?, _roiPropaDest: NSTextField?, _roiRenameName: NSTextField?, _speedText: NSTextField?, _stacksFusion: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _structuringElementRadiusTextField: NSTextField?, _subCtrlMaskText: NSTextField?, _toset: NSTextField?, _wl: NSTextField?, _wlset: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _ww: NSTextField?, _wwset: NSTextField?
+    nonisolated(unsafe) unowned(unsafe) var _activatedFusion: NSButton?, _blendingResample: NSButton?, _blendingTypeMultiply: NSButton?, _blendingTypeSubtract: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _brushROIFilterOptionsAllWithSameName: NSButton?, _brushROIFilterOptionsOKButton: NSButton?, _checkMaxValue: NSButton?, _checkMinValue: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _CommentsField: NSButton?, _comparativesButton: NSButton?, _dcmAllViewers: NSButton?, _imageAllViewers: NSButton?, _keyImageCheck: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _loopButton: NSButton?, _moviePlayStop: NSButton?, _quicktimeAllViewers: NSButton?, _sc1: NSButton?, _sc2: NSButton?, _sc3: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _sc4: NSButton?, _sc5: NSButton?, _sc6: NSButton?, _sc7: NSButton?, _sc8: NSButton?, _sc9: NSButton?, _setROI4DSeries: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _shutterOnOff: NSButton?, _subCtrlOnOff: NSButton?, _subCtrlSharpenButton: NSButton?
+    nonisolated(unsafe) unowned(unsafe) var _AllROIsRadio: NSMatrix?, _buttonToolMatrix: NSMatrix?, _convMatrix: NSMatrix?, _customOrigin: NSMatrix?, _customVectors: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _dcmFormat: NSMatrix?, _dcmSelection: NSMatrix?, _display12bitToolbarItemMatrix: NSMatrix?, _imageFormat: NSMatrix?, _imageSelection: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _InOutROI: NSMatrix?, _newValueMatrix: NSMatrix?, _orientationMatrix: NSMatrix?, _previewMatrix: NSMatrix?, _printFormat: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _printSelection: NSMatrix?, _printSettings: NSMatrix?, _quicktimeMode: NSMatrix?, _roiApplyMatrix: NSMatrix?, _roiPropaCopy: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _roiPropaDim: NSMatrix?, _roiPropaMode: NSMatrix?, _roiRenameMatrix: NSMatrix?, _sizeMatrix: NSMatrix?, _suvConversion: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _toolsMatrix: NSMatrix?
+    nonisolated(unsafe) unowned(unsafe) var _annotations: NSView?, _BlendingView: NSView?, _ConvView: NSView?, _display12bitToolbarItemView: NSView?, _FusionView: NSView?
+    nonisolated(unsafe) unowned(unsafe) var _keyImages: NSView?, _movieView: NSView?, _orientationView: NSView?, _PagePad: NSView?, _patientView: NSView?, _previewRootView: NSView?
+    nonisolated(unsafe) unowned(unsafe) var _propagateSettingsView: NSView?, _ReconstructionView: NSView?, _reportTemplatesView: NSView?, _RGBFactorsView: NSView?, _seriesPopupView: NSView?
+    nonisolated(unsafe) unowned(unsafe) var _serieView: NSView?, _shutterView: NSView?, _speedView: NSView?, _StatusView: NSView?, _subCtrlView: NSView?, _toolsView: NSView?
+    nonisolated(unsafe) unowned(unsafe) var _viewerView: NSView?, _windowsTiling: NSView?, _WLWWView: NSView?
+    nonisolated(unsafe) unowned(unsafe) var _addCLUTWindow: NSWindow?, _addConvWindow: NSWindow?, _addOpacityWindow: NSWindow?, _addWLWWWindow: NSWindow?, _blendingTypeWindow: NSWindow?
+    nonisolated(unsafe) unowned(unsafe) var _brushROIFilterOptionsWindow: NSWindow?, _CommentsWindow: NSWindow?, _dcmExportWindow: NSWindow?, _displaySUVWindow: NSWindow?
+    nonisolated(unsafe) unowned(unsafe) var _imageExportWindow: NSWindow?, _injectionTimeWindow: NSWindow?, _printWindow: NSWindow?, _quicktimeWindow: NSWindow?, _roiApplyWindow: NSWindow?
+    nonisolated(unsafe) unowned(unsafe) var _roiPropaWindow: NSWindow?, _roiRenameWindow: NSWindow?, _roiSetPixWindow: NSWindow?, _saveWindowsStateWindow: NSWindow?
+    nonisolated(unsafe) unowned(unsafe) var _setWLWWWindow: NSWindow?, _ThickIntervalWindow: NSWindow?
+    nonisolated(unsafe) unowned(unsafe) var _dcmFrom: NSSlider?, _dcmInterval: NSSlider?, _dcmTo: NSSlider?, _moviePosSlider: NSSlider?, _movieRateSlider: NSSlider?, _printFrom: NSSlider?
+    nonisolated(unsafe) unowned(unsafe) var _printInterval: NSSlider?, _printTo: NSSlider?, _quicktimeFrom: NSSlider?, _quicktimeInterval: NSSlider?, _quicktimeTo: NSSlider?
+    nonisolated(unsafe) unowned(unsafe) var _slider: NSSlider?, _sliderFusion: NSSlider?, _speedSlider: NSSlider?, _structuringElementRadiusSlider: NSSlider?, _subCtrlPercent: NSSlider?
+    nonisolated(unsafe) unowned(unsafe) var _subCtrlSum: NSSlider?
+    nonisolated(unsafe) unowned(unsafe) var _blendingPlugins: NSPopUpButton?, _keyImagePopUpButton: NSPopUpButton?, _popFusion: NSPopUpButton?, _popupRoi: NSPopUpButton?
+    nonisolated(unsafe) unowned(unsafe) var _printLayout: NSPopUpButton?, _ReconstructionRoi: NSPopUpButton?, _reportTemplatesListPopUpButton: NSPopUpButton?
+    nonisolated(unsafe) unowned(unsafe) var _seriesPopupMenu: NSPopUpButton?, _StatusPopup: NSPopUpButton?, _windowsTilingMenu: NSPopUpButton?
+    nonisolated(unsafe) unowned(unsafe) var _dcmBox: NSBox?, _printBox: NSBox?, _quicktimeBox: NSBox?
+    nonisolated(unsafe) unowned(unsafe) var _clutView: ColorTransferView?
+    nonisolated(unsafe) unowned(unsafe) var _suvFormView: HorosFormView?
+    nonisolated(unsafe) unowned(unsafe) var _reportTemplatesImageView: NSImageView?
+    nonisolated(unsafe) unowned(unsafe) var _blendingTypeRGB: NSSegmentedControl?
+    nonisolated(unsafe) unowned(unsafe) var _splitView: NSSplitView?
+    nonisolated(unsafe) unowned(unsafe) var _OpacityView: OpacityTransferView?
+    nonisolated(unsafe) unowned(unsafe) var _studyView: StudyView?
+    nonisolated(unsafe) var _previewMatrixScrollView: NSScrollView?
+
+    // What the holders of the viewer's state kept and the SDK declared: fields here, under the SDK's names.
+    var _qt_to: Int32 = 0, _qt_from: Int32 = 0, _qt_interval: Int32 = 0, _qt_dimension: Int32 = 0, _current_qt_interval: Int32 = 0, _qt_allViewers: Int32 = 0
+    var _exportDCM: DICOMExport?
+    var _printSpoolDirectory = ManuallyRetained<NSString>()
+    var _blendedWindow: ViewerController?, _enableSubtraction: Bool = false, _subCtrlMaskID: Int = 0, _subCtrlMinMax: NSPoint = .zero
+    var _subCtrlMinMaxComputed: Bool = false, _subCtrlOffset: NSPoint = .zero
+    var _registeredViewer = ManuallyRetained<ViewerController>()
+    var _resampleRatio: Float = 0, _computeInterval: Bool = false, _titledGantry: Bool = false, _titledGantryDegrees: Float = 0, _orientationVector: Int16 = 0
+    var _originalOrientation: Int16 = 0, _currentOrientationTool: Int16 = 0
+    var _updateTilingViews: Bool = false, _openingScaleToFitRequested: Bool = false
+    var _speedometer: Int = 0, _direction: Float = 0, _lastTime: TimeInterval = 0, _lastTimeFrame: TimeInterval = 0, _lastMovieTime: TimeInterval = 0
+    var _timer = ManuallyRetained<Timer>(), _movieTimer = ManuallyRetained<Timer>()
+    var _clutPopupSet: Bool = false, _convPopupSet: Bool = false, _wlwwPopupSet: Bool = false, _OpacityPopupSet: Bool = false
+    var _processorsLock: NSConditionLock?
+    var _roiLock: NSRecursiveLock?, _undoQueue: NSMutableArray?, _redoQueue: NSMutableArray?
+    var _morphoFunction = ManuallyRetained<NSString>()
+    var _factorPET2SUV: Float = 0
+    var _matrixPreviewBuilt: Bool = false, _needsToBuildSeriesPopupMenu: Bool = false, _needsToBuildSeriesMatrix: Bool = false, _splitViewAllocated: Bool = false
+    var _flagListPODComparatives: NSNumber?, _seriesPopupContextualMenu: NSMenuItem?, _highLighted: Float = 0
+    var _highLightedTimer = ManuallyRetained<Timer>()
+    var _curMovieIndex: Int16 = 0, _isDataVolumicIn4DLevel: Int32 = 0, _nonVolumicDataWarningDisplayed: Bool = false, _displayOnlyKeyImages: Bool = false
+    var _statusValueToApply: Int32 = 0
+    var _toolbar: NSToolbar?, _toolbarPanel: ToolbarPanelController?, _retainedToolbarItems: NSMutableArray?
+    var _t12BitTimer = ManuallyRetained<Timer>()
+    var _FullScreenOn: Bool = false, _standardRect: NSRect = .zero, _previousFrameRect: NSRect = .zero, _windowFrameToRestore: NSRect = .zero
+    var _scaleFitToRestore: Bool = false, _previousFullscreenColumns: Int32 = 0, _previousFullscreenRows: Int32 = 0, _previousFullscreenCurImage: Int32 = 0
+    var _previousFullscreenViewIndex: Int32 = 0, _previousPropagate: Int32 = 0, _previousScaledFit: Int32 = 0, _previousSliderStripHeight: CGFloat = 0
+    var _FullScreenWindow = ManuallyRetained<NSWindow>(), _StartingWindow = ManuallyRetained<NSWindow>(), _contentView = ManuallyRetained<NSView>()
+    // The lists of each movie frame, used in place as _pixList is (ViewerController+SeriesState).
+    var _fileList = IsiXViewerPixListStorage(), _roiList = IsiXViewerPixListStorage(), _copyRoiList = IsiXViewerPixListStorage(), _volumeData = IsiXViewerPixListStorage()
+    // Kept with the Objective-C classes the SDK declared; the accessors answer the Swift values.
+    nonisolated(unsafe) var _windowsStateName: NSString?, _ROINamesArray: NSMutableArray?, _openingContentBoundsByPixels: NSDictionary?
+    // The SUV dates and the SUV form, whose classes are not the ones the SDK declared (NSCalendarDate, NSForm): the SDK's four fields stay nil.
+    nonisolated(unsafe) var _editedRadiopharmaceuticalStartDate: Date?, _editedAcquisitionDate: Date?, _injectionDate: Date?
+    var horos_editedRadiopharmaceuticalStartTime_sdk: AnyObject?, horos_editedAcquisitionTime_sdk: AnyObject?, horos_injectionDateTime_sdk: AnyObject?, horos_suvForm_sdk: AnyObject?
+    // Copies of what the loading state keeps behind its lock, written with it and not read here.
+    nonisolated(unsafe) var _requestLoadingCancel = false, _checkEverythingLoaded = false, _windowWillClose = false, _postprocessed = false
+    nonisolated(unsafe) var _loadingThread: Thread?
+    // Without state in this viewer: kept at NO and nil.
+    var SavedUseFloatingThumbnailsList = false, morphoFunctionPreviewApplied = false, convThread: NSConditionLock?, flipDataThread: NSConditionLock?
+    // Declared by older copies of the SDK's header alone. Seven are copies, written with what they repeat and not read:
+    // the load of the series (running, asked to stop, how far), the Sync button's behaviour, the warning of the slice
+    // interval under its former name, and the frame and the flag of a window being moved, which the superclass keeps.
+    var _ThreadLoadImage = false, _stopThreadLoadImage = false, _loadingPercentage: Float = 0, _SyncButtonBehaviorIsBetweenStudies = false
+    var _nonContinuousWarningDisplayed = false, _savedWindowsFrame: NSRect = .zero, _windowIsMovedByTheUser = false
+    // The others have no state in this viewer and stay NO, 0 and nil: the lock, the pause and the condition of the former
+    // load thread; the outlets of what the nibs no longer have (the three colour buttons of the fusion, the check box of
+    // the 12-bit display, the view of the photo export, the left split view, the colour well of the print sheet, the
+    // sheet of the former curved reformat) and that reformat's controller; the path of a contextual menu's file; the
+    // popup of the key objects; the row last highlighted in the series list; the timer of the video chat; the flag
+    // that held the handler of a view's change of frame.
+    var ThreadLoadImageLock: NSLock?, loadingPause = false, loadingPauseDelay: TimeInterval = 0, subLoadingThread: NSConditionLock?
+    var blendingTypeRed: NSButton?, blendingTypeGreen: NSButton?, blendingTypeBlue: NSButton?, display12bitToolbarItemCheckBox: NSButton?
+    var iPhotoView: NSView?, leftSplitView: NSSplitView?, printColor: NSColorWell?, _contextualDictionaryPath: NSString?
+    var curvedController: AnyObject?, curvedMPRWindowOutlet: NSWindow?, curvedMPRtext: NSTextField?, curvedMPRslid: NSSlider?, curvedMPRper: NSButton?
+    var curvedMPRsize: NSSlider?, curvedMPRsizeText: NSTextField?, curvedMPRinterval: NSSlider?, curvedMPRintervalText: NSTextField?, curvedMPRaxis: NSMatrix?
+    var keyObjectPopupController: AnyObject?, lastHighLightedRow: Int32 = 0, timeriChat: Timer?, stopViewFrameDidChangeNotification = false
 
     // MARK: - Shared by the viewers
 
@@ -193,7 +298,8 @@ extension ViewerController: ViewerBindingTeardownRoots {
         let own: [AnyObject?] = [
             horos_FullScreenWindow, horos_StartingWindow, horos_contentView,
             horos_imageView, horos_seriesView, horos_toolbar,
+            _wlwwPopup, _convPopup, _clutPopup, _OpacityPopup, _blendingPopupMenu, _blendingPercentage, _blendingSlider,
         ]
-        return (windowOutlets.bindingTeardownRoots + panelOutlets.bindingTeardownRoots + own).compactMap { $0 }
+        return (ViewerWindowOutletRoots.roots(of: self) + ViewerPanelOutletRoots.roots(of: self) + own).compactMap { $0 }
     }
 }

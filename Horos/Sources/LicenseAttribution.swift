@@ -209,7 +209,7 @@ public final class LicenseAttribution: NSObject {
                 sourcePath: "Binaries/Splash/DICOM-Swift-LICENSE.txt",
                 incorporated: true,
                 origin: "remote-package",
-                distributionNote: "Unmodified public DICOM-Swift 3.3.0, revision cf9b5bf403dd6b002f827f51aa9d9e3266f41d31. Horos links DicomWebClient, DicomWebOIDC and DicomData; optional codecs, ZIP, UI and server products are not linked. The package license, pertinent third-party notices and distribution provenance ship in Splash."),
+                distributionNote: "Unmodified public DICOM-Swift 4.0.0, revision 1fc34e5a20ad9bc09cdbe2a4e6ba5da09b95567b. Horos links DicomWebClient, DicomWebOIDC and DicomData; optional codecs, ZIP, UI and server products are not linked. The package license, pertinent third-party notices and distribution provenance ship in Splash."),
             LicensedComponent(
                 identifier: "swift-nio",
                 name: "SwiftNIO and SwiftNIO Transport Services, The SwiftNIO Project; swift-collections and swift-atomics, Apple Inc. and the Swift project authors",

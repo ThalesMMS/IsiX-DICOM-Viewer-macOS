@@ -115,14 +115,14 @@ public extension ViewerController {
         window != nil && viewerRegistry.frontMostDisplayedViewer(on: nil)?.window === window
     }
 
-    /// The series the active window shows, with the colour of its study: the
-    /// frame of its thumbnail. Empty with a single window, which needs none.
+    /// The series the active window shows, with the colour of the frame of its views (ViewerWindowBorder):
+    /// the frame of its thumbnail. Empty where they have none: one window on screen, with the study it was opened with.
     @objc(horosSeriesWindowColors)
     class func horosSeriesWindowColors() -> NSMapTable<AnyObject, AnyObject>! {
         let colors = NSMapTable<AnyObject, AnyObject>.strongToStrongObjects()
-        guard viewerRegistry.displayedViewers.count > 1, let active = viewerRegistry.frontMostDisplayedViewer(on: nil),
-              let series = active.imageView()?.seriesObj() as AnyObject? else { return colors }
-        colors.setObject(SeriesListIdentification.color(for: active), forKey: series)
+        guard let active = viewerRegistry.frontMostDisplayedViewer(on: nil), let series = active.imageView()?.seriesObj() as AnyObject?,
+              let color = ViewerWindowBorder.color(for: active, active: true) else { return colors }
+        colors.setObject(color, forKey: series)
         return colors
     }
 

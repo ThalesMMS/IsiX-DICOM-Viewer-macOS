@@ -20,7 +20,14 @@ struct SyntheticMachO {
     var fileType: UInt32 = 8            // MH_BUNDLE
     var libraries: [String] = ["@rpath/IsiXPluginKit.framework/Versions/A/IsiXPluginKit", "/usr/lib/libSystem.B.dylib"]
     var minimumSystem: UInt32? = 0x000F_0000 // 15.0
+    /// The minimum system as the linkers before LC_BUILD_VERSION wrote it,
+    /// in LC_VERSION_MIN_MACOSX.
+    var versionMinimum: UInt32?
     var signed = true
+    /// A 32-bit slice has the shorter header (MH_MAGIC, no reserved word).
+    var is32Bit = false
+    /// A PowerPC slice is written big-endian, header and load commands alike.
+    var isBigEndian = false
 
     static func x86_64() -> SyntheticMachO {
         var image = SyntheticMachO()
@@ -29,30 +36,59 @@ struct SyntheticMachO {
         return image
     }
 
+    /// The 32-bit Intel slice a former OsiriX plugin carried beside x86_64.
+    static func i386() -> SyntheticMachO {
+        var image = SyntheticMachO()
+        image.cpuType = 7
+        image.cpuSubtype = 3
+        image.is32Bit = true
+        image.libraries = ["@executable_path/../Frameworks/OsiriXAPI.framework/Versions/A/OsiriXAPI", "/usr/lib/libSystem.B.dylib"]
+        image.minimumSystem = nil
+        image.versionMinimum = 0x000A_0500 // 10.5
+        image.signed = false
+        return image
+    }
+
+    /// The PowerPC slice of an older OsiriX plugin.
+    static func ppc() -> SyntheticMachO {
+        var image = i386()
+        image.cpuType = 18
+        image.cpuSubtype = 0
+        image.isBigEndian = true
+        return image
+    }
+
     func data() -> Data {
+        let word = isBigEndian ? be : le
         var commands = Data()
         var count: UInt32 = 0
         for library in libraries {
             var name = Array(library.utf8) + [0]
             while (24 + name.count) % 8 != 0 { name.append(0) }
-            commands.append(le(0xC)); commands.append(le(UInt32(24 + name.count)))
-            commands.append(le(24)); commands.append(le(2)); commands.append(le(0x10000)); commands.append(le(0x10000))
+            commands.append(word(0xC)); commands.append(word(UInt32(24 + name.count)))
+            commands.append(word(24)); commands.append(word(2)); commands.append(word(0x10000)); commands.append(word(0x10000))
             commands.append(contentsOf: name)
             count += 1
         }
         if let minimumSystem {
-            commands.append(le(0x32)); commands.append(le(24))
-            commands.append(le(1)); commands.append(le(minimumSystem)); commands.append(le(minimumSystem)); commands.append(le(0))
+            commands.append(word(0x32)); commands.append(word(24))
+            commands.append(word(1)); commands.append(word(minimumSystem)); commands.append(word(minimumSystem)); commands.append(word(0))
+            count += 1
+        }
+        if let versionMinimum {
+            // LC_VERSION_MIN_MACOSX: version, sdk.
+            commands.append(word(0x24)); commands.append(word(16)); commands.append(word(versionMinimum)); commands.append(word(versionMinimum))
             count += 1
         }
         if signed {
             // LC_CODE_SIGNATURE: only its presence is read.
-            commands.append(le(0x1D)); commands.append(le(16)); commands.append(le(0x8000)); commands.append(le(0x100))
+            commands.append(word(0x1D)); commands.append(word(16)); commands.append(word(0x8000)); commands.append(word(0x100))
             count += 1
         }
         var header = Data()
-        for value in [0xFEED_FACF, cpuType, cpuSubtype, fileType, count, UInt32(commands.count), 0, 0] {
-            header.append(le(value))
+        let fields: [UInt32] = [is32Bit ? 0xFEED_FACE : 0xFEED_FACF, cpuType, cpuSubtype, fileType, count, UInt32(commands.count), 0]
+        for value in fields + (is32Bit ? [] : [0]) {
+            header.append(word(value))
         }
         return header + commands
     }
@@ -187,6 +223,11 @@ final class SyntheticBundle {
         let network = try inspect(info { $0["IsiXPluginCapabilities"] = ["network.send", "network.query", "xmlrpc"] })
         #expect(network.isLoadable)
         #expect(network.manifest?.capabilities == ["network.send", "network.query", "xmlrpc"])
+        // Commands in the Report menu: a capability so that an application
+        // without that menu refuses the plugin before loading it.
+        let report = try inspect(info { $0["IsiXPluginCapabilities"] = ["viewer.read", "report"] })
+        #expect(report.isLoadable)
+        #expect(report.manifest?.capabilities == ["viewer.read", "report"])
     }
 
     @Test func architecture() throws {
@@ -204,6 +245,42 @@ final class SyntheticBundle {
         var application = SyntheticMachO()
         application.fileType = 2
         #expect(try inspect(executable: application.data()).diagnostics == [.notLoadableExecutable])
+    }
+
+    @Test func formerPluginWithoutAppleSiliconCodeNamesItsArchitectures() throws {
+        // A former OsiriX plugin: i386 and x86_64, or PowerPC and i386 for the
+        // oldest, refused by the arm64 package with the names its author knows.
+        let info: [String: Any] = ["CFBundleExecutable": "Former", "NSPrincipalClass": "FormerFilter"]
+        let intel = try inspect(info, name: "Former.osirixplugin", executable: SyntheticMachO.fat([.i386(), .x86_64()]))
+        #expect(intel.diagnostics == [.architectureMismatch(found: ["i386", "x86_64"], required: "arm64")])
+        #expect(intel.summary == "The plugin is built for i386, x86_64; this application runs as arm64. Obtain a plugin built for arm64.")
+        let powerPC = try inspect(info, name: "Former.osirixplugin", executable: SyntheticMachO.fat([.ppc(), .i386()]))
+        #expect(powerPC.diagnostics == [.architectureMismatch(found: ["ppc", "i386"], required: "arm64")])
+        #expect(powerPC.summary.contains("built for ppc, i386;"))
+        #expect(!intel.summary.contains("cpu ") && !powerPC.summary.contains("cpu "))
+    }
+
+    @Test func threeWayFormerPluginLoadsItsIntelSlice() throws {
+        // The universal build of an older OsiriX plugin, PowerPC, i386 and
+        // x86_64: the PowerPC slice is read, not taken for an unreadable
+        // file, so the x86_64 package loads the x86_64 slice as dyld does,
+        // and the arm64 package names the three.
+        var intel64 = SyntheticMachO.x86_64()
+        intel64.libraries = SyntheticMachO.i386().libraries
+        intel64.minimumSystem = nil
+        intel64.versionMinimum = 0x000A_0600 // 10.6
+        intel64.signed = false
+        let info: [String: Any] = ["CFBundleExecutable": "Former", "NSPrincipalClass": "FormerFilter"]
+        let bundle = try SyntheticBundle(name: "Former.osirixplugin", info: info,
+                                         executable: SyntheticMachO.fat([.ppc(), .i386(), intel64]))
+        let intelHost = PluginInspector(hostArchitecture: "x86_64",
+                                        runningSystem: OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0))
+        let onIntel = intelHost.inspect(bundleAt: bundle.url)
+        #expect(!onIntel.diagnostics.contains(.unreadableExecutable))
+        #expect(onIntel.diagnostics == [])
+        #expect(onIntel.isLoadable)
+        #expect(inspector.inspect(bundleAt: bundle.url).diagnostics
+                == [.architectureMismatch(found: ["ppc", "i386", "x86_64"], required: "arm64")])
     }
 
     @Test func unsignedAppleSiliconCode() throws {
@@ -333,6 +410,48 @@ final class SyntheticBundle {
         #expect(thin.slices[0].minimumSystem.map(MachOImage.versionString) == "15.0.0")
         let universal = try MachOImage(data: SyntheticMachO.fat([.x86_64(), SyntheticMachO()]))
         #expect(universal.architectures == ["x86_64", "arm64"])
+    }
+
+    @Test func architectureNames() {
+        let abi64: UInt32 = 0x0100_0000
+        let named: [(type: UInt32, subtype: UInt32, name: String)] = [
+            (7, 3, "i386"), (7, 4, "i386"),
+            (7 | abi64, 3, "x86_64"),
+            (12 | abi64, 0, "arm64"), (12 | abi64, 2, "arm64e"),
+            // The capability bits of the subtype (arm64e's pointer
+            // authentication ABI) do not change the name.
+            (12 | abi64, 0x8000_0002, "arm64e"),
+            // A family keeps its name whatever processor model the subtype
+            // names: i486, ARMv6/v7, ppc7400, ppc970.
+            (12, 0, "arm"), (12, 5, "arm"), (12, 6, "arm"), (12, 9, "arm"), (12, 11, "arm"), (12, 12, "arm"),
+            (18, 0, "ppc"), (18, 10, "ppc"), (18, 100, "ppc"), (18 | abi64, 0, "ppc64"),
+        ]
+        for (type, subtype, name) in named {
+            #expect(MachOImage.architectureName(cpuType: type, cpuSubtype: subtype) == name, "cpu \(type)/\(subtype)")
+        }
+        // Only a processor without a name is told by its numbers.
+        #expect(MachOImage.architectureName(cpuType: 99, cpuSubtype: 0x8000_0003) == "cpu 99/3")
+        #expect(MachOImage.architectureName(cpuType: 13, cpuSubtype: 0) == "cpu 13/0")
+    }
+
+    @Test func formerArchitecturesAreRead() throws {
+        // 32-bit headers, and a PowerPC slice in its own byte order.
+        let intel = try MachOImage(data: SyntheticMachO.fat([.i386(), .x86_64()]))
+        #expect(intel.architectures == ["i386", "x86_64"])
+        #expect(intel.slices[0].linkedLibraries == SyntheticMachO.i386().libraries)
+        #expect(intel.slices[0].fileType == .bundle)
+        #expect(intel.slices[0].minimumSystem.map(MachOImage.versionString) == "10.5.0")
+        let powerPC = try MachOImage(data: SyntheticMachO.ppc().data())
+        #expect(powerPC.architectures == ["ppc"])
+        #expect(powerPC.slices[0].fileType == .bundle)
+        #expect(powerPC.slices[0].linkedLibraries == SyntheticMachO.ppc().libraries)
+        // LC_VERSION_MIN_MACOSX, big-endian like the rest of the slice.
+        #expect(powerPC.slices[0].minimumSystem.map(MachOImage.versionString) == "10.5.0")
+        #expect(try MachOImage(data: SyntheticMachO.fat([.ppc(), .i386()])).architectures == ["ppc", "i386"])
+        var ppc64 = SyntheticMachO.ppc()
+        ppc64.cpuType = 18 | 0x0100_0000
+        ppc64.is32Bit = false
+        #expect(try MachOImage(data: ppc64.data()).architectures == ["ppc64"])
     }
 
     @Test func refusesWhatIsNotMachO() {

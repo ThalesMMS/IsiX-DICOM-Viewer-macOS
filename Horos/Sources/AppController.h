@@ -109,6 +109,27 @@ enum
 // nothing changes it afterwards.
 extern AppController* OsiriX NS_SWIFT_NONISOLATED_UNSAFE;
 
+#ifndef NS_SWIFT_UI_ACTOR
+#define NS_SWIFT_UI_ACTOR
+#endif
+@class DCMTKQueryRetrieveSCP;
+// Functions and globals of the Horos and OsiriX plugin SDK, which plugins
+// built for it look up by name (AppController+CAPI.m). The application writes
+// delayedTileWindows on the main thread, and the two listeners, once each, when
+// a listener starts and stops; it reads none of them.
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+    NSRect screenFrame(void);
+    NSString * documentsDirectoryFor( int mode, NSString *url) __deprecated;
+    NSString * documentsDirectory(void) __deprecated;
+#ifdef __cplusplus
+}
+#endif
+extern NS_SWIFT_UI_ACTOR int delayedTileWindows;
+extern DCMTKQueryRetrieveSCP *dcmtkQRSCP NS_SWIFT_NONISOLATED_UNSAFE, *dcmtkQRSCPTLS NS_SWIFT_NONISOLATED_UNSAFE;
+
 #if defined(HOROS_BRIDGING_HEADER)
 // Swift is compiling the class itself: headers it imports may only name it.
 @class AppController;

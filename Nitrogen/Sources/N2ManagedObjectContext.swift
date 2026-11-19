@@ -68,6 +68,14 @@ nonisolated(unsafe) private var totalN2ManagedObjectContexts = 0
     final var discardedChangesActions: [() -> Void]?
     final var storedDefersSaves = false
     final var atomicChangesCancelled = false
+    // The instance variables of the former plugin SDK that held these three
+    // lists as arrays of Objective-C blocks, which a plugin reads at the offset
+    // the application exports for each. The actions are Swift closures in the
+    // lists above, and these stay nil. The database, the deferral and the
+    // cancellation are the fields above, exported as they are.
+    final var _afterSuccessfulSaveActions: NSMutableArray?
+    final var _nextSuccessfulSaveActions: NSMutableArray?
+    final var _discardedChangesActions: NSMutableArray?
 
     var database: N2ManagedDatabase! {
         storedDatabase

@@ -7,7 +7,8 @@ straightened, stretched and transverse views still lettered their transverse
 sections A, B and C with StringTexture, an OpenGL texture that draws nothing
 without an OpenGL context. Checked in the sources:
 - no CPR view refers to StringTexture, enables an OpenGL texture target or
-  holds an OpenGL context, and StringTexture is gone from the tree and project;
+  holds an OpenGL context, and the OpenGL StringTexture is gone from the tree and
+  project (the class of that name is the inert one of the plugin SDK);
 - each of the three views letters its sections through the DCMView label, and
   that label is a picture on the text overlay placed by the canvas transform.
 The overlay's pictures are checked by test-annotation-overlay.py.
@@ -76,11 +77,14 @@ for name in views:
             if token in text:
                 failures.append('%s%s still uses %s' % (name, suffix, token))
 
-for path in ('Horos/Sources/StringTexture.h', 'Horos/Sources/StringTexture.m'):
-    if read(path):
-        failures.append('%s is still in the tree' % path)
-if 'StringTexture' in read('Horos.xcodeproj/project.pbxproj'):
-    failures.append('the project still builds StringTexture')
+# StringTexture is a class of the plugin SDK of Horos and OsiriX: it exists by
+# name, a header and a Swift file that keep a string and its attributes and
+# make no texture. Its Objective-C implementation, the OpenGL one, stays gone.
+if read('Horos/Sources/StringTexture.m') or re.search(r'StringTexture\.(m|mm)\b', read('Horos.xcodeproj/project.pbxproj')):
+    failures.append('the OpenGL StringTexture is still in the tree or the project')
+facade = read('Horos/Sources/StringTexture.swift')
+if facade and ('FormerSDKFacade.inert' not in facade or re.search(r'import OpenGL\b|\bgl[A-Z]\w*\s*\(', facade)):
+    failures.append('StringTexture.swift is not the inert class of the plugin SDK')
 
 labels = {'CPRStraightenedView': 3, 'CPRStretchedView': 3, 'CPRTransverseView': 1}
 for name, count in labels.items():

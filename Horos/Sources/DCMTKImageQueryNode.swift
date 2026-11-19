@@ -48,9 +48,23 @@ import IsiXDICOMFile
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(DCMTKImageQueryNode) @usableFromInline
 final class DCMTKImageQueryNode: DCMTKQueryNode, @unchecked Sendable {
-    private var studyInstanceUIDValue: String?
-    private var seriesInstanceUIDValue: String?
-    private var sopClassUIDValue: String?
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each,
+    // so each is a stored field of this class with the type the C declaration
+    // has in memory, never private, lazy or observed.
+    var _studyInstanceUID: NSString?, _seriesInstanceUID: NSString?, _sopClassUID: NSString?
+    private var studyInstanceUIDValue: String? {
+        get { _studyInstanceUID as String? }
+        set { _studyInstanceUID = newValue as NSString? }
+    }
+    private var seriesInstanceUIDValue: String? {
+        get { _seriesInstanceUID as String? }
+        set { _seriesInstanceUID = newValue as NSString? }
+    }
+    private var sopClassUIDValue: String? {
+        get { _sopClassUID as String? }
+        set { _sopClassUID = newValue as NSString? }
+    }
 
     required init(dataset: IsiXDCMTKDataset?, callingAET: String?, calledAET: String?, hostname: String?, port: Int32,
                   transferSyntax: Int32, compression: Float, extraParameters: [AnyHashable: Any]?) {

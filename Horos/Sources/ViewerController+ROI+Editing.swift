@@ -99,8 +99,7 @@ public extension ViewerController {
     @objc(recomputeROI:)
     func recomputeROI(_ note: Notification!) {
         if (note?.object as AnyObject?) === self { ViewerROISetPixels.recomputeROIs(in: self) }
-        willChangeValue(forKey: "thicknessInMm")
-        didChangeValue(forKey: "thicknessInMm")
+        ViewerThickSlab(viewer: self, preferences: sessionGraph.preferences).refreshScale()
     }
 
     @objc(roiSetPixelsCheckButton:)

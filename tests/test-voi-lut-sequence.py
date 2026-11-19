@@ -35,10 +35,12 @@ pix = class_text('DCMPix')
 assert 'VOILUT is not supported with DCMFramework' not in pix, \
     'the preference still turns itself off on the first image loaded'
 settings = (root / 'Horos/Sources/DCMPixSettings.swift').read_text(errors='replace')
-assert 'source.preferences.set(false, for: ViewerPreferences.useVOILUT)' in settings, \
-    'a corrupt table should still turn the feature off'
-assert 'forKey: "UseVOILUT")' not in pix and settings.count('ViewerPreferences.useVOILUT)') == 1, \
-    'more than one place writes the preference away from what the user chose'
+# Every input value has an output (PS 3.3 C.11.2.1.1): a frame wholly outside
+# the table, or on its first entry, is a uniform one. Reading it as a corrupted
+# table turned the preference off for every image after it.
+assert 'forKey: "UseVOILUT")' not in pix and 'ViewerPreferences.useVOILUT)' not in settings \
+    and 'turnOffVOILUT' not in pix + settings, \
+    'loading an image writes the preference away from what the user chose'
 # The frame loading, in the IsiXImaging module, hands the samples of a whole
 # frame to the step DCMPix gives it; tests/test-dcmpix-frame-loading.py checks
 # when it runs and on what.
@@ -46,8 +48,11 @@ loader = (root / 'Modules/IsiXImaging/Sources/FrameLoader.swift').read_text()
 assert 'self.applyVOILUT(from: dcmObject, to: samples)' in pix and 'applyingVOILUT: voiLUT)' in pix \
     and 'voiLUT(samples!' in loader, \
     'nothing applies the table on the path that runs'
-assert 'guard horos_slope == 1.0 && horos_offset == 0.0 else { return }' in pix, \
-    "the table is applied without checking that its input is the object's stored value"
+# The table's input is the output of the modality LUT: a sample enters it by
+# its rescaled value, and what comes out is not rescaled again.
+assert 'slope: horos_slope == 0 ? 1 : Double(horos_slope), offset: Double(horos_offset))' in pix \
+    and 'holdsTableOutput ? 1 : layout.slope' in loader and 'layout.isSigned && !holdsTableOutput' in loader, \
+    "the table is entered by the stored value where the object rescales it, or its output is rescaled or read signed"
 
 # The preference ships as on; nothing should quietly disagree with that.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -119,15 +124,55 @@ precondition(VOILookupTable(descriptor: [4096, 0, 4] as [NSNumber],
                             data: table(ramp), signed: false) == nil, "four bits per entry")
 precondition(VOILookupTable(descriptor: [4096, 0, 32] as [NSNumber],
                             data: table(ramp), signed: false) == nil, "thirty-two bits per entry")
-precondition(VOILookupTable(descriptor: [1, 0, 16] as [NSNumber],
-                            data: table([1]), signed: false) == nil, "a table of one entry")
+precondition(VOILookupTable(descriptor: [4, 0, 16] as [NSNumber], data: [] as [NSNumber], signed: false) == nil, "no entry")
+
+// A table of one entry answers that entry for every value.
+let single = VOILookupTable(descriptor: [1, 300, 16] as [NSNumber], data: table([777]), signed: false)!
+precondition(single.entries == 1 && single.firstMapped == 300 && single.smallest == 777 && single.largest == 777)
+precondition(single.windowCenter == 777 && single.windowWidth == 1)
+
+// What a frame becomes through a table, from the descriptor to the samples.
+func mapped(_ lut: VOILookupTable, _ samples: [UInt16], signed: Bool = false) -> [UInt16] {
+    var samples = samples
+    lut.table.withUnsafeBytes { raw in
+        samples.withUnsafeMutableBufferPointer {
+            VOILUTMapping.apply(first: lut.firstMapped, number: lut.entries, table: raw.bindMemory(to: UInt32.self).baseAddress!,
+                                to: $0.baseAddress!, count: $0.count, signed: signed)
+        }
+    }
+    return samples
+}
+precondition(mapped(single, [0, 300, 301, 65535]) == [777, 777, 777, 777])
+// Entries 1000, 1010 ... 1030 for the values 100 to 103.
+let steps = VOILookupTable(descriptor: [4, 100, 16] as [NSNumber], data: table([1000, 1010, 1020, 1030]), signed: false)!
+precondition(mapped(steps, [100, 100, 100]) == [1000, 1000, 1000], "a frame on the first entry")
+precondition(mapped(steps, [0, 50, 99]) == [1000, 1000, 1000], "a frame wholly below the table")
+precondition(mapped(steps, [104, 4095, 65535]) == [1030, 1030, 1030], "a frame wholly above the table")
+precondition(mapped(steps, [99, 100, 101, 102, 103, 104]) == [1000, 1000, 1010, 1020, 1030, 1030])
+precondition(mapped(below, [UInt16(bitPattern: -2000), UInt16(bitPattern: -1024), 500], signed: true) == [1, 1, 1])
+
+// A rescale of 2 x - 1024 in the way: the stored values 562, 563 and 564 are 100, 102 and 104.
+func rescaled(_ lut: VOILookupTable, _ samples: [UInt16], slope: Double, offset: Double, signed: Bool = false) -> [UInt16] {
+    var samples = samples
+    lut.table.withUnsafeBytes { raw in
+        samples.withUnsafeMutableBufferPointer {
+            VOILUTMapping.apply(first: lut.firstMapped, number: lut.entries, table: raw.bindMemory(to: UInt32.self).baseAddress!,
+                                to: $0.baseAddress!, count: $0.count, signed: signed, slope: slope, offset: offset)
+        }
+    }
+    return samples
+}
+precondition(rescaled(steps, [0, 562, 563, 564, 4000], slope: 2, offset: -1024) == [1000, 1000, 1020, 1030, 1030])
+// The nearest integer: 100.4 is 100, 101.5 is 102, 102.6 is 103.
+precondition(rescaled(steps, [1004, 1015, 1026], slope: 0.1, offset: 0) == [1000, 1020, 1030])
 
 print("PASS: the table is read from bytes or numbers, at eight or sixteen bits, "
-      + "with a signed first value, and its own window comes out of it")
+      + "with a signed first value, and its own window comes out of it; "
+      + "a frame on its first entry or wholly outside it takes its first or last entry")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-voi-lut-') as tmp:
     p = Path(tmp)
     (p / 'main.swift').write_text(source)
     subprocess.run(['xcrun', 'swiftc', str(root / 'Horos/Sources/VOILookupTable.swift'),
-                    str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
+                    str(root / 'Modules/IsiXImaging/Sources/VOILUTMapping.swift'), str(p / 'main.swift'), '-o', str(p / 'test')], check=True)
     subprocess.run([str(p / 'test')], check=True)

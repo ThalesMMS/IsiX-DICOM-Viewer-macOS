@@ -114,13 +114,62 @@ public final class CIAAnnotation: NSView {
         return NSMakeSize(75, 22)
     }
 
+    /// The titles of the annotations the application ships (AnnotationsDefault.plist) and of the orientation
+    /// widgets, in the user's language. The layout stores them in English, as it stores every title, and the pane
+    /// shows them from this table: a layout saved in one language loads in another with its titles unchanged.
+    private static let shippedTitles: [String: String] = [
+        "Image Size": NSLocalizedString("Image Size", comment: "Annotation Layout pane: an annotation the application ships"),
+        "View Size": NSLocalizedString("View Size", comment: "Annotation Layout pane: an annotation the application ships"),
+        "WL / WW": NSLocalizedString("WL / WW", comment: "Annotation Layout pane: an annotation the application ships, window level and width"),
+        "Mouse (px)": NSLocalizedString("Mouse (px)", comment: "Annotation Layout pane: an annotation the application ships, the mouse position in pixels"),
+        "Mouse (mm)": NSLocalizedString("Mouse (mm)", comment: "Annotation Layout pane: an annotation the application ships, the mouse position in millimetres"),
+        "Patient ID": NSLocalizedString("Patient ID", comment: "Annotation Layout pane: an annotation the application ships"),
+        "Study Description": NSLocalizedString("Study Description", comment: "Annotation Layout pane: an annotation the application ships"),
+        "Series Description": NSLocalizedString("Series Description", comment: "Annotation Layout pane: an annotation the application ships"),
+        "Series ID": NSLocalizedString("Series ID", comment: "Annotation Layout pane: an annotation the application ships, the series number"),
+        "Zoom & Angle": NSLocalizedString("Zoom & Angle", comment: "Annotation Layout pane: an annotation the application ships, the zoom and the rotation angle"),
+        "Image Position": NSLocalizedString("Image Position", comment: "Annotation Layout pane: an annotation the application ships"),
+        "Compression": NSLocalizedString("Compression", comment: "Annotation Layout pane: an annotation the application ships, the transfer syntax"),
+        "Thickness & Location": NSLocalizedString("Thickness & Location", comment: "Annotation Layout pane: an annotation the application ships, the slice thickness and location"),
+        "MRI": NSLocalizedString("MRI", comment: "Annotation Layout pane: an annotation the application ships, the echo and repetition times of an MR image"),
+        "Field Strength": NSLocalizedString("Field Strength", comment: "Annotation Layout pane: an annotation the application ships, the magnetic field strength"),
+        "Image Acquisition Date": NSLocalizedString("Image Acquisition Date", comment: "Annotation Layout pane: an annotation the application ships"),
+        "Orientation": NSLocalizedString("Orientation", comment: "Annotation Layout pane: the widget that shows the orientation letters"),
+    ]
+
+    /// The name a new annotation is given, followed by its number ("Annotation 3"), stored in English as the
+    /// shipped titles are.
+    static let newAnnotationTitle = "Annotation"
+
+    /// What the pane shows for a stored title: a shipped annotation's, and the name a new annotation is given
+    /// with its number, in the user's language; any other as it is.
+    static func displayedTitle(_ title: String?) -> String? {
+        guard let title else { return nil }
+        if let shipped = shippedTitles[title] { return shipped }
+        let number = title.dropFirst(newAnnotationTitle.count + 1)
+        if title.hasPrefix(newAnnotationTitle + " "), !number.isEmpty, number.allSatisfy({ $0.isASCII && $0.isNumber }) {
+            return NSLocalizedString("Annotation", comment: "Annotation Layout pane: the name of an annotation just added, before its number")
+                + " " + String(number)
+        }
+        return title
+    }
+
+    /// The title to store when the user leaves `typed` in the title field, which showed `stored` as
+    /// `displayedTitle(_:)` gives it: a shipped title left as it was shown keeps its stored (English) value.
+    static func storedTitle(_ typed: String?, replacing stored: String?) -> String? {
+        if let typed, let stored, typed == displayedTitle(stored) { return stored }
+        return typed
+    }
+
     public override init(frame: NSRect) {
         super.init(frame: frame)
         isSelectedFlag = false
         placeHolder = nil
         colorValue = NSColor.orange
         backgroundColorValue = NSColor.red
-        self.title = "Annotation"
+        // The name a new annotation is given, followed by its number: stored in English, shown in the user's
+        // language (displayedTitle), so that a layout saved in one language reads the same in another.
+        self.title = CIAAnnotation.newAnnotationTitle
         contentValue = NSMutableArray()
         isOrientationWidgetValue = false
         widthValue = 0
@@ -194,7 +243,7 @@ public final class CIAAnnotation: NSView {
 
         attrsDictionary[.font] = NSFont.systemFont(ofSize: 10.0)
 
-        let contentText = ciaAttributedString(titleValue, attributes: attrsDictionary)
+        let contentText = ciaAttributedString(CIAAnnotation.displayedTitle(titleValue), attributes: attrsDictionary)
 
         contentText.draw(in: NSMakeRect(rect.origin.x, rect.origin.y - 1.0, rect.size.width, rect.size.height))
     }
@@ -269,7 +318,7 @@ public final class CIAAnnotation: NSView {
             titleValue = newValue
 
             let attrsDictionary: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10.0)]
-            let contentText = ciaAttributedString(titleValue, attributes: attrsDictionary)
+            let contentText = ciaAttributedString(CIAAnnotation.displayedTitle(titleValue), attributes: attrsDictionary)
             let textBounds = contentText.boundingRect(with: bounds.size, options: .usesDeviceMetrics)
 
             setFrameSize(NSMakeSize(textBounds.size.width + 6.0 * annotationCornerSize, frame.size.height))

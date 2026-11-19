@@ -211,12 +211,18 @@ private struct ConvolvedSlices: @unchecked Sendable {
         }
     }
 
-    /// Deletes the stored colour table `name` and tells the menus.
+    /// Deletes the stored colour table `name` and tells the menus. A viewer
+    /// that has it applied goes to "No CLUT": left as it was, it would show
+    /// the colours and the name of a table that no menu lists and nothing can
+    /// apply again. A viewer with another table keeps it.
     func deleteColourTable(_ name: String, in viewer: ViewerController) {
         var tables = colourTables
         tables.set(nil, named: name)
         tables.write(to: preferences)
 
+        if viewerIsEqualToString(viewer.horos_curCLUTMenu, name) {
+            viewer.applyCLUTString(NSLocalizedString("No CLUT", comment: ""))
+        }
         menus.announce(.OsirixUpdateCLUTMenu, current: viewer.horos_curCLUTMenu, presetsChanged: true)
     }
 
@@ -349,7 +355,7 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
     /// Applies the opacity table `name`: "Linear Table" or a stored table.
     func applyOpacityTable(_ name: String?, in viewer: ViewerController) {
-        if viewerIsEqualToString(name, NSLocalizedString("Linear Table", comment: "")) {
+        if AnyLanguage.says(name, "Linear Table") {
             viewer.horos_thickSlab?.setOpacity([])
 
             viewer.horos_curOpacityMenu = name
@@ -423,13 +429,20 @@ private struct ConvolvedSlices: @unchecked Sendable {
     }
 
     /// Deletes the stored opacity table `name` and tells the menus, with the
-    /// colour table's name, as the viewer always did.
+    /// name of the viewer's opacity table: a window that titles its opacity
+    /// menu with the name it is told would show a colour table's otherwise.
+    /// A viewer that has the table applied goes to the linear table, as one
+    /// with a deleted colour table goes to "No CLUT"; a viewer with another
+    /// table keeps it.
     func deleteOpacityTable(_ name: String, in viewer: ViewerController) {
         var tables = opacityTables
         tables.set(nil, named: name)
         tables.write(to: preferences)
 
-        menus.announce(.OsirixUpdateOpacityMenu, current: viewer.horos_curCLUTMenu, presetsChanged: true)
+        if viewerIsEqualToString(viewer.horos_curOpacityMenu, name) {
+            viewer.applyOpacityString(NSLocalizedString("Linear Table", comment: ""))
+        }
+        menus.announce(.OsirixUpdateOpacityMenu, current: viewer.horos_curOpacityMenu, presetsChanged: true)
     }
 
     /// The end of the opacity editor: OK stores its table under its name and
@@ -692,22 +705,13 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
         if viewer.isDataVolumicIn4D(true) {
             for (x, frame) in slices.frames.enumerated() {
-                guard let pix = frame.first else { continue }
-                let first = pix.fImage.pointee
-
-                // Across the slices; a colour series has no such pass.
-                if !pix.isRGB, let volume = viewer.horos_volumeData(at: x) as? NSData {
-                    let weights = SeriesConvolution.kernel(weights: pix.kernel(), normalization: pix.normalization())
-                    convolution.filterAcrossSlices(UnsafeMutablePointer(mutating: volume.bytes.assumingMemoryBound(to: Float.self)),
-                                                   width: pix.pwidth, height: pix.pheight, depth: frame.count,
-                                                   kernel: weights, size: Int(pix.kernelsize()))
-                }
-
-                // The first row of every slice takes the first pixel, which
-                // keeps the edge free of NaN values.
-                for slice in frame where !slice.isRGB {
-                    slice.fImage.update(repeating: first, count: max(0, slice.pwidth))
-                }
+                // A colour series has no pass across its slices. The edge is
+                // the first pixel as the slices' own filter left it.
+                guard let pix = frame.first, !pix.isRGB, let volume = viewer.horos_volumeData(at: x) as? NSData else { continue }
+                let weights = SeriesConvolution.kernel(weights: pix.kernel(), normalization: pix.normalization())
+                convolution.finishGreyVolume(UnsafeMutablePointer(mutating: volume.bytes.assumingMemoryBound(to: Float.self)),
+                                             width: pix.pwidth, height: pix.pheight, depth: frame.count,
+                                             kernel: weights, size: Int(pix.kernelsize()), edge: pix.fImage.pointee)
             }
         }
 

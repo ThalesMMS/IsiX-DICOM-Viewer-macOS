@@ -56,6 +56,19 @@ extension VRView {
     // MARK: - Press
 
     public override func mouseDown(with theEvent: NSEvent) {
+        press(theEvent, buttonTool: nil)
+    }
+
+    /// The press of a button whose tool a plane of the 3D MPR or of the curved
+    /// MPR gives: the tool the plane has for its right or middle button, which
+    /// the modifier keys still override, instead of the zoom or the pan this
+    /// view gives those buttons.
+    @objc(mouseDown:withButtonTool:)
+    func mouseDown(_ theEvent: NSEvent, withButtonTool tool: ToolMode) {
+        press(theEvent, buttonTool: tool)
+    }
+
+    private func press(_ theEvent: NSEvent, buttonTool: ToolMode?) {
         if eventToPlugins(theEvent) { return }
 
         IsiXVTKVolumeView.volumeRenderingSuppressed = false
@@ -146,12 +159,12 @@ extension VRView {
             horos_resizeFrame = true
         } else {
             horos_resizeFrame = false
-            tool = getTool(theEvent)
+            tool = getTool(theEvent, buttonTool: buttonTool)
             horos__tool = tool
             setCursorFor(tool)
 
             if tool != .tWL && tool != .tZoom {
-                horos_isRotating = false
+                setRotating(false)
 
                 resetAutorotate(self)
             }
@@ -769,10 +782,16 @@ extension VRView {
                 var (wl, ww) = draggedWindow(theEvent, wl: horos_wl, ww: horos_ww, modality: modality)
 
                 if ww < 0.1 { ww = 0.1 }
+                // The level this step leaves is no preset's choice: the window stops naming the one before.
+                if wl != horos_wl || ww != horos_ww { horos_controller?.nameDraggedWindowLevel() }
                 horos_wl = wl
                 horos_ww = ww
 
-                setOpacity(horos_currentOpacityArray)
+                // As setWLWW: a 16-bit CLUT keeps its own opacity, which the
+                // CLUT editor sends below; the 8-bit one would replace it.
+                if !horos_advancedCLUT {
+                    setOpacity(horos_currentOpacityArray)
+                }
 
                 if horos_isRGB {
                     vtk.buildColour(fromTable: horos_table, start: Double(wl - ww / 2), end: Double(wl + ww / 2))

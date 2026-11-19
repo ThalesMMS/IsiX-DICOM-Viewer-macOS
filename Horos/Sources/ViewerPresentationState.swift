@@ -168,9 +168,12 @@ import IsiXImaging
                 }
                 view.rotation = Float(presentation.rotationDegrees)
                 view.xFlipped = presentation.horizontalFlip
-                if let area = presentation.displayedArea,
-                   let scale = PresentationStateOverlay.magnification(sizeMode: area.sizeMode, magnification: area.magnification) {
-                    view.scaleValue = Float(scale)
+                // After the rotation and the flip: the area is fitted to the
+                // view as the image is turned in it.
+                if let area = presentation.displayedArea {
+                    let magnification = PresentationStateOverlay.magnification(sizeMode: area.sizeMode, magnification: area.magnification)
+                    frame(NSRect(x: area.column, y: area.row, width: area.width, height: area.height), in: view,
+                          fits: PresentationStateOverlay.fitsView(sizeMode: area.sizeMode), magnification: magnification.map { Float($0) })
                 }
             }
         }
@@ -196,6 +199,30 @@ import IsiXImaging
             }
         }
         return result
+    }
+
+    /// Frames the displayed area of a presentation state: `area`, in the
+    /// pixels of the image, comes to the middle of the view, as large as the
+    /// view allows when it `fits`, at `magnification` when one is given, and
+    /// at the scale the view has otherwise. The area may begin before the
+    /// image or end past it; what it holds beyond the image is empty. The
+    /// pan is in the axes of the image, so the view's rotation and flips,
+    /// set before this, turn the area with the image.
+    private static func frame(_ area: NSRect, in view: DCMView, fits: Bool, magnification: Float?) {
+        guard let pix = view.curDCM, area.size.width > 0, area.size.height > 0 else { return }
+        if let magnification, magnification > 0 {
+            view.scaleValue = magnification
+        } else if fits {
+            let viewport = view.convertToBacking(view.bounds)
+            view.scaleValue = ViewTransform.fitScale(viewSize: viewport.size, width: Double(area.size.width), height: Double(area.size.height),
+                                                     pixelRatio: pix.pixelRatio, rotation: view.rotation,
+                                                     fallback: view.scaleValue > 0 ? view.scaleValue : 1)
+        }
+        let origin = ViewTransform.openingOrigin(content: area, width: pix.pwidth, height: pix.pheight,
+                                                 scale: view.scaleValue, pixelRatio: pix.pixelRatio)
+        view.setOriginX(origin.x, y: origin.y)
+        ViewerSettingsPropagator.reframed(view)
+        view.needsDisplay = true
     }
 
     /// How long a sheet waits for its window to come on screen.

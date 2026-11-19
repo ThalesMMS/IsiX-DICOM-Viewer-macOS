@@ -68,7 +68,11 @@ final class IsiXPluginHost: NSObject, IsiXHostBackend, IsiXNetworkBackend {
         }
         var loadError: NSError?
         guard PluginManagerCAPILoadBundle(bundle, &loadError) else {
-            return Outcome(state: .failed, reason: loadError?.localizedDescription ?? "The bundle loader refused the plugin.")
+            // The description alone says only that the bundle could not be
+            // loaded; what dyld missed is in the error's debug description.
+            if let loadError { NSLog("IsiX plugin %@ did not load: %@", manifest.identifier, loadError.userInfo[NSDebugDescriptionErrorKey] as? String ?? loadError.localizedDescription) }
+            return Outcome(state: .failed, reason: loadError.map { LegacyPluginLoadFailure($0).version1Reason(description: $0.localizedDescription) }
+                                                   ?? "The bundle loader refused the plugin.")
         }
         let executable = url.appendingPathComponent("Contents/MacOS", isDirectory: true).appendingPathComponent(manifest.executableName)
         let entry: any IsiXPlugin.Type
@@ -115,7 +119,9 @@ final class IsiXPluginHost: NSObject, IsiXHostBackend, IsiXNetworkBackend {
     /// Adds the commands of the active plugins to the menus the plugin
     /// manager builds, and remembers the menus to rebuild them when a plugin
     /// adds or removes a command later.
-    func addMenuItems(filters: NSMenu?, rois: NSMenu?, others: NSMenu?, database: NSMenu?) {
+    /// `report` is nil when the menus are not the application's own, which
+    /// have one: its commands go with the others then.
+    func addMenuItems(filters: NSMenu?, rois: NSMenu?, others: NSMenu?, database: NSMenu?, report: NSMenu?) {
         filtersMenu = filters
         roisMenu = rois
         othersMenu = others
@@ -131,7 +137,10 @@ final class IsiXPluginHost: NSObject, IsiXHostBackend, IsiXNetworkBackend {
                 case .imageFilters: menu = filters
                 case .roiTools: menu = rois
                 case .database: menu = database
-                default: menu = others
+                case .report: menu = report ?? others
+                case .other: menu = others
+                // A placement of a kit newer than this application.
+                @unknown default: menu = others
                 }
                 menu?.addItem(item)
             }

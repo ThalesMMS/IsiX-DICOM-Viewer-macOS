@@ -749,6 +749,7 @@ private func selectedCell(of sender: Any?) -> NSCell? {
         let rows = max(Self.int(ceilf(Float(1.0 * Double(cellCount) / Double(columns)))), 1)
 
         matrix.renewRows(rows, columns: columns)
+        browser._COLUMN = columns
         HorosObjCException.synchronized(browser.horos_previewPixThumbnails) {
             var i = browser.horos_previewPix?.count ?? 0
             while i < columns * rows {
@@ -859,7 +860,7 @@ private func selectedCell(of sender: Any?) -> NSCell? {
             let request = ThumbnailRequest(objectIDs: files.compactMap { ($0 as? NSManagedObject)?.objectID },
                                            imageLevel: imageLevel, database: browser.horos_databaseIvar,
                                            list: browser.horos_previewPix, generation: browser.horos_previewPixGeneration,
-                                           notFound: browser.horos_notFoundImage ?? NSImage(), state: browser.previewState)
+                                           notFound: browser.horos_notFoundImage ?? NSImage(), browser: browser)
             if onLoader {
                 // The task keeps the pane until the load ends; the browser keeps
                 // the pane for its whole life anyway.

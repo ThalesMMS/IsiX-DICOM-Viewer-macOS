@@ -22,7 +22,6 @@ Project classes the objects name and none of them defines are empty stubs:
 any message to them answers zero.
 """
 from pathlib import Path
-import atexit
 import os
 import re
 import shutil
@@ -34,10 +33,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import object_probe  # noqa: E402
 sys.path.insert(0, str(ROOT / 'tests'))
+import harness_cache  # noqa: E402
 import isix_modules  # noqa: E402
 import link_placeholders  # noqa: E402
 import horos_reader  # noqa: E402
 import process_graph_stand_in  # noqa: E402
+
+# The attempts a harness that links the application's Swift objects may take
+# before it is taken as not built. The ROI's closure lacks some 430 data
+# symbols today: read from the harness, they are all given their placeholders
+# in its second link; where they cannot be read, dyld names one per attempt.
+PLACEHOLDER_LIMIT = 600
+
+# Headers of a former revision whose class a module's generated interface declares now.
+MODULE_INTERFACES = {'DCMUSRegion.h': b'IsiXImaging-Swift.h'}
 
 SKIPPED = 2
 WORKTREE = 'WORKTREE'
@@ -58,9 +67,9 @@ COMMAND_SOURCES = (ROI_SOURCE, PIX_SOURCE, 'Horos/Sources/DCMPix+CAPI.m', 'Horos
 # the Objective-C class kept it in instance variables of these names, the Swift
 # one keeps it under horos_ and the same names. PIX_IVAR(object, type, name) is
 # the variable, of the type the Objective-C declared; PIX_ORIENTATION(object)
-# the nine cosines, an array in the Objective-C class and the first pointer of
-# the Swift class's fixed arrays (horos_arrays); PIX_KERNEL(object) the 25
-# convolution weights, the second.
+# the nine cosines, an array inside the object in both, which the Swift class
+# keeps under horos_ and the name followed by Array; PIX_KERNEL(object) the 25
+# convolution weights, kept the same way.
 PIX_IVARS = r'''
 #import <objc/runtime.h>
 #include <stdio.h>
@@ -77,14 +86,16 @@ static void *ProbePixIvar( id object, const char *name)
     if( ivar == NULL) { fprintf( stderr, "no instance variable %s\n", name); exit( 3); }
     return (char*) (__bridge void*) object + ivar_getOffset( ivar);
 }
-static void *ProbePixArray( id object, const char *name, int index)
+static void *ProbePixArray( id object, const char *name)
 {
     if( class_getInstanceVariable( [object class], name)) return ProbePixIvar( object, name);
-    return ((void**) ProbePixIvar( object, "arrays"))[ index];
+    char field[ 256];
+    snprintf( field, sizeof field, "%sArray", name);
+    return ProbePixIvar( object, field);
 }
 #define PIX_IVAR( object, type, name) (*(type*) ProbePixIvar( object, #name))
-#define PIX_ORIENTATION( object) ((double*) ProbePixArray( object, "orientation", 0))
-#define PIX_KERNEL( object) ((float*) ProbePixArray( object, "kernel", 1))
+#define PIX_ORIENTATION( object) ((double*) ProbePixArray( object, "orientation"))
+#define PIX_KERNEL( object) ((float*) ProbePixArray( object, "kernel"))
 '''
 
 
@@ -159,29 +170,33 @@ PIX_IVARS
 }
 @end
 
-/// An ultrasound region: the class of the internal module IsiXImaging, as
+/// An ultrasound region: the class of the internal module IsiXImaging
+/// (USRegion, DCMUSRegion for the runtime as in the former plugin SDK), as
 /// DCMPix keeps one. The Swift ROI reads its properties directly, which only
 /// an object of that class answers; an Objective-C ROI reads them by message.
 /// The module's generated interface declares it when the build has one, as the
 /// application's headers import it; the probe declares what it sets otherwise.
 #if __has_include("IsiXImaging-Swift.h")
 #import "IsiXImaging-Swift.h"
+#elif __has_include("DCMUSRegion.h")
+// A revision from before the module: the class is the one its own header declares.
+#import "DCMUSRegion.h"
 #else
-@interface IsiXUSRegion : NSObject
+@interface DCMUSRegion : NSObject
 @property int regionSpatialFormat, regionLocationMinX0, regionLocationMinY0, regionLocationMaxX1, regionLocationMaxY1;
 @property int referencePixelX0, referencePixelY0, physicalUnitsXDirection, physicalUnitsYDirection;
 @property double refPixelPhysicalValueX, refPixelPhysicalValueY, physicalDeltaX, physicalDeltaY;
 @property BOOL isReferencePixelX0Present, isReferencePixelY0Present;
 @end
 #endif
-@compatibility_alias ProbeUSRegion IsiXUSRegion;
-@interface IsiXUSRegion (Probe)
+@compatibility_alias ProbeUSRegion DCMUSRegion;
+@interface DCMUSRegion (Probe)
 + (ProbeUSRegion*) format:(int) f x0:(int) x0 y0:(int) y0 x1:(int) x1 y1:(int) y1 unitsX:(int) ux unitsY:(int) uy;
 @end
-@implementation IsiXUSRegion (Probe)
+@implementation DCMUSRegion (Probe)
 + (ProbeUSRegion*) format:(int) f x0:(int) x0 y0:(int) y0 x1:(int) x1 y1:(int) y1 unitsX:(int) ux unitsY:(int) uy
 {
-    ProbeUSRegion *r = [[[IsiXUSRegion alloc] init] autorelease];
+    ProbeUSRegion *r = [[[DCMUSRegion alloc] init] autorelease];
     r.regionSpatialFormat = f; r.regionLocationMinX0 = x0; r.regionLocationMinY0 = y0; r.regionLocationMaxX1 = x1; r.regionLocationMaxY1 = y1;
     r.physicalUnitsXDirection = ux; r.physicalUnitsYDirection = uy; r.physicalDeltaX = 0.0125; r.physicalDeltaY = -1.5;
     r.referencePixelX0 = 3; r.referencePixelY0 = 5; r.refPixelPhysicalValueX = 0.25; r.refPixelPhysicalValueY = -2;
@@ -422,7 +437,9 @@ def swift_roi_files():
     names = []
     for path in sorted((ROOT / 'Horos/Sources').glob('*.swift')):
         text = path.read_text(encoding='utf-8', errors='replace')
-        if re.search(r'@objc\((ROI|HorosVolumeLengthROI)\)|^extension ROI\b', text, re.M):
+        # A file of a class the probes stand in for extends that class too: its
+        # object would bring a category on a class the harness does not have.
+        if re.search(r'@objc\((ROI|HorosVolumeLengthROI)\)|^extension ROI\b', text, re.M) and not is_boundary(path.stem):
             names.append(path.stem)
     return names
 
@@ -496,17 +513,20 @@ NS_ASSUME_NONNULL_END
 
 
 def graph_stand_in():
-    """The object of the process graph's stand-in, compiled once per process."""
+    """The object of the process graph's stand-in, compiled once for its
+    source, its flags and the compiler (harness_cache): it is made of nothing
+    of the application's build."""
     if 'object' not in _graph_stand_in:
-        folder = Path(tempfile.mkdtemp(prefix='horos-graph-stand-in-'))
-        atexit.register(shutil.rmtree, folder, True)
-        source, obj = folder / 'ProcessGraphStandIn.swift', folder / 'ProcessGraphStandIn.o'
-        source.write_text(process_graph_stand_in.SOURCE + GRAPH_DATABASES)
-        header = folder / 'ProcessGraphStandIn.h'
-        header.write_text(GRAPH_DATABASE_HEADER)
-        run(['xcrun', 'swiftc', '-module-name', 'Horos', '-parse-as-library', '-suppress-warnings', '-wmo', '-c',
-             '-import-objc-header', str(header), str(source), '-o', str(obj)])
-        _graph_stand_in['object'] = obj
+        text = process_graph_stand_in.SOURCE + GRAPH_DATABASES
+        flags = ['-module-name', 'Horos', '-parse-as-library', '-suppress-warnings', '-wmo', '-c']
+
+        def compiled(folder):
+            source, header = folder / 'ProcessGraphStandIn.swift', folder / 'ProcessGraphStandIn.h'
+            source.write_text(text)
+            header.write_text(GRAPH_DATABASE_HEADER)
+            run(['xcrun', 'swiftc', *flags, '-import-objc-header', str(header), str(source), '-o', str(folder / 'ProcessGraphStandIn.o')])
+        key = harness_cache.digest('graph stand-in', text, GRAPH_DATABASE_HEADER, flags, harness_cache.toolchain())
+        _graph_stand_in['object'] = harness_cache.built('stand-ins', key, compiled) / 'ProcessGraphStandIn.o'
     return _graph_stand_in['object']
 
 
@@ -520,17 +540,42 @@ def swift_closure(folder, names):
     define, without crossing into the BOUNDARY classes' objects."""
     swift = {p.stem for p in folder.glob('*.swiftdeps')} | set(names)
     swift = {stem for stem in swift if stem in names or not (is_boundary(stem) or stem == GRAPH_STAND_IN)}
+    # A file of another name can extend a BOUNDARY class as well as define what
+    # the probes need: its object carries a category on a class the harness
+    # zeroes, which ends the load. Such an object stays out like the class's own.
+    # So does a file that defines a subclass of a BOUNDARY class written in
+    # Swift (the browser's preview view is a DCMView): its class names the
+    # Swift metadata of its superclass, which no stub defines and a placeholder
+    # zeroes, and the runtime follows the superclass of every class of the
+    # image when it loads. Only a subclass names the superclass's metaclass
+    # with it: an extension names the metadata alone, a user of the class asks
+    # for it through the accessor.
+    names_boundary = '|'.join(map(re.escape, BOUNDARY))
+    extends_boundary = re.compile(r' __CATEGORY_(?:%s)_\$_' % names_boundary)
+    subclasses_boundary = re.compile(r' U _\$s5Horos\d+(%s)CN$' % names_boundary, re.M)
+
+    def leaves_boundary(obj):
+        listing = subprocess.run(['nm', '-a', str(obj)], capture_output=True, text=True).stdout
+        return bool(extends_boundary.search(listing) or any(
+            ' U _OBJC_METACLASS_$_%s\n' % name in listing for name in subclasses_boundary.findall(listing)))
+    # What is read from an object of the build is the same for every test of
+    # that build and is kept with the object, for as long as the build leaves
+    # it as it is (harness_cache): the answer above under this file's
+    # contents, which a change to the classes or to the question makes anew.
+    leaving = 'leaves the boundary ' + harness_cache.source_digest(__file__)
     index = {}
     for obj in folder.glob('*.o'):
         if obj.stem not in swift:
             continue
-        listing = subprocess.run(['nm', '-g', '--defined-only', '-j', str(obj)], capture_output=True, text=True).stdout
+        if obj.stem not in names and harness_cache.fact(obj, leaving, lambda: leaves_boundary(obj)):
+            continue
+        listing = harness_cache.nm(obj, '-g', '--defined-only', '-j')
         for symbol in listing.split():
             index.setdefault(symbol, obj.stem)
     todo, seen = list(names), set(names)
     while todo:
         name = todo.pop()
-        listing = subprocess.run(['nm', '-u', '-j', str(folder / f'{name}.o')], capture_output=True, text=True).stdout
+        listing = harness_cache.nm(folder / f'{name}.o', '-u', '-j')
         for symbol in listing.split():
             owner = index.get(symbol)
             if owner and owner not in seen:
@@ -538,9 +583,9 @@ def swift_closure(folder, names):
                 todo.append(owner)
     closure = [folder / f'{name}.o' for name in sorted(seen)]
     graph = '_$s5Horos%d%sC' % (len(GRAPH_STAND_IN), GRAPH_STAND_IN)
-    if GRAPH_STAND_IN not in seen and any(graph in subprocess.run(['nm', '-u', '-j', str(obj)], capture_output=True, text=True).stdout
-                                          for obj in closure):
+    if GRAPH_STAND_IN not in seen and any(graph in harness_cache.nm(obj, '-u', '-j') for obj in closure):
         closure.append(graph_stand_in())
+    harness_cache.flush()
     return closure
 
 
@@ -561,9 +606,16 @@ def project_class_names():
 def defined_classes(objects):
     names = set()
     for obj in objects:
-        listing = subprocess.run(['nm', '-g', '--defined-only', '-j', str(obj)], capture_output=True, text=True).stdout
+        listing = harness_cache.nm(obj, '-g', '--defined-only', '-j')
         names.update(re.findall(r'_OBJC_CLASS_\$_(\w+)', listing))
     return names
+
+
+def undefined_project_classes(obj):
+    """object_probe.undefined_project_classes(), kept with an object of the
+    build under the contents of the file that defines it."""
+    return harness_cache.fact(obj, 'undefined project classes ' + harness_cache.source_digest(object_probe.__file__),
+                              lambda: object_probe.undefined_project_classes(obj))
 
 
 def stubs(objects, defined, former=()):
@@ -572,27 +624,27 @@ def stubs(objects, defined, former=()):
     `former` names more project classes: those of a revision's headers that
     this checkout no longer declares (see former_headers())."""
     project = project_class_names() | set(former)
-    names = {n for obj in objects for n in object_probe.undefined_project_classes(obj)} & project - set(defined)
+    names = {n for obj in objects for n in undefined_project_classes(obj)} & project - set(defined)
     # A BOUNDARY class the Swift objects name by its metadata accessor: the
     # accessor answers the Objective-C class of that name, the stub or the
     # probe's own stand-in, as the class object it would answer.
     accessors = {}
     provided = set()
     for obj in objects:
-        provided.update(subprocess.run(['nm', '-g', '--defined-only', '-j', str(obj)], capture_output=True, text=True).stdout.split())
+        provided.update(harness_cache.nm(obj, '-g', '--defined-only', '-j').split())
     imported = {}
     for obj in objects:
-        listing = subprocess.run(['nm', '-u', '-j', str(obj)], capture_output=True, text=True).stdout
+        listed = set(harness_cache.nm(obj, '-u', '-j').split())
         for name in BOUNDARY:
             symbol = '_$s5Horos%d%sCMa' % (len(name), name)
-            if symbol in listing.split() and symbol not in provided:
+            if symbol in listed and symbol not in provided:
                 accessors[name] = symbol
                 if name not in defined:
                     names.add(name)
             # An Objective-C class Swift imports: its accessor answers the
             # metadata that wraps the class.
             symbol = '_$sSo%d%sCMa' % (len(name), name)
-            if symbol in listing.split() and symbol not in provided:
+            if symbol in listed and symbol not in provided:
                 imported[name] = symbol
                 if name not in defined:
                     names.add(name)
@@ -642,14 +694,13 @@ def swift_roi_link(folder, config=None, own=(), defined=()):
         if source.is_file():
             text = source.read_text(encoding='utf-8', errors='replace')
             names |= set(re.findall(r'@objc\((\w+)\)', text)) | set(re.findall(r'\bclass\s+(\w+)\s*:\s*NS\w+', text))
-    referenced = {n for obj in objects for n in object_probe.undefined_project_classes(obj)}
+    referenced = {n for obj in objects for n in undefined_project_classes(obj)}
     # A Swift object names a module's functions and types by their mangled
     # names, without an Objective-C class: the app's NSLog calls IsiXLogging's
     # unifiedLogv. The prelinked module object does not carry the modules it
     # depends on either. Under -undefined dynamic_lookup such a function is
     # left unbound and a call to it jumps to address 0.
-    listing = ''.join(subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-                      for obj in objects + ([module] if module else []))
+    listing = ''.join(harness_cache.nm(obj, '-u', check=True) for obj in objects + ([module] if module else []))
     needed = {name for name in isix_modules.module_names() if name != MODULE and
               (isix_modules.objc_class_names(name) & referenced or f'_$s{len(name)}{name}' in listing)}
     # All in one folder: modules built with their dependencies beside them, in
@@ -718,6 +769,20 @@ def revision_overlay(revision, folder, config, former=()):
     return ['-ivfsoverlay', str(yaml)]
 
 
+def former_voi_lut_block(source):
+    """An Objective-C DCMPix of a former revision hands the frame loader a
+    block that applies the VOI LUT and answers nothing. The loader of today,
+    which the harness links, asks the block whether the samples now hold the
+    table's output; a former revision treated them as stored values, which is
+    the answer NO."""
+    text = source.read_bytes().decode('latin1')
+    adapted = text.replace('void (^voiLUT)(unsigned short*) = nil;', 'BOOL (^voiLUT)(unsigned short*) = nil;') \
+                  .replace('{ [self applyVOILUTFrom: dcmObject to: samples]; };',
+                           '{ [self applyVOILUTFrom: dcmObject to: samples]; return NO; };')
+    if adapted != text:
+        source.write_bytes(adapted.encode('latin1'))
+
+
 def former_headers(revision, sources, folder):
     """The app headers that a revision's `sources` import and that no longer
     declare here the classes they declared then: the header is gone (its class
@@ -748,6 +813,13 @@ def former_headers(revision, sources, folder):
                 if not declared & protocols:
                     continue
             copy = object_probe.revision_source(header, revision, folder / name)
+            if name in MODULE_INTERFACES:
+                # The class is a module's today, under the same runtime name: the
+                # build's generated interface, which the application's headers
+                # import, declares it, and the revision's own declaration beside
+                # it would be a second one.
+                copy.write_bytes(b'#if __has_include("%b")\n#import "%b"\n#else\n%b\n#endif\n'
+                                 % (MODULE_INTERFACES[name], MODULE_INTERFACES[name], copy.read_bytes()))
             classes |= declared
             todo.append(copy)
     return classes
@@ -788,6 +860,8 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
             if source not in git_files(revision, source):
                 continue
             object_probe.revision_source(source, revision, target)
+            if source == PIX_SOURCE:
+                former_voi_lut_block(target)
         sources.append(target)
     former = set() if revision == WORKTREE else former_headers(revision, sources, folder)
     overlay = [] if revision == WORKTREE else revision_overlay(revision, folder, config, former)
@@ -834,9 +908,8 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
         p.read_text() for p in (ROOT / 'Modules' / MODULE / 'Sources').glob('*.swift')))}
     # The other internal modules the objects refer to (DCMPix.m reads its
     # attributes through IsiXImaging), built from this checkout.
-    undefined = ''.join(subprocess.run(['nm', '-u', str(obj)], capture_output=True, text=True, check=True).stdout
-                        for obj in objects + swift_objects)
-    referenced = {n for obj in objects + swift_objects for n in object_probe.undefined_project_classes(obj)} | set(
+    undefined = ''.join(harness_cache.nm(obj, '-u', check=True) for obj in objects + swift_objects)
+    referenced = {n for obj in objects + swift_objects for n in undefined_project_classes(obj)} | set(
         re.findall(r'_OBJC_CLASS_\$_(\w+)', undefined))
     for name in isix_modules.module_names():
         classes = isix_modules.objc_class_names(name)
@@ -855,7 +928,7 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
         stand_ins.append(object_probe.ingest_stand_in(folder, folder / 'other-modules'))
 
     placeholders = set()
-    for _ in range(300):
+    for _ in range(PLACEHOLDER_LIMIT):
         (folder / 'placeholders.s').write_text(link_placeholders.assembly(placeholders))
         run(['xcrun', 'clang', '-c', str(folder / 'placeholders.s'), '-o', str(folder / 'placeholders.o')])
         run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-module-name', 'Probe', '-suppress-warnings',
@@ -863,19 +936,20 @@ def build(revision, folder, probe_source, *, config=None, pix_flags=(), extra_sw
              *link, '-Xlinker', '-undefined', '-Xlinker', 'dynamic_lookup', '-lc++',
              '-framework', 'Cocoa', '-framework', 'Accelerate', '-framework', 'AVFoundation', '-framework', 'CoreMedia',
              '-framework', 'QuartzCore', '-o', str(folder / 'harness')])
-        # The symbol the harness lacks is read from it, without a run that
+        # The symbols the harness lacks are read from it, without a run that
         # dyld aborts and that leaves a crash report. Once it lacks none it is
         # run with --probe-link, which its main() answers 0 at once: any other
         # end but dyld naming a symbol after all, a death while the image
         # loads among them, is a harness that is not built (link_placeholders).
-        missing = link_placeholders.probe(folder / 'harness', placeholders, f'the link probe of the harness of {revision}')
-        if missing is None:
+        missing = link_placeholders.lacking(folder / 'harness', placeholders, f'the link probe of the harness of {revision}')
+        if not missing:
             if log is not None:
                 log.append(f'{revision}: {len(objects)} compiled, {len(swift_objects)} app Swift objects, '
                            f'{len(placeholders)} placeholders')
             return folder / 'harness'
-        placeholders.add(missing)
-    raise RuntimeError('too many unresolved symbols for %s' % revision)
+        placeholders.update(missing)
+    raise RuntimeError('too many unresolved symbols for %s: %d, the last of them %s'
+                       % (revision, len(placeholders), ', '.join(sorted(placeholders)[-6:])))
 
 
 def run_probe(main_source, *, config=None, args=(), timeout=300):

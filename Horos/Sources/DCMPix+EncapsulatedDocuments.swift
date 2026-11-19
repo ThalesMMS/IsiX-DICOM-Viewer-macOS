@@ -70,7 +70,7 @@ extension DCMPix {
             break
         }
         // An image file carried whole in encapsulated Pixel Data under a private
-        // transfer syntax - VTServer's CCITT G4 TIFF scans. No DICOM codec reads
+        // transfer syntax - a PACS's CCITT G4 TIFF scans. No DICOM codec reads
         // it; the file inside is drawn as any other raster image.
         if loadImageFileWrapped(inPixelDataOf: dcmObject) {
             loadCustomImageAnnotationsPapyLink(-1, dcmLink: dcmObject)
@@ -78,6 +78,11 @@ extension DCMPix {
         }
         if kind == .structuredReport {
             return loadStructuredReport(dcmObject)
+        }
+        // A dose grid is the radiotherapy object with pictures: its frames are
+        // read as any image's, each a plane of the grid.
+        if DICOMSOPClass.isRTDose(sopClassUID) && dcmObject.attributeValue(withName: "PixelData") != nil {
+            return false
         }
         if DICOMSOPClass.isNonImageStorage(sopClassUID) {
             loadEmptyFrame(dcmObject)
@@ -95,7 +100,7 @@ extension DCMPix {
     }
 
     /// A structured report: rendered to XML by dsr2html, then to PDF by the
-    /// Decompress service (at most ten seconds), both kept in the temporary folder.
+    /// Decompress service (at most ten seconds each), both kept in the temporary folder.
     private func loadStructuredReport(_ dcmObject: DCMObject) -> Bool {
         let files = FileManager.default
         var loaded = false
@@ -109,10 +114,15 @@ extension DCMPix {
                 task.launchPath = (resources as NSString).appendingPathComponent("/dsr2html")
                 task.arguments = ["+X1", "--unknown-relationship", "--ignore-constraints", "--ignore-item-errors", "--skip-invalid-items",
                                   srcFile ?? "", rendering.xml]
-                task.launch()
-                // Not -waitUntilExit, which keeps the run loop going.
-                while task.isRunning { Thread.sleep(forTimeInterval: 0.1) }
-                task.interrupt()
+                // Not -waitUntilExit, which keeps the run loop going, and not
+                // without a deadline: a helper that never ends is stopped. What
+                // it had written by then is not a rendering; without it the
+                // report is shown as when no XML is made.
+                var taskError: NSError?
+                if !HorosRunTaskUntilExit(task, EncapsulatedDocument.conversionTimeoutOnDisplay, &taskError) {
+                    NSLog("****** dsr2html failed: %@", taskError?.localizedDescription ?? "(null)")
+                    try? files.removeItem(atPath: rendering.xml)
+                }
             }
             if !files.fileExists(atPath: rendering.pdf) {
                 DecompressService.shared?.updateReportPDF(atPath: rendering.xml, timeout: EncapsulatedDocument.renderingTimeout)

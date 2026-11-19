@@ -58,6 +58,16 @@ public enum SeriesDisplay {
         return current
     }
 
+    /// Where the entry of image `index` is in a list kept beside the pixels
+    /// (the files, the ROI lists) that has `count` entries: at the same index,
+    /// or nowhere when the list ends before it. The lists are given to the
+    /// view one by one and changed in place by their owners, so one may be
+    /// shorter than the pixels the index was clamped to, and reading an NSArray
+    /// past its end raises.
+    public static func listedIndex(_ index: Int, count: Int) -> Int? {
+        return index >= 0 && index < count ? index : nil
+    }
+
     /// A series is a volume unless it has a single image or its first and last
     /// images are at the same slice location (a time series, a scout).
     public static func isVolume(count: Int, firstSliceLocation: Double, lastSliceLocation: Double) -> Bool {

@@ -86,10 +86,27 @@ func dcmVRCode(_ vr: String?) -> Int32 {
 @objc(DCMAttribute)
 public class DCMAttribute: NSObject, NSCopying {
 
-    @objc public private(set) var attrTag: DICOMAttributeTag!
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads and writes at the offset the application exports for each:
+    // stored fields with the type the C declaration has in memory, public so
+    // that the application's link reaches them, never private, constant, lazy,
+    // weak or observed. The tag, the values and the character set are
+    // the three properties below. _vr is a copy of the value representation,
+    // written with it and never read here, where the attribute reads its own
+    // Swift string. _valueLength, name and _dataPtr have no state: the length
+    // is computed from the values, and the attribute keeps values, not a
+    // pointer into a buffer. Nor has _valueMultiplicity, of an older copy of
+    // the SDK's header: the multiplicity is the count of the values, a list
+    // anyone changes in place, counted when it is asked for.
+    @objc public internal(set) var attrTag: DICOMAttributeTag!
     @objc public var values: NSMutableArray!
-    @objc public internal(set) var vr: String!
+    @objc public internal(set) var vr: String! { didSet { _vr = vr as NSString? } }
     @objc public var characterSet: DICOMCharacterSet!
+    public final var _vr: NSString?
+    public final var _valueLength = 0
+    public final var _valueMultiplicity: Int32 = 0
+    public final var _name: NSString?
+    public final var _dataPtr: UnsafeMutablePointer<UInt8>?
 
     // MARK: Making one
 
@@ -119,6 +136,7 @@ public class DCMAttribute: NSObject, NSCopying {
         attrTag = tag
         self.values = values
         self.vr = vr ?? tag?.vr
+        _vr = self.vr as NSString?
         super.init()
     }
 

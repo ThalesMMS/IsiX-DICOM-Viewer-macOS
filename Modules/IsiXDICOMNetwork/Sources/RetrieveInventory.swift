@@ -139,8 +139,14 @@ public final class RetrieveInventory: NSObject, Sendable {
     }
 
     /// "in progress", "confirmed", "failed", "cancelled" or "not supported"
-    /// when the listing ran beside the transfer; empty when it ran before it.
+    /// when the listing ran beside the transfer. When it ran before it, as a
+    /// DIMSE retrieve's does, how it ended: the raw value of a
+    /// `RetrieveListing`, or empty when the retrieve did not say.
     public var discoveryState: String { read { $0.record.discovery ?? "" } }
+
+    /// How the listing a DIMSE retrieve made before its transfer ended; nil
+    /// when the listing ran beside the transfer, or the retrieve did not say.
+    public var listing: RetrieveListing? { read { RetrieveListing(rawValue: $0.record.discovery ?? "") } }
 
     /// What the peer listed: each SOP Instance UID with its series.
     public var expectedInstances: [String: String] { read { $0.record.expected } }
@@ -204,8 +210,8 @@ public final class RetrieveInventory: NSObject, Sendable {
 
     /// After a C-GET, the instances it asked for that neither arrived nor were refused here are
     /// what the peer could not send, when they are as many as its failed sub-operations less
-    /// those refused here. A peer that omits the Failed SOP Instance UID List (OsiriX, for a
-    /// file it cannot convert) names them this way. `requested` empty means every instance of
+    /// those refused here. A peer that omits the Failed SOP Instance UID List, for instance for a
+    /// file it cannot convert, names them this way. `requested` empty means every instance of
     /// `series`, or of the study when that is empty. Only a final status that speaks of
     /// failed sub-operations (0xB000, 0xA702, or success) counts: a refusal of the whole
     /// request (0xC000, an IMAGE level the peer does not support) says nothing of any
@@ -292,8 +298,37 @@ public final class RetrieveInventory: NSObject, Sendable {
     /// Whether the retrieve is to be reported incomplete. An inventory left
     /// unconfirmed only because the node does not implement the listing,
     /// after a retrieve of the whole study or series that ended without
-    /// error, is not: there is nothing else to ask that node for.
+    /// error, is not: there is nothing else to ask that node for. Neither is
+    /// one the peer's counters judged complete.
     @objc public var needsAttention: Bool { read { $0.needsAttention } }
+
+    /// Judges by the peer's own counters a DIMSE retrieve whose listing named
+    /// no instance, because the node refused it or answered it empty: complete
+    /// when every C-MOVE and C-GET of the attempt ended in success with
+    /// nothing failed, with a warning or left, they completed something, as
+    /// many stores arrived here as the peer counted, none was refused, and
+    /// everything that arrived is in the index. The verdict is kept in the
+    /// manifest, and the retrieve is then not reported incomplete.
+    ///
+    /// Called once the transfer has ended and what it received has been
+    /// waited for. A listing that failed, sub-operations that failed or
+    /// warned, or an instance that arrived and is not in the index leave the
+    /// retrieve without a verdict, and reported.
+    @discardableResult
+    public func judgeByPeerCounters() -> Bool {
+        change { $0.judgeByPeerCounters() }
+    }
+
+    /// Whether the peer's counters judged the last attempt complete.
+    @objc public var judgedByPeerCounters: Bool { read { $0.record.completeness != nil } }
+
+    /// Whether that verdict still stands for a node that now reports `count`
+    /// instances: it reports what it did then, or nothing, and no instance
+    /// that was here then has gone. A retrieve of what is not here has then
+    /// nothing to ask for, as with a satisfied inventory.
+    public func standsByPeerCounters(reported count: Int) -> Bool {
+        read { $0.standsByPeerCounters(reported: count) }
+    }
 
     /// Missing instances the peer declared it cannot send; a smart retrieve does not ask for them.
     @objc public var unsendableUIDs: [String] { read { $0.unsendableUIDs } }

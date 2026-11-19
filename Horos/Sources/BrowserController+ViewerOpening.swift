@@ -63,7 +63,7 @@ extension BrowserController {
     @discardableResult
     func openViewer(fromImages toOpenArray: [Any]!, movie movieViewer: Bool, viewer: ViewerController!, keyImagesOnly keyImages: Bool,
                     tryToFlipData: Bool) -> ViewerController! {
-        viewerOpener.openViewer((toOpenArray ?? []).map { $0 as? [Any] ?? [] }, movie: movieViewer, viewer: viewer, keyImagesOnly: keyImages, tryToFlipData: tryToFlipData)
+        viewerOpener.openChosenImages((toOpenArray ?? []).map { $0 as? [Any] ?? [] }, movie: movieViewer, viewer: viewer, keyImagesOnly: keyImages, tryToFlipData: tryToFlipData)
     }
 
     // MARK: Selection

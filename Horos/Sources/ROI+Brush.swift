@@ -46,6 +46,33 @@ import IsiXROI
 // changes.
 extension ROI {
 
+    /// The brush's mask as the module's value. The bytes and the frame are
+    /// the instance variables of the former plugin SDK, kept as fields of the
+    /// ROI where a plugin reads them: this value is made from them, and what
+    /// changes it is written back to them.
+    var mask: ROIBrushMask {
+        get {
+            var mask = ROIBrushMask()
+            mask.buffer = _textureBuffer
+            mask.width = _textureWidth
+            mask.height = _textureHeight
+            mask.upLeftX = _textureUpLeftCornerX
+            mask.upLeftY = _textureUpLeftCornerY
+            mask.downRightX = _textureDownRightCornerX
+            mask.downRightY = _textureDownRightCornerY
+            return mask
+        }
+        set {
+            _textureBuffer = newValue.buffer
+            _textureWidth = newValue.width
+            _textureHeight = newValue.height
+            _textureUpLeftCornerX = newValue.upLeftX
+            _textureUpLeftCornerY = newValue.upLeftY
+            _textureDownRightCornerX = newValue.downRightX
+            _textureDownRightCornerY = newValue.downRightY
+        }
+    }
+
     /// Forgets what was made from the mask: the outline of a selected brush.
     @objc public func textureBufferHasChanged() {
         if let outline = textureBufferSelected {

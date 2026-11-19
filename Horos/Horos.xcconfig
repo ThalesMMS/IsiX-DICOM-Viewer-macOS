@@ -15,10 +15,10 @@ PRODUCT_BUNDLE_IDENTIFIER_PREFIX = thalesmms.isis.workstation
 CURRENT_PROJECT_VERSION = $(HOROS_RELEASE_BUILD:default=20220801)
 
 /// User-visible version of the project
-MARKETING_VERSION = 6.0.3
+MARKETING_VERSION = 6.0.4
 
 /// Copyright notice for the bundle
-HUMAN_READABLE_VERSION = IsiX DICOM Viewer v6.0.3
+HUMAN_READABLE_VERSION = IsiX DICOM Viewer v6.0.4
 
 /// Copyright notice for the bundle
 HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork. © The Horos Project, OsiriX Team, Yves Starreveld, and contributors
@@ -33,6 +33,12 @@ HUMAN_READABLE_COPYRIGHT = © 2026 Thales Matheus M Santos (ThalesMMS) — modif
 /// Horos and Decompress targets, which have those search paths, add this to
 /// OTHER_CFLAGS; Swift does not receive OTHER_CFLAGS.
 HOROS_SYSTEM_HEADER_DEPENDENCIES = -Xclang -sys-header-deps
+
+/// The instance variables of the former plugin SDK, which the application
+/// exports for the plugins built with it: a linker response file, added to
+/// OTHER_LDFLAGS. The App Store channel loads no plugin and compiles shorter
+/// forms of some of these classes, so it links without the file.
+HOROS_LEGACY_PLUGIN_IVAR_ALIASES = -Wl,@$(SRCROOT)/Horos/Scripts/Horos/legacy-plugin-ivar-aliases.rsp
 
 // The direct channel is the default for Xcode and existing development scripts.
 HOROS_APP_SANDBOX = NO

@@ -30,7 +30,10 @@ for source, needle, reason in (
     (reports, 'ReportTemplateMenu.path(of: name, in: templateDirectory', 'a Pages template in a subfolder is not resolved'),
     (reports, 'ReportTemplateMenu.path(of: name, in: $0, isTemplate:', 'a Word template in a subfolder is not resolved'),
     (browser, 'ReportTemplateMenu.populate(menu, templates: templates, folder: folder', 'the browser menu has no submenus'),
-    (browser, 'sender is NSMenuItem, let template = ReportTemplateMenu.templateName(for: sender)', 'an item of a submenu does not choose its template'),
+    (browser, 'if item.representedObject is String, let template = ReportTemplateMenu.templateName(for: item)', 'an item of a submenu does not choose its template'),
+    # The File menu's "Open report" asks for a report with an item that holds no
+    # template: its title was taken for one, and no report could be created from it.
+    (browser, 'if let item = sender as? NSMenuItem {\n                if item.representedObject is String', 'a menu item that holds no template gives its title as one'),
     (viewer, viewer_menu, 'the viewer menu has no submenus'),
 ):
     if needle not in source:

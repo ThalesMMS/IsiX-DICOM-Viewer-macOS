@@ -39,6 +39,7 @@
 
 import CoreData
 import Foundation
+import IsiXMail
 import IsiXPreferences
 
 /// The preferences of the portal's emails and log, from the one source of the objects the process graph does not reach.
@@ -88,8 +89,8 @@ private func emailLogMessage(_ object: NSManagedObject?, _ name: String) -> AnyO
 ///
 /// Implemented in Swift: the category's Objective-C name, its
 /// selectors and <Horos/WebPortal+Email+Log.h> are those of the former
-/// category. E-mails are handed to CSMailMailClient on the main thread, as
-/// before.
+/// category. E-mails are handed to WebPortalMailDelivery on the main thread,
+/// where the Mail application's client, one of its two routes, has to run.
 extension WebPortal {
 
     @objc(sendEmailOnMainThread:)
@@ -98,8 +99,9 @@ extension WebPortal {
             let ts = dict?.object(forKey: "template")
             let messageHeaders = dict?.object(forKey: "headers") as? NSDictionary
 
-            // Its BOOL answer was not read.
-            _ = CSMailMailClient.mailClient()?.deliverMessage(ts as? String, headers: messageHeaders)
+            // By the portal's mail server, or by the Mail application where there
+            // is none and the build may: the delivery tells how it ended.
+            WebPortalMailDelivery.process.send(PortalMail(body: ts as? String, headers: messageHeaders as? [String: Any]))
         }
     }
 

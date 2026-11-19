@@ -67,6 +67,11 @@ private func formatted(_ string: String?) -> String {
 @objc(AnonymizationTagsPopUpButton)
 public final class AnonymizationTagsPopUpButton: NSPopUpButton {
     private var selectedAttributeTagStorage: DICOMAttributeTag?
+    /// selectedTag of an older header of the former Horos and OsiriX plugin
+    /// SDK, exported at this field's offset for the plugins built with it: the
+    /// name the selected tag had there. Written with the selected tag by its
+    /// setter, never read.
+    final var selectedTagOfSDK: DICOMAttributeTag?
 
     @objc(tagsMenu)
     public class func tagsMenu() -> NSMenu! {
@@ -232,6 +237,7 @@ public final class AnonymizationTagsPopUpButton: NSPopUpButton {
         set {
             let tag = newValue
             selectedAttributeTagStorage = tag
+            selectedTagOfSDK = tag
 
             didChangeValue(forKey: "title")
 

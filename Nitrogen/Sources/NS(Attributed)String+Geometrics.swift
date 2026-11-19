@@ -42,8 +42,9 @@ import AppKit
 // NSAttributedString (Geometrics) and NSString (Geometrics) are implemented in
 // Swift; the selectors and <Horos/NS(Attributed)String+Geometrics.h>
 // are those of the former categories. The layout manager measures with its
-// default typesetter behavior, the latest one; the global variable that could
-// change it, which nothing changed, is gone.
+// default typesetter behavior, the latest one, unless the C global
+// gNSStringGeometricsTypesetterBehavior asks for another: that measure uses
+// it, and the global goes back to the latest behavior.
 
 public extension NSAttributedString {
 
@@ -62,10 +63,16 @@ public extension NSAttributedString {
             layoutManager.addTextContainer(textContainer)
             textStorage.addLayoutManager(layoutManager)
             layoutManager.usesDefaultHyphenation = false
+            let latest = NSLayoutManager.TypesetterBehavior.latestBehavior
+            if Int(gNSStringGeometricsTypesetterBehavior) != latest.rawValue,
+               let asked = NSLayoutManager.TypesetterBehavior(rawValue: Int(gNSStringGeometricsTypesetterBehavior)) {
+                layoutManager.typesetterBehavior = asked
+            }
             // NSLayoutManager is lazy, so we need the following kludge to force layout:
             _ = layoutManager.glyphRange(for: textContainer)
 
             answer = layoutManager.usedRect(for: textContainer).size
+            gNSStringGeometricsTypesetterBehavior = Int32(latest.rawValue)
         }
 
         return answer

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A retrieve remembers the instances the server declared it cannot send.
 
-OsiriX answers a C-GET for a file it cannot convert with a failed sub-operation and
+A server may answer a C-GET for a file it cannot convert with a failed sub-operation and
 no Failed SOP Instance UID List. Each retrieve asked for it again, failed, fetched
 the whole study again at STUDY level and warned twice. The instances a C-GET asked
 for that neither arrived nor were refused here are recorded, per server, when they
@@ -24,7 +24,7 @@ import Foundation
 let directory = CommandLine.arguments[1]
 let rows = (1...5).map { ["uid": "1.2.\($0)", "series": $0 <= 3 ? "A" : "B"] }
 func begin(_ study: String) -> RetrieveInventory {
-    RetrieveInventory.begin(study: study, series: "", endpoint: "OSIRIX@peer:11112", database: directory, instances: rows, confirmed: true)
+    RetrieveInventory.begin(study: study, series: "", endpoint: "PEER@peer:11112", database: directory, instances: rows, confirmed: true)
 }
 
 // IMAGE level: 3, 4 and 5 asked, 5 not sent, one failed sub-operation.

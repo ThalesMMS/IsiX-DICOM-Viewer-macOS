@@ -325,6 +325,66 @@ with tempfile.TemporaryDirectory(prefix='horos-gsps-') as raw:
     if len(orders) != 1:
         failures.append('unsupported features came out in %d orders over 8 runs: %s' % (len(orders), sorted(orders)))
 
+    # A displayed area whose corners lie outside the image (PS 3.3 C.10.4): top
+    # left -9\0 and bottom right 522\257 on 512 x 256 are the zero-based
+    # rectangle from -10, -1, 532 wide and 258 high. A DISPLAY position is a
+    # fraction of that rectangle, from its declared origin.
+    outside = run_case(tmp, {
+        'gsps': {'SOPClassUID': GSPS, 'SOPInstanceUID': '1.2.gsps.outside',
+                 'ReferencedSeriesSequence': [{'SeriesInstanceUID': '1.2.series', 'ReferencedImageSequence': [
+                     {'ReferencedSOPClassUID': IMAGE, 'ReferencedSOPInstanceUID': SOP}]}],
+                 'DisplayedAreaSelectionSequence': [{'DisplayedAreaTopLeftHandCorner': [-9, 0],
+                                                     'DisplayedAreaBottomRightHandCorner': [522, 257],
+                                                     'PresentationSizeMode': 'SCALE TO FIT'}],
+                 'ImageRotation': 90, 'ImageHorizontalFlip': 'Y',
+                 'GraphicAnnotationSequence': [{'GraphicObjectSequence': [
+                     {'GraphicAnnotationUnits': 'DISPLAY', 'GraphicDimensions': 2, 'NumberOfGraphicPoints': 1,
+                      'GraphicData': [0, 0], 'GraphicType': 'POINT'},
+                     {'GraphicAnnotationUnits': 'DISPLAY', 'GraphicDimensions': 2, 'NumberOfGraphicPoints': 2,
+                      'GraphicData': [0.25, 0.75, 1, 1], 'GraphicType': 'POLYLINE'}]}]},
+        'images': [{'sopInstanceUID': SOP, 'frameNumber': 1, 'columns': 512, 'rows': 256, 'pixels': pixels(original)}],
+    })
+    if len(outside['presentations']) != 1:
+        failures.append('the area outside the image gave %s' % outside['presentations'])
+    else:
+        pres = outside['presentations'][0]
+        area = pres.get('displayedArea') or {}
+        if [area.get(k) for k in ('column', 'row', 'width', 'height')] != [-10, -1, 532, 258]:
+            failures.append('displayed area -9\\0 to 522\\257 did not keep its origin -10,-1 and size 532x258: %s' % area)
+        kinds = {a['kind']: a['points'] for a in pres['annotations']}
+        if kinds.get('POINT') != [[-10, -1]]:
+            failures.append('DISPLAY 0\\0 is not the declared corner of the area: %s' % kinds.get('POINT'))
+        if kinds.get('POLYLINE') != [[123, 192.5], [522, 257]]:
+            failures.append('DISPLAY 0.25\\0.75 and 1\\1 are not placed in the declared area: %s' % kinds.get('POLYLINE'))
+
+    # A reference without Referenced Frame Number is to every frame of the
+    # object (PS 3.3 10.3). The model has no inventory of the object's frames:
+    # the object is missing when none of its frames is open, and no frame is
+    # singled out. With frames named, each one that is not open is missing.
+    def frames_case(named, open_frames):
+        item = {'ReferencedSOPClassUID': IMAGE, 'ReferencedSOPInstanceUID': SOP}
+        if named:
+            item['ReferencedFrameNumber'] = named
+        return run_case(tmp, {
+            'gsps': {'SOPClassUID': GSPS, 'SOPInstanceUID': '1.2.gsps.frames',
+                     'ReferencedSeriesSequence': [{'SeriesInstanceUID': '1.2.series', 'ReferencedImageSequence': [item]}],
+                     'SoftcopyVOILUTSequence': [{'WindowCenter': [40], 'WindowWidth': [400]}]},
+            'images': [{'sopInstanceUID': SOP, 'frameNumber': frame, 'columns': 8, 'rows': 8, 'pixels': pixels(original)}
+                       for frame in open_frames],
+        })
+    for named, open_frames, missing_frames in (
+            (None, [1], []), (None, [2], []), (None, [1, 2], []), (None, [], [[]]),
+            ([1, 2], [1], [[2]]), ([1, 2], [2], [[1]]), ([1, 2], [1, 2], []), ([1, 2], [], [[1], [2]]), ([2], [1], [[2]])):
+        got = frames_case(named, open_frames)
+        if [m['frames'] for m in got['missing']] != missing_frames or any(m['sopInstanceUID'] != SOP for m in got['missing']):
+            failures.append('reference to frames %s with frames %s open: missing %s, expected %s'
+                            % (named or 'all', open_frames, got['missing'], missing_frames))
+        applied_to = sorted(p['frameNumber'] for p in got['presentations'])
+        expected = sorted(f for f in open_frames if not named or f in named)
+        if applied_to != expected or not all(p['hasVOI'] for p in got['presentations']):
+            failures.append('reference to frames %s with frames %s open: applied to %s, expected %s'
+                            % (named or 'all', open_frames, applied_to, expected))
+
     color = run_case(tmp, {
         'expectUnsupportedSOP': True,
         'gsps': {

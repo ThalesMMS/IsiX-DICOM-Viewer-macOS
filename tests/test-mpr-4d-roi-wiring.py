@@ -42,7 +42,7 @@ for item in needed[1:]:
     if item not in method:
         print('FAIL: setCurMovieIndex does not', item, file=sys.stderr)
         sys.exit(1)
-if 'stringTex' in method or 'HorosROILabelPresentation' in method:
+if 'stringTex' in method or 'textString' in method or 'HorosROILabelPresentation' in method:
     print('FAIL: 4D ROI values must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 
@@ -55,8 +55,9 @@ if 'mustRefreshCachedValuesAfterReconstructedBufferChange' not in view:
 if 'r.recompute()' not in view and 'roi.recompute()' not in view:
     print('FAIL: MPRDCMView never invalidates ROI intensity caches', file=sys.stderr)
     sys.exit(1)
-if 'stringTex' in view[view.find('mustRefreshCachedValuesAfterReconstructedBufferChange'):
-                       view.find('mustRefreshCachedValuesAfterReconstructedBufferChange') + 800]:
+refresh = view[view.find('mustRefreshCachedValuesAfterReconstructedBufferChange'):
+               view.find('mustRefreshCachedValuesAfterReconstructedBufferChange') + 800]
+if 'stringTex' in refresh or 'textString' in refresh:
     print('FAIL: reconstructed-buffer refresh must not touch string textures', file=sys.stderr)
     sys.exit(1)
 

@@ -33,6 +33,9 @@ let reconstructionIDs = reconstructions.compactMap { $0["id"] as? String }
 check(reconstructionIDs.contains(catalog.orthogonalMPRID), "2D Orthogonal MPR is assignable")
 check(reconstructionIDs.contains(catalog.threeDMPRID), "3D MPR is assignable")
 check(reconstructionIDs.contains(catalog.curvedMPRID), "curved MPR is assignable")
+check(reconstructionIDs.contains(catalog.vesselAnalysisID), "Vessel Analysis is assignable")
+check(reconstructions.contains { ($0["id"] as? String) == catalog.vesselAnalysisID && ($0["selector"] as? String) == "cprViewer:"
+                                 && ($0["tag"] as? Int) == 11 }, "Vessel Analysis is the curved MPR's action with tag 11")
 check(reconstructionIDs.contains(catalog.mipID), "MIP is assignable")
 check(reconstructionIDs.contains(catalog.volumeRenderingID), "volume rendering is assignable")
 check(reconstructions.allSatisfy { ($0["group"] as? String) == "reconstruction" },
@@ -162,7 +165,9 @@ let mip = NSMenuItem(title: "3D MIP", action: Selector(("VRViewer:")), keyEquiva
 mip.tag = 3
 let vr = NSMenuItem(title: "3D Volume Rendering", action: Selector(("VRViewer:")), keyEquivalent: "")
 vr.tag = 4
-for item in [mpr, cpr, ortho, mip, vr] { reconstructionsMenu.addItem(item) }
+let vessels = NSMenuItem(title: "Vessel Analysis", action: Selector(("cprViewer:")), keyEquivalent: "")
+vessels.tag = 11
+for item in [mpr, cpr, vessels, ortho, mip, vr] { reconstructionsMenu.addItem(item) }
 viewer3D.submenu = reconstructionsMenu
 main.addItem(viewer3D)
 
@@ -180,10 +185,37 @@ main.addItem(quitItem)
 
 check(catalog.commandID(for: mpr) == catalog.threeDMPRID, "3D MPR is identified by its action")
 check(catalog.commandID(for: cpr) == catalog.curvedMPRID, "curved MPR is identified by its action")
+check(catalog.commandID(for: vessels) == catalog.vesselAnalysisID, "Vessel Analysis is the curved MPR action with tag 11")
 check(catalog.commandID(for: ortho) == catalog.orthogonalMPRID, "2D MPR is identified by its action")
 check(catalog.commandID(for: mip) == catalog.mipID, "MIP is the VR action with tag 3")
 check(catalog.commandID(for: vr) == catalog.volumeRenderingID, "VR is the VR action with tag 4")
 check(catalog.commandID(for: bone) == pluginID, "a plugin item is identified by bundle and title")
+
+// Every reconstruction command is identified from a menu item of its action and tag,
+// as the 2D/3D pull-down and the 3D Viewer menu carry them.
+let pullDown = NSMenu(title: "2D/3D")
+pullDown.addItem(NSMenuItem(title: "", action: nil, keyEquivalent: ""))
+for entry in reconstructions {
+    let item = NSMenuItem(title: "untitled", action: Selector((entry["selector"] as? String) ?? ""), keyEquivalent: "")
+    item.tag = (entry["tag"] as? Int) ?? 0
+    pullDown.addItem(item)
+    check(catalog.commandID(for: item) == (entry["id"] as? String), "\(entry["id"] ?? "?") is identified by its action and tag")
+}
+check(reconstructions.count == 8 && catalog.reconstructionTitleKeys.count == 8, "eight reconstruction commands, each with its English title")
+
+// The pull-down of a nib that is not translated: an item with the English title of its
+// command takes the command's title; one a nib translated keeps it; the others stay.
+for (index, entry) in reconstructions.enumerated() {
+    pullDown.items[index + 1].title = catalog.reconstructionTitleKeys[(entry["id"] as? String) ?? ""] ?? "missing"
+}
+pullDown.items[2].title = "MPR 3D (nib)"
+pullDown.addItem(NSMenuItem(title: "3D MIP", action: Selector(("somethingElse:")), keyEquivalent: ""))
+catalog.localizeReconstructionTitles(in: pullDown)
+for (index, entry) in reconstructions.enumerated() where index != 1 {
+    check(pullDown.items[index + 1].title == (entry["title"] as? String), "\(entry["id"] ?? "?") takes the title of its command")
+}
+check(pullDown.items[2].title == "MPR 3D (nib)", "a title the nib translated is kept")
+check(pullDown.items[0].title == "" && pullDown.items[9].title == "3D MIP", "items that are no reconstruction command are left alone")
 
 let occupied = catalog.occupiedShortcuts(in: main)
 check(occupied.contains { ($0["title"] as? String) == "Quit Horos" },
@@ -192,9 +224,11 @@ check(occupied.contains { ($0["title"] as? String) == "Quit Horos" },
 let toApply: [String: [String: Any]] = [
     catalog.threeDMPRID: catalog.menuBinding(keyEquivalent: "3", modifierFlags: command),
     pluginID: catalog.menuBinding(keyEquivalent: "b", modifierFlags: command),
+    catalog.vesselAnalysisID: catalog.menuBinding(keyEquivalent: "v", modifierFlags: command),
 ]
 catalog.apply(toApply, to: main)
 check(mpr.keyEquivalent == "3", "the 3D MPR menu item receives its shortcut")
+check(vessels.keyEquivalent == "v" && cpr.keyEquivalent == "", "Vessel Analysis takes its own shortcut, not the curved MPR's")
 check(mpr.keyEquivalentModifierMask == .command, "3D MPR keeps Command")
 check(bone.keyEquivalent == "b", "the plugin menu item receives its shortcut")
 check(vr.keyEquivalent == "", "an unassigned reconstruction is left without a shortcut")

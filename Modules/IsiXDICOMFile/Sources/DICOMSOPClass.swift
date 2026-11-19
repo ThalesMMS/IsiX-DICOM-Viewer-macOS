@@ -24,6 +24,36 @@ import Synchronization
 @objc(DCMAbstractSyntaxUID)
 public final class DICOMSOPClass: NSObject {
 
+    // MARK: An instance
+
+    // The class is a list of UIDs and of questions about one. In the plugin SDK
+    // of Horos and OsiriX it was also a value, a UID with its name and its
+    // kind, and a plugin built for that SDK may still make one
+    // (DICOMSOPClass+FormerSDK.swift has what it then asks).
+    //
+    // The three are the instance variables _uid, _name and _type of that SDK,
+    // which a plugin reads and writes at the offset the application exports
+    // for each: stored fields with the type the C declaration has in memory,
+    // public so that the application's link reaches them, never constant,
+    // lazy or observed.
+    public var _uid: NSString?
+    public var _name: NSString?
+    public var _type: NSString?
+
+    var instanceUID: String? { _uid as String? }
+    var instanceName: String? { _name as String? }
+    var instanceType: String? { _type as String? }
+
+    public override init() {
+        super.init()
+    }
+
+    @objc(initWithUID:name:type:)
+    public init(uid: String?, name: String?, type: String?) {
+        _uid = uid as NSString?; _name = name as NSString?; _type = type as NSString?
+        super.init()
+    }
+
     // MARK: UIDs
 
     static let verification = "1.2.840.10008.1.1"
@@ -314,6 +344,10 @@ public final class DICOMSOPClass: NSObject {
         guard let uid else { return false }
         return radiotherapySyntaxes().contains(uid)
     }
+
+    /// The dose grid of a radiotherapy plan: among the radiotherapy classes,
+    /// the one that carries pictures, a plane of the grid in each frame.
+    @objc public static func isRTDose(_ uid: String?) -> Bool { uid == rtDoseStorage }
 
     @objc public static func isSpectroscopy(_ uid: String?) -> Bool { uid == mrSpectroscopyStorage }
 

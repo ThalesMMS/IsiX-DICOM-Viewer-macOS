@@ -50,9 +50,19 @@ public final class DCMTransferSyntax: NSObject, NSCopying {
 
     @objc public let transferSyntax: String!
     @objc public let name: String!
-    @objc public let isEncapsulated: Bool
-    @objc public let isLittleEndian: Bool
-    @objc public let isExplicit: Bool
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads at the offset the application exports for each: stored
+    // fields with the type the C declaration has in memory, public so that the
+    // application's link reaches them, never constant, lazy or observed. The
+    // three flags are the syntax's own. The UID and the name are copies of the
+    // two texts above, written when the syntax is made and never read here;
+    // the syntax keeps no dictionary of its properties, and that one stays nil.
+    @objc public internal(set) var isEncapsulated: Bool
+    @objc public internal(set) var isLittleEndian: Bool
+    @objc public internal(set) var isExplicit: Bool
+    public var transferSyntaxOfSDK: NSString?
+    public var nameOfSDK: NSString?
+    public var transferSyntaxDict: NSMutableDictionary?
 
     // MARK: The syntaxes the model names
 
@@ -110,6 +120,23 @@ public final class DCMTransferSyntax: NSObject, NSCopying {
             isExplicit = true
             name = "Unknown Syntax"
         }
+        transferSyntaxOfSDK = transferSyntax as NSString?
+        nameOfSDK = name as NSString?
+        super.init()
+    }
+
+    /// A syntax told in full, as the plugin SDK of Horos and OsiriX let a
+    /// caller make one: nothing is looked up.
+    @objc(initWithTS:isEncapsulated:isLittleEndian:isExplicit:name:)
+    public init(ts: String?, isEncapsulated encapsulated: Bool, isLittleEndian littleEndian: Bool, isExplicit explicit: Bool,
+                name aName: String?) {
+        transferSyntax = ts ?? ""
+        isEncapsulated = encapsulated
+        isLittleEndian = littleEndian
+        isExplicit = explicit
+        name = aName
+        transferSyntaxOfSDK = transferSyntax as NSString?
+        nameOfSDK = name as NSString?
         super.init()
     }
 

@@ -52,6 +52,20 @@ public final class RetrieveOperationsUnderWay: Sendable {
         nodes.withLock { $0.contains(ObjectIdentifier(node)) }
     }
 
+    /// Counts `node` as moving until it is removed, whatever runs meanwhile;
+    /// whether it was not counted already. The node is known by its identity
+    /// and is not kept alive: whoever inserts it keeps it until it removes it.
+    @discardableResult
+    public func insert(_ node: AnyObject) -> Bool {
+        nodes.withLock { $0.insert(ObjectIdentifier(node)).inserted }
+    }
+
+    /// No longer counts `node` as moving; whether it was counted.
+    @discardableResult
+    public func remove(_ node: AnyObject) -> Bool {
+        nodes.withLock { $0.remove(ObjectIdentifier(node)) != nil }
+    }
+
     /// Runs `operation` with `node` counted as moving, unless it already is;
     /// nil then, without running it.
     public func run<Result>(for node: AnyObject, _ operation: () throws -> Result) rethrows -> Result? {

@@ -105,10 +105,17 @@ private final class ExtractionScratch {
         #expect(scratch.text(scratch.path("right/other.dcm")) == "second synthetic DICOM")
 
         // unzip -P answered 82 here: no file found because of a bad password.
+        // Once in 256 for an entry, a wrong password passes the one byte ZIP
+        // checks it by, the entry fails as it is decompressed and unzip ends
+        // with 2: the archive is made anew, with an encryption header of its
+        // own, for each run.
         let started = ContinuousClock.now
-        #expect(try scratch.extract("encrypted.zip", password: "wrong", into: "wrong") == 82)
+        let status = try scratch.extract("encrypted.zip", password: "wrong", into: "wrong")
+        #expect(status == 82 || status == 2)
         #expect(ContinuousClock.now - started < .seconds(10))
-        #expect(((try? FileManager.default.contentsOfDirectory(atPath: scratch.path("wrong"))) ?? []).isEmpty)
+        if status == 82 {
+            #expect(((try? FileManager.default.contentsOfDirectory(atPath: scratch.path("wrong"))) ?? []).isEmpty)
+        }
     }
 
     @Test func aWrongPasswordLeavesOnlyTheEncryptedEntriesOfAMixedArchive() throws {
@@ -119,9 +126,13 @@ private final class ExtractionScratch {
         try scratch.zip("mixed.zip", ["image.dcm"], password: "synthetic-secret")
 
         // 1, as with -P: the plain entry came out, the encrypted one was skipped.
-        #expect(try scratch.extract("mixed.zip", password: "wrong", into: "wrong") == 1)
+        // 2 when the wrong password passes ZIP's check of one byte.
+        let wrong = try scratch.extract("mixed.zip", password: "wrong", into: "wrong")
+        #expect(wrong == 1 || wrong == 2)
         #expect(scratch.text(scratch.path("wrong/plain.dcm")) == "plain synthetic DICOM")
-        #expect(!FileManager.default.fileExists(atPath: scratch.path("wrong/image.dcm")))
+        if wrong == 1 {
+            #expect(!FileManager.default.fileExists(atPath: scratch.path("wrong/image.dcm")))
+        }
 
         #expect(try scratch.extract("mixed.zip", password: "synthetic-secret", into: "right") == 0)
         #expect(scratch.text(scratch.path("right/image.dcm")) == "encrypted synthetic DICOM")

@@ -253,9 +253,9 @@ extension DCMView {
 
         self.stackNavigation.slide(to: value, count: self.horos_dcmPixList?.count ?? 0, flipped: self.horos_flippedData)
 
-        self.setIndex(self.horos_curImage)
+        self.setIndex(Int(self.horos_curImage))
 
-        self.sendSyncMessage(self.horos_curImage - x)
+        self.sendSyncMessage(Int(self.horos_curImage) - x)
 
         if self.is2DViewer() == true {
             inputMessages(self.windowController())?.inputPropagateSettings()

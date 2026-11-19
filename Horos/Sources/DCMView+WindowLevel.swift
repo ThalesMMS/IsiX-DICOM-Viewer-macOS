@@ -227,8 +227,8 @@ extension DCMView {
             }
         }
 
-        if self.takingPostedWindowLevel == false {
-            self.takingPostedWindowLevel = true
+        if self.avoidChangeWLWWRecursive == false {
+            self.avoidChangeWLWWRecursive = true
 
             var updateMenu = false
 
@@ -265,7 +265,7 @@ extension DCMView {
                 (self.windowController() as? ViewerController)?.setCurWLWWMenu(DCMView.findWLWWPreset(self.windowLevelState.level, self.windowLevelState.width, self.curDCM))
             }
 
-            self.takingPostedWindowLevel = false
+            self.avoidChangeWLWWRecursive = false
         }
     }
 
@@ -349,7 +349,7 @@ extension DCMView {
 
         NotificationCenter.default.post(name: NSNotification.Name.OsirixRecomputeROI, object: self, userInfo: nil)
 
-        self.setIndex(self.horos_curImage)
+        self.setIndex(Int(self.horos_curImage))
 
         // The navigation strip's marker covers the slab's images.
         if self.is2DViewer(), let viewer = self.windowController() as? ViewerController, viewer.imageView() === self {

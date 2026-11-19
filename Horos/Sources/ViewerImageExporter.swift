@@ -781,7 +781,7 @@ enum ViewerImageFormat: Int {
         }
 
         if formatTag == ViewerImageFormat.photos.rawValue && !sharedImageExportFailed && !mailExportFiles.isEmpty {
-            _ = Photos().importInPhotos([sharedExportRoot])
+            Photos().importShowingFailure([sharedExportRoot])
         }
 
         if formatTag == ViewerImageFormat.mail.rawValue && !sharedImageExportFailed && !mailExportFiles.isEmpty {
@@ -931,7 +931,7 @@ enum ViewerImageFormat: Int {
         content += "\r# Series Number\r00200011:5002"
 
         // General Equipment and SC Equipment
-        content += "\r# Manufacturer\r00080070:" + (isScan ? "Apple Mac OSX 10.4" : "Philips Medical Systems (Netherlands)")
+        content += "\r# Manufacturer\r00080070:IsiX DICOM Viewer"
         content += "\r# Conversion Type\r00080064:WSD"
 
         // Encapsulated Document: the acquisition date and time is the study's.

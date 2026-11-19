@@ -55,6 +55,14 @@ public final class ShadingArrayController: NSArrayController {
     /// -setEnableEditing: notifies them as the synthesized KVO did.
     @objc public dynamic var enableEditing: Bool = false
 
+    /// winController of an older header of the former Horos and OsiriX plugin
+    /// SDK, exported at this field's offset for the plugins built with it:
+    /// the window the controller told to apply the shading it selected. The
+    /// 3D windows observe the selection themselves, and no nib connects it:
+    /// nothing here reads or writes it, and it is not retained. Typed as any
+    /// object: this file names no window controller.
+    final unowned(unsafe) var winController: AnyObject?
+
     public override func add(_ sender: Any?) {
         self.enableEditing = true
         super.add(sender)
@@ -83,20 +91,41 @@ public final class ShadingArrayController: NSArrayController {
         super.addObject(object)
     }
 
+    /// Each preset as it was read, with the dictionary the table edits for it.
+    private var readPresets: [(item: AnyObject, preset: ShadingPreset)] = []
+
     public override func prepareContent() {
-        // The table edits each preset in place: one mutable dictionary per preset.
+        // The table edits each preset in place: one mutable dictionary per
+        // preset, with its values within the ranges of the panel's sliders and
+        // fields (ShadingPreset.withinRanges).
         let presets: [ShadingPreset] = ImagePresetPreferences.shadingPresets.elements(in: processGraph.preferences)
-        self.content = NSMutableArray(array: presets.map { preset in
-            NSMutableDictionary(dictionary: preset.propertyList.object as? [String: Any] ?? [:])
-        })
+        let items = presets.map { preset in
+            NSMutableDictionary(dictionary: preset.withinRanges.propertyList.object as? [String: Any] ?? [:])
+        }
+        readPresets = zip(items, presets).map { (item: $0, preset: $1) }
+        self.content = NSMutableArray(array: items)
     }
 
     deinit {
-        // The presets as the table left them, each in its own form; without
-        // content the user's own list goes and the registered one shows again.
-        let presets = (self.content as? [Any]).map { items in
-            items.compactMap { PropertyListValue($0).flatMap(ShadingPreset.init(propertyList:)) }
+        // What the table did, over the list as it is stored now: another 3D
+        // window's table may have written its own changes since this one was
+        // read (ShadingPreset.merging). A preset the table did not change
+        // counts as it was read, so a value brought within its slider's range
+        // changes the user's list only when the user edits that preset.
+        // Without content the user's own list goes and the registered one
+        // shows again.
+        guard let items = self.content as? [Any] else {
+            processGraph.preferences.set(nil, for: ImagePresetPreferences.shadingPresets)
+            return
         }
-        processGraph.preferences.set(presets, for: ImagePresetPreferences.shadingPresets)
+        let table: [(read: Int?, preset: ShadingPreset)] = items.compactMap { item in
+            PropertyListValue(item).flatMap(ShadingPreset.init(propertyList:)).map { shown in
+                let read = readPresets.firstIndex { $0.item === item as AnyObject }
+                return (read, read.map { readPresets[$0].preset.stored(after: shown) } ?? shown)
+            }
+        }
+        let stored: [ShadingPreset] = ImagePresetPreferences.shadingPresets.elements(in: processGraph.preferences)
+        processGraph.preferences.set(ShadingPreset.merging(read: readPresets.map(\.preset), table: table, into: stored),
+                                     for: ImagePresetPreferences.shadingPresets)
     }
 }

@@ -124,6 +124,31 @@ func read(_ dataset: FakeDataset, context: ImageAttributeReadingContext = ImageA
         "PhotometricInterpretation": "MONOCHROME2",
     ])
 
+    /// PS 3.3 C.8.8.3: the dose is the stored value times Dose Grid Scaling.
+    @Test func aDoseGridIsScaledToItsDose() throws {
+        let grid: [String: Any] = [
+            "Modality": "RTDOSE", "Rows": NSNumber(value: 32), "Columns": NSNumber(value: 32),
+            "BitsAllocated": NSNumber(value: 16), "BitsStored": NSNumber(value: 16), "PixelRepresentation": NSNumber(value: 0),
+            "PhotometricInterpretation": "MONOCHROME2", "DoseGridScaling": "0.001", "DoseUnits": "GY",
+        ]
+        let gray = try read(FakeDataset(grid)).attributes
+        #expect(gray.rescale.slope == 0.001 && gray.rescale.intercept == 0 && gray.rescale.rescaleType == "Gy")
+
+        // A relative dose is scaled the same and has no unit.
+        let relative = try read(FakeDataset(grid.merging(["DoseUnits": "RELATIVE", "DoseGridScaling": "0.5"]) { $1 })).attributes
+        #expect(relative.rescale.slope == 0.5 && relative.rescale.rescaleType == "")
+
+        // A scaling that is not one leaves the values as stored.
+        for scaling in ["0", "-2", "nan"] {
+            let unscaled = try read(FakeDataset(grid.merging(["DoseGridScaling": scaling]) { $1 })).attributes
+            #expect(unscaled.rescale.slope == 1, "Dose Grid Scaling \(scaling)")
+        }
+
+        // An image with no dose grid keeps its own rescale.
+        let image = try read(ct).attributes
+        #expect(image.rescale.slope == 1 && image.rescale.intercept == -1024 && image.rescale.rescaleType == "HU")
+    }
+
     @Test func ctGeometryAndPixels() throws {
         let attributes = try read(ct).attributes
         #expect(attributes.pixels.height == 512 && attributes.pixels.width == 256)

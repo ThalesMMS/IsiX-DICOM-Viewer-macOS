@@ -47,6 +47,7 @@
 #include <vtkFixedPointRayCastImage.h>
 #include "vtkHorosFixedPointVolumeRayCastMIPHelper.h"
 #include "VRRayCastZBufferGuard.h"
+#include "VRRaySlabSampling.h"
 
 #include <math.h>
 #include <cmath>
@@ -198,6 +199,26 @@ void vtkHorosFixedPointVolumeRayCastMapper::Render( vtkRenderer *ren, vtkVolume 
     this->Timer->StopTimer();
     this->TimeToDraw = this->Timer->GetElapsedTime();
     return;
+    }
+
+  // A slab thinner than the rays' sample distance gets no sample: for this
+  // picture the two distances, the usual one and the interactive one VTK
+  // takes in its place, fit the depth between the camera's clipping planes.
+  // The values the view set are back when the picture is done, however it ends.
+  struct SampleDistancesKept
+    {
+    float &Usual, &Interactive;
+    const float KeptUsual, KeptInteractive;
+    SampleDistancesKept(float &usual, float &interactive)
+      : Usual(usual), Interactive(interactive), KeptUsual(usual), KeptInteractive(interactive) {}
+    ~SampleDistancesKept() { Usual = KeptUsual; Interactive = KeptInteractive; }
+    } kept(this->SampleDistance, this->InteractiveSampleDistance);
+  if (vtkCamera *camera = ren ? ren->GetActiveCamera() : nullptr)
+    {
+    double range[2];
+    camera->GetClippingRange(range);
+    this->SampleDistance = HorosRaySampleDistanceForDepth(this->SampleDistance, range[1] - range[0]);
+    this->InteractiveSampleDistance = HorosRaySampleDistanceForDepth(this->InteractiveSampleDistance, range[1] - range[0]);
     }
 
   // Since we are passing in a value of 0 for the multiRender flag

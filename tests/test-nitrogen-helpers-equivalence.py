@@ -14,6 +14,11 @@ be equal, bit for bit for the numbers.
   is C++, which a C driver cannot call, and the Swift is a Swift extension:
   each side gets a small adapter with the same C functions over its own code.
 - proportional scaling of sizes and flipping of rectangles, the same way.
+- what N2Operators.h, N2Alignment.h and N2MinMax.h give a C or C++ caller,
+  through one adapter compiled against each side's headers: NSSign, NSLimit,
+  NSRoundSize, NSRectCenteredInRect, the four alignments, N2NoMin and N2NoMax,
+  N2Yes and N2No, the C++ functions of N2MinMax and the C++ arithmetic on
+  sizes, points and lines.
 - N2Shell: output trimming, termination statuses, output that is not UTF-8,
   the expected-status exception, an executable that does not exist, the host
   name and the serial number. Only on the Swift side, an output larger than a
@@ -42,6 +47,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
+import former_sdk_objects  # noqa: E402
 import history_reference  # noqa: E402
 import n3_geometry_harness as harness  # noqa: E402
 
@@ -49,7 +55,7 @@ SKIPPED = 2
 SEEDS = 400
 
 HEADERS = ['N2MinMax.h', 'N2Shell.h', 'N2Debug.h', 'NSException+N2.h', 'NSManagedObject+N2.h',
-           'NSUserDefaultsController+N2.h']
+           'NSUserDefaultsController+N2.h', 'N2Operators.h', 'N2Alignment.h']
 
 DRIVER = r'''
 #import <Cocoa/Cocoa.h>
@@ -76,6 +82,20 @@ N2MinMax N2ProbeAdd(N2MinMax a, N2MinMax b);
 N2MinMax N2ProbeAddValue(N2MinMax a, CGFloat value);
 NSSize N2ProbeScale(NSSize size, NSSize target);
 NSRect N2ProbeFlip(NSRect frame, NSRect bounds);
+/* What N2Operators.h, N2Alignment.h and N2MinMax.h declare for C and C++ callers, called through those headers. */
+CGFloat N2SDKSign(CGFloat f);
+CGFloat N2SDKLimit(CGFloat v, CGFloat low, CGFloat high);
+NSSize N2SDKRound(NSSize s);
+NSRect N2SDKCentered(NSRect a, NSRect b);
+int N2SDKAlignment(int which);
+CGFloat N2SDKNoMin(void);
+CGFloat N2SDKNoMax(void);
+id N2SDKYes(void);
+id N2SDKNo(void);
+N2MinMax N2SDKMinMax(N2MinMax a, N2MinMax b, CGFloat v, int which);
+NSSize N2SDKSize(NSSize a, NSSize b, CGFloat f, int which);
+NSPoint N2SDKPoint(NSPoint a, NSPoint b, NSSize s, CGFloat f, int which);
+NSPoint N2SDKLines(NSPoint a, NSPoint b, NSPoint c, NSPoint d);
 
 static uint64_t seed;
 static uint64_t next64(void) { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; return seed; }
@@ -162,7 +182,28 @@ int main(void) {
             NSRect flipped = N2ProbeFlip(NSMakeRect(value(), value(), value(), value()), NSMakeRect(value(), value(), value(), value()));
             printf("flip %a %a %a %a\n", flipped.origin.x, flipped.origin.y, flipped.size.width, flipped.size.height);
             printf("scale %a %a\n", scaled.width, scaled.height);
+            out("sign", N2SDKSign(v));
+            out("limit", N2SDKLimit(v, a.min, a.max));
+            NSSize rounded = N2SDKRound(size);
+            printf("round %a %a\n", rounded.width, rounded.height);
+            NSRect centered = N2SDKCentered(NSMakeRect(value(), value(), size.width, size.height), NSMakeRect(value(), value(), target.width, target.height));
+            printf("centered %a %a %a %a\n", centered.origin.x, centered.origin.y, centered.size.width, centered.size.height);
+            for (int which = 0; which < 8; which++) outmm("sdk-minmax", N2SDKMinMax(a, b, v, which));
+            NSPoint p = NSMakePoint(value(), value()), q = NSMakePoint(value(), value());
+            for (int which = 0; which < 10; which++) {
+                NSSize r = N2SDKSize(size, target, v, which);
+                printf("sdk-size %d %a %a\n", which, r.width, r.height);
+                NSPoint m = N2SDKPoint(p, q, size, v, which);
+                printf("sdk-point %d %a %a\n", which, m.x, m.y);
+            }
+            NSPoint crossing = N2SDKLines(p, q, NSMakePoint(value(), value()), NSMakePoint(value(), value()));
+            printf("sdk-lines %a %a\n", crossing.x, crossing.y);
         }
+        for (int which = 0; which < 4; which++) printf("alignment %d\n", N2SDKAlignment(which));
+        out("N2NoMin", N2SDKNoMin());
+        out("N2NoMax", N2SDKNoMax());
+        printf("N2Yes %d %d, N2No %d %d\n", (int)[N2SDKYes() isKindOfClass:[NSNumber class]], (int)[N2SDKYes() boolValue],
+               (int)[N2SDKNo() isKindOfClass:[NSNumber class]], (int)[N2SDKNo() boolValue]);
 
         /* N2Shell */
         shell(@"/bin/echo", @[@"  hello", @"world  "]);
@@ -318,6 +359,74 @@ NSRect N2ProbeFlip(NSRect frame, NSRect bounds) { return N2FlipRect(frame, bound
 }
 '''
 
+# The same text on both sides, each compiled against its own headers: the
+# reference has the C++ of N2Operators.mm, N2MinMax.mm and N2Alignment.mm, the
+# other side the functions with C names (N2Operators.swift), the constants
+# (Nitrogen+CAPI.m) and the C++ kept for Objective-C++ callers (N2Operators+CAPI.mm).
+SDK_ADAPTER = r'''
+#import <Cocoa/Cocoa.h>
+#import "N2MinMax.h"
+#import "N2Operators.h"
+#import "N2Alignment.h"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+extern "C" {
+CGFloat N2SDKSign(CGFloat f) { return NSSign(f); }
+CGFloat N2SDKLimit(CGFloat v, CGFloat low, CGFloat high) { return NSLimit(v, low, high); }
+NSSize N2SDKRound(NSSize s) { return NSRoundSize(s); }
+NSRect N2SDKCentered(NSRect a, NSRect b) { return NSRectCenteredInRect(a, b); }
+int N2SDKAlignment(int which) { const N2Alignment all[4] = {N2Top, N2Bottom, N2Left, N2Right}; return all[which]; }
+CGFloat N2SDKNoMin(void) { return N2NoMin; }
+CGFloat N2SDKNoMax(void) { return N2NoMax; }
+id N2SDKYes(void) { return (id)N2Yes; }
+id N2SDKNo(void) { return (id)N2No; }
+N2MinMax N2SDKMinMax(N2MinMax a, N2MinMax b, CGFloat v, int which) {
+    switch (which) {
+        case 0: return N2ComposeMinMax(a, b);
+        case 1: return a + b;
+        case 2: return a + v;
+        case 3: { N2MinMax m = a; N2ExtendMinMax(m, v); return m; }
+        case 4: return N2MakeMinMax(N2MinMaxConstrainedValue(a, v));
+        case 5: return N2MakeMinMax(v, b.max);
+        case 6: return v > 0 ? N2MakeMin(v) : N2MakeMax(v);
+        default: return N2MakeMinMax();
+    }
+}
+NSSize N2SDKSize(NSSize a, NSSize b, CGFloat f, int which) {
+    switch (which) {
+        case 0: return a + b;
+        case 1: return a - b;
+        case 2: return a * b;
+        case 3: return a / b;
+        case 4: return a * f;
+        case 5: return f / a;
+        case 6: return n2::floor(a);
+        case 7: return n2::ceil(a);
+        case 8: return n2::round(a);
+        default: return -a + f;
+    }
+}
+NSPoint N2SDKPoint(NSPoint a, NSPoint b, NSSize s, CGFloat f, int which) {
+    switch (which) {
+        case 0: return a + b;
+        case 1: return a - b;
+        case 2: return a * b;
+        case 3: return a / b;
+        case 4: return a * f;
+        case 5: return a / f;
+        case 6: return a + s;
+        case 7: return a - s;
+        case 8: return NSMiddle(a, b);
+        default: return NSMakePoint(NSDistance(a, b), NSAngle(a, b));
+    }
+}
+NSPoint N2SDKLines(NSPoint a, NSPoint b, NSPoint c, NSPoint d) {
+    NSLine first = NSMakeLine(a, b), second = NSMakeLine(c, d);
+    if (NSParallel(first, second)) return NSMakePoint(NSLineYAtX(first, c.x), NSLength(first.direction));
+    return first * second;
+}
+}
+'''
+
 SWIFT_ADAPTER = r'''
 import Foundation
 import IsiXGeometry
@@ -332,7 +441,7 @@ import IsiXGeometry
 '''
 
 SWIFT_FILES = ['N2MinMax.swift', 'N2Shell.swift', 'N2Debug.swift', 'NSException+N2.swift', 'NSManagedObject+N2.swift',
-               'NSUserDefaultsController+N2.swift']
+               'NSUserDefaultsController+N2.swift', 'N2Operators.swift']
 
 
 def run(command, **kwargs):
@@ -345,14 +454,15 @@ def run(command, **kwargs):
 def reference_side(folder, revision):
     folder.mkdir()
     sources = []
-    for name in ('N2MinMax', 'N2Operators', 'N2Shell', 'N2Debug', 'NSException+N2', 'NSManagedObject+N2',
+    for name in ('N2MinMax', 'N2Operators', 'N2Alignment', 'N2Shell', 'N2Debug', 'NSException+N2', 'NSManagedObject+N2',
                  'NSUserDefaultsController+N2'):
         (folder / (name + '.h')).write_bytes(history_reference.show(revision, f'Nitrogen/Sources/{name}.h'))
         (folder / (name + '.mm')).write_bytes(history_reference.show(revision, f'Nitrogen/Sources/{name}.mm'))
         sources.append(folder / (name + '.mm'))
     (folder / 'adapter.mm').write_text(REFERENCE_ADAPTER)
+    (folder / 'sdk-adapter.mm').write_text(SDK_ADAPTER)
     objects = []
-    for source in sources + [folder / 'adapter.mm']:
+    for source in sources + [folder / 'adapter.mm', folder / 'sdk-adapter.mm']:
         obj = source.with_suffix('.o')
         run(['xcrun', 'clang', '-c', '-x', 'objective-c++', '-std=c++17', '-fno-objc-arc', '-fobjc-exceptions', '-O0',
              *harness.TARGET, '-I', folder, '-w', source, '-o', obj])
@@ -386,8 +496,16 @@ def swift_side(folder):
         run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-fobjc-exceptions', '-O0', *harness.TARGET,
              '-I', folder, source, '-o', obj])
         objects.append(obj)
+    (folder / 'sdk-adapter.mm').write_text(SDK_ADAPTER)
+    for source in (folder / 'sdk-adapter.mm', ROOT / 'Nitrogen/Sources/N2Operators+CAPI.mm'):
+        obj = folder / (source.stem + '.o')
+        run(['xcrun', 'clang', '-c', '-x', 'objective-c++', '-std=c++17', '-fno-objc-arc', '-O0', *harness.TARGET,
+             '-DHOROS_BRIDGING_HEADER', '-I', folder, '-I', ROOT / 'Nitrogen/Sources', source, '-o', obj])
+        objects.append(obj)
+    # The constants, whose Bézier callbacks call functions of the N3 geometry this test does not link.
+    objects += [former_sdk_objects.nitrogen(folder), former_sdk_objects.bezier_stubs(folder)]
     # -ObjC: the categories are in a static library that nothing else references.
-    return objects, ['-ObjC', *harness.swift_runtime_flags()]
+    return objects, ['-ObjC', '-lc++', *harness.swift_runtime_flags()]
 
 
 def output(folder, side, objects, link_flags, swift):

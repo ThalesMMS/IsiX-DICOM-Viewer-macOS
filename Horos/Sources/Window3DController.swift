@@ -85,9 +85,27 @@ import IsiXPreferences
 
     // nonisolated(unsafe): read on any thread, as the Objective-C instance
     // variables were, through accessors no subclass overrides.
-    nonisolated(unsafe) final var currentWLWWMenu: String?
-    nonisolated(unsafe) final var currentCLUTMenu: String?
-    nonisolated(unsafe) final var currentOpacityMenu: String?
+    // The three names are kept as the NSString the header of the former Horos
+    // and OsiriX plugin SDK declared, and read as String through the accessors
+    // below. They, the outlets above, willClose and the four fields of the full
+    // screen are the instance variables of that SDK, each a stored field with
+    // the type its header declared: a plugin reads and writes them at the
+    // exported offset.
+    nonisolated(unsafe) final var curWLWWMenuOfSDK: NSString?
+    nonisolated(unsafe) final var curCLUTMenuOfSDK: NSString?
+    nonisolated(unsafe) final var curOpacityMenuOfSDK: NSString?
+    nonisolated final var currentWLWWMenu: String? {
+        get { curWLWWMenuOfSDK as String? }
+        set { curWLWWMenuOfSDK = newValue as NSString? }
+    }
+    nonisolated final var currentCLUTMenu: String? {
+        get { curCLUTMenuOfSDK as String? }
+        set { curCLUTMenuOfSDK = newValue as NSString? }
+    }
+    nonisolated final var currentOpacityMenu: String? {
+        get { curOpacityMenuOfSDK as String? }
+        set { curOpacityMenuOfSDK = newValue as NSString? }
+    }
     nonisolated(unsafe) final var willClose = false
 
     // The class's own full screen (Window3DController+FullScreen.swift).
@@ -387,7 +405,7 @@ import IsiXPreferences
 
         let email = Mailer()
 
-        _ = email.sendMail("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: path)
+        email.mailShowingFailure(image: path)
     }
 }
 

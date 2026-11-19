@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXContracts
 import IsiXDICOMNetwork
 import IsiXDICOMFile
 import IsiXPreferences
@@ -149,27 +150,46 @@ extension QueryController {
 
                 for server in run.servers {
                     let manager = QueryArrayController(callingAET: UserDefaults.defaultAETitle(), distantServer: server.propertyList as NSDictionary)
-                    workers.queryManager = manager
+                    queryManager = manager
 
                     atLeastOneSource = true
 
-                    let (queryItem, nameAlternatives) = self.addFilters(of: run, to: manager, showError: showError)
+                    let filters = self.addFilters(of: run, to: manager, showError: showError)
+                    // The studies this node found, merged into those of the nodes before it.
+                    var nodeAnswers: [Any]?
 
-                    if queryItem {
-                        self.performQuery(NSNumber(value: showError))
-
-                        // A PACS compares the name as it is sent, and many keep
-                        // names in capitals without diacritics: one that found
-                        // nothing for a name typed in lower case or with
-                        // diacritics is asked again in capitals, then in
-                        // capitals without diacritics.
-                        for alternative in nameAlternatives {
-                            if (manager.queries()?.count ?? 0) > 0 || Thread.current.isCancelled {
-                                break
-                            }
-                            NSLog("Q&R: nothing for the name as typed, asking again for %@",
-                                  QueryLog.term(key: QueryWindowField.patientName.key, value: alternative))
-                            manager.addFilter(alternative + "*", forDescription: QueryWindowField.patientName.key)
+                    if filters.asksForSomething {
+                        if let name = filters.patientName {
+                            // A PACS compares the name as it is sent: one that
+                            // keeps names in capitals without diacritics, or
+                            // the family name first with «^» after it, finds
+                            // nothing for «jan kowalski». A name that found
+                            // nothing is asked again in its other spellings,
+                            // then, when the preferences let a name be found in
+                            // any word order, with «^» between its words in
+                            // each order, and the answers of the forms of one
+                            // step are merged (PatientNameQueryForms). A query
+                            // that failed or was given up (Escape) ends it.
+                            let steps = PatientNameQueryForms.steps(
+                                for: name, spellings: filters.nameAlternatives,
+                                anyWordOrder: self.preferences[NetworkPreferences.findsPatientNamesInAnyWordOrder])
+                            let found = PatientNameQueryForms.answers(of: steps, stops: { Thread.current.isCancelled }, ask: { (term: String) -> PatientNameQueryForms.Answer<Any> in
+                                if term != name {
+                                    NSLog("Q&R: nothing found yet for the name, asking for %@",
+                                          QueryLog.term(key: QueryWindowField.patientName.key, value: term))
+                                }
+                                manager.addFilter(term + "*", forDescription: QueryWindowField.patientName.key)
+                                self.performQuery(NSNumber(value: showError))
+                                let answered = QueryController.answered(manager)
+                                if !answered {
+                                    NSLog("Q&R: the query for the name failed or was given up; the name is not asked again")
+                                }
+                                return PatientNameQueryForms.Answer((manager.queries() as? [Any]) ?? [], answered: answered)
+                            }, uid: { (study: Any) -> String? in QueryController.queryUID(study as AnyObject)?.base as? String })
+                            NSLog("Q&R: %@ was asked %d quer%@ for the patient name",
+                                  server.nodeDescription ?? server.aeTitle ?? "?", Int32(found.queries), found.queries == 1 ? "y" : "ies")
+                            nodeAnswers = found.studies
+                        } else {
                             self.performQuery(NSNumber(value: showError))
                         }
                     } else {
@@ -212,12 +232,13 @@ extension QueryController {
                         self.realtimeCFindResults(Notification(name: Notification.Name("realtimeCFindResults"), object: manager.rootNode()))
                     }
 
+                    let answers = nodeAnswers ?? (manager.queries() as? [Any]) ?? []
                     if workers.isFirstNode {
                         workers.isFirstNode = false
                         tempResultArray.removeAllObjects()
-                        tempResultArray.addObjects(from: manager.queries() as? [Any] ?? [])
+                        tempResultArray.addObjects(from: answers)
                     } else {
-                        QueryController.mergeAnswers(manager.queries() as? [Any] ?? [], into: tempResultArray)
+                        QueryController.mergeAnswers(answers, into: tempResultArray)
                     }
                 }
 
@@ -254,10 +275,11 @@ extension QueryController {
 
     /// Gives `manager` the filters of `run`, as each node receives them
     /// (QueryWindowFilters builds them): whether the query asks for something,
-    /// and the other spellings of a patient's name to try when that one finds
-    /// nothing. A value the character set cannot write is reported on the
-    /// main thread, with the offer to switch to UTF-8.
-    nonisolated func addFilters(of run: QueryWindowRun, to manager: QueryArrayController, showError: Bool) -> (Bool, [String]) {
+    /// the patient's name as typed when it is sent, and the other spellings of
+    /// it to try when that one finds nothing. A value the character set cannot
+    /// write is reported on the main thread, with the offer to switch to UTF-8.
+    nonisolated func addFilters(of run: QueryWindowRun, to manager: QueryArrayController, showError: Bool)
+        -> (asksForSomething: Bool, patientName: String?, nameAlternatives: [String]) {
         let preferences = self.preferences
         let query = run.filters.query(settings: QueryWindowQuerySettings(defaults: preferences), customFieldKeyword: run.customFieldKeyword,
                                       now: Date(), timeZone: NSTimeZone.default)
@@ -286,10 +308,10 @@ extension QueryController {
             }
         }
 
-        guard let name = query.patientName else { return (query.asksForSomething, []) }
+        guard let name = query.patientName else { return (query.asksForSomething, nil, []) }
         let alternatives = PatientNameMatching.alternativeRemoteTerms(
             for: name, encoding: NSString.encoding(forDICOMCharacterSet: preferences[NetworkPreferences.queryCharacterSet]))
-        return (query.asksForSomething, alternatives)
+        return (query.asksForSomething, name, alternatives)
     }
 
     /// The answers of one more node, merged into those of the nodes before it.

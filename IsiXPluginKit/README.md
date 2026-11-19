@@ -63,6 +63,7 @@ adopt `IsiXPlugin`; otherwise the plugin is refused too.
 | `network.send` | the DICOM nodes of Locations with Send on; sending images of the database and DICOM files to them |
 | `network.query` | the DICOM nodes of Locations with Query/Retrieve on; C-FIND of studies, series and the modality worklist |
 | `xmlrpc` | XML-RPC methods of the plugin's own, answered through the application's XML-RPC interface |
+| `report` | commands in the Report menu of the application's plugins (`IsiXCommand.Placement.report`) |
 
 A call that needs a capability the plugin did not declare throws
 `IsiXPluginError.capabilityNotDeclared`.
@@ -107,14 +108,21 @@ public final class MyPlugin: IsiXPlugin {
 ## Commands
 
 `register(_:handler:)` adds a menu item. The placement chooses the menu (the
-viewer's image filters or ROI tools, the database window's plugins, or other
-plugins); the command's `id` is what identifies it, the title is only shown. A
+viewer's image filters or ROI tools, the database window's plugins, the
+plugins of reporting, or other plugins); the command's `id` is what identifies
+it, the title is only shown. A
 command with `requirement: .viewer` is disabled while no 2D viewer is open, and
 is never called without one; its invocation carries the frontmost viewer. An
 error the handler throws is shown to the user: its
 `LocalizedError.errorDescription` when it has one (the kit's own
 `IsiXPluginError` does), the localized description of a Cocoa error, or else
 its description. Give your errors a sentence the user can act on.
+
+`placement: .report` puts the command in Plugins > Report, the menu of
+structured reports, scores and reading forms. It needs the `report`
+capability; without it `register` throws `capabilityNotDeclared`. The menu
+and the capability came after the first version 1 applications (see
+Compatibility).
 
 An Objective-C or C++ exception that escapes a command is caught by the
 application, shown to the user and recorded in the plugin's loading details;
@@ -457,6 +465,16 @@ applications that support version 1. The framework's compatibility version
 stays 1. Enumerations may gain cases: handle `@unknown default`. An
 incompatible change would be a new API version, which the application
 declares and checks before loading anything.
+
+A plugin that uses what a later kit added does not load in an application
+whose kit lacks it. Each addition that a plugin can depend on comes with a
+capability, which the older application does not know: it refuses the plugin
+before loading it, and its Plugins window says which capability is missing,
+in place of a load that fails on a missing symbol.
+
+| Addition | Capability | Applications |
+| --- | --- | --- |
+| `IsiXCommand.Placement.report`, the Report menu | `report` | after 6.0.3 |
 
 ## Installing
 

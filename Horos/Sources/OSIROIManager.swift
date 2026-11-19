@@ -63,15 +63,10 @@ private func setObject(_ dictionary: NSMutableDictionary, _ object: Any?, _ key:
 // and OSIROIManager is meant to act as a filter, it will return ROIs
 // what I want is an object that will give me a list of volume ROIs
 
-public extension NSNotification.Name {
-    /// Sent by an `OSIROIManager` whenever there is any change in the managed ROIs.
-    static let OSIROIManagerROIsDidUpdate = NSNotification.Name("OSIROIManagerROIsDidUpdateNotification")
-}
-
-/// The keys of the notification's user info: the ROIs updated, removed and added.
-public let OSIROIUpdatedROIKey = "OSIROIUpdatedROIKey"
-public let OSIROIRemovedROIKey = "OSIROIRemovedROIKey"
-public let OSIROIAddedROIKey = "OSIROIAddedROIKey"
+// OSIROIManagerROIsDidUpdateNotification, sent by an `OSIROIManager` whenever
+// there is any change in the managed ROIs, and the keys of its user info are C
+// constants (OSIROIManager.h): Swift reads the notification as
+// `NSNotification.Name.OSIROIManagerROIsDidUpdate`.
 
 /// The `OSIROIManager` class defines the interface to discover ROIs and filter
 /// for the ROIs of interest. After creating an instance of `OSIROIManager` a

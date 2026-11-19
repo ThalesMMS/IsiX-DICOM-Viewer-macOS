@@ -39,9 +39,10 @@
 
 import Cocoa
 import CoreData
+import IsiXHTTPServer
 import IsiXPreferences
 
-// What arrives from outside the application: horos:// (and osirix://) links,
+// What arrives from outside the application: isix://, horos:// and osirix:// links,
 // files opened from the Finder or another application, and plugins to
 // install. AppController keeps -getUrl:withReplyEvent:,
 // -application:openFiles: and -installPlugins:, which AppKit and the former
@@ -96,10 +97,11 @@ struct LinkRequest: Sendable {
 
     // MARK: - Links
 
-    /// A horos:// or osirix:// link. Parsing lives in HorosSchemeURL so a
-    /// Chrome 94+ protocol block and a missing StudyInstanceUID are not the
-    /// same diagnosis. LaunchServices is not rewritten here; the scheme is
-    /// already in Info.plist.
+    /// An isix://, horos:// or osirix:// link, each handled the same way.
+    /// Parsing lives in HorosSchemeURL so a Chrome 94+ protocol block and a
+    /// missing StudyInstanceUID are not the same diagnosis. LaunchServices is
+    /// not rewritten here; the schemes are in Info.plist, and which
+    /// application the system gives them to is looked at once, at launch.
     func open(link: String?) {
         if HorosSchemeURL.consumeDuplicate(link ?? "") {
             NSLog("horos URL ignored duplicate within 1s")
@@ -127,14 +129,21 @@ struct LinkRequest: Sendable {
             // The alert names the request with its values; the log, the method and which parameters it had.
             NSLog("horos URL not carried out, URL support is off: %@ with %@", (invocation.methodName ?? "image") as NSString,
                   invocation.parameters.keys.filter { $0 != "methodName" }.sorted().joined(separator: ", ") as NSString)
-            let message = NSLocalizedString("IsiX DICOM Viewer URL scheme [horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: "")
+            // URL support and the XML-RPC server are one preference: turning it
+            // on opens the server's port, to whoever the Listener settings let
+            // in. The alert says so, with the access as it will be.
+            let access = XMLRPCAccessPolicy.policy(from: PreferencesSource.process.preferences)
+                .summary(hasCredential: XMLRPCServerCredential.isConfigured).text
+            let message = NSLocalizedString("IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: "")
+                + "\r\r" + String(format: NSLocalizedString("Activating it also turns on the XML-RPC server of this Mac, on port %ld. %@", comment: "URL scheme activation: what it opens, then who can send messages"),
+                                  preferences[NetworkPreferences.xmlrpcServerPort], access)
                 + "\r\r" + RISRequestAlert.notCarriedOut(request)
             let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: message, defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
 
             if result == HorosAlertPanel.alternateResponse {
                 preferences.set(true, for: NetworkPreferences.xmlrpcServer)
                 processGraph.preferences.synchronize()
-                NSApplication.shared.terminate(controller)
+                controller.terminate(controller)
             }
             return
         }
@@ -147,6 +156,21 @@ struct LinkRequest: Sendable {
             // Activity panel and the Dock progress. One queue keeps the links
             // in the order they came.
             let request = LinkRequest(server: controller.xmlrpcServer, methodName: methodName, parameters: invocation.parameters)
+            // Whoever can put a link in front of the user can have it opened: a
+            // method that changes or ends what the user is doing runs only
+            // after the user agrees to the request, named with its values.
+            if XMLRPCLinkPolicy.verdict(methodName: methodName, parameters: invocation.parameters) == .confirm {
+                let described = RISRequestAlert.describe(method: methodName, parameters: invocation.parameters)
+                NSLog("horos URL asks for %@: the user is asked first", methodName as NSString)
+                let message = String(format: NSLocalizedString("A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it.", comment: "URL scheme: confirmation of a request that changes or ends what the user is doing"), described)
+                let answer = HorosAlertPanel.runCritical(title: NSLocalizedString("URL scheme", comment: ""), message: message,
+                                                         defaultButton: NSLocalizedString("Cancel", comment: ""),
+                                                         alternateButton: NSLocalizedString("Carry Out", comment: "URL scheme: carries out the link's request"), otherButton: nil)
+                guard answer == HorosAlertPanel.alternateResponse else {
+                    NSLog("horos URL %@ not carried out: the user declined", methodName as NSString)
+                    return
+                }
+            }
             linkQueue.async { request.run() }
             return
         }

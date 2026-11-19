@@ -55,32 +55,64 @@ import IsiXPreferences
 /// unexported. The attribute gives it public linkage and changes nothing else.
 @objc(ROIVolume) @MainActor @usableFromInline
 final class ROIVolume: NSObject {
-    private let roiList = NSMutableArray()
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // a stored field with the type its header declared: a plugin reads and
+    // writes them at the exported offset. The object releases the list, the
+    // colour, the name, the viewer and the dictionary when it goes. The two
+    // VTK objects are kept below under the adapter's classes: nothing stands
+    // behind the fields of their names, which are never released.
+    final var _roiList: NSMutableArray? = NSMutableArray()
+    final unowned(unsafe) var _roiVolumeActor: AnyObject?, _textureImage: AnyObject?
+    final var volumeValue: Float = 0
+    final var redValue: Float = 0, greenValue: Float = 1, blueValue: Float = 1, opacityValue: Float = 1
+    /// The scale of the object: patient millimetres to the view's units.
+    @objc var factor: Float = 1
+    final var _color: NSColor?
+    final var visibleValue = false, textured = true
+    final var _name: NSString? = ""
+    final var viewer: ViewerController?
+    final var _properties: NSMutableDictionary?
+
+    /// The list, the colour, the name and the dictionary as the object's code
+    /// uses them: one a plugin set to nil is made again.
+    private var roiList: NSMutableArray {
+        if let list = _roiList { return list }
+        let list = NSMutableArray()
+        _roiList = list
+        return list
+    }
+    private var colorValue: NSColor {
+        get { _color ?? currentColour() }
+        set { _color = newValue }
+    }
+    private var nameValue: NSString {
+        get { _name ?? "" }
+        set { _name = newValue }
+    }
+    private var propertiesValue: NSMutableDictionary {
+        if let properties = _properties { return properties }
+        let properties = NSMutableDictionary()
+        _properties = properties
+        return properties
+    }
+
     private var actor: IsiXVTKActor?
     private var textureImage: IsiXVTKTexture?
-    private var volumeValue: Float = 0
-    private var redValue: Float = 0, greenValue: Float = 1, blueValue: Float = 1, opacityValue: Float = 1
-    private var colorValue: NSColor
-    private var visibleValue = false, textured = true
-    private var nameValue: NSString = ""
-    private let viewer: ViewerController?
     /// The process's dependencies, made with the volume: the surface's
     /// placement and texture come from their preferences.
     private let processGraph = PreferencesSource.process.processGraph
-    private let propertiesValue: NSMutableDictionary
-
-    /// The scale of the object: patient millimetres to the view's units.
-    @objc var factor: Float = 1
 
     @objc(initWithViewer:)
     init(viewer v: ViewerController?) {
         viewer = v
-        colorValue = NSColor(calibratedRed: CGFloat(redValue), green: CGFloat(greenValue), blue: CGFloat(blueValue), alpha: CGFloat(opacityValue))
-        propertiesValue = NSMutableDictionary(objects: [nameValue, NSNumber(value: volumeValue), NSNumber(value: redValue),
-                                                        NSNumber(value: greenValue), NSNumber(value: blueValue),
-                                                        NSNumber(value: opacityValue), colorValue, NSNumber(value: visibleValue),
-                                                        NSNumber(value: textured)],
-                                              forKeys: ["name", "volume", "red", "green", "blue", "opacity", "color", "visible", "texture"] as [NSString])
+        let name: NSString = ""
+        let colour = NSColor(calibratedRed: CGFloat(redValue), green: CGFloat(greenValue), blue: CGFloat(blueValue), alpha: CGFloat(opacityValue))
+        _color = colour
+        _properties = NSMutableDictionary(objects: [name, NSNumber(value: volumeValue), NSNumber(value: redValue),
+                                                    NSNumber(value: greenValue), NSNumber(value: blueValue),
+                                                    NSNumber(value: opacityValue), colour, NSNumber(value: visibleValue),
+                                                    NSNumber(value: textured)],
+                                          forKeys: ["name", "volume", "red", "green", "blue", "opacity", "color", "visible", "texture"] as [NSString])
         super.init()
     }
 

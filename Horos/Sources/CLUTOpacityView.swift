@@ -39,6 +39,7 @@
 
 import Cocoa
 import Accelerate
+import IsiXVolumeRendering
 
 // C conversions from floating point to integers, as the arm64 code of the
 // former Objective-C++ did them (fcvtzs/fcvtzu): toward zero, saturating, and
@@ -122,6 +123,10 @@ public final class CLUTOpacityView: NSView {
     private let clutUndoManager = UndoManager()
     private var nothingChanged = false
     private var clutChanged = false
+    /// Whether the click in progress has sent the curves to the volume.
+    private var sentInClick = false
+    /// The undo group of the click in progress, which mouse up ends.
+    private var clickUndoGroupOpen = false
 
     private var zoomFactor: Float = 1.0
     private var zoomFixedPoint: Float = 0.0
@@ -187,12 +192,18 @@ public final class CLUTOpacityView: NSView {
         if (notification.object as AnyObject?) === vrViewWindow {
             windowWillClose = true
         }
+        if notification.object is NSColorPanel { Self.colourPanelOwner = nil }
     }
 
     @objc public func cleanup() {
         curves = NSMutableArray()
         pointColors = NSMutableArray()
         forgetSelection()
+        forgetUndoHistory()
+        // The volume takes another CLUT: the empty one does not reach it, now
+        // nor from a high-resolution send still pending.
+        clutChanged = false
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(setCLUTtoVRViewHighRes), object: nil)
         if let histogram = histogram {
             free(histogram)
             self.histogram = nil
@@ -247,7 +258,7 @@ public final class CLUTOpacityView: NSView {
         return color?.usingColorSpace(.genericRGB)
     }
 
-    /// No curve selected, and no point: the curves they were on are gone.
+    /// No curve selected, and no point: unselected, or the curves they were on are gone.
     private func forgetSelection() {
         selectedCurve = -1
         selectedPoint.y = -1.0
@@ -258,6 +269,30 @@ public final class CLUTOpacityView: NSView {
     private func windowingCurveIndex() -> Int {
         let curveIndex = Int(selectedCurveIndex())
         return curveIndex >= 0 && curveIndex < curves.count ? curveIndex : 0
+    }
+
+    /// How many of a curve's points windowing measures and moves: all but an open end, a last point at the top of a CT's
+    /// 12-bit range or beyond at the height of the point before it (AdvancedCLUTFunctions.isOpenEnd, the volume's own rule),
+    /// as the bundled bone presets end. Windowing, the curve's square and the scaling by its ends leave it out and in place.
+    private func windowedCount(_ index: Int) -> Int {
+        let aCurve = curve(index), n = aCurve.count, last = lastPoint(aCurve)
+        return n > 2 && AdvancedCLUTFunctions.isOpenEnd(count: n, lastValue: last.x, lastHeight: last.y, heightBefore: point(aCurve, n - 2).y) ? n - 1 : n
+    }
+    /// Where the volume holds an open end's height up to, as AdvancedCLUTFunctions goes on with its curve: the top of the
+    /// editor's range, short of any other curve that reaches above the end. Nil for none, or for a curve without an open end.
+    private func openEndReach(_ index: Int) -> CGFloat? {
+        guard windowedCount(index) < curve(index).count else { return nil }
+        let others = (0..<curves.count).filter { $0 != index }.map { (first: Double(point(curve($0), 0).x), last: Double(lastPoint(curve($0)).x)) }
+        return AdvancedCLUTFunctions.openEndReach(from: lastPoint(curve(index)).x, top: Double(HUmax), others: others, margin: 0).map { CGFloat($0) }
+    }
+    /// A colour's red, green and blue, as an open end and the point before it are compared.
+    private func rgb(_ c: NSColor?) -> [CGFloat] { rgbColor(c).map { [$0.redComponent, $0.greenComponent, $0.blueComponent] } ?? [0, 0, 0] }
+
+    /// The undo history acts on curves by their index: it goes when the curves
+    /// are replaced all at once, by a CLUT loaded or by another kind of CLUT.
+    private func forgetUndoHistory() {
+        clutUndoManager.removeAllActions()
+        clickUndoGroupOpen = false
     }
 
     /// Register typed inverse operations. AnyObject method lookup on the
@@ -549,9 +584,8 @@ public final class CLUTOpacityView: NSView {
     public func fillCurves(in rect: NSRect) {
         let transform = self.transform()
 
-        var i = curves.count - 1
-        while i >= 0 {
-            let aCurve = curve(i)
+        for i in (0..<curves.count).reversed() {
+            let aCurve = curve(i), reach = openEndReach(i) // an open end's curve is drawn on as far as the volume holds it
 
             let locations = UnsafeMutablePointer<CGFloat>.allocate(capacity: Swift.max(aCurve.count, 1)) // for NSGradient
 
@@ -560,7 +594,7 @@ public final class CLUTOpacityView: NSView {
             line.move(to: NSMakePoint(p0.x, 0.0))
 
             let minX = Float(point(aCurve, 0).x)
-            let maxX = Float(lastPoint(aCurve).x)
+            let maxX = Float(reach ?? lastPoint(aCurve).x)
             let d: Float = maxX - minX
 
             // construct path & locations
@@ -570,11 +604,10 @@ public final class CLUTOpacityView: NSView {
                 locations[j] = CGFloat((Double(pt.x) - Double(minX)) / Double(d))
                 line.line(to: pt)
             }
+            if let reach { line.line(to: NSPoint(x: reach, y: lastPoint(aCurve).y)) }
 
             // close path
-            var ptClosing = lastPoint(aCurve)
-            ptClosing.y = 0.0
-            line.line(to: ptClosing)
+            line.line(to: NSPoint(x: reach ?? lastPoint(aCurve).x, y: 0.0))
             line.close()
             line = transform.transform(line)
 
@@ -583,7 +616,6 @@ public final class CLUTOpacityView: NSView {
             gradient?.draw(in: line, angle: 0)
 
             locations.deallocate()
-            i -= 1
         }
     }
 
@@ -591,29 +623,19 @@ public final class CLUTOpacityView: NSView {
     public func drawCurves(in rect: NSRect) {
         let transform = self.transform()
 
-        var i = curves.count - 1
-        while i >= 0 {
+        for i in (0..<curves.count).reversed() {
             let aCurve = curve(i)
 
-            // CONTROL POINT SELECTED?
+            // CONTROL POINT SELECTED? The selected curve's, the one «−» and Delete
+            // remove, also where undo, the volume's windowing or a zoom moved it.
             let controlPoint = controlPointForCurve(at: Int32(truncatingIfNeeded: i))
-            var controlPointSelected = false
-            if isAnyPointSelected() {
-                if sameEditorPoint(selectedPoint, controlPoint) {
-                    selectedPointColor.set()
-                    controlPointSelected = true
-                }
-            }
+            let controlPointSelected = i == Int(selectedCurve)
 
             // LINE
             var line = NSBezierPath()
             line.move(to: point(aCurve, 0))
-            var j = 1
-            while j < aCurve.count {
-                let pt = point(aCurve, j)
-                line.line(to: pt)
-                j += 1
-            }
+            for j in stride(from: 1, to: aCurve.count, by: 1) { line.line(to: point(aCurve, j)) }
+            if let reach = openEndReach(i) { line.line(to: NSPoint(x: reach, y: lastPoint(aCurve).y)) } // as the volume holds it
             line = transform.transform(line)
             curveColor.set()
             if controlPointSelected { selectedPointColor.set() }
@@ -691,7 +713,6 @@ public final class CLUTOpacityView: NSView {
                 if minYIndex > 0 && minY > 0.0 { drawPointLabel(atPosition: point(aCurve, Int(minYIndex))) }
                 if maxYIndex > 0 { drawPointLabel(atPosition: point(aCurve, Int(maxYIndex))) }
             }
-            i -= 1
         }
     }
 
@@ -751,22 +772,23 @@ public final class CLUTOpacityView: NSView {
         }
     }
 
+    /// The order is an edit the volume receives: of two curves' points at one value, the front curve's is the volume's.
     @objc(sendToBackCurveAtIndex:)
     public func sendToBackCurve(at i: Int32) {
-        if Int(i) != curves.count - 1 {
-            nothingChanged = false
-            clutChanged = false
-            moveCurveAtIndex(i, toIndex: Int32(truncatingIfNeeded: curves.count - 1))
-        }
+        guard Int(i) != curves.count - 1 else { return }
+        nothingChanged = false
+        // Only where a curve behind has a point at one of this curve's values does the order give the volume another CLUT.
+        let values = Set((0..<curve(Int(i)).count).map { point(curve(Int(i)), $0).x })
+        if (Int(i) + 1..<curves.count).contains(where: { j in (0..<curve(j).count).contains { values.contains(point(curve(j), $0).x) } }) { clutChanged = true }
+        moveCurveAtIndex(i, toIndex: Int32(truncatingIfNeeded: curves.count - 1))
     }
 
     @objc(sendToFrontCurveAtIndex:)
     public func sendToFrontCurve(at i: Int32) {
-        if i != 0 {
-            nothingChanged = false
-            clutChanged = false
-            moveCurveAtIndex(i, toIndex: 0)
-        }
+        guard i != 0 else { return }
+        nothingChanged = false
+        clutChanged = true // as Send to back; a click on a point or a square sends the curves itself
+        moveCurveAtIndex(i, toIndex: 0)
     }
 
     @objc public func selectedCurveIndex() -> Int32 {
@@ -827,11 +849,13 @@ public final class CLUTOpacityView: NSView {
     public func setCurves(_ newCurves: NSMutableArray) {
         curves = newCurves
         forgetSelection()
+        forgetUndoHistory()
     }
 
     @objc(setPointColors:)
     public func setPointColors(_ newPointColors: NSMutableArray) {
         pointColors = newPointColors
+        forgetUndoHistory()
     }
 
     // MARK: - Coordinate to NSView Transform
@@ -900,31 +924,45 @@ public final class CLUTOpacityView: NSView {
     @discardableResult
     @objc(selectPointAtPosition:)
     public func selectPoint(atPosition position: NSPoint) -> Bool {
-        for i in 0..<curves.count {
-            let aCurve = curve(i)
-            for j in 0..<aCurve.count {
-                let pt = point(aCurve, j)
-                let transform = self.transform()
-                let pt2 = transform.transform(pt)
-                let diameter = CGFloat(pointDiameter)
-                if position.x >= pt2.x - diameter && position.y >= pt2.y - diameter && position.x <= pt2.x + diameter && position.y <= pt2.y + diameter {
-                    selectedPoint = point(aCurve, j)
-                    NSColorPanel.shared.color = colors(i).object(at: j) as! NSColor
-                    sendToFrontCurve(at: Int32(truncatingIfNeeded: i))
-                    selectedCurve = -1
-                    clutChanged = false
-                    updateView()
-                    setCLUTtoVRView(false)
-                    return true
-                }
-            }
+        if let hit = nearestHit(to: position, squares: false) {
+            selectedPoint = point(curve(hit.curve), hit.point)
+            selectedCurve = -1 // before the panel's colour, whose notification would colour the curve selected before with this point's
+            NSColorPanel.shared.color = colors(hit.curve).object(at: hit.point) as! NSColor
+            sendToFrontCurve(at: Int32(truncatingIfNeeded: hit.curve))
+            clutChanged = false
+            updateView()
+            setCLUTtoVRView(false)
+            return true
         }
         setCLUTtoVRView(false)
         return false
     }
 
+    /// The point, or the curve's square, nearest to a position in the view
+    /// within its click box: the curves "+" adds lie a few pixels apart, and a
+    /// curve's square within the box of the points of the curves next to it.
+    private func nearestHit(to position: NSPoint, squares: Bool) -> (curve: Int, point: Int, distance: CGFloat)? {
+        let transform = self.transform(), reach = CGFloat(pointDiameter)
+        var nearest: (curve: Int, point: Int, distance: CGFloat)?
+        for i in 0..<curves.count {
+            let aCurve = curve(i)
+            let targets = squares ? [controlPointForCurve(at: Int32(truncatingIfNeeded: i))] : (0..<aCurve.count).map { transform.transform(point(aCurve, $0)) }
+            for (j, target) in targets.enumerated() where abs(position.x - target.x) <= reach && abs(position.y - target.y) <= reach {
+                let distance = hypot(position.x - target.x, position.y - target.y)
+                if distance < nearest?.distance ?? .infinity { nearest = (i, j, distance) }
+            }
+        }
+        return nearest
+    }
+
+    /// Whether a click is on a curve's square rather than on a point.
+    private func controlPointIsNearest(to position: NSPoint) -> Bool {
+        guard let square = nearestHit(to: position, squares: true) else { return false }
+        return square.distance < nearestHit(to: position, squares: false)?.distance ?? .infinity
+    }
+
     @objc public func unselectPoints() {
-        selectedPoint.y = -1.0
+        forgetSelection() // a curve's square too: nothing is left for «−» or Delete
         clutChanged = false
         updateView()
     }
@@ -933,49 +971,40 @@ public final class CLUTOpacityView: NSView {
         return selectedPoint.y >= 0.0
     }
 
+    /// The editor the colour panel colours for: the one whose double click opened it, until the panel closes. The panel is the
+    /// application's: a colour well of any window, or a click in another 3D window's editor, coloured the curve selected here.
+    private static weak var colourPanelOwner: CLUTOpacityView?
+    func openColourPanel() { Self.colourPanelOwner = self; NSColorPanel.shared.orderFront(self) }
+
+    /// The colour panel colours the selected curve, found by its index as «Send to back» finds it, or else the selected point.
     @objc(changePointColor:)
     public func changePointColor(_ notification: Notification) {
-        if isAnyPointSelected() {
-            vrViewLowResolution = true
-
-            let newColor = (notification.object as? NSColorPanel)?.color.usingColorSpace(.genericRGB)
-
-            for i in 0..<curves.count {
-                let aCurve = curve(i)
-                for j in 0..<aCurve.count {
-                    let pt = point(aCurve, j)
-                    if sameEditorPoint(pt, selectedPoint) {
-                        setColor(newColor, forPointAt: Int32(j), inCurveAt: Int32(truncatingIfNeeded: i))
-                        updateView()
-                        return
-                    }
-                }
-                let controlPoint = controlPointForCurve(at: Int32(truncatingIfNeeded: i))
-                if sameEditorPoint(controlPoint, selectedPoint) {
-                    setColor(newColor, forCurveAt: Int32(truncatingIfNeeded: i))
-                    updateView()
-                    return
-                }
-            }
+        guard Self.colourPanelOwner === self, isAnyPointSelected() else { return }
+        let newColor = (notification.object as? NSColorPanel)?.color.usingColorSpace(.genericRGB)
+        if selectedCurve >= 0 && Int(selectedCurve) < curves.count {
+            setColor(newColor, forCurveAt: selectedCurve)
+        } else if let selected = selectedPointIndexes() {
+            setColor(newColor, forPointAt: selected.point, inCurveAt: selected.curve)
+        } else {
+            return
         }
+        if clutChanged { vrViewLowResolution = true } // a click on a point gives the panel its colour: no change, nothing to send at the mouse up
+        updateView()
     }
 
+    /// An open end with the colour of the point before it takes that point's new colour too, as it takes its height: the
+    /// curve keeps the colour up to its densest values, in the editor, the volume and what is saved, rather than fading.
     @objc(setColor:forPointAtIndex:inCurveAtIndex:)
     public func setColor(_ color: NSColor?, forPointAt pointIndex: Int32, inCurveAt curveIndex: Int32) {
         guard let newColor = rgbColor(color) else { return }
-        let currentColor = rgbColor(colors(Int(curveIndex)).object(at: Int(pointIndex)) as? NSColor)
-
-        let currentRed = currentColor?.redComponent ?? 0, newRed = newColor.redComponent
-        let currentGreen = currentColor?.greenComponent ?? 0, newGreen = newColor.greenComponent
-        let currentBlue = currentColor?.blueComponent ?? 0, newBlue = newColor.blueComponent
-        if currentRed != newRed || currentGreen != newGreen || currentBlue != newBlue {
-            clutChanged = true
-            nothingChanged = false
-            //vrViewLowResolution = NO;
-            let previousColor = colors(Int(curveIndex)).object(at: Int(pointIndex)) as? NSColor
-            registerUndo { $0.setColor(previousColor, forPointAt: pointIndex, inCurveAt: curveIndex) }
-            mutableColors(Int(curveIndex)).replaceObject(at: Int(pointIndex), with: newColor)
-        }
+        let theColors = colors(Int(curveIndex)), previousColor = theColors.object(at: Int(pointIndex)) as? NSColor, n = theColors.count
+        guard rgb(previousColor) != rgb(newColor) else { return }
+        let openEndFollows = Int(pointIndex) + 2 == n && windowedCount(Int(curveIndex)) < n && rgb(theColors.lastObject as? NSColor) == rgb(previousColor)
+        clutChanged = true
+        nothingChanged = false
+        registerUndo { $0.setColor(previousColor, forPointAt: pointIndex, inCurveAt: curveIndex) }
+        mutableColors(Int(curveIndex)).replaceObject(at: Int(pointIndex), with: newColor)
+        if openEndFollows { setColor(newColor, forPointAt: pointIndex + 1, inCurveAt: curveIndex) }
     }
 
     @objc(legalizePoint:inCurve:atIndex:)
@@ -1008,7 +1037,6 @@ public final class CLUTOpacityView: NSView {
         let pt1 = transform.transform(pt)
         var labelPosition = NSMakePoint(pt1.x + CGFloat(pointDiameter), pt1.y + CGFloat(pointDiameter))
 
-        //	NSRect rect = [self bounds];
         let rect = drawingRect
         var labelBounds = label.boundingRect(with: rect.size, options: .usesDeviceMetrics)
         let labelValueBounds = labelValue.boundingRect(with: rect.size, options: .usesDeviceMetrics)
@@ -1051,11 +1079,15 @@ public final class CLUTOpacityView: NSView {
         } else {
             let previousPoint = point(theCurve, Int(ip))
             let previousColor = colors(Int(ic)).object(at: Int(ip)) as! NSColor
+            let endFollowed = Int(ip) + 2 == theCurve.count && windowedCount(Int(ic)) < theCurve.count && rgb(colors(Int(ic)).lastObject as? NSColor) == rgb(previousColor)
             registerUndo { $0.addPoint(previousPoint, at: ip, inCurveAt: ic, with: previousColor) }
             theCurve.removeObject(at: Int(ip))
             mutableColors(Int(ic)).removeObject(at: Int(ip))
+            // An open end that had the colour of the point removed takes the colour of the point now before it, as setColor gives it.
+            if endFollowed && windowedCount(Int(ic)) < theCurve.count { setColor(colors(Int(ic)).object(at: Int(ip) - 1) as? NSColor, forPointAt: ip, inCurveAt: ic) }
         }
         unselectPoints()
+        clutChanged = true // the volume loses the point (or the curve) too
         updateView()
     }
 
@@ -1070,42 +1102,22 @@ public final class CLUTOpacityView: NSView {
 
     @objc(controlPointForCurveAtIndex:)
     public func controlPointForCurve(at i: Int32) -> NSPoint {
-        var controlPoint = NSPoint.zero
-        let aCurve = curve(Int(i))
-        let transform = self.transform()
-
-        if aCurve.count % 2 == 1 {
-            controlPoint.x = point(aCurve, (aCurve.count - 1) / 2).x
-            controlPoint.y = CGFloat(Double(point(aCurve, (aCurve.count - 1) / 2).y) / 2.0)
-        } else {
-            controlPoint.x = CGFloat(Double(point(aCurve, aCurve.count / 2 - 1).x + point(aCurve, aCurve.count / 2).x) / 2.0)
-            controlPoint.y = CGFloat(Double(point(aCurve, aCurve.count / 2 - 1).y + point(aCurve, aCurve.count / 2).y) / 4.0)
-        }
-
-        controlPoint.x = CGFloat(Double(lastPoint(aCurve).x + point(aCurve, 0).x) / 2.0)
-
-        controlPoint = transform.transform(controlPoint)
-        return controlPoint
+        // Halfway between the curve's ends, an open end left out, at half the height of its middle.
+        let aCurve = curve(Int(i)), n = windowedCount(Int(i))
+        let y = n % 2 == 1 ? point(aCurve, (n - 1) / 2).y / 2.0 : (point(aCurve, n / 2 - 1).y + point(aCurve, n / 2).y) / 4.0
+        return transform().transform(NSPoint(x: (point(aCurve, n - 1).x + point(aCurve, 0).x) / 2.0, y: y))
     }
 
     @discardableResult
     @objc(selectControlPointAtPosition:)
     public func selectControlPoint(atPosition position: NSPoint) -> Bool {
-        var controlPoint: NSPoint
-
-        for i in 0..<curves.count {
-            controlPoint = controlPointForCurve(at: Int32(truncatingIfNeeded: i))
-            let diameter = CGFloat(pointDiameter)
-            if position.x >= controlPoint.x - diameter && position.y >= controlPoint.y - diameter && position.x <= controlPoint.x + diameter && position.y <= controlPoint.y + diameter {
-                selectedPoint = controlPoint
-                sendToFrontCurve(at: Int32(truncatingIfNeeded: i))
-                selectedCurve = 0
-                setCLUTtoVRView(false)
-                //[self updateView];
-                return true
-            }
-        }
-        return false
+        guard let hit = nearestHit(to: position, squares: true) else { return false }
+        selectedPoint = controlPointForCurve(at: Int32(truncatingIfNeeded: hit.curve))
+        sendToFrontCurve(at: Int32(truncatingIfNeeded: hit.curve))
+        selectedCurve = 0
+        clutChanged = false // the curves go to the volume here, in their new order: the mouse up sends nothing more
+        setCLUTtoVRView(false)
+        return true
     }
 
     // MARK: - Lines selection
@@ -1113,8 +1125,7 @@ public final class CLUTOpacityView: NSView {
     @discardableResult
     @objc(clickOnLineAtPosition:)
     public func clickOnLine(atPosition position: NSPoint) -> Bool {
-        var i = 0
-        var j = 0
+        var i = 0, j = 0
         var pt0: NSPoint, pt1: NSPoint, p0: NSPoint, p1: NSPoint
         var a: Float, b: Float // line between p0 & p1 : y = a x + b
         let transform = self.transform()
@@ -1123,7 +1134,6 @@ public final class CLUTOpacityView: NSView {
 
         var addPoint = false
 
-        i = 0
         while i < curves.count && !addPoint {
             aCurve = curve(i)
             colors = self.colors(i)
@@ -1156,15 +1166,15 @@ public final class CLUTOpacityView: NSView {
             nothingChanged = false
             clutChanged = true
             transform.invert()
-            let newPoint = transform.transform(position)
-            selectedPoint.x = newPoint.x
-            selectedPoint.y = newPoint.y
+            var newPoint = transform.transform(position)
+            if point(aCurve, j - 2).y == point(aCurve, j - 1).y { newPoint.y = point(aCurve, j - 1).y } // on a flat line, which stays flat (an open end, open)
+            selectedPoint = newPoint
             let blendingFactor = Float(Double(newPoint.x - point(aCurve, j - 2).x) / Double(point(aCurve, j - 1).x - point(aCurve, j - 2).x))
             if let blended = (colors.object(at: j - 2) as! NSColor).blended(withFraction: CGFloat(blendingFactor), of: colors.object(at: j - 1) as! NSColor) {
                 self.addPoint(newPoint, at: Int32(j - 1), inCurveAt: Int32(i - 1), with: blended)
             }
             sendToFrontCurve(at: Int32(i - 1))
-            selectedCurve = 0
+            selectedCurve = -1 // the new point, as a click on it: Delete removes it, «−» its curve
             updateView()
         }
 
@@ -1181,7 +1191,9 @@ public final class CLUTOpacityView: NSView {
 
         nothingChanged = true
         clutChanged = false
-        clutUndoManager.beginUndoGrouping()
+        sentInClick = false
+        if !clickUndoGroupOpen { clutUndoManager.beginUndoGrouping() } // a click whose mouse up never came ends with this one
+        clickUndoGroupOpen = true
 
         vrViewLowResolution = false
 
@@ -1192,35 +1204,37 @@ public final class CLUTOpacityView: NSView {
             return
         }
 
-        if !selectPoint(atPosition: mousePositionInView) {
+        if controlPointIsNearest(to: mousePositionInView) || !selectPoint(atPosition: mousePositionInView) {
             unselectPoints()
             if !selectControlPoint(atPosition: mousePositionInView) {
-                if !clickOnLine(atPosition: mousePositionInView) {
-                    let transformView2Coordinate = transform()
-                    transformView2Coordinate.invert()
-                    //	zoomFixedPoint = [transformView2Coordinate transformPoint:mousePositionInView].x;
-                }
+                clickOnLine(atPosition: mousePositionInView)
             } else if theEvent.clickCount == 2 {
                 nothingChanged = true
                 clutChanged = false
-                NSColorPanel.shared.orderFront(self)
+                openColourPanel()
             }
         } else if theEvent.clickCount == 2 {
             nothingChanged = true
             clutChanged = false
-            NSColorPanel.shared.orderFront(self)
+            openColourPanel()
         }
     }
 
     public override func mouseUp(with theEvent: NSEvent) {
+        // A side-bar button acts at each click (both of a double-click): the undo below is for the curves.
+        let clickOutlivedCurves = !clickUndoGroupOpen // replaced in the click (another kind of CLUT, a load): nothing to send or undo
+        let pressedSideBarButton = [addCurveButtonRect, removeSelectedCurveButtonRect, saveButtonRect, closeButtonRect].contains { NSPointInRect(mouseDraggingStartPoint, $0) }
         if isRemoveSelectedCurveButtonHighlighted {
-            delete(self)
+            removeSelectedCurve()
             isRemoveSelectedCurveButtonHighlighted = false
             nothingChanged = false
             needsDisplay = true
         }
 
-        clutUndoManager.endUndoGrouping()
+        if clickUndoGroupOpen {
+            clutUndoManager.endUndoGrouping()
+            clickUndoGroupOpen = false
+        }
 
         if isAddCurveButtonHighlighted {
             newCurve()
@@ -1237,14 +1251,19 @@ public final class CLUTOpacityView: NSView {
             volumeView?.controller()?.clutOpacityDrawer()?.close()
         }
 
-        if theEvent.clickCount == 2 || nothingChanged {
+        let undoesClick = !clickOutlivedCurves && !pressedSideBarButton && (theEvent.clickCount == 2 || nothingChanged)
+        if undoesClick {
             clutUndoManager.undoNestedGroup()
         }
 
         let wasInLowResolution = vrViewLowResolution
         vrViewLowResolution = false
 
-        if clutChanged || wasInLowResolution { setCLUTtoVRView() }
+        if !clickOutlivedCurves && (clutChanged || wasInLowResolution) {
+            setCLUTtoVRView()
+        } else if undoesClick && (theEvent.clickCount == 2 || !sentInClick) {
+            setCLUTtoVRView(false) // what the undo put back; a click that changed nothing has sent the curves already
+        }
 
         super.mouseUp(with: theEvent)
     }
@@ -1310,7 +1329,7 @@ public final class CLUTOpacityView: NSView {
 
             let alternate = theEvent.modifierFlags.contains(.option)
             for i in 0..<curves.count {
-                let aCurve = mutableCurve(i)
+                let aCurve = mutableCurve(i), n = windowedCount(i) // the points that move as the curve, an open end left out
                 let ci = Int32(truncatingIfNeeded: i)
 
                 if !alternate {
@@ -1320,6 +1339,7 @@ public final class CLUTOpacityView: NSView {
                             var newPoint = transformView2Coordinate.transform(convert(theEvent.locationInWindow, from: nil))
                             newPoint = legalizePoint(newPoint, inCurve: aCurve, at: Int32(j))
                             replacePoint(at: Int32(j), inCurveAt: ci, with: newPoint)
+                            if j + 1 == n && n < aCurve.count { replacePoint(at: Int32(n), inCurveAt: ci, with: NSPoint(x: self.lastPoint(aCurve).x, y: newPoint.y)) }
                             selectedPoint.x = newPoint.x
                             selectedPoint.y = newPoint.y
                             updateView()
@@ -1327,7 +1347,7 @@ public final class CLUTOpacityView: NSView {
                     }
                 } else {
                     firstPoint = point(aCurve, 0)
-                    lastPoint = self.lastPoint(aCurve)
+                    lastPoint = point(aCurve, n - 1)
                     let firstPointSelected = sameEditorPoint(firstPoint, selectedPoint)
                     let lastPointSelected = sameEditorPoint(lastPoint, selectedPoint)
                     firstPoint = transformCoordinate2View.transform(firstPoint)
@@ -1335,7 +1355,7 @@ public final class CLUTOpacityView: NSView {
                     if firstPointSelected || lastPointSelected {
                         let shiftX = Float(theEvent.deltaX)
                         let d = Float(lastPoint.x - firstPoint.x)
-                        for j in 0..<aCurve.count {
+                        for j in 0..<n {
                             var pt = point(aCurve, j)
                             pt = transformCoordinate2View.transform(pt)
                             var shiftedPoint: NSPoint
@@ -1357,7 +1377,7 @@ public final class CLUTOpacityView: NSView {
                         if firstPointSelected {
                             selectedPoint = point(aCurve, 0)
                         } else {
-                            selectedPoint = self.lastPoint(aCurve)
+                            selectedPoint = point(aCurve, n - 1)
                         }
 
                         updateView()
@@ -1370,11 +1390,11 @@ public final class CLUTOpacityView: NSView {
                     var shiftY = Float(theEvent.deltaY)
 
                     firstPoint = transformCoordinate2View.transform(point(aCurve, 0))
-                    lastPoint = transformCoordinate2View.transform(self.lastPoint(aCurve))
+                    lastPoint = transformCoordinate2View.transform(point(aCurve, n - 1))
                     let d = Float(lastPoint.x - firstPoint.x)
                     let middlePointX = Float(Double(firstPoint.x) + Double(d) / 2.0)
 
-                    for j in 0..<aCurve.count {
+                    for j in 0..<n {
                         var pt = point(aCurve, j)
                         pt = transformCoordinate2View.transform(pt)
                         var shiftedPoint: NSPoint
@@ -1382,7 +1402,7 @@ public final class CLUTOpacityView: NSView {
                             shiftY = 0
 
                             var alpha: Float = 1.0
-                            if j > 0 && j < aCurve.count - 1 {
+                            if j > 0 && j < n - 1 {
                                 alpha = Float(2.0 * abs(Double(middlePointX) - Double(pt.x)) / Double(d))
                             }
                             if pt.x <= controlPoint.x {
@@ -1403,6 +1423,7 @@ public final class CLUTOpacityView: NSView {
                             controlPoint = controlPointForCurve(at: ci)
                         }
                     }
+                    if n < aCurve.count { replacePoint(at: Int32(n), inCurveAt: ci, with: NSPoint(x: self.lastPoint(aCurve).x, y: point(aCurve, n - 1).y)) }
 
                     for j in 0..<aCurve.count {
                         var pt = point(aCurve, j)
@@ -1540,7 +1561,6 @@ public final class CLUTOpacityView: NSView {
             didResizeVRVIew = true
         }
 
-        //[[self window] setAcceptsMouseMovedEvents:YES];
 
         if curves.count == 0 {
             newCurve()
@@ -1554,37 +1574,29 @@ public final class CLUTOpacityView: NSView {
 
     @objc(sendToBack:)
     @IBAction public func sendToBack(_ sender: Any?) {
-        var curveIndex: Int32 = -1
+        let curveIndex = curveIndexOfSelection()
+        guard curveIndex >= 0 else { return }
+        sendToBackCurve(at: curveIndex)
+        if !clutChanged { setCLUTtoVRView(false) } // the same CLUT for the volume: the curves in their order, the menu's name kept
+        updateView()
+    }
 
-        var i = 0
-        while i < curves.count && curveIndex < 0 {
-            let aCurve = curve(i)
-            var j = 0
-            while j < aCurve.count && curveIndex < 0 {
-                let pt = point(aCurve, j)
-                if sameEditorPoint(selectedPoint, pt) {
-                    curveIndex = Int32(truncatingIfNeeded: i)
-                }
-                j += 1
-            }
-            i += 1
-        }
+    /// The selected curve, by its index: undo, the volume's windowing, a zoom
+    /// or a resize move its square away from the position the click stored.
+    /// Else the curve of the selected point; -1 for none.
+    private func curveIndexOfSelection() -> Int32 {
+        if selectedCurve >= 0 && Int(selectedCurve) < curves.count { return selectedCurve }
+        return selectedPointIndexes()?.curve ?? -1
+    }
 
-        if curveIndex < 0 {
-            i = 0
-            while i < curves.count && curveIndex < 0 {
-                let controlPoint = controlPointForCurve(at: Int32(truncatingIfNeeded: i))
-                if sameEditorPoint(selectedPoint, controlPoint) {
-                    curveIndex = Int32(truncatingIfNeeded: i)
-                }
-                i += 1
+    /// The curve of the selected point and the point's index in it; nil for none.
+    private func selectedPointIndexes() -> (curve: Int32, point: Int32)? {
+        for i in 0..<curves.count {
+            if let j = (0..<curve(i).count).first(where: { sameEditorPoint(selectedPoint, point(curve(i), $0)) }) {
+                return (Int32(truncatingIfNeeded: i), Int32(truncatingIfNeeded: j))
             }
         }
-
-        if curveIndex >= 0 {
-            sendToBackCurve(at: curveIndex)
-            updateView()
-        }
+        return nil
     }
 
     @objc(setZoomFator:)
@@ -1595,7 +1607,6 @@ public final class CLUTOpacityView: NSView {
 
     @objc(scroll:)
     @IBAction public func scrollAction(_ sender: Any?) {
-        //	zoomFixedPoint = [sender floatValue] / [sender maxValue] * [self bounds].size.width;
         let maxValue: Double = (sender as AnyObject?)?.maxValue ?? 0
         zoomFixedPoint = Float(Double(senderFloatValue(sender)) / maxValue * Double(drawingRect.size.width))
         updateView()
@@ -1603,12 +1614,22 @@ public final class CLUTOpacityView: NSView {
 
     @objc(removeAllCurves:)
     @IBAction public func removeAllCurves(_ sender: Any?) {
-        curves.removeAllObjects()
-        // The colors stayed, a set for each curve gone, and were saved with
-        // the next preset.
-        pointColors.removeAllObjects()
-        forgetSelection()
+        // The colors go too: they stayed, a set for each curve gone, and were
+        // saved with the next preset.
+        if curves.count > 0 || pointColors.count > 0 { replaceAllCurves(with: [], colors: []) }
         updateView()
+    }
+
+    /// These curves and colors in the editor's arrays in place of its own, with
+    /// its own for undo: they come back together, at their indexes.
+    private func replaceAllCurves(with newCurves: [Any], colors newColors: [Any]) {
+        let previousCurves = Array(curves), previousColors = Array(pointColors)
+        registerUndo { $0.replaceAllCurves(with: previousCurves, colors: previousColors) }
+        curves.setArray(newCurves)
+        pointColors.setArray(newColors)
+        forgetSelection()
+        nothingChanged = false
+        clutChanged = true
     }
 
     @objc public func addCurveIfNeeded() {
@@ -1641,18 +1662,19 @@ public final class CLUTOpacityView: NSView {
         drawSaveButton(saveButtonRect)
     }
 
-    @objc(drawCloseButton:)
-    public func drawCloseButton(_ rect: NSRect) {
+    /// A button's circle, dark while pressed, drawn in white, the color left set.
+    private func drawButtonCircle(_ rect: NSRect, highlighted: Bool) {
         let path = NSBezierPath(ovalIn: rect)
         path.lineWidth = 1.5
-        if isCloseButtonHighlighted {
-            NSColor.darkGray.set()
-        } else {
-            backgroundColor.set()
-        }
+        (highlighted ? NSColor.darkGray : backgroundColor).set()
         path.fill()
         NSColor.white.set()
         path.stroke()
+    }
+
+    @objc(drawCloseButton:)
+    public func drawCloseButton(_ rect: NSRect) {
+        drawButtonCircle(rect, highlighted: isCloseButtonHighlighted)
 
         let line = NSBezierPath()
         line.lineWidth = 2.0
@@ -1672,16 +1694,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(drawAddCurveButton:)
     public func drawAddCurveButton(_ rect: NSRect) {
-        let path = NSBezierPath(ovalIn: rect)
-        path.lineWidth = 1.5
-        if isAddCurveButtonHighlighted {
-            NSColor.darkGray.set()
-        } else {
-            backgroundColor.set()
-        }
-        path.fill()
-        NSColor.white.set()
-        path.stroke()
+        drawButtonCircle(rect, highlighted: isAddCurveButtonHighlighted)
 
         let line = NSBezierPath()
         line.lineWidth = 2.0
@@ -1702,16 +1715,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(drawRemoveSelectedCurveButton:)
     public func drawRemoveSelectedCurveButton(_ rect: NSRect) {
-        let path = NSBezierPath(ovalIn: rect)
-        path.lineWidth = 1.5
-        if isRemoveSelectedCurveButtonHighlighted {
-            NSColor.darkGray.set()
-        } else {
-            backgroundColor.set()
-        }
-        path.fill()
-        NSColor.white.set()
-        path.stroke()
+        drawButtonCircle(rect, highlighted: isRemoveSelectedCurveButtonHighlighted)
 
         let line = NSBezierPath()
         line.lineWidth = 2.0
@@ -1727,16 +1731,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(drawSaveButton:)
     public func drawSaveButton(_ rect: NSRect) {
-        let path = NSBezierPath(ovalIn: rect)
-        path.lineWidth = 1.5
-        if isSaveButtonHighlighted {
-            NSColor.darkGray.set()
-        } else {
-            backgroundColor.set()
-        }
-        path.fill()
-        NSColor.white.set()
-        path.stroke()
+        drawButtonCircle(rect, highlighted: isSaveButtonHighlighted)
 
         let center = NSMakePoint(rect.origin.x + rect.size.width * 0.5, rect.origin.y + rect.size.height * 0.5)
         let dotFrame = NSMakeRect(center.x - 3, center.y - 3, 6, 6)
@@ -1753,49 +1748,29 @@ public final class CLUTOpacityView: NSView {
     @discardableResult
     @objc(clickInAddCurveButtonAtPosition:)
     public func clickInAddCurveButton(atPosition position: NSPoint) -> Bool {
-        if NSPointInRect(position, addCurveButtonRect) {
-            isAddCurveButtonHighlighted = true
-            return true
-        } else {
-            isAddCurveButtonHighlighted = false
-            return false
-        }
+        isAddCurveButtonHighlighted = NSPointInRect(position, addCurveButtonRect)
+        return isAddCurveButtonHighlighted
     }
 
     @discardableResult
     @objc(clickInRemoveSelectedCurveButtonAtPosition:)
     public func clickInRemoveSelectedCurveButton(atPosition position: NSPoint) -> Bool {
-        if NSPointInRect(position, removeSelectedCurveButtonRect) {
-            isRemoveSelectedCurveButtonHighlighted = true
-            return true
-        } else {
-            isRemoveSelectedCurveButtonHighlighted = false
-            return false
-        }
+        isRemoveSelectedCurveButtonHighlighted = NSPointInRect(position, removeSelectedCurveButtonRect)
+        return isRemoveSelectedCurveButtonHighlighted
     }
 
     @discardableResult
     @objc(clickInCloseButtonAtPosition:)
     public func clickInCloseButton(atPosition position: NSPoint) -> Bool {
-        if NSPointInRect(position, closeButtonRect) {
-            isCloseButtonHighlighted = true
-            return true
-        } else {
-            isCloseButtonHighlighted = false
-            return false
-        }
+        isCloseButtonHighlighted = NSPointInRect(position, closeButtonRect)
+        return isCloseButtonHighlighted
     }
 
     @discardableResult
     @objc(clickInSaveButtonAtPosition:)
     public func clickInSaveButton(atPosition position: NSPoint) -> Bool {
-        if NSPointInRect(position, saveButtonRect) {
-            isSaveButtonHighlighted = true
-            return true
-        } else {
-            isSaveButtonHighlighted = false
-            return false
-        }
+        isSaveButtonHighlighted = NSPointInRect(position, saveButtonRect)
+        return isSaveButtonHighlighted
     }
 
     // MARK: - Copy / Paste
@@ -1894,10 +1869,7 @@ public final class CLUTOpacityView: NSView {
     @IBAction public func delete(_ sender: Any?) {
         let curveIndex = selectedCurveIndex()
         if curveIndex >= 0 && Int(curveIndex) < curves.count {
-            deleteCurveAtIndex(curveIndex)
-            if curves.count > 0 { selectCurve(at: min(curveIndex, Int32(curves.count - 1))) } // Delete again removes the next.
-            vrViewLowResolution = false
-            updateView()
+            removeCurveSelectingNext(curveIndex) // Delete again removes the next.
         } else {
             if selectedPoint.y >= 0.0 {
                 for i in 0..<curves.count {
@@ -1919,6 +1891,20 @@ public final class CLUTOpacityView: NSView {
         }
     }
 
+    /// The «−» button: the selected curve goes, or the curve of the selected
+    /// point (the Delete key removes the point), and the next is selected.
+    private func removeSelectedCurve() {
+        let curveIndex = curveIndexOfSelection()
+        if curveIndex >= 0 { removeCurveSelectingNext(curveIndex) }
+    }
+
+    private func removeCurveSelectingNext(_ curveIndex: Int32) {
+        deleteCurveAtIndex(curveIndex)
+        if curves.count > 0 { selectCurve(at: min(curveIndex, Int32(curves.count - 1))) } else { forgetSelection() }
+        vrViewLowResolution = false
+        updateView()
+    }
+
     @objc(cut:)
     @IBAction public func cut(_ sender: Any?) {
         copy(self)
@@ -1927,7 +1913,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(undo:)
     @IBAction public func undo(_ sender: Any?) {
-        if clutUndoManager.canUndo {
+        if clutUndoManager.canUndo && !clickUndoGroupOpen { // not while a click is in progress
             clutUndoManager.undo()
             vrViewLowResolution = false
             clutChanged = true
@@ -1937,7 +1923,7 @@ public final class CLUTOpacityView: NSView {
 
     @objc(redo:)
     @IBAction public func redo(_ sender: Any?) {
-        if clutUndoManager.canRedo {
+        if clutUndoManager.canRedo && !clickUndoGroupOpen {
             clutUndoManager.redo()
             vrViewLowResolution = false
             clutChanged = true
@@ -2032,6 +2018,7 @@ public final class CLUTOpacityView: NSView {
             curves = CLUTOpacityView.mutableArray(clut.object(forKey: "curves"))
             pointColors = CLUTOpacityView.mutableArray(clut.object(forKey: "colors"))
             forgetSelection()
+            forgetUndoHistory()
         }
     }
 
@@ -2134,12 +2121,8 @@ public final class CLUTOpacityView: NSView {
     // MARK: - Connection to VRView
 
     @objc public func setCLUTtoVRView() {
-        if windowWillClose {
-            return
-        }
-
+        if windowWillClose { return }
         setCLUTtoVRView(vrViewLowResolution)
-
         if clutChanged {
             volumeView?.controller()?.setCurCLUTMenu(NSLocalizedString("16-bit CLUT", comment: ""))
         }
@@ -2151,26 +2134,18 @@ public final class CLUTOpacityView: NSView {
 
     @objc(setCLUTtoVRView:)
     public func setCLUTtoVRView(_ lowRes: Bool) {
-        if windowWillClose {
-            return
-        }
-
-        if settingCLUTtoVRView {
-            return // avoid re-entry
-        }
-
+        if windowWillClose || settingCLUTtoVRView { return } // closing, or re-entry
         settingCLUTtoVRView = true
+        sentInClick = true
+        // Without curves, the empty CLUT: the volume turns transparent, as the editor shows it.
+        let clut = NSMutableDictionary(capacity: 2)
+        clut.setObject(curves, forKey: "curves" as NSString)
+        clut.setObject(pointColors, forKey: "colors" as NSString)
+        volumeView?.setAdvancedCLUT(clut, lowResolution: lowRes)
         if curves.count > 0 {
-            let clut = NSMutableDictionary(capacity: 2)
-            clut.setObject(curves, forKey: "curves" as NSString)
-            clut.setObject(pointColors, forKey: "colors" as NSString)
-            //[clut setObject:name forKey:@"name"];
-
-            volumeView?.setAdvancedCLUT(clut, lowResolution: lowRes)
-
             let theCurve = curve(windowingCurveIndex())
             let firstPoint = point(theCurve, 0)
-            let lastPoint = self.lastPoint(theCurve)
+            let lastPoint = point(theCurve, windowedCount(windowingCurveIndex()) - 1)
             let ww = Float(lastPoint.x - firstPoint.x)
             let wl = Float(Double(lastPoint.x + firstPoint.x) / 2.0)
 
@@ -2197,9 +2172,9 @@ public final class CLUTOpacityView: NSView {
         // The VRView sends it while windowing, curves or none.
         if curves.count == 0 { return }
 
-        let theCurve = mutableCurve(windowingCurveIndex())
+        let theCurve = mutableCurve(windowingCurveIndex()), n = windowedCount(windowingCurveIndex())
         let firstPoint = point(theCurve, 0)
-        let lastPoint = self.lastPoint(theCurve)
+        let lastPoint = point(theCurve, n - 1)
         let half = Float(Double(lastPoint.x - firstPoint.x) / 2.0)
         let middle = Float(Double(firstPoint.x) + Double(half))
 
@@ -2211,12 +2186,12 @@ public final class CLUTOpacityView: NSView {
 
         var pt: NSPoint
         var factor: Float = 1.0
-        for i in 0..<theCurve.count {
+        for i in 0..<n {
             pt = point(theCurve, i)
             factor = Float(abs(Double(pt.x) - Double(middle)) / Double(half))
             if factor < 0.0 { factor = 0.0 }
             pt.x += CGFloat(shiftWL)
-            if Double(i) < Double(theCurve.count) / 2.0 {
+            if Double(i) < Double(n) / 2.0 {
                 pt.x -= CGFloat(shiftWW * factor)
             } else {
                 pt.x += CGFloat(shiftWW * factor)
@@ -2251,7 +2226,6 @@ public final class CLUTOpacityView: NSView {
         let attrsDictionary: [NSAttributedString.Key: Any] = [.foregroundColor: textLabelColor]
 
         let label = NSAttributedString(string: text ?? "", attributes: attrsDictionary)
-        //	NSRect labelBounds = [label boundingRectWithSize:[self bounds].size options:NSStringDrawingUsesDeviceMetrics];
         let labelBounds = label.boundingRect(with: drawingRect.size, options: .usesDeviceMetrics)
 
         var imageSize = NSCursor.arrow.image.size
@@ -2263,7 +2237,6 @@ public final class CLUTOpacityView: NSView {
         let cursorImage = NSImage(size: imageSize, flipped: false) { _ in
             NSCursor.arrow.image.draw(at: NSMakePoint(0, 0), from: NSRect.zero, operation: .copy, fraction: 1.0)
             NSColor.black.withAlphaComponent(0.5).set()
-            //NSRectFill(NSMakeRect(labelPosition.x-2, labelPosition.y+1, labelBounds.size.width+4, labelBounds.size.height+4));
             __NSRectFill(NSMakeRect(labelPosition.x - 2, labelPosition.y + 1, labelBounds.size.width + 4, 13)) // nicer if the height stays the same when moving the mouse
             label.draw(at: labelPosition)
             return true

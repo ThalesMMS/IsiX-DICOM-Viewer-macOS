@@ -2,11 +2,14 @@
 """An ultrasound region answers what DCMUSRegion answered.
 
 DCMUSRegion.m, the value the image keeps for each item of the Sequence of
-Ultrasound Regions, became USRegion of the IsiXImaging module (IsiXUSRegion in
-Objective-C). The image fills it by key and the ROI labels read it by key, so
-this sets the same values by key on both, the integers at their limits and
-doubles of every magnitude, and compares what each answers by key and its
--toString, which prints them through NSNumber.
+Ultrasound Regions, became USRegion of the IsiXImaging module, which keeps the
+name DCMUSRegion in Objective-C: a plugin built for the Horos or OsiriX SDK
+looks the class up by that name. The image fills it by key and the ROI labels
+read it by key, so this sets the same values by key on both, the integers at
+their limits and doubles of every magnitude, and compares what each answers by
+key and its -toString, which prints them through NSNumber. The module's probe
+also asks the runtime for the class by its name, and that no class is left
+under the name the module gave it before.
 
 The reference is DCMUSRegion.m of the last revision that has it, compiled with
 clang as Xcode compiled it (manual retain and release).
@@ -48,6 +51,7 @@ int main(void) { @autoreleasepool {
     NSArray *flags = @[@"isReferencePixelX0Present", @"isReferencePixelY0Present"];
     NSArray *intValues = @[@0, @1, @-1, @3, @12, @(INT_MAX), @(INT_MIN), @65535];
     NSArray *realValues = @[@0.0, @-0.0, @1.0, @0.1, @-0.0025, @1e-300, @(DBL_MAX), @(1.0 / 3.0), @12345.678901234567, @-90.5];
+    RUNTIME_NAME
     for (int round = 0; round < 40; round++) {
         id region = [[[REGION alloc] init] autorelease];
         if (round > 0) {
@@ -70,8 +74,18 @@ int main(void) { @autoreleasepool {
 '''
 
 
-def build(work, name, flags, class_import, region):
-    (work / f'{name}.m').write_text(DRIVER.replace('CLASS_IMPORT', class_import).replace('REGION', region))
+# The module's class is the one the runtime gives for the SDK's name, and the
+# name the module gave it before is gone.
+RUNTIME_NAME = '''if (NSClassFromString(@"DCMUSRegion") != [DCMUSRegion class] || NSClassFromString(@"IsiXUSRegion") != Nil
+        || ![[[[DCMUSRegion alloc] init] autorelease] isMemberOfClass: NSClassFromString(@"DCMUSRegion")]) {
+        fprintf(stderr, "the runtime does not name the module's class DCMUSRegion\\n");
+        return 1;
+    }'''
+
+
+def build(work, name, flags, class_import, region, runtime_name=''):
+    (work / f'{name}.m').write_text(DRIVER.replace('CLASS_IMPORT', class_import).replace('REGION', region)
+                                    .replace('RUNTIME_NAME', runtime_name))
     built = subprocess.run(['xcrun', 'clang', '-fno-objc-arc', '-w', *flags[0], str(work / f'{name}.m'), *flags[1],
                             '-framework', 'Foundation', '-o', str(work / name)], capture_output=True, text=True)
     if built.returncode:
@@ -90,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix='horos-us-region-') as name:
     module = work / 'IsiXImaging'
     current = build(work, 'current', (isix_modules.clang_module_flags('IsiXImaging', module),
                                       isix_modules.link_flags('IsiXImaging', module)),
-                    '@import IsiXImaging;', 'IsiXUSRegion')
+                    '@import IsiXImaging;', 'DCMUSRegion', RUNTIME_NAME)
 
 if current != former:
     for a, b in zip(former.splitlines(), current.splitlines()):

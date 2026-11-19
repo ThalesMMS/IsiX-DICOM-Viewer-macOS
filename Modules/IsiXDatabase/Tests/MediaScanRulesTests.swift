@@ -89,18 +89,72 @@ import Testing
         #expect(MediaScanRules.isOnlyEntryOfItsSeries(at: 2, seriesIDs: [nil, nil, nil]))
     }
 
-    @Test func buildsTheFileAndSeriesOfARecord() {
+    @Test func buildsTheFileOfARecord() {
         #expect(MediaScanRules.referencedFilePath("IMAGES\\IM1", basePath: "/V") == "/V/IMAGES/IM1")
         #expect(MediaScanRules.acceptsReferencedFilePath("/V/" + String(repeating: "a", count: 1020)))
         #expect(!MediaScanRules.acceptsReferencedFilePath("/V/" + String(repeating: "a", count: 1021)))
         #expect(MediaScanRules.fileType(forTransferSyntax: "1.2.840.10008.1.2.4.101") == "DICOMMPEG2")
         #expect(MediaScanRules.fileType(forTransferSyntax: "1.2.840.10008.1.2.4.100") == "DICOMMPEG2")
         #expect(MediaScanRules.fileType(forTransferSyntax: nil) == "DICOM")
-        #expect(MediaScanRules.seriesDICOMUID(seriesInstanceUID: "1.2", sopInstanceUID: "1.3", numberOfFrames: 1) == "1.2")
-        #expect(MediaScanRules.seriesDICOMUID(seriesInstanceUID: "1.2", sopInstanceUID: "1.3", numberOfFrames: 4) == "1.2-1.3")
-        #expect(MediaScanRules.seriesDICOMUID(seriesInstanceUID: nil, sopInstanceUID: nil, numberOfFrames: 2) == "(null)-(null)")
-        #expect(MediaScanRules.seriesID(seriesNumber: "7", seriesDICOMUID: "1.2") == "00000007 1.2")
-        #expect(MediaScanRules.seriesID(seriesNumber: "-1", seriesDICOMUID: nil) == "-00000001 (null)")
-        #expect(MediaScanRules.seriesID(seriesNumber: nil, seriesDICOMUID: "1.2") == "1.2")
+    }
+
+    /// The key of a single-frame entry is made of the series number and the
+    /// series UID alone: the SOP instance UID takes no part, whatever the
+    /// record says of its frames below two.
+    @Test(arguments: [0, 1])
+    func aSingleFrameEntryIsKeyedByItsSeries(_ frames: Int) {
+        func key(_ number: String?, _ series: String?, _ instance: String? = "1.3") -> String? {
+            MediaScanRules.seriesID(seriesNumber: number, seriesInstanceUID: series, sopInstanceUID: instance,
+                                    numberOfFrames: frames)
+        }
+        #expect(key("7", "1.2") == "00000007 1.2")
+        #expect(key("7", "1.2", nil) == "00000007 1.2")
+        #expect(key("-1", nil) == "-00000001 (null)")
+        #expect(key("abc", "1.2") == "00000000 1.2")
+        #expect(key(nil, "1.2") == "1.2")
+        #expect(key(nil, nil) == nil)
+    }
+
+    /// A multi-frame entry is a series of its own: its key carries the SOP
+    /// instance UID after the series UID, each "(null)" when the record has
+    /// none, so two files of one series never share a key.
+    @Test func aMultiFrameEntryIsKeyedByItsSeriesAndInstance() {
+        func key(_ number: String?, _ series: String?, _ instance: String?, frames: Int = 4) -> String? {
+            MediaScanRules.seriesID(seriesNumber: number, seriesInstanceUID: series, sopInstanceUID: instance,
+                                    numberOfFrames: frames)
+        }
+        #expect(key("7", "1.2", "1.3") == "00000007 1.2-1.3")
+        #expect(key(nil, "1.2", "1.3") == "1.2-1.3")
+        #expect(key("7", nil, "1.3") == "00000007 (null)-1.3")
+        #expect(key("7", "1.2", nil) == "00000007 1.2-(null)")
+        #expect(key(nil, nil, nil, frames: 2) == "(null)-(null)")
+        #expect(key("7", "1.2", "1.3") != key("7", "1.2", "1.4"))
+        #expect(key("7", "1.2", "1.3", frames: 2) == key("7", "1.2", "1.3", frames: 300))
+    }
+
+    @Test(arguments: ["", "..\\OUT", "DIR\\..\\IM1", ".\\IM1", "/OUT", "DIR/../OUT", "\\OUT", "DIR\\\\IM1", "DIR\\", "IM\0"])
+    func rejectsInvalidReferencedFileIDs(_ id: String) {
+        #expect(MediaScanRules.referencedFilePath(id, basePath: "/V") == nil)
+    }
+
+    @Test func theFallbackFindsOnlyFilesInTheFileSet() throws {
+        let files = FileManager.default
+        let root = files.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let fileSetPath = root.appendingPathComponent("media")
+        let outsidePath = root.appendingPathComponent("media-sibling")
+        try files.createDirectory(at: fileSetPath, withIntermediateDirectories: true)
+        defer { try? files.removeItem(at: root) }
+        try files.createDirectory(at: outsidePath, withIntermediateDirectories: false)
+        let external = outsidePath.appendingPathComponent("OUT.dcm")
+        let local = fileSetPath.appendingPathComponent("img.dcm")
+        try Data().write(to: external)
+        try Data().write(to: local)
+        let link = fileSetPath.appendingPathComponent("IMG")
+        try files.createSymbolicLink(at: link, withDestinationURL: external)
+        let fileSet = try #require(MediaScanRules.FileSetDirectory(fileSetPath.path))
+        #expect(!fileSet.contains(link.path))
+        #expect(!fileSet.contains(external.path))
+        #expect(fileSet.contains(local.path))
+        #expect(MediaScanRules.listedPath(matching: link.path, in: [link.path, local.path], fileSet: fileSet) == local.path)
     }
 }

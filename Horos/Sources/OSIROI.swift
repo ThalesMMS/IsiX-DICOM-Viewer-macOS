@@ -59,7 +59,10 @@ import IsiXROI
 /// that runs, whichever language the subclass is written in.
 @objc(OSIROI)
 public class OSIROI: NSObject {
-    private var _homeFloatVolumeData: OSIFloatVolumeData?
+    // An instance variable of the former Horos and OsiriX plugin SDK: a plugin
+    // reads and writes it at the offset the application exports for it, so it
+    // is a stored field of this class, never private, lazy, weak or observed.
+    final var _homeFloatVolumeData: OSIFloatVolumeData?
 
     // MARK: - Factories
 

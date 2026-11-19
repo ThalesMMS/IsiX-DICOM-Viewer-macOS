@@ -62,7 +62,7 @@ extension SRView {
 
     /// The tool of `event`: the right button zooms, the other one translates,
     /// the left one is the current tool; the modifiers choose another.
-    func getTool(_ event: NSEvent) -> ToolMode {
+    @objc(getTool:) func getTool(_ event: NSEvent) -> ToolMode {
         var tool: ToolMode
         switch event.type {
         case .rightMouseDown, .rightMouseDragged, .rightMouseUp: tool = .tZoom

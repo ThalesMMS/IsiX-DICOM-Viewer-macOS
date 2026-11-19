@@ -27,9 +27,8 @@ def find_dcmtk_bin():
     candidates = []
     if env:
         candidates.append(Path(env))
-    for base in (root, root.parent / 'horos-workbench'):
-        candidates.append(base / 'build/Build/Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install/bin')
-        candidates.append(base / 'build/Build/Intermediates.noindex/Horos.build/Debug/DCMTK.build/CMake/bin')
+    candidates.append(root / 'build/Build/Intermediates.noindex/Horos.build/Debug/DCMTK.build/Install/bin')
+    candidates.append(root / 'build/Build/Intermediates.noindex/Horos.build/Debug/DCMTK.build/CMake/bin')
     for directory in candidates:
         if (directory / 'storescu').is_file() and (directory / 'storescp').is_file():
             return directory

@@ -218,6 +218,15 @@ public final class DicomImage: NSManagedObject {
     private var _fileType: String?
     private var _thumbnail: NSImage?
 
+    // Two instance variables of the former Horos and OsiriX plugin SDK that
+    // only older copies of its header declare, exported at their offsets.
+    // The first is the path cache under the name it had before the
+    // underscore: a copy written with _completePathCache, under its lock, and
+    // not read. Nothing stands behind the second: an image has no
+    // mountedVolume attribute any more, only its series has.
+    final var completePathCacheOfOlderSDK: NSString?
+    final var mountedVolume: NSNumber?
+
     /// The former atomic property of the class extension.
     @objc var completePathCache: String? {
         get {
@@ -230,8 +239,11 @@ public final class DicomImage: NSManagedObject {
             os_unfair_lock_lock(dicomImageAtomicLock)
             let old = _completePathCache
             _completePathCache = newValue
+            let oldCopy = completePathCacheOfOlderSDK
+            completePathCacheOfOlderSDK = newValue as NSString?
             os_unfair_lock_unlock(dicomImageAtomicLock)
             _ = old
+            _ = oldCopy
         }
     }
 

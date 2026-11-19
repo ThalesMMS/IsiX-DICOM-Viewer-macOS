@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """An image file wrapped in Pixel Data under a private transfer syntax is DICOM and is drawn.
 
-VTServer stores scanned documents as a single-page CCITT Group 4 TIFF encapsulated
+Some PACS store scanned documents as a single-page CCITT Group 4 TIFF encapsulated
 under 1.2.276.0.19.1.2.55.3. GDCM's scanner refused such a file, so the import said
 it was not DICOM; no DICOM codec decodes it. The fixture is such an object with a
 synthetic page written by ImageIO. The incoming triage must let its 1-bit object

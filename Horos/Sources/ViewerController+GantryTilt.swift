@@ -57,9 +57,11 @@ import IsiXImaging
     /// `progress` after each slice, then clears their intervals; false, with
     /// nothing changed, when they do not all have the middle slice's
     /// orientation. A slice that cannot be reoriented stops the correction.
-    func correct(progress: () -> Void) -> Bool {
+    /// The plane is that of slice `modelIndex` for a stack corrected as
+    /// another was, whose middle slice may be another by now.
+    func correct(onto modelIndex: Int? = nil, progress: () -> Void) -> Bool {
         guard !slices.isEmpty else { return false }
-        let model = slices[slices.count / 2]
+        let model = slices[modelIndex.map { min(max($0, 0), slices.count - 1) } ?? slices.count / 2]
         var orientation = [Double](repeating: 0, count: 9)
         model.orientationDouble(&orientation)
         let origin = [model.originX, model.originY, model.originZ]
@@ -82,7 +84,8 @@ import IsiXImaging
                 model.orientationDouble(&vectorModel)
                 let offset = [p.originX - origin[0], p.originY - origin[1], p.originZ - origin[2]]
 
-                var matrix = GantryTiltCorrection.parameters(sensor: vectorSensor, model: vectorModel, offset: offset)
+                var matrix = GantryTiltCorrection.parameters(sensor: vectorSensor, model: vectorModel,
+                                                             offset: GantryTiltCorrection.frameTranslation(offset: offset, model: vectorModel))
                 var size = 0
                 guard let resultBuff = ITKTransform.reorient2Dimage(&matrix, firstObject: model, firstObjectOriginal: p, length: &size) else {
                     HorosAlertPanel.runInformational(title: NSLocalizedString("Error!", comment: ""), message: NSLocalizedString("Not Enough Memory", comment: ""),
@@ -107,21 +110,24 @@ import IsiXImaging
     }
 }
 
-public extension ViewerController {
+/// The correction of the series a viewer shows, with its progress window.
+/// It is a type of its own so that the viewer's class only asks for it.
+@MainActor enum ViewerGantryTiltCorrection {
 
     /// Brings every slice of the viewer's series onto the plane of its middle
     /// slice, when they all have its orientation, and records the degrees the
     /// series was corrected by.
-    @objc(correctGangtryTilt:)
-    class func correctGangtryTilt(_ viewerController: ViewerController!) {
+    static func run(on viewerController: ViewerController) {
         let slices = GantryTiltSlices(slices: viewerController.pixList() as? [DCMPix] ?? [])
 
         let w = viewerController.startWaitProgressWindow(NSLocalizedString("Gantry Tilt Correction", comment: ""), slices.slices.count)
 
+        var corrected = false
         let exception = HorosObjCException.caught {
             // The 3D views opened from this viewer say so.
             if slices.correct(progress: { viewerController.waitIncrement(by: w, 1) }) {
                 GantryTiltPolicy.setCorrected(degrees: viewerController.horos_titledGantryDegrees, for: viewerController)
+                corrected = true
             }
         }
         if let exception {
@@ -130,7 +136,21 @@ public extension ViewerController {
 
         viewerController.endWaitWindow(w)
 
+        // The corrected slices are left without their interval, to be worked
+        // out again from their new origins. A 3D window made right after the
+        // correction found none and took the slice thickness for it.
+        if corrected { _ = viewerController.computeInterval() }
+
         // We modified the view: OsiriX please update the display!
         viewerController.needsDisplayUpdate()
+    }
+}
+
+public extension ViewerController {
+
+    /// Corrects the gantry tilt of the series `viewerController` shows.
+    @objc(correctGangtryTilt:)
+    class func correctGangtryTilt(_ viewerController: ViewerController!) {
+        ViewerGantryTiltCorrection.run(on: viewerController)
     }
 }

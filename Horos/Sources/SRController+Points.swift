@@ -232,6 +232,7 @@ extension SRController {
         if flyThruController() != nil { return }
 
         let adapter = SRFlyThruAdapter(srController: self)
+        FTAdapter = adapter
         let flyThruController = FlyThruController(flyThruAdapter: adapter)
         flyThruController.loadWindow()
         flyThruController.window?.makeKeyAndOrderFront(sender)
@@ -263,7 +264,7 @@ extension SRController {
             .appendingPathComponent("IsiX DICOM Viewer.jpg")
         (jpegData() as NSData?)?.write(toFile: path, atomically: true)
 
-        _ = Photos().importInPhotos([path])
+        Photos().importShowingFailure([path])
     }
 
     @IBAction func exportJPEG(_ sender: Any?) {

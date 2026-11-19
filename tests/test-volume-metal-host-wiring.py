@@ -66,7 +66,7 @@ assert 'VolumeMetalSlots.get(self, uploadedSlot) as? NSData !== volume || !rende
 # VRController is Swift: the buffers stay NSData objects, never bridged to Data.
 controller = (root / 'Horos/Sources/VRController.swift').read_text()
 assert 'public final func horosVolumeData() -> NSObject? { volumeData[Int(curMovieIndexStorage)] }' in controller and \
-    'var volumeData = [NSData?](repeating: nil, count: Int(MAX4D))' in controller and \
+    'final var volumeData: VRControllerFrameObjects<NSData> {' in (root / 'Horos/Sources/VRController+State.swift').read_text() and \
     'controller.horosVolumeData() as? NSData' in bridge, \
     'the volume reaches the Swift host as Data, a new object each frame'
 for forbidden in ('valueForKey', 'value(forKey', 'managedObjectContext', 'DicomImage', 'DicomSeries', 'DicomDatabase', 'sourceFile',

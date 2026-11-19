@@ -79,9 +79,24 @@ import Foundation
 /// The arithmetic is the Objective-C++ class's, rounding included: clang
 /// fused each multiplication into the addition or subtraction that used it
 /// (one rounding, as `fma`), and the same sums are written here with
-/// `addingProduct`. Coordinates are voxels of the input volume unless a
+/// `addingProduct`. Seven things differ, where the class put the path up to
+/// a voxel off the lumen's axis or short of its end: the lumen is sampled at
+/// the centres of the resampled voxels, a centerline runs through their
+/// centres from the first point given to the second, the two searches of a
+/// centerline meet on voxels both have settled, the thinning keeps the
+/// line's last point, the thresholds sample the input around the voxel
+/// nearest to a point, their interval holds the mean of those voxels give or
+/// take their noise, widened by its own width at most, and an axis a hair
+/// short of a whole number of resampled
+/// voxels has that number. Coordinates are voxels of the input volume unless a
 /// method says resample coordinates: the distance map's voxels, cubes of
-/// `resampleVoxelSize` millimetres.
+/// `resampleVoxelSize` millimetres. The assistant counts the input voxel
+/// (i, j, k) at (i, j, k), its centre, as the Curved MPR's volume transform
+/// gives them; a point in resample coordinates is that point times
+/// `resampleScale`, and the resampled voxel (i, j, k) holds the points from
+/// (i, j, k) to (i + 1, j + 1, k + 1) there, its centre at
+/// (i + 0.5, j + 0.5, k + 0.5). The points the public methods take and give
+/// in input coordinates are the caller's, moved by `firstVoxelCentre`.
 ///
 /// The volume belongs to the caller and must outlive the assistant. A
 /// distance transform may run on another thread (`setThreshold` of the app's
@@ -124,6 +139,15 @@ public final class FlyPathAssistant: @unchecked Sendable {
     var sampleMetric = (SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 0))
     let csmap: UnsafeMutablePointer<Float>
 
+    /// Where the caller's input coordinates put the centre of the volume's
+    /// first voxel: 0, the default, counts the voxel (i, j, k) at (i, j, k),
+    /// as the Curved MPR does; the endoscopy's MPR views count a pixel from
+    /// its corner, its centre at i + 0.5. The points given to the public
+    /// methods in input coordinates are moved by it on the way in, and those
+    /// they give back on the way out, so that a path follows the lumen's axis
+    /// in the caller's views; directions, resample coordinates and the scales
+    /// `toResampleCoordinates` and `toInputCoordinates` are not.
+    public var firstVoxelCentre = SIMD3<Float>(repeating: 0)
     public var centerlineResampleStepLength: Float = 0
     public var threshold: Float = 0
     public private(set) var isDistanceTransformFinished = false
@@ -177,9 +201,9 @@ public final class FlyPathAssistant: @unchecked Sendable {
         resampleVoxelSize = vsize
         free(distmap)
         distmap = nil
-        distmapWidth = cInt(Float(inputWidth) * inputSpacing.x / vsize)
-        distmapHeight = cInt(Float(inputHeight) * inputSpacing.y / vsize)
-        distmapDepth = cInt(Float(inputDepth) * inputSpacing.z / vsize)
+        distmapWidth = Self.resampledCount(inputWidth, spacing: inputSpacing.x, voxelSize: vsize)
+        distmapHeight = Self.resampledCount(inputHeight, spacing: inputSpacing.y, voxelSize: vsize)
+        distmapDepth = Self.resampledCount(inputDepth, spacing: inputSpacing.z, voxelSize: vsize)
 
         resampleScale = SIMD3(Float(distmapWidth) / Float(inputWidth),
                               Float(distmapHeight) / Float(inputHeight),
@@ -196,6 +220,18 @@ public final class FlyPathAssistant: @unchecked Sendable {
         return 0
     }
 
+    /// The resampled voxels along an axis of `count` voxels spaced by
+    /// `spacing`: the whole voxels of `voxelSize` its length holds, a length
+    /// within a thousandth of a voxel of a whole number counting as that
+    /// number. The spacings reach the assistant rounded to floats (a slice
+    /// interval measured between two positions is 0.59999996 for 0.6 mm), and
+    /// the former code, which truncated the quotient, made 109 voxels of 110
+    /// slices of 0.6 mm at 0.6 mm: every resampled slice then lay a little
+    /// further from the input's, up to half a slice off at the end.
+    static func resampledCount(_ count: Int, spacing: Float, voxelSize: Float) -> Int {
+        cInt(Float(count) * spacing / voxelSize + 0.001)
+    }
+
     /// The distance transform for the lumen at `threshold`, on this thread.
     public func setThreshold(_ value: Float) {
         threshold = value
@@ -204,6 +240,27 @@ public final class FlyPathAssistant: @unchecked Sendable {
 
     public func toResampleCoordinates(_ p: SIMD3<Float>) -> SIMD3<Float> { p * resampleScale }
     public func toInputCoordinates(_ p: SIMD3<Float>) -> SIMD3<Float> { p / resampleScale }
+
+    /// A point of the caller's input coordinates in resample coordinates.
+    public func resampleCoordinates(ofInputPoint p: SIMD3<Float>) -> SIMD3<Float> {
+        toResampleCoordinates(fromCaller(p))
+    }
+
+    /// A point in resample coordinates in the caller's input coordinates.
+    public func inputCoordinates(ofResamplePoint p: SIMD3<Float>) -> SIMD3<Float> {
+        toCaller(toInputCoordinates(p))
+    }
+
+    /// A point of the caller's in the assistant's own input coordinates, and back.
+    func fromCaller(_ p: SIMD3<Float>) -> SIMD3<Float> { p - firstVoxelCentre }
+    func toCaller(_ p: SIMD3<Float>) -> SIMD3<Float> { p + firstVoxelCentre }
+
+    /// The input voxel nearest to `p`, in the assistant's own input
+    /// coordinates, where the voxel (i, j, k) lies at (i, j, k); C's
+    /// conversion of each rounded coordinate (`cInt`).
+    func nearestInputVoxel(_ p: SIMD3<Float>) -> SIMD3<Int> {
+        SIMD3(cInt(p.x.rounded()), cInt(p.y.rounded()), cInt(p.z.rounded()))
+    }
 
     /// The distance map's value at a resampled voxel, 0 outside the map.
     func distance(_ index: Int) -> Float {
@@ -220,32 +277,39 @@ public final class FlyPathAssistant: @unchecked Sendable {
     // MARK: - Threshold and distance transform
 
     /// The distance map before the transform: 0 outside the threshold
-    /// interval, `farAway` in it, each resampled voxel taking the largest of
-    /// the input voxels it starts from and their next ones; then closed by a
-    /// 3 × 3 kernel on each slice, and by a 1 × 3 one over the whole map read
-    /// as an image of its slices' pixels by its slices.
-    func thresholdImage() {
+    /// interval, `farAway` in it. Each resampled voxel takes the input's
+    /// value at its centre, interpolated between the 8 input voxels around
+    /// it, so that the lumen keeps its place and its width. The former code
+    /// took the largest of the 8 voxels from its corner on: a bright lumen
+    /// grew by a voxel and a dark one shrank by one, whatever the interval. A
+    /// value that is not a number is outside. Then closed by a 3 × 3 kernel
+    /// on each slice, and by a 1 × 3 one over the whole map read as an image
+    /// of its slices' pixels by its slices.
+    public func thresholdImage() {
         guard let distmap else { return }
         let w = distmapWidth, h = distmapHeight, d = distmapDepth
+        let xs = Self.centreSamples(count: w, scale: resampleScale.x, inputCount: inputWidth)
+        let ys = Self.centreSamples(count: h, scale: resampleScale.y, inputCount: inputHeight)
+        let zs = Self.centreSamples(count: d, scale: resampleScale.z, inputCount: inputDepth)
         var z = 0
         while z < d {
+            let z0 = zs.lower[z] * inputImageSize, z1 = zs.upper[z] * inputImageSize, fz = zs.fraction[z]
             var y = 0
             while y < h {
+                let y0 = ys.lower[y] * inputWidth, y1 = ys.upper[y] * inputWidth, fy = ys.fraction[y]
+                let row00 = z0 + y0, row10 = z0 + y1, row01 = z1 + y0, row11 = z1 + y1
                 var x = 0
                 while x < w {
-                    let inputx = cInt(Float(x) / resampleScale.x)
-                    let inputy = cInt(Float(y) / resampleScale.y)
-                    let inputz = cInt(Float(z) / resampleScale.z)
-                    var inValue = -Float.greatestFiniteMagnitude
-                    for i in inputx...(inputx + 1) {
-                        for j in inputy...(inputy + 1) {
-                            for k in inputz...(inputz + 1) where k < inputDepth && j < inputHeight && i < inputWidth {
-                                let value = input[k * inputImageSize + j * inputWidth + i]
-                                if inValue < value { inValue = value }
-                            }
-                        }
-                    }
-                    distmap[z * distmapImageSize + y * w + x] = (inValue > thresholdB || inValue < thresholdA) ? 0 : Self.farAway
+                    let x0 = xs.lower[x], x1 = xs.upper[x], fx = xs.fraction[x]
+                    // Along x on the four rows, then along y, then along z, each step one rounding (fma).
+                    let a00 = input[row00 + x0], a10 = input[row10 + x0], a01 = input[row01 + x0], a11 = input[row11 + x0]
+                    let c00 = a00.addingProduct(input[row00 + x1] - a00, fx)
+                    let c10 = a10.addingProduct(input[row10 + x1] - a10, fx)
+                    let c01 = a01.addingProduct(input[row01 + x1] - a01, fx)
+                    let c11 = a11.addingProduct(input[row11 + x1] - a11, fx)
+                    let c0 = c00.addingProduct(c10 - c00, fy), c1 = c01.addingProduct(c11 - c01, fy)
+                    let value = c0.addingProduct(c1 - c0, fz)
+                    distmap[z * distmapImageSize + y * w + x] = (value >= thresholdA && value <= thresholdB) ? Self.farAway : 0
                     x += 1
                 }
                 y += 1
@@ -259,9 +323,32 @@ public final class FlyPathAssistant: @unchecked Sendable {
             buffer.data = UnsafeMutableRawPointer(distmap + slice * distmapImageSize)
             morphologicalClosing(&buffer, kernelHeight: 3, kernelWidth: 3)
         }
-        buffer = vImage_Buffer(data: UnsafeMutableRawPointer(distmap), height: vImagePixelCount(distmapImageSize),
-                               width: vImagePixelCount(d), rowBytes: d * MemoryLayout<Float>.size)
-        morphologicalClosing(&buffer, kernelHeight: 1, kernelWidth: 3)
+        // Along the slices: the volume as an image whose rows are its slices, closed down its columns.
+        // The former closing "along the depth" read the memory in runs of `d` values, which lie along x
+        // and across the rows, and added a voxel of lumen where a run started or ended beside the lumen.
+        buffer = vImage_Buffer(data: UnsafeMutableRawPointer(distmap), height: vImagePixelCount(d),
+                               width: vImagePixelCount(distmapImageSize), rowBytes: distmapImageSize * MemoryLayout<Float>.size)
+        morphologicalClosing(&buffer, kernelHeight: 3, kernelWidth: 1)
+    }
+
+    /// Along one axis, for each of `count` resampled voxels, the input voxels
+    /// on either side of its centre, (i + 0.5) / `scale` in input
+    /// coordinates, and the weight of the second: the centre is held to the
+    /// first and the last of the `inputCount` input voxels.
+    static func centreSamples(count: Int, scale: Float, inputCount: Int) -> (lower: [Int], upper: [Int], fraction: [Float]) {
+        let count = max(count, 0), lastIndex = max(inputCount - 1, 0)
+        var lower = [Int](repeating: 0, count: count), upper = lower
+        var fraction = [Float](repeating: 0, count: count)
+        let last = Float(lastIndex)
+        for i in 0..<count {
+            let centre = (Float(i) + 0.5) / scale
+            let held = centre.isNaN ? 0 : min(max(centre, 0), last)
+            let low = Int(held)
+            lower[i] = low
+            upper[i] = min(low + 1, lastIndex)
+            fraction[i] = held - Float(low)
+        }
+        return (lower, upper, fraction)
     }
 
     /// The chamfer distance (1, √2, √3) of every voxel of the lumen to the
@@ -405,7 +492,7 @@ public final class FlyPathAssistant: @unchecked Sendable {
     /// A closing (dilation, then erosion) of a planar float image by a kernel
     /// of ones, `kernelHeight` × `kernelWidth`, in place. A vImage error is
     /// logged and leaves the image as it was before that step.
-    func morphologicalClosing(_ buffer: inout vImage_Buffer, kernelHeight: Int, kernelWidth: Int) {
+    public func morphologicalClosing(_ buffer: inout vImage_Buffer, kernelHeight: Int, kernelWidth: Int) {
         guard buffer.data != nil, buffer.height > 0, buffer.rowBytes > 0 else { return }
         let bytes = buffer.rowBytes * Int(buffer.height)
         guard let scratch = malloc(bytes) else { return }
@@ -445,7 +532,7 @@ public final class FlyPathAssistant: @unchecked Sendable {
     /// when it can be. 1 for a direction of length 0, which leaves the plane as
     /// it was; so does a product a b c that underflows to 0 with no component 0.
     @discardableResult
-    func calculateSampleMetric(_ a: Float, _ b: Float, _ c: Float) -> Int32 {
+    public func calculateSampleMetric(_ a: Float, _ b: Float, _ c: Float) -> Int32 {
         if a * b * c == 0 {
             if a == 0 && b == 0 && c == 0 {
                 return 1
@@ -496,7 +583,7 @@ public final class FlyPathAssistant: @unchecked Sendable {
     /// voxel apart, centered `stepLength` ahead of `pt` (resample coordinates);
     /// 0 outside the map.
     @discardableResult
-    func resampleCrossSection(_ pt: SIMD3<Float>, _ dir: SIMD3<Float>, _ stepLength: Float) -> Int32 {
+    public func resampleCrossSection(_ pt: SIMD3<Float>, _ dir: SIMD3<Float>, _ stepLength: Float) -> Int32 {
         let error = calculateSampleMetric(dir.x, dir.y, dir.z)
         if error != 0 { return error }
         let center = pointAhead(pt, dir, stepLength)
@@ -561,20 +648,21 @@ public final class FlyPathAssistant: @unchecked Sendable {
     /// One step of the path navigator: `pt` moves halfway to the center of
     /// the lumen ahead and `dir` turns along it, both in input coordinates,
     /// in and out. Before a distance transform, the thresholds come from the
-    /// voxels around `pt`. 0, or 1 without a map, or 2 (`cannotFindPath`)
-    /// with `pt` and `dir` as they were given.
+    /// voxels around the one nearest to `pt` (`computeLumenThresholds`); the
+    /// former code took the voxel from its corner, up to a voxel aside. 0,
+    /// or 1 without a map, or 2 (`cannotFindPath`) with `pt` and `dir` as
+    /// they were given.
     public func nextPosition(from pt: inout SIMD3<Float>, towards dir: inout SIMD3<Float>) -> Int32 {
         guard distmap != nil else { return Self.noEnoughMemory }
         // The thresholds sample the input around pt, in the input coordinates it comes in.
-        let inputX = cInt(pt.x), inputY = cInt(pt.y), inputZ = cInt(pt.z)
-        pt = toResampleCoordinates(pt)
+        let voxel = nearestInputVoxel(fromCaller(pt))
+        pt = toResampleCoordinates(fromCaller(pt))
         dir = toResampleCoordinates(dir)
         if !isDistanceTransformFinished {
-            var pixVal: Float = 0
-            var count = 0
-            addInputNeighborhood(inputX, inputY, inputZ, &pixVal, &count)
-            if count != 0 { pixVal /= Float(count) }
-            computeIntervalThresholds(from: pixVal)
+            // The voxels around it, summed one after the other as the former code added them up.
+            let values = inputNeighborhood(voxel)
+            let pixVal = values.isEmpty ? 0 : Self.lumenValue(of: values)
+            computeLumenThresholds(from: pixVal, among: values)
             distanceTransform()
         }
 
@@ -624,14 +712,14 @@ public final class FlyPathAssistant: @unchecked Sendable {
 
         guard let ahead = nextCenterPoint(from: pt, towards: dir, stepLength: steplen) else {
             // pt and dir go back in the input coordinates, as the other returns give them.
-            pt = toInputCoordinates(pt)
+            pt = toCaller(toInputCoordinates(pt))
             dir = toInputCoordinates(dir)
             return Self.cannotFindPath
         }
         pt = SIMD3(halfway(pt.x, ahead.x, 0.5), halfway(pt.y, ahead.y, 0.5), halfway(pt.z, ahead.z, 0.5))
         let len = (y * y).addingProduct(x, x).addingProduct(z, z).squareRoot()
         dir = SIMD3(x / len, y / len, z / len)
-        pt = toInputCoordinates(pt)
+        pt = toCaller(toInputCoordinates(pt))
         dir = toInputCoordinates(dir)
         return 0
     }
@@ -641,27 +729,41 @@ public final class FlyPathAssistant: @unchecked Sendable {
         Float(Double(from).addingProduct(Double(to - from), fraction))
     }
 
-    /// Adds to `sum` the input's voxels of the 3 × 3 × 3 neighbourhood of
-    /// (x, y, z), in input coordinates, and counts them in `count`; the
-    /// neighbours outside the volume are left out.
-    func addInputNeighborhood(_ x: Int, _ y: Int, _ z: Int, _ sum: inout Float, _ count: inout Int) {
+    /// The input's voxels of the 3 × 3 × 3 neighbourhood of `voxel`, in
+    /// input coordinates, in the order the former code added them up (x
+    /// slowest, z fastest); the neighbours outside the volume are left out.
+    /// The value the lumen's thresholds are looked for from, among the voxels
+    /// around the points given: their lower median. Beside a wall, in the
+    /// ring of its partial volume, more than half of them are the lumen's
+    /// and the rest run down the wall's ramp: their mean lies on the ramp,
+    /// and thresholds taken there let the lumen out into the tissue. Values
+    /// that are not numbers are left out; with none left, the mean of all.
+    static func lumenValue(of values: [Float]) -> Float {
+        let sorted = values.filter { !$0.isNaN }.sorted()
+        guard !sorted.isEmpty else { return values.reduce(0, +) / Float(values.count) }
+        return sorted[(sorted.count - 1) / 2]
+    }
+
+    func inputNeighborhood(_ voxel: SIMD3<Int>) -> [Float] {
+        var values: [Float] = []
         for i in -1...1 {
             for j in -1...1 {
                 for k in -1...1 {
-                    let vx = x + i, vy = y + j, vz = z + k
+                    let vx = voxel.x + i, vy = voxel.y + j, vz = voxel.z + k
                     if vx < 0 || vx >= inputWidth || vy < 0 || vy >= inputHeight || vz < 0 || vz >= inputDepth { continue }
-                    sum += input[(vz * inputHeight + vy) * inputWidth + vx]
-                    count += 1
+                    values.append(input[(vz * inputHeight + vy) * inputWidth + vx])
                 }
             }
         }
+        return values
     }
 
     // MARK: - Radius
 
     /// The lumen's radius in millimetres at a point in input coordinates, 0
     /// outside the map.
-    public func radius(at p: SIMD3<Float>) -> Float {
+    public func radius(at point: SIMD3<Float>) -> Float {
+        let p = fromCaller(point)
         let x = cInt(p.x * resampleScale.x), y = cInt(p.y * resampleScale.y), z = cInt(p.z * resampleScale.z)
         if x >= 0 && x < distmapWidth && y >= 0 && y < distmapHeight && z >= 0 && z < distmapDepth {
             return distance(z * distmapImageSize + y * distmapWidth + x) * resampleVoxelSize

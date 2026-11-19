@@ -77,6 +77,10 @@ extension NSString {
     /// The path with its last component resolved for as long as it is a
     /// symbolic link or an alias (an alias may stand anywhere in the path);
     /// the path itself when it does not exist, nil when a link cannot be followed.
+    ///
+    /// Links that lead back to one another, or one that names itself, cannot
+    /// be followed either: this gives up after MAXSYMLINKS of them, where the
+    /// system answers ELOOP, instead of going round them for ever.
     @objc(stringByIterativelyResolvingSymlinkOrAlias)
     public func byIterativelyResolvingSymlinkOrAlias() -> String? {
         var path: String? = self as String
@@ -84,6 +88,7 @@ extension NSString {
         guard linkStatus(self as String, &info) else {
             return self as String
         }
+        var followed: Int32 = 0
         while let current = path {
             let isLink = (info.st_mode & S_IFMT) == S_IFLNK
             var aliasTarget: String?
@@ -92,6 +97,8 @@ extension NSString {
                       let target = (current as NSString).byConditionallyResolvingAlias() else { break }
                 aliasTarget = target
             }
+            guard followed < MAXSYMLINKS else { return nil }
+            followed += 1
             if isLink {
                 guard let target = (current as NSString).byConditionallyResolvingSymlink() else { return nil }
                 path = target

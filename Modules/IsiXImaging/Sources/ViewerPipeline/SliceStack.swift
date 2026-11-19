@@ -118,6 +118,31 @@ public enum SliceStack {
         return orientationA[6 + axis] > 0 ? -interval : interval
     }
 
+    /// Puts the `order.count` slices of `sliceFloatCount` floats each, stored
+    /// one after the other from `base`, in `order`: the slice at place
+    /// `order[j]` goes to place j. `order` is a permutation of its indices.
+    /// Each cycle of the permutation is followed with one slice of scratch.
+    public static func reorderSlices(_ base: UnsafeMutablePointer<Float>, order: [Int], sliceFloatCount: Int) {
+        guard sliceFloatCount > 0 else { return }
+        let scratch = UnsafeMutablePointer<Float>.allocate(capacity: sliceFloatCount)
+        defer { scratch.deallocate() }
+        var placed = [Bool](repeating: false, count: order.count)
+        for start in order.indices where !placed[start] && order[start] != start {
+            scratch.update(from: base + start * sliceFloatCount, count: sliceFloatCount)
+            var place = start
+            while true {
+                placed[place] = true
+                let from = order[place]
+                if from == start {
+                    (base + place * sliceFloatCount).update(from: scratch, count: sliceFloatCount)
+                    break
+                }
+                (base + place * sliceFloatCount).update(from: base + from * sliceFloatCount, count: sliceFloatCount)
+                place = from
+            }
+        }
+    }
+
     /// Reverses the order of `sliceCount` slices of `sliceFloatCount` floats
     /// each, stored one after the other from `base`: slice i and slice
     /// sliceCount-1-i trade places. A large stack is swapped on all processors.
@@ -144,6 +169,104 @@ public enum SliceStack {
             var destination = buffer
             vImageVerticalReflect_PlanarF(&buffer, &destination, vImage_Flags(kvImageNoFlags))
         }
+    }
+}
+
+/// The order of a whole stack along its slice normal, which decides how the
+/// viewer arranges its slices before a 3D reconstruction builds a volume
+/// from the first slice up.
+///
+/// The direction used to come from the step between slices 1 and 2 alone. A
+/// CT sorted by acquisition date, whose first five slices share the time of
+/// one rotation, gets those five in ascending location ahead of the other
+/// slices, which descend: the step from slice 1 to 2 rises, the stack was
+/// taken as ascending, never reversed, and the MPR stood upside down, after a
+/// warning of intervals "from 1 to 5 mm" for slices 1 mm apart.
+public struct SliceStackOrder: Sendable, Equatable {
+
+    public enum Arrangement: Sendable, Equatable {
+        /// Each slice further along the normal than the one before.
+        case ascending
+        /// Each slice behind the one before.
+        case descending
+        /// Each slice at its own position, out of order: `order[j]` is the
+        /// slice that comes j-th along the normal.
+        case unordered(order: [Int])
+        /// Fewer than two slices, a slice of another orientation or with none,
+        /// or two slices at one position (time points of one series, a
+        /// repeated slice): no single order along the normal.
+        case undetermined
+    }
+
+    /// Positions closer than this along the normal, in mm, are one position.
+    public static let positionTolerance = 0.001
+
+    public let arrangement: Arrangement
+    /// The last slice lies behind the first along the normal.
+    public let descendsOverall: Bool
+    /// The mean distance between neighbouring slices once in order: from the
+    /// first position to the last, divided by the gaps between them. 0 when
+    /// the order is undetermined.
+    public let meanInterval3D: Double
+
+    /// `origins` are the x, y, z of each slice and `orientations` its nine
+    /// cosines (row, column, normal), in stack order.
+    public init(origins: [[Double]], orientations: [[Double]]) {
+        (arrangement, descendsOverall, meanInterval3D) = Self.analyse(origins: origins, orientations: orientations)
+    }
+
+    private static func analyse(origins: [[Double]], orientations: [[Double]]) -> (Arrangement, Bool, Double) {
+        let undetermined: (Arrangement, Bool, Double) = (.undetermined, false, 0)
+        let count = origins.count
+        guard count >= 2, orientations.count == count, origins.allSatisfy({ $0.count == 3 }),
+              orientations.allSatisfy({ $0.count == 9 && SliceStack.isSameNonZeroOrientation($0, orientations[0]) })
+        else { return undetermined }
+        let n = Array(orientations[0][6...8])
+        let length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).squareRoot()
+        guard length > 0.5 else { return undetermined }
+        let positions = origins.map { ($0[0] * n[0] + $0[1] * n[1] + $0[2] * n[2]) / length }
+        let steps = (1..<count).map { positions[$0] - positions[$0 - 1] }
+
+        let arrangement: Arrangement
+        var sorted = Array(0..<count)
+        if steps.allSatisfy({ $0 > positionTolerance }) {
+            arrangement = .ascending
+        } else if steps.allSatisfy({ $0 < -positionTolerance }) {
+            arrangement = .descending
+            sorted.reverse()
+        } else {
+            sorted.sort { positions[$0] < positions[$1] }
+            guard (1..<count).allSatisfy({ positions[sorted[$0]] - positions[sorted[$0 - 1]] > positionTolerance })
+            else { return undetermined }
+            arrangement = .unordered(order: sorted)
+        }
+        let low = origins[sorted[0]], high = origins[sorted[count - 1]]
+        let dx = high[0] - low[0], dy = high[1] - low[1], dz = high[2] - low[2]
+        return (arrangement, positions[count - 1] < positions[0], (dx * dx + dy * dy + dz * dz).squareRoot() / Double(count - 1))
+    }
+
+    /// Whether the stack runs against its normal: from every slice when they
+    /// have an order, from the step between slices 1 and 2 (`stepInterval`,
+    /// negative when it descends) when they have none.
+    public func isDescending(stepInterval: Double) -> Bool {
+        switch arrangement {
+        case .ascending: return false
+        case .descending: return true
+        case .unordered: return descendsOverall
+        case .undetermined: return stepInterval < 0
+        }
+    }
+
+    /// Whether the stack runs one way along the normal, slice after slice.
+    public var isMonotonic: Bool {
+        arrangement == .ascending || arrangement == .descending
+    }
+
+    /// Where each slice goes once `order` is applied: `inverse(of: order)[order[j]] == j`.
+    public static func inverse(of order: [Int]) -> [Int] {
+        var inverse = [Int](repeating: 0, count: order.count)
+        for (place, slice) in order.enumerated() { inverse[slice] = place }
+        return inverse
     }
 }
 

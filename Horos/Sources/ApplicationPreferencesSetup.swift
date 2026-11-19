@@ -38,7 +38,9 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXInstallation
 import IsiXPreferences
+import Synchronization
 
 /// The preferences as the application starts with them: the factory settings
 /// registered beneath the user's own, the offer to reset them all, and the
@@ -49,7 +51,7 @@ import IsiXPreferences
 /// the rest as the launch finishes.
 @MainActor
 enum ApplicationPreferencesSetup {
-    private static var preferences: UserDefaults { PreferencesSource.process.preferences }
+    nonisolated private static var preferences: UserDefaults { PreferencesSource.process.preferences }
 
     /// AppKit's constraint visualiser draws a purple window of its own over
     /// ours. Turning it on by writing the preference left it on in the
@@ -89,6 +91,7 @@ enum ApplicationPreferencesSetup {
 
         LaunchPreferenceMigrations.applyFixedValues(in: preferences)
         LaunchPreferenceMigrations.migrateAutoClean(in: preferences)
+        LaunchPreferenceMigrations.correctQueryCharacterSet(in: preferences)
 
         // DICOMweb nodes of the pilot, stored in SERVERS with retrieveMode 3, move to
         // DICOMWEB_SERVERS before anything reads SERVERS as a list of DIMSE nodes.
@@ -105,7 +108,7 @@ enum ApplicationPreferencesSetup {
         #endif
         DatabaseFirstUse.prepare(alternateDefault: alternateDatabaseDefault, currentDatabaseVersion: CurrentDatabaseVersion)
 
-        LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: preferences)
+        giveForThisLaunch(LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: preferences))
         #if MACAPPSTORE
         let defaultDatabasePath = NSLocalizedString("(Application storage)", comment: "")
         #else
@@ -114,9 +117,35 @@ enum ApplicationPreferencesSetup {
         LaunchPreferenceMigrations.applySessionValues(in: preferences, defaultDatabasePath: defaultDatabasePath)
     }
 
-    /// The database chosen at first use is the one opened.
+    /// The default database is the one opened: the one chosen at first use,
+    /// and the one the database window opens as it is made.
     static func useDefaultDatabaseLocation() {
-        LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: preferences)
+        giveForThisLaunch(LaunchPreferenceMigrations.copyDefaultDatabaseLocation(in: preferences))
+    }
+
+    /// The database of the Documents folder, when the location to open cannot
+    /// be reached: stored as the location from now on, or for this launch
+    /// alone when the launch was given its location. Asked by the launch and
+    /// by +[DicomDatabase defaultBaseDirPath], from whichever thread.
+    nonisolated static func fallBackToDocumentsDatabase() {
+        giveForThisLaunch(LaunchPreferenceMigrations.fallBackToDocumentsDatabase(in: preferences))
+    }
+
+    /// One merge into the argument domain at a time: each reads the domain
+    /// and sets it back whole.
+    nonisolated private static let argumentDomainMerge = Mutex(())
+
+    /// The location this launch opens without storing it, when it was given
+    /// a default alone or Documents stands in for a location it was given:
+    /// merged into the argument domain, which lives as long as the process.
+    /// Replacing that domain would drop the arguments the launch was given.
+    nonisolated private static func giveForThisLaunch(_ values: [String: Any]) {
+        guard !values.isEmpty else { return }
+        argumentDomainMerge.withLock { _ in
+            var arguments = preferences.volatileDomain(forName: UserDefaults.argumentDomain)
+            arguments.merge(values) { _, given in given }
+            preferences.setVolatileDomain(arguments, forName: UserDefaults.argumentDomain)
+        }
     }
 
     /// The presets of the virtual endoscopy, once the plugins are loaded.
@@ -142,6 +171,30 @@ enum ApplicationPreferencesSetup {
     /// Counts this launch; answers the count before it.
     static func countLaunch() -> Int {
         LaunchPreferenceMigrations.countLaunch(in: preferences)
+    }
+
+    /// Whether this launch, whose counter read `launchCount`, asks the user to
+    /// choose the automatic update checks. The choice counts as made when the
+    /// preference was given to this launch, is stored in the application's own
+    /// domain (by the user, or by an administrator before the first launch),
+    /// or is imposed by a managed profile.
+    static func asksAboutUpdateChecks(launchCount: Int) -> Bool {
+        let key = ApplicationPreferences.checkHorosUpdates.name
+        let stored = Bundle.main.bundleIdentifier.flatMap { preferences.persistentDomain(forName: $0)?[key] } != nil
+        // The App Store build has no update installer to ask, and is never a
+        // copy the application replaces itself.
+        #if MACAPPSTORE
+        let appStore = true
+        let releaseCopy = false
+        #else
+        let appStore = false
+        let releaseCopy = UpdateInstaller.isReleaseCopy
+        #endif
+        return UpdateCheckSchedule.asksAtFirstLaunch(
+            launchCount: launchCount,
+            choiceAlreadyMade: preferences.isGivenAsLaunchArgument(key) || preferences.objectIsForced(forKey: key) || stored,
+            releaseCopy: releaseCopy, appStore: appStore, protectedMode: ProtectedMode.isActive,
+            serverMode: preferences[NetworkPreferences.hidesListenerErrors])
     }
 
     /// What the viewers start from, and the hot keys of the double click.

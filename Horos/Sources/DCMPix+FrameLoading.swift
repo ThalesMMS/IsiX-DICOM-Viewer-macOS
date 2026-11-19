@@ -107,13 +107,21 @@ extension DCMPix {
 
         if !load.readFrameOffset(imageNb, from: source) { return load.raisedException }
         if load.hasFrameOffset {
-            horos_originZ += load.frameOffsetValue
+            // A plane of a dose grid: along the normal of the grid from its
+            // first plane, which is not the z axis for an oblique grid, and by
+            // its element less the first one, which is not zero when the
+            // vector holds z coordinates.
+            let place = load.frameOrigin(from: [horos_originX, horos_originY, horos_originZ],
+                                         orientation: Array(UnsafeBufferPointer(start: horos_arrays.orientation, count: 6)))
+            horos_originX = place[0]
+            horos_originY = place[1]
+            horos_originZ = place[2]
             computeSliceLocation()
         }
 
         let pixData = decodedFrame(imageNb, of: dcmObject.attribute(withName: "PixelData") as? DCMPixelDataAttribute)
 
-        var voiLUT: ((UnsafeMutablePointer<UInt16>) -> Void)?
+        var voiLUT: ((UnsafeMutablePointer<UInt16>) -> Bool)?
         if DCMPixSettings.useVOILUT {
             voiLUT = { samples in self.applyVOILUT(from: dcmObject, to: samples) }
         }
@@ -162,47 +170,52 @@ extension DCMPix {
 
     // MARK: - The VOI LUT
 
-    /// The table the object carries instead of a window.
+    /// The table the object carries instead of a window, applied to the samples
+    /// of a frame. Answers whether they are the table's output now.
     ///
     /// PS 3.3 C.11.2: a VOI LUT Sequence is how the object says its values are
     /// meant to be shown, and Window Center and Width are the alternative. The
-    /// table's input is the output of the modality LUT, so it is only applied
-    /// where that is the identity; with a rescale in the way the index would be
-    /// the wrong value, and a wrong picture is worse than an unwindowed one.
-    final func applyVOILUT(from dcmObject: DCMObject, to samples: UnsafeMutablePointer<UInt16>?) {
-        guard let samples, !horos_VOILUTApplied, horos_width > 0, horos_height > 0 else { return }
-        guard horos_slope == 1.0 && horos_offset == 0.0 else { return }
+    /// table's input is the output of the modality LUT, so a sample enters it
+    /// by its rescaled value (a slope of 0 is no rescale read). What the image holds afterwards is the table's
+    /// output: unsigned, and no longer in the units of the rescale, which is
+    /// the identity from there on.
+    final func applyVOILUT(from dcmObject: DCMObject, to samples: UnsafeMutablePointer<UInt16>?) -> Bool {
+        guard let samples, !horos_VOILUTApplied, horos_width > 0, horos_height > 0 else { return false }
         guard let sequence = dcmObject.attribute(withName: "VOILUTSequence") as? DCMSequenceAttribute,
-              let item = sequence.sequence?.first as? DCMObject else { return }
+              let item = sequence.sequence?.first as? DCMObject else { return false }
 
         guard let lut = VOILookupTable(descriptor: item.attributeArray(withName: "LUTDescriptor") as? [NSNumber],
                                        data: item.attributeValue(withName: "LUTData"), signed: horos_fIsSigned) else {
             NSLog("---- %@ carries a VOI LUT this cannot read; its window is used instead",
                   ((srcFile ?? "") as NSString).lastPathComponent as NSString)
-            return
+            return false
         }
 
         if let old = horos_VOILUT_table { free(old) }
         horos_VOILUT_table = malloc(lut.entries * MemoryLayout<UInt32>.size)?.assumingMemoryBound(to: UInt32.self)
-        guard let table = horos_VOILUT_table else { return }
+        guard let table = horos_VOILUT_table else { return false }
         lut.table.copyBytes(to: UnsafeMutableRawBufferPointer(start: table, count: lut.entries * MemoryLayout<UInt32>.size))
         horos_VOILUT_first = Int32(truncatingIfNeeded: lut.firstMapped)
         horos_VOILUT_number = UInt32(truncatingIfNeeded: lut.entries)
         horos_VOILUT_depth = UInt32(truncatingIfNeeded: lut.depth)
 
-        if VOILUTMapping.apply(first: Int(horos_VOILUT_first), number: Int(horos_VOILUT_number), table: table, to: samples,
-                               count: horos_width * horos_height, signed: horos_fIsSigned) {
-            horos_VOILUTApplied = true
-            // The values are the table's output now, and the object's Window
-            // Center and Width describe its input, so they no longer say
-            // anything about what is on screen.
-            horos_savedWL = Float(lut.windowCenter)
-            horos_savedWW = Float(lut.windowWidth)
-            horos_fIsSigned = false
-        } else {
-            DCMPixSettings.turnOffVOILUT()
-            NSLog("***** VOI LUT seems corrupted ! -> It will be turned OFF")
-        }
+        // Every sample has an entry, those outside the table its first or its
+        // last: a frame that lies wholly outside it, or on its first entry, is
+        // a uniform one, and not a sign of a table that cannot be trusted.
+        VOILUTMapping.apply(first: Int(horos_VOILUT_first), number: Int(horos_VOILUT_number), table: table, to: samples,
+                            count: horos_width * horos_height, signed: horos_fIsSigned,
+                            slope: horos_slope == 0 ? 1 : Double(horos_slope), offset: Double(horos_offset))
+        horos_VOILUTApplied = true
+        horos_useVOILUT = true
+        // The values are the table's output now, and the object's Window
+        // Center and Width describe its input, so they no longer say
+        // anything about what is on screen.
+        horos_savedWL = Float(lut.windowCenter)
+        horos_savedWW = Float(lut.windowWidth)
+        horos_fIsSigned = false
+        horos_slope = 1
+        horos_offset = 0
+        return true
     }
 
     // MARK: - Images carried whole

@@ -88,6 +88,9 @@ extension ViewerSessionGraph {
         }
 
         orderOutThumbnailsListPanelsShowingThisList()
+
+        // One window fewer on screen: the others draw their frames again.
+        ViewerWindowBorder.windowsChanged(among: registry.displayedViewers)
     }
 
     func windowDidDeminiaturize() {
@@ -101,6 +104,9 @@ extension ViewerSessionGraph {
         }
 
         orderOutThumbnailsListPanelsShowingThisList()
+
+        // One window more on screen: all draw their frames again.
+        ViewerWindowBorder.windowsChanged(among: registry.displayedViewers)
     }
 
     func windowDidResignMain() {
@@ -321,12 +327,16 @@ extension ViewerSessionGraph {
         if registry.unregister(viewer) == 0 {
             AppController.setUSETOOLBARPANEL(false)
 
-            for i in 0..<NSScreen.screens.count {
+            for i in 0..<ViewerWindowArranger.maximumScreens {
                 AppControllerCAPIThumbnailsListPanel(i)?.window?.orderOut(viewer)
             }
 
             WindowLayoutManager.shared()?.setCurrentHangingProtocolForModality(nil, description: nil)
         }
+
+        // One window fewer on screen: the others draw their frames again,
+        // unless they are all closing.
+        ViewerWindowBorder.windowClosed(viewer, remaining: registry.isClosingAllWindows ? [] : registry.displayedViewers)
     }
 
     /// The end of the closing, after the remaining windows' tiling is
@@ -336,7 +346,7 @@ extension ViewerSessionGraph {
         if preferences[ViewerPreferences.useFloatingThumbnailsList] {
             viewer.horos_previewMatrix?.renewRows(0, columns: 0)
 
-            for i in 0..<NSScreen.screens.count {
+            for i in 0..<ViewerWindowArranger.maximumScreens {
                 AppControllerCAPIThumbnailsListPanel(i)?.thumbnailsListWillClose(viewer.horos_previewMatrixScrollView)
             }
         }
@@ -347,7 +357,7 @@ extension ViewerSessionGraph {
     /// Hides the floating thumbnails list panels that show this viewer's list.
     func orderOutThumbnailsListPanelsShowingThisList() {
         guard let viewer, preferences[ViewerPreferences.useFloatingThumbnailsList] else { return }
-        for i in 0..<NSScreen.screens.count {
+        for i in 0..<ViewerWindowArranger.maximumScreens {
             if let panel = AppControllerCAPIThumbnailsListPanel(i), panel.thumbnailsView === viewer.horos_previewMatrixScrollView {
                 panel.window?.orderOut(viewer)
             }

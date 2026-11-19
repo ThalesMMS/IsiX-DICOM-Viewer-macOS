@@ -152,6 +152,11 @@ typedef NS_ENUM(NSInteger, IsiXDCMTKListenerCommand) {
 /// Whether DCMTK's data dictionary is loaded.
 @property (class, readonly) BOOL dataDictionaryLoaded;
 
+/// The associations the listeners of the process are serving now: each is
+/// counted from the moment its thread starts until that thread has ended it,
+/// whichever listener took it. Read from any thread.
+@property (class, readonly) NSInteger associationsInProgress;
+
 /// Sets DCMTK's process-wide connection timeout, VR generation and, from the
 /// settings' dump switch, the level of its log; nil when DCMTK throws.
 - (nullable instancetype)initWithSettings:(IsiXDCMTKListenerSettings *)settings

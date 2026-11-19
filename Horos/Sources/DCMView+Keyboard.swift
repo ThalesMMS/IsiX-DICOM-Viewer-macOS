@@ -128,19 +128,19 @@ extension DCMView {
             } else {
                 if flags.contains(.control) {
                     inc = -Int(self.curDCM?.stack ?? 0)
-                    self.horos_curImage += inc
+                    self.stackNavigation.current += inc
 
                     _ = self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage))
 
-                    if self.horos_curImage < 0 { self.horos_curImage = 0 }
+                    if self.horos_curImage < 0 { self.stackNavigation.current = 0 }
                 } else {
                     if flags.contains(.option) { wc?.inputSetKeyImage(self) }
                     inc = -page
-                    self.horos_curImage -= page
+                    self.stackNavigation.current -= page
 
                     _ = self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage))
 
-                    if self.horos_curImage < 0 { self.horos_curImage = 0 }
+                    if self.horos_curImage < 0 { self.stackNavigation.current = 0 }
                 }
             }
         } else if Int(c) == NSRightArrowFunctionKey {
@@ -149,19 +149,19 @@ extension DCMView {
             } else {
                 if flags.contains(.control) {
                     inc = Int(self.curDCM?.stack ?? 0)
-                    self.horos_curImage += inc
+                    self.stackNavigation.current += inc
 
                     _ = self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage))
 
-                    if inputBeyondLast(self.horos_curImage, dcmPixList.count) { self.horos_curImage = dcmPixList.count - 1 }
+                    if inputBeyondLast(Int(self.horos_curImage), dcmPixList.count) { self.stackNavigation.current = dcmPixList.count - 1 }
                 } else {
                     if flags.contains(.option) { wc?.inputSetKeyImage(self) }
                     inc = page
-                    self.horos_curImage += page
+                    self.stackNavigation.current += page
 
                     _ = self.scrollThroughSeriesIfNecessary(Int32(self.horos_curImage))
 
-                    if inputBeyondLast(self.horos_curImage, dcmPixList.count) { self.horos_curImage = dcmPixList.count - 1 }
+                    if inputBeyondLast(Int(self.horos_curImage), dcmPixList.count) { self.stackNavigation.current = dcmPixList.count - 1 }
                 }
             }
         } else if Int(c) == NSUpArrowFunctionKey {
@@ -182,16 +182,16 @@ extension DCMView {
             }
         } else if Int(c) == NSPageUpFunctionKey {
             inc = -page
-            self.horos_curImage -= page
-            if self.horos_curImage < 0 { self.horos_curImage = 0 }
+            self.stackNavigation.current -= page
+            if self.horos_curImage < 0 { self.stackNavigation.current = 0 }
         } else if Int(c) == NSPageDownFunctionKey {
             inc = page
-            self.horos_curImage += page
-            if inputBeyondLast(self.horos_curImage, dcmPixList.count) { self.horos_curImage = dcmPixList.count - 1 }
+            self.stackNavigation.current += page
+            if inputBeyondLast(Int(self.horos_curImage), dcmPixList.count) { self.stackNavigation.current = dcmPixList.count - 1 }
         } else if Int(c) == NSHomeFunctionKey {
-            self.horos_curImage = 0
+            self.stackNavigation.current = 0
         } else if Int(c) == NSEndFunctionKey {
-            self.horos_curImage = dcmPixList.count - 1
+            self.stackNavigation.current = dcmPixList.count - 1
         } else if c == 9 { // Tab key
             let a = Int32(truncatingIfNeeded: AnnotationLevel.level(after: Int(self.horos_annotationType)))
 
@@ -240,7 +240,7 @@ extension DCMView {
 
         let rArray = self.horos_curRoiList
 
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
                 var i = 0
                 while i < (rArray?.count ?? 0) {
                     guard let r = rArray?.object(at: i) as? ROI else { i += 1; continue }

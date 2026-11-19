@@ -120,9 +120,8 @@ public final class OSIDatabasePreferencePanePref: NSPreferencePane {
     }
 
     private func finishInitOnMainActor() {
-        let nib = NSNib(nibNamed: "OSIDatabasePreferencePanePref", bundle: nil)
         var topLevelObjects: NSArray?
-        nib?.instantiate(withOwner: self, topLevelObjects: &topLevelObjects)
+        instantiatePaneNib(named: "OSIDatabasePreferencePanePref", topLevelObjects: &topLevelObjects)
         _tlos = topLevelObjects
 
         if let contentView = mainWindow?.contentView {

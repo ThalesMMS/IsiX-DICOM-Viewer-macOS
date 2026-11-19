@@ -51,8 +51,8 @@
           "sha256": "6d4c2f0bf65e0ec7779578ae19eac7ec535e5272bbd76e1e96215ffc275d923e"
         },
         "Modules/IsiXStorage/Sources/PathAliasResolution.swift": {
-          "size": 7337,
-          "sha256": "06a49e115022080df44b1ff13080a61eb906a1019536e1bc9fb0aa0020ee75a0"
+          "size": 7689,
+          "sha256": "2f89de0a987b46aa74fc46412ec3ebde9c0ecda85677a93ef3d00004c0997722"
         }
       },
       "implementation": "native-host",
@@ -104,20 +104,20 @@
           "sha256": "3f885fa98e38f41d7c551dfecc694bdf7055a2dcf75be359afed72ec8e4172ff"
         },
         "Horos/Sources/CSMailMailClient.h": {
-          "size": 2623,
-          "sha256": "54546f8fe590128d3a415c31036aebbdc65c74ca41a3724ab0924e06ebc7c163"
+          "size": 3009,
+          "sha256": "d335c122e8d157ec94067ba8827694e74efcb595536336b8073e8f03acfd1e00"
         },
         "Horos/Sources/CSMailMailClient.swift": {
-          "size": 33360,
-          "sha256": "492ea64c5771568ea76ce5e142398db131be6f5ee9ecc679d9203afcc65bd4c6"
+          "size": 33402,
+          "sha256": "b4e608ff05367aa3d61132a249d2e15269827ab01fabb4e32efcd1291e7a531c"
         },
         "Horos/Sources/FlyAssistant.h": {
           "size": 2375,
           "sha256": "c3d29e887f7c02f91d82c0deb0d53d1b718248acde8d56d8fda5c7df2396941b"
         },
         "Horos/Sources/FlyAssistant.swift": {
-          "size": 11920,
-          "sha256": "b6c51774c313f2caa308bb2a68a50f5908b0e8cf565c366508cc60a4cf49d15a"
+          "size": 16148,
+          "sha256": "95e3c3b0fd4c879e77bdde3c70e0b6cb28358ebea1ce12eb46f6444b9a15f090"
         },
         "Horos/Sources/KFSplitView.h": {
           "size": 3382,
@@ -136,12 +136,12 @@
           "sha256": "56b3b18f51a79bf5f6887342c208007a2866714e3561b3070fa74d83e9495296"
         },
         "Horos/Sources/OnOffSwitchControlCell.h": {
-          "size": 2844,
-          "sha256": "56606529db37a86532ca7de19abc6bc2e356a6e50800d5cdd1e68aadcfb5c2ad"
+          "size": 3221,
+          "sha256": "c30fecb285686f65db30d3d6792869392be8841e4d098d52701d1b29d7d899d5"
         },
         "Horos/Sources/OnOffSwitchControlCell.swift": {
-          "size": 25382,
-          "sha256": "2af06b81ee2b2e72da49fd2993f17c673f0172074e028d64f2307d9ef2f54dd2"
+          "size": 25499,
+          "sha256": "857cf7675af4fe113e5ac110201e13a9f2a82cee3d6753ad06dab6fd75254f9d"
         },
         "Horos/Sources/PieChartImage.h": {
           "size": 2420,
@@ -152,16 +152,16 @@
           "sha256": "b8f1b1089f50f4dee22a1352ff24667d692656652513d5c7183563912eb16801"
         },
         "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant+Centerline.swift": {
-          "size": 21402,
-          "sha256": "2aa146a4acd2b1f1ae73613bc5bfa5817031980c98b2b972b9bb01d72bed76f1"
+          "size": 23317,
+          "sha256": "7da01d6db965f1a64c8db21262e097993cb55e81a2853728f00b6bcfd0e32c19"
         },
         "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant+Histogram.swift": {
-          "size": 9482,
-          "sha256": "94d37a08fd810915e2a7aa0ceedd1df41a0d2f0ef1e3e07ef7df8578be90dd0e"
+          "size": 11844,
+          "sha256": "3fcc3a7a927984ba27d6c14ac0c7d6072d9a376157ea819d494d4c65efbbaef6"
         },
         "Modules/IsiXVolumeRendering/Sources/FlyPathAssistant.swift": {
-          "size": 32327,
-          "sha256": "ba4df20022379b072342b22a9088e84becb792dc603842121c8d3a9b7144da25"
+          "size": 39190,
+          "sha256": "9ccac83f779f4b4801ee804fb8592fd61b7216ebf63b09264e5b94856104e654"
         },
         "Nitrogen/Sources/KBPopUpToolbarItem.h": {
           "size": 2738,
@@ -1204,11 +1204,11 @@
         "kind": "remoteSourceControl",
         "location": "https://github.com/ThalesMMS/DICOM-Swift.git",
         "state": {
-          "revision": "cf9b5bf403dd6b002f827f51aa9d9e3266f41d31",
-          "version": "3.3.0"
+          "revision": "1fc34e5a20ad9bc09cdbe2a4e6ba5da09b95567b",
+          "version": "4.0.0"
         }
       },
-      "public_tree": "563e5a2191e27cac957a6a0c326ec9e89c0a962a",
+      "public_tree": "235371446712b814eecd8994a7d59d3320b23bf6",
       "direct_products": [
         "DicomWebClient",
         "DicomWebOIDC"
@@ -1286,7 +1286,7 @@
         },
         "Horos.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
           "size": 2337,
-          "sha256": "f446cd04eea82cda13b9ecde09bbfc638839119bb1b54e92759aecdc379b5663"
+          "sha256": "67846e72d21928e80f0dfebf8b1272f2d8bfd619565c34fa63611104fbd32fdd"
         }
       }
     },

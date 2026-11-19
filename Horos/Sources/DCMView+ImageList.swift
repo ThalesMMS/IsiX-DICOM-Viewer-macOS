@@ -56,20 +56,17 @@ extension DCMView {
     /// pan of the image or the series reset; -1 or no series clears the view.
     @objc(setIndexWithReset::)
     public dynamic func setIndexWithReset(_ index: Int, _ sizeToFit: Bool) {
-        if let dcmPixList = self.horos_dcmPixList, index >= 0 {
+        if let dcmPixList = self.horos_dcmPixList, index >= 0, dcmPixList.count > 0,
+           let curDCM = dcmPixList.object(at: Int(Int16(clamping: SeriesDisplay.clampedIndex(index, count: dcmPixList.count)))) as? DCMPix { // an entry that is not an image shows none
             self.window?.acceptsMouseMovedEvents = true
 
             self.horos_curROI = nil
 
-            self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
+            self.stackNavigation.current = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
 
-            self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix
+            self.curDCM = curDCM
 
-            if let dcmRoiList = self.horos_dcmRoiList {
-                self.horos_curRoiList = dcmRoiList.object(at: Int(self.horos_curImage)) as? NSMutableArray
-            } else {
-                self.horos_curRoiList = NSMutableArray(capacity: 0)
-            }
+            self.horos_curRoiList = self.listedROIs()
 
             for case let r as ROI in self.horos_curRoiList {
                 r.curView = self
@@ -78,16 +75,15 @@ extension DCMView {
                 r.roImode = Int(ROI_sleep)
             }
 
-            let curDCM: DCMPix = self.curDCM
             var state = self.windowLevelState
             state.mirror(level: curDCM.wl, width: curDCM.ww, suvConverted: curDCM.suvConverted) {
                 self.is2DViewer() ? (viewerMessages(self.windowController())?.viewerFactorPET2SUV() ?? 0) : 1
             }
             self.windowLevelState = state
 
-            self.horos_origin.x = 0
-            self.horos_origin.y = 0
-            self.horos_scaleValue = 1
+            self.viewport.origin.x = 0
+            self.viewport.origin.y = 0
+            self.viewport.scale = 1
 
             // get Presentation State info from series Object
             self.updatePresentationStateFromSeries()
@@ -103,14 +99,10 @@ extension DCMView {
 
             self.updateYearOld()
 
-            if self.is2DViewer() {
-                let controller = self.windowController() as AnyObject?
-                controller?.willChangeValue(forKey: "thicknessInMm")
-                controller?.didChangeValue(forKey: "thicknessInMm")
-            }
+            if self.is2DViewer() { ViewerThickSlab.imageChanged(in: self) }
         } else {
             self.curDCM = nil
-            self.horos_curImage = -1
+            self.stackNavigation.current = -1
             self.horos_curRoiList = nil
             self.horos_curROI = nil
             self.loadTextures()
@@ -127,7 +119,7 @@ extension DCMView {
 
         // The caller's array itself, not a bridged copy: the view lists the
         // files the viewer lists, as the instance variable did.
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
             if self.is2DViewer() {
                 let preferences = PreferencesSource.process.preferences
                 self.horos_currentToolRight = ToolMode(rawValue: Int16(truncatingIfNeeded: preferences[ViewerPreferences.defaultRightTool])) ?? .tWL
@@ -142,6 +134,7 @@ extension DCMView {
             self.horos_volumicData = -1
 
             self.horos_cleanedOutDcmPixArray = nil
+            self.horos_syncPlanes = nil
 
             if self.horos_dcmPixList !== pixels {
                 self.cancelLengthPlacement()
@@ -200,31 +193,27 @@ extension DCMView {
     /// shown, the mouse values, the tiles.
     @objc(setIndex:)
     public dynamic func setIndex(_ index: Int) {
-        inputLogException(HorosObjCException.caughtWithoutAllocation {
+        inputLogException(HorosObjCException.caught {
             self.stopROIEditing()
 
             self.window?.acceptsMouseMovedEvents = true
 
-            if let dcmPixList = self.horos_dcmPixList, index > -1, dcmPixList.count > 0 {
-                let firstPath = ((self.horos_dcmFilesList?.object(at: 0) as? DicomImage)?.completePath() as NSString?)?.lastPathComponent
+            if let dcmPixList = self.horos_dcmPixList, index > -1, dcmPixList.count > 0,
+               let pix = dcmPixList.object(at: Int(Int16(clamping: SeriesDisplay.clampedIndex(index, count: dcmPixList.count)))) as? DCMPix {
+                let firstPath = ((self.horos_dcmFilesList?.firstObject as? DicomImage)?.completePath() as NSString?)?.lastPathComponent
                 self.horos_noScale = firstPath == "Empty.tif"
 
-                self.horos_curImage = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
+                self.stackNavigation.current = SeriesDisplay.clampedIndex(index, count: dcmPixList.count)
 
                 // The former image is released after the new one is loaded, which
                 // keeps the cached group of a multi-frame image.
                 let formerPix = self.curDCM
-                self.curDCM = dcmPixList.object(at: Int(self.horos_curImage)) as? DCMPix
-
-                self.curDCM.checkLoad()
+                self.curDCM = pix
+                pix.checkLoad()
 
                 withExtendedLifetime(formerPix) {}
 
-                if let dcmRoiList = self.horos_dcmRoiList {
-                    self.horos_curRoiList = dcmRoiList.object(at: Int(self.horos_curImage)) as? NSMutableArray
-                } else {
-                    self.horos_curRoiList = NSMutableArray(capacity: 0)
-                }
+                self.horos_curRoiList = self.listedROIs()
 
                 var keepIt = false
                 for case let r as ROI in self.horos_curRoiList {
@@ -233,9 +222,7 @@ extension DCMView {
                     if self.horos_curROI === r { keepIt = true }
                 }
 
-                if keepIt == false {
-                    self.horos_curROI = nil
-                }
+                if keepIt == false { self.horos_curROI = nil }
 
                 var done = false
 
@@ -248,9 +235,7 @@ extension DCMView {
                         done = true
                     }
 
-                    let controller = self.windowController() as AnyObject?
-                    controller?.willChangeValue(forKey: "thicknessInMm")
-                    controller?.didChangeValue(forKey: "thicknessInMm")
+                    ViewerThickSlab.imageChanged(in: self)
                 }
 
                 if done == false {
@@ -264,7 +249,7 @@ extension DCMView {
                 NotificationCenter.default.post(name: .OsirixDCMViewIndexChanged, object: self)
             } else {
                 self.curDCM = nil
-                self.horos_curImage = -1
+                self.stackNavigation.current = -1
                 self.horos_curRoiList = nil
                 self.horos_curROI = nil
                 self.loadTextures()
@@ -283,13 +268,21 @@ extension DCMView {
     /// image's own or the image has one to apply; else the image is only made
     /// available with it.
     private func applyWindowLevelOfImage() {
-        let curDCM: DCMPix = self.curDCM
+        guard let curDCM = self.curDCM else { return }
         let window = self.windowLevelState
         if window.width != curDCM.ww || window.level != curDCM.wl || curDCM.updateToApply() == true {
             self.reapplyWindowLevel()
         } else {
             curDCM.checkImageAvailble(window.width, window.level)
         }
+    }
+
+    /// The ROIs of the image shown: its entry in the series' list, or a list of
+    /// its own when the series has none, or one shorter than the pixels (a
+    /// plugin's, set or changed in place), which read past its end raises.
+    private func listedROIs() -> NSMutableArray {
+        let rois = self.horos_dcmRoiList, listed = SeriesDisplay.listedIndex(Int(self.horos_curImage), count: rois?.count ?? 0)
+        return (listed.flatMap { rois?.object(at: $0) } as? NSMutableArray) ?? NSMutableArray(capacity: 0)
     }
 
     /// -mouseMoved: sent with the current event, which may be nil, as the
@@ -302,7 +295,9 @@ extension DCMView {
 
     /// The patient's age shown with the image, and at acquisition when different.
     private func updateYearOld() {
-        let study = (self.horos_dcmFilesList?.object(at: Int(self.horos_curImage)) as? DicomImage)?.series?.study
+        // Fewer files than pixels (a file listed once for its frames): the first, of the same study.
+        let files = self.horos_dcmFilesList, listed = SeriesDisplay.listedIndex(Int(self.horos_curImage), count: files?.count ?? 0)
+        let study = ((listed.flatMap { files?.object(at: $0) } ?? files?.firstObject) as? DicomImage)?.series?.study
         let now = study?.yearOld()
         let acquisition = study?.yearOldAcquisition()
         self.yearOld = SeriesDisplay.ageText(now: now, atAcquisition: acquisition)

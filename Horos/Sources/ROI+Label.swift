@@ -64,8 +64,8 @@ extension ROI {
     /// The size of a text ROI's string.
     @discardableResult
     func textFrameSize() -> NSSize {
-        guard let stringTex, let font = stanStringAttrib?[NSAttributedString.Key.font] as? NSFont else { return .zero }
-        return textPicture(stringTex as String, font: font).frameSize
+        guard let textString, let font = stanStringAttrib?[NSAttributedString.Key.font] as? NSFont else { return .zero }
+        return textPicture(textString as String, font: font).frameSize
     }
 
     /// Puts a picture whose top left the canvas's current transform takes (x,
@@ -535,19 +535,51 @@ extension ROI {
         return regions.map { unsafeBitCast($0 as AnyObject, to: USRegion.self) }
     }
 
-    /// Whether the rectangle from `a` to `b` lies in a 2D region of the ROI's
-    /// ultrasound image; its area is then in the region's units.
-    func liesIn2DUltrasoundRegion(_ a: NSPoint, _ b: NSPoint) -> Bool {
-        guard hasUltrasoundRegions else { return false }
-        var inside = false
-        for region in ultrasoundRegions where !inside && region.regionSpatialFormat == 1 {
-            // A 2D spatial format.
-            let ax = ROIBrushMask.int32(Double(a.x)), ay = ROIBrushMask.int32(Double(a.y))
-            let bx = ROIBrushMask.int32(Double(b.x)), by = ROIBrushMask.int32(Double(b.y))
-            inside = ax >= region.regionLocationMinX0 && ax <= region.regionLocationMaxX1 && ay >= region.regionLocationMinY0 && ay <= region.regionLocationMaxY1
-                && bx >= region.regionLocationMinX0 && bx <= region.regionLocationMaxX1 && by >= region.regionLocationMinY0 && by <= region.regionLocationMaxY1
+    /// The first 2D region of the ROI's ultrasound image that holds the
+    /// rectangle from `a` to `b`; an area in it is in the region's units.
+    func ultrasound2DRegion(holding a: NSPoint, _ b: NSPoint) -> USRegion? {
+        guard hasUltrasoundRegions else { return nil }
+        let ax = ROIBrushMask.int32(Double(a.x)), ay = ROIBrushMask.int32(Double(a.y))
+        let bx = ROIBrushMask.int32(Double(b.x)), by = ROIBrushMask.int32(Double(b.y))
+        return ultrasoundRegions.first { $0.regionSpatialFormat == 1 && $0.holds(x: ax, y: ay) && $0.holds(x: bx, y: by) }
+    }
+
+    /// Whether the rectangle from `a` to `b` lies in a 2D region, and the
+    /// image's pixel spacing, to give back with `leaveUltrasoundRegion`: until
+    /// then the ROI measures with the region's own spacing when the region is
+    /// in centimetres. Each 2D region of an ultrasound image has a scale of
+    /// its own, and the image's is that of one of them only.
+    func enterUltrasoundRegion(holding a: NSPoint, _ b: NSPoint) -> (inside: Bool, image: (x: Double, y: Double)) {
+        let image = (x: _pixelSpacingX, y: _pixelSpacingY)
+        guard let region = ultrasound2DRegion(holding: a, b) else { return (false, image) }
+        if let own = region.pixelSpacing {
+            _pixelSpacingX = own.x
+            _pixelSpacingY = own.y
         }
-        return inside
+        return (true, image)
+    }
+
+    func leaveUltrasoundRegion(_ image: (x: Double, y: Double)) {
+        _pixelSpacingX = image.x
+        _pixelSpacingY = image.y
+    }
+
+    /// The corners of what the ROI covers, by its kind, for the region its
+    /// area is measured in; nil for a kind that has no area.
+    var ultrasoundAreaCorners: (NSPoint, NSPoint)? {
+        switch _type {
+        case .tROI:
+            return (_rect.origin, NSPoint(x: _rect.origin.x + _rect.size.width, y: _rect.origin.y + _rect.size.height))
+        case .tOval:
+            return (NSPoint(x: _rect.origin.x - _rect.size.width, y: _rect.origin.y - _rect.size.height),
+                    NSPoint(x: _rect.origin.x + _rect.size.width, y: _rect.origin.y + _rect.size.height))
+        case .tPlain:
+            return (NSPoint(x: CGFloat(mask.upLeftX), y: CGFloat(mask.upLeftY)), NSPoint(x: CGFloat(mask.downRightX), y: CGFloat(mask.downRightY)))
+        case .tDynAngle, .tAxis, .tOPolygon, .tCPolygon, .tPencil:
+            return _points.count > 0 ? ultrasoundBounds(of: _points) : nil
+        default:
+            return nil
+        }
     }
 
     /// Whether the area is in mm2, from the pixel spacing or a 2D ultrasound region.
@@ -599,8 +631,9 @@ extension ROI {
             if rtotal == -1 { computeStatistics(of: viewImage) }
             let area = plainArea()
             if !_displayCalciumScoring {
-                let inside = liesIn2DUltrasoundRegion(NSPoint(x: CGFloat(mask.upLeftX), y: CGFloat(mask.upLeftY)),
-                                                      NSPoint(x: CGFloat(mask.downRightX), y: CGFloat(mask.downRightY)))
+                let (inside, imageSpacing) = enterUltrasoundRegion(holding: NSPoint(x: CGFloat(mask.upLeftX), y: CGFloat(mask.upLeftY)),
+                                                                   NSPoint(x: CGFloat(mask.downRightX), y: CGFloat(mask.downRightY)))
+                defer { leaveUltrasoundRegion(imageSpacing) }
                 if areaIsCalibrated(insideUltrasoundRegion: inside) {
                     setTextualBoxLine(2, segments: [ROI.labelSegment("Area", areaText(area))])
                 } else {
@@ -754,34 +787,35 @@ extension ROI {
         prepareTextualData(tPt)
     }
 
+    /// The region of an ultrasound image a line from `a` to `b` is measured
+    /// in, among `regions`.
+    func ultrasoundRegion(holding a: NSPoint, _ b: NSPoint, in regions: [USRegion]) -> USRegion? {
+        USRegion.region(holding: (ROIBrushMask.int32(Double(a.x)), ROIBrushMask.int32(Double(a.y))),
+                        (ROIBrushMask.int32(Double(b.x)), ROIBrushMask.int32(Double(b.y))), in: regions)
+    }
+
+    /// The pixel spacing, in mm, that measures a line from `a` to `b`: on an
+    /// ultrasound image, that of the 2D region in centimetres which holds
+    /// both ends; else the image's, which on such an image is that of one of
+    /// its regions.
+    func spacing(measuring a: NSPoint, _ b: NSPoint) -> (x: Double, y: Double) {
+        if hasUltrasoundRegions, let own = ultrasoundRegion(holding: a, b, in: ultrasoundRegions)?.pixelSpacing { return own }
+        return (_pixelSpacingX, _pixelSpacingY)
+    }
+
     /// A length on an ultrasound image: in its region's units when both ends
     /// lie in one, in pixels otherwise.
     private func ultrasoundLengthText(_ regions: [USRegion], lCm: Float, lPix: Float) -> String {
         let p1 = myPoint(0).point, p2 = myPoint(1).point
-        var inside = false
-        var format: Int32 = 0, unitsXCode: Int32 = 0, unitsYCode: Int32 = 0
-        var deltaX = 0.0, deltaY = 0.0
-        let x1 = ROIBrushMask.int32(Double(p1.x)), y1 = ROIBrushMask.int32(Double(p1.y))
-        let x2 = ROIBrushMask.int32(Double(p2.x)), y2 = ROIBrushMask.int32(Double(p2.y))
-        for region in regions where !inside {
-            inside = x1 <= region.regionLocationMaxX1 && x1 >= region.regionLocationMinX0 && y1 <= region.regionLocationMaxY1 && y1 >= region.regionLocationMinY0
-                && x2 <= region.regionLocationMaxX1 && x2 >= region.regionLocationMinX0 && y2 <= region.regionLocationMaxY1 && y2 >= region.regionLocationMinY0
-            if inside {
-                format = region.regionSpatialFormat
-                unitsXCode = region.physicalUnitsXDirection
-                unitsYCode = region.physicalUnitsYDirection
-                deltaX = region.physicalDeltaX
-                deltaY = region.physicalDeltaY
-                // No spatial format and no units: not a region to measure in.
-                if format == 0 && unitsXCode == 0 && unitsYCode == 0 { inside = false }
-            }
-        }
-        guard inside else {
+        guard let region = ultrasoundRegion(holding: p1, p2, in: regions) else {
             return String(format: NSLocalizedString("Length: %@", comment: ""), LengthPresentation.string(pixels: Double(lPix)))
         }
-        if format == 1 && unitsXCode == 3 && unitsYCode == 3 {   // 2D, in cm both ways
+        // 2D, in cm both ways: the length is the region's, which -MesureLength: gave.
+        if region.isTwoDimensionalInCentimetres {
             return String(format: NSLocalizedString("Length: %@", comment: ""), LengthPresentation.string(centimetres: Double(lCm)))
         }
+        let unitsXCode = region.physicalUnitsXDirection, unitsYCode = region.physicalUnitsYDirection
+        let deltaX = region.physicalDeltaX, deltaY = region.physicalDeltaY
         let lengthX = abs(Double(p2.x - p1.x)) * abs(deltaX)
         var lengthY = abs(Double(p2.y - p1.y)) * abs(deltaY)
         // Independent axes, as for a point.
@@ -799,7 +833,9 @@ extension ROI {
         _textualBoxLine1 = labelName
         if !ROI.settings.textNameOnly {
             if rtotal == -1 { computeStatistics(of: viewImage) }
-            let inside = liesIn2DUltrasoundRegion(_rect.origin, NSPoint(x: _rect.origin.x + _rect.size.width, y: _rect.origin.y + _rect.size.height))
+            let (inside, imageSpacing) = enterUltrasoundRegion(holding: _rect.origin,
+                                                               NSPoint(x: _rect.origin.x + _rect.size.width, y: _rect.origin.y + _rect.size.height))
+            defer { leaveUltrasoundRegion(imageSpacing) }
             let w = Double(_rect.size.width), h = Double(_rect.size.height)
             if areaIsCalibrated(insideUltrasoundRegion: inside) {
                 let area = abs(w * _pixelSpacingX * h * _pixelSpacingY)
@@ -844,8 +880,9 @@ extension ROI {
         _textualBoxLine1 = labelName
         if !ROI.settings.textNameOnly {
             if rtotal == -1 { computeStatistics(of: viewImage) }
-            let inside = liesIn2DUltrasoundRegion(NSPoint(x: rrect.origin.x - rrect.size.width, y: rrect.origin.y - rrect.size.height),
-                                                  NSPoint(x: rrect.origin.x + rrect.size.width, y: rrect.origin.y + rrect.size.height))
+            let (inside, imageSpacing) = enterUltrasoundRegion(holding: NSPoint(x: rrect.origin.x - rrect.size.width, y: rrect.origin.y - rrect.size.height),
+                                                               NSPoint(x: rrect.origin.x + rrect.size.width, y: rrect.origin.y + rrect.size.height))
+            defer { leaveUltrasoundRegion(imageSpacing) }
             let w = Double(_rect.size.width), h = Double(_rect.size.height)
             if areaIsCalibrated(insideUltrasoundRegion: inside) {
                 let area = Double(ellipseArea()) * _pixelSpacingX * _pixelSpacingY
@@ -905,7 +942,7 @@ extension ROI {
     }
 
     /// The bounds of the outline through `splinePoints`, for the ultrasound regions.
-    private func ultrasoundBounds(of splinePoints: NSMutableArray) -> (NSPoint, NSPoint) {
+    func ultrasoundBounds(of splinePoints: NSMutableArray) -> (NSPoint, NSPoint) {
         let first = splinePoints.object(at: 0) as! MyPoint
         var xMin = first.x, xMax = first.x, yMin = first.y, yMax = first.y
         for case let p as MyPoint in splinePoints {
@@ -923,11 +960,9 @@ extension ROI {
         _textualBoxLine1 = labelName
         if !ROI.settings.textNameOnly {
             if rtotal == -1 { computeStatistics(of: viewImage) }
-            var inside = false
-            if hasUltrasoundRegions {
-                let (a, b) = ultrasoundBounds(of: splinePoints)
-                inside = liesIn2DUltrasoundRegion(a, b)
-            }
+            let bounds = hasUltrasoundRegions ? ultrasoundBounds(of: splinePoints) : (NSPoint.zero, NSPoint.zero)
+            let (inside, imageSpacing) = enterUltrasoundRegion(holding: bounds.0, bounds.1)
+            defer { leaveUltrasoundRegion(imageSpacing) }
             if areaIsCalibrated(insideUltrasoundRegion: inside) {
                 setTextualBoxLine(2, segments: [ROI.labelSegment("Area", areaText(area()))])
             } else {
@@ -955,11 +990,9 @@ extension ROI {
         _textualBoxLine1 = labelName
         if !ROI.settings.textNameOnly {
             if rtotal == -1 { computeStatistics(of: viewImage) }
-            var inside = false
-            if hasUltrasoundRegions {
-                let (a, b) = ultrasoundBounds(of: splinePoints)
-                inside = liesIn2DUltrasoundRegion(a, b)
-            }
+            let bounds = hasUltrasoundRegions ? ultrasoundBounds(of: splinePoints) : (NSPoint.zero, NSPoint.zero)
+            let (inside, imageSpacing) = enterUltrasoundRegion(holding: bounds.0, bounds.1)
+            defer { leaveUltrasoundRegion(imageSpacing) }
             let length = perimeter(ofPoints: splinePoints, closed: false)
             // The first and the last point too far apart: no area.
             if Double(self.length((splinePoints.object(at: 0) as! MyPoint).point, (splinePoints.lastObject as! MyPoint).point)) > Double(length) / ROI.openPolygonAreaRatio {

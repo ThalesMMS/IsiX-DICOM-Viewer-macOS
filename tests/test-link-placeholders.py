@@ -141,6 +141,20 @@ def loop(folder, name, source, extension='c'):
     raise AssertionError(f'{name}: the loop does not end')
 
 
+def loop_at_once(folder, name, source, extension='c'):
+    """The helpers' loop as they run it: every symbol the probe lacks is given
+    its placeholder before the next link. The placeholders the probe was built
+    with, and the links it took."""
+    placeholders = set()
+    for links in range(1, 11):
+        probe = link(folder, name, source, placeholders, extension)
+        missing = link_placeholders.lacking(probe, placeholders, f'the link probe {name}')
+        if not missing:
+            return placeholders, links
+        placeholders.update(missing)
+    raise AssertionError(f'{name}: the loop does not end')
+
+
 # Every process started, by its executable: a probe is run only when asked here.
 runs = []
 run_process = subprocess.run
@@ -182,6 +196,37 @@ with tempfile.TemporaryDirectory(prefix='horos-link-placeholders-') as name:
     check(link_placeholders.unbound_symbol(probe) == '_ProbeSecondDatum', 'with its placeholder, the next one is read')
     probe = link(folder, 'two-data-read', TWO_DATA, {'_ProbeFirstDatum', '_ProbeSecondDatum'})
     check(link_placeholders.unbound_symbol(probe) is None and 'two-data-read' not in runs, 'and none once both have theirs')
+
+    # All the data a probe lacks are read at once, and given at once they are
+    # the placeholders the loop of one per link ends with.
+    probe = link(folder, 'two-data-read', TWO_DATA, set())
+    check(link_placeholders.unbound_symbols(probe) == ['_ProbeFirstDatum', '_ProbeSecondDatum']
+          and link_placeholders.lacking(probe, set()) == ['_ProbeFirstDatum', '_ProbeSecondDatum'] and 'two-data-read' not in runs,
+          'every datum a probe lacks is read from it, without running it: %r' % link_placeholders.unbound_symbols(probe))
+    check(loop_at_once(folder, 'two-data-at-once', TWO_DATA) == ({'_ProbeFirstDatum', '_ProbeSecondDatum'}, 2)
+          and runs.count('two-data-at-once') == 1, 'given at once, the same placeholders in two links and one run')
+    check(loop_at_once(folder, 'linked-at-once', LINKED) == (set(), 1), 'a probe that links is built in one link')
+    try:
+        link_placeholders.lacking(probe, {'_ProbeSecondDatum'})
+        check(False, 'a symbol that has its placeholder and is still lacking is refused')
+    except link_placeholders.ProbeNotBuilt as error:
+        check('cannot satisfy _ProbeSecondDatum' in str(error), 'a symbol that has its placeholder cannot be satisfied: %s' % error)
+
+    # A library the probe names through a run path is found as dyld finds it,
+    # a sanitizer's runtime among them, and the data the probe lacks are read
+    # all the same.
+    (folder / 'given.c').write_text('int ProbeGivenDatum = 4;\n')
+    subprocess.run(['xcrun', 'clang', '-dynamiclib', str(folder / 'given.c'), '-install_name', '@rpath/libgiven.dylib',
+                    '-o', str(folder / 'libgiven.dylib')], check=True, capture_output=True, text=True)
+    (folder / 'run-path.c').write_text(TWO_DATA)
+    for name, flags in (('run-path', [str(folder / 'libgiven.dylib'), '-Wl,-rpath,@executable_path']), ('sanitized', ['-fsanitize=address'])):
+        subprocess.run(['xcrun', 'clang', '-w', str(folder / 'run-path.c'), *flags, '-Wl,-undefined,dynamic_lookup',
+                        '-framework', 'Foundation', '-o', str(folder / name)], check=True, capture_output=True, text=True)
+        libraries = link_placeholders.loaded_libraries(folder / name)
+        check(libraries is not None and not any(library.startswith('@') for library in libraries),
+              f'the libraries of {name} are found through its run paths: {libraries!r}')
+        check(link_placeholders.unbound_symbols(folder / name) == ['_ProbeFirstDatum', '_ProbeSecondDatum'] and name not in runs,
+              f'the data {name} lacks are read from it without a run: %r' % link_placeholders.unbound_symbols(folder / name))
 
     # What dyld starts is not given a placeholder: one would hide zlib's own function.
     probe = link(folder, 'tolerated', TOLERATED, set())
@@ -265,7 +310,7 @@ for path in sorted((ROOT / 'tests').glob('*.py')):
     if path.name in ('link_placeholders.py', Path(__file__).name):
         continue
     if '.quad 0' in text or 'placeholders.s' in text:
-        check('link_placeholders.probe(' in text,
+        check('link_placeholders.probe(' in text or 'link_placeholders.lacking(' in text,
               f'{path.name} links with placeholders and does not ask link_placeholders whether the probe is built')
         check('symbol not found in flat namespace' not in text or 'link_placeholders.' in text,
               f'{path.name} looks for the missing symbol by itself')

@@ -33,6 +33,17 @@ import Testing
         #expect(SeriesDisplay.clampedIndex(-1, count: 70_000) == 69_999)
     }
 
+    @Test func aListShorterThanThePixelsHasNoEntryPastItsEnd() {
+        #expect(SeriesDisplay.listedIndex(0, count: 3) == 0)
+        #expect(SeriesDisplay.listedIndex(2, count: 3) == 2)
+        // The index was clamped to more pixels than the list has entries.
+        #expect(SeriesDisplay.listedIndex(3, count: 3) == nil)
+        #expect(SeriesDisplay.listedIndex(7, count: 3) == nil)
+        #expect(SeriesDisplay.listedIndex(0, count: 0) == nil)
+        // No image is shown: the view's index is -1.
+        #expect(SeriesDisplay.listedIndex(-1, count: 3) == nil)
+    }
+
     @Test func aVolumeHasImagesAtSeveralLocations() {
         #expect(SeriesDisplay.isVolume(count: 0, firstSliceLocation: 0, lastSliceLocation: 0) == false)
         #expect(SeriesDisplay.isVolume(count: 1, firstSliceLocation: 0, lastSliceLocation: 5) == false)

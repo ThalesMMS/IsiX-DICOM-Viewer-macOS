@@ -105,10 +105,30 @@ public final class DICOMLegacyTagForNameDictionary: NSDictionary {
 /// Tags compare and are equal by their "GGGG,EEEE" text.
 @objc(DCMAttributeTag)
 open class DICOMAttributeTag: NSObject, NSCopying {
-    @objc public let group: Int32
-    @objc public let element: Int32
-    @objc public private(set) var name: String?
-    @objc public var vr: String?
+    @objc public final internal(set) var group: Int32
+    @objc public final internal(set) var element: Int32
+    @objc public private(set) var name: String? { didSet { _name = name as NSString? } }
+    @objc public var vr: String? { didSet { _vr = vr as NSString? } }
+
+    // The instance variables of the former Horos and OsiriX plugin SDK, which a
+    // plugin reads at the offset the application exports for each: stored
+    // fields with the type the C declaration has in memory, public so that the
+    // application's link reaches them, never constant, lazy or observed.
+    // _group and _element are the two numbers above. The three texts are
+    // copies, written when the tag is made and when its name or its value
+    // representation changes, and never read here: the tag reads its own
+    // Swift strings.
+    public final var _name: NSString?
+    public final var _vr: NSString?
+    public final var _stringValue: NSString?
+
+    /// Writes the copies the SDK's variables hold; an initializer ends with it,
+    /// since a property's observer does not run while its object is made.
+    private func writeTextCopies(stringValue text: String? = nil) {
+        _name = name as NSString?
+        _vr = vr as NSString?
+        _stringValue = (text ?? stringValue) as NSString?
+    }
 
     @objc(initWithGroup:element:)
     public init(group: Int32, element: Int32) {
@@ -116,11 +136,13 @@ open class DICOMAttributeTag: NSObject, NSCopying {
         self.element = element
         name = "Unknown"
         super.init()
-        if let entry = DICOMTagDictionary.sharedTagDictionary().object(forKey: stringValue as String) as? NSDictionary {
+        let text = stringValue as String
+        if let entry = DICOMTagDictionary.sharedTagDictionary().object(forKey: text) as? NSDictionary {
             name = entry.object(forKey: "Description") as? String
             vr = entry.object(forKey: "VR") as? String
         }
         if vr == nil { vr = "UN" }
+        writeTextCopies(stringValue: text)
     }
 
     /// A tag named as given, without looking it up in the dictionary: an
@@ -132,6 +154,7 @@ open class DICOMAttributeTag: NSObject, NSCopying {
         self.name = name
         self.vr = vr
         super.init()
+        writeTextCopies()
     }
 
     @objc(initWithTag:)
@@ -159,6 +182,7 @@ open class DICOMAttributeTag: NSObject, NSCopying {
             vr = entry.object(forKey: "VR") as? String
         }
         if vr == nil { vr = "UN" }
+        writeTextCopies()
     }
 
     /// The tag of a dictionary name, in either 2011 spelling; nil when the

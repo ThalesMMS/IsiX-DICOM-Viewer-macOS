@@ -47,7 +47,7 @@ if 'measureBetweenSelectedSlices:' not in header:
 if 'measureBetweenSelectedSlices:' not in method:
     print('FAIL: could not isolate measureBetweenSelectedSlices:', file=sys.stderr)
     sys.exit(1)
-if 'stringTex' in method or 'HorosROILabelPresentation' in method:
+if 'stringTex' in method or 'textString' in method or 'HorosROILabelPresentation' in method:
     print('FAIL: interslice measure must not touch the ROI label matrix', file=sys.stderr)
     sys.exit(1)
 menus = controller

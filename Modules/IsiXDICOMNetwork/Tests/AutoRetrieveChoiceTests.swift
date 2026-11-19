@@ -70,6 +70,33 @@ import IsiXContracts
         #expect(uids == [["1.3"]])
     }
 
+    // A node that lists no series or instances, and counts seven instances in
+    // a study it sends five of: with five files here, the count alone asks
+    // for the study on every cycle. The retrieve its counters judged complete
+    // says it is here, while the node reports that count.
+    @Test func aStudyTheNodesCountersJudgedCompleteIsNotRetrievedOnEveryCycle() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("isix-auto-retrieve-\(UUID().uuidString)").path
+        defer { try? FileManager.default.removeItem(atPath: folder) }
+        let found = [study("1.1", images: 7)]
+        #expect(await retrieved(instance("A", refresh: -1, retrieving: true), found: found, local: ["1.1": 5]) == [["1.1"]])
+
+        let store = RetrieveInventoryStore()
+        let inventory = store.begin(study: "1.1", series: "", endpoint: "PACS", database: folder, instances: [], confirmed: false,
+                                    reported: 7, listing: .empty)
+        let arrived = (1...5).map { "1.1.\($0)" }
+        for uid in arrived { store.storeCompleted(uid: uid, status: 0, study: "1.1", series: "1.9") }
+        inventory.record(operation: "C-MOVE", status: 0, completed: 5, failed: 0, warnings: 0, remaining: 0)
+        inventory.updateImportedUIDs(arrived)
+        #expect(inventory.judgeByPeerCounters())
+        inventory.finish()
+
+        let retrieve = StandInRetrieve()
+        await retrieve.set(inventories: ["1.1": try #require(AutoQueryRetrieveInventory.judgedByPeerCounters(inventory, reported: 7))])
+        #expect(await retrieved(instance("A", refresh: -1, retrieving: true), found: found, local: ["1.1": 5], retrieve: retrieve).isEmpty)
+        // The node reports another count: the verdict no longer answers, and the count decides again.
+        #expect(AutoQueryRetrieveInventory.judgedByPeerCounters(inventory, reported: 9) == nil)
+    }
+
     @Test func theMostStudiesAndTheDuplicateAccessionNumbers() async {
         let found = [study("1.1", accession: "A1"), study("1.2", accession: "A1"), study("1.3", accession: nil),
                      study("1.4", accession: nil), study("1.5", accession: "A2")]

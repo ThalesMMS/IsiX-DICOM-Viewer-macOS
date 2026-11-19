@@ -56,7 +56,25 @@ import IsiXPreferences
 final class ROIVolumeView: HorosSceneView {
     private var roiVolumeActor: IsiXVTKActor?
     private var texture: IsiXVTKTexture?
-    private var roi: ROI?
+    // The instance variables of the former Horos and OsiriX plugin SDK, each
+    // with the type its header declared: a plugin reads and writes them at
+    // the exported offset. roi is the ROI whose surface the view shows, which
+    // the view releases when it goes. The surface and its texture are kept
+    // above under the adapter's classes and the renderer and the camera are
+    // the scene's, so nothing stands behind the VTK objects, which are never
+    // released, nor behind computeMedialSurface.
+    final var roi: ROI?
+    final unowned(unsafe) var _aRenderer: AnyObject?, _aCamera: AnyObject?, _roiVolumeActor: AnyObject?, _texture: AnyObject?
+    final unowned(unsafe) var _outlineRect: AnyObject?, _mapOutline: AnyObject?, _outlineData: AnyObject?
+    final var computeMedialSurface = false
+    // Declared only by older copies of the SDK's headers. The ball of a point
+    // and the importer of the image were C++ objects of the former pipeline,
+    // never retained. The view was given the 3D points of the surface and
+    // kept them; it is given the ROI now, and the points are gathered while
+    // the surface is made and not kept: this stays nil unless a plugin stores
+    // a list, which the view then releases with itself.
+    final unowned(unsafe) var _ballActor: AnyObject?, _reader: AnyObject?
+    final var _points3D: NSArray?
     /// The process's dependencies, made with the view: it reads its
     /// preferences from their store.
     private let processGraph = PreferencesSource.process.processGraph

@@ -165,7 +165,7 @@ public extension ViewerController {
     /// Resamples every movie frame of the series by these factors (a factor of
     /// 2 halves the number of pixels along its axis) and shows the result in
     /// this viewer, with its ROIs spread over the new slices. NO, with the
-    /// series as it was, when there is not enough memory.
+    /// viewer as it was, when out of memory or while 3D windows use its volume.
     @objc(resampleDataWithXFactor:yFactor:zFactor:)
     @discardableResult
     func resampleData(withXFactor xFactor: Float, yFactor: Float, zFactor: Float) -> Bool {
@@ -185,10 +185,10 @@ public extension ViewerController {
     class func resampleData(fromViewer aViewer: ViewerController!, inPixArray aPixList: NSMutableArray!, fileArray aFileList: NSMutableArray!,
                             data aData: AutoreleasingUnsafeMutablePointer<NSData?>!, withXFactor xFactor: Float, yFactor: Float, zFactor: Float,
                             movieIndex j: Int32) -> Bool {
-        aViewer?.setPostprocessed(true)
-        return resampleData(fromPixArray: aViewer?.pixList(Int(j)) as? [Any], fileArray: aViewer?.fileList(Int(j)) as? [Any],
-                            inPixArray: aPixList, fileArray: aFileList, data: aData,
-                            withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor)
+        let made = resampleData(fromPixArray: aViewer?.pixList(Int(j)) as? [Any], fileArray: aViewer?.fileList(Int(j)) as? [Any],
+                                inPixArray: aPixList, fileArray: aFileList, data: aData, withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor)
+        if made { aViewer?.setPostprocessed(true) } // Not when out of memory: the viewer is left as it was.
+        return made
     }
 
     /// Resamples a series: appends to `aPixList` and `aFileList` the new
@@ -229,8 +229,10 @@ public extension ViewerController {
     let viewer: ViewerController
 
     /// Halves the series along each axis behind a wait window, with an alert
-    /// when there is not enough memory.
+    /// when there is not enough memory; only a beep while other windows use
+    /// its volume.
     func resampleBy2ShowingProgress() {
+        if refusesChangeOfSeries() { return }
         let waitWindow = viewer.startWaitWindow(NSLocalizedString("Resampling data...", comment: ""))
         let isResampled = viewer.resampleDataBy2()
         viewer.endWaitWindow(waitWindow)
@@ -241,10 +243,24 @@ public extension ViewerController {
         }
     }
 
+    /// Whether the viewer's series cannot be replaced now: other windows (MPR,
+    /// volume rendering…) use its volume, which cannot be released under
+    /// them, so -changeImageData:::: would keep the series. The refusal is the
+    /// beep that change gives, and nothing else happens.
+    func refusesChangeOfSeries() -> Bool {
+        guard viewer.horosSeriesLoad.volumeIsUsedByOtherWindows else { return false }
+        NSSound.beep()
+        NSLog("resampleData not possible with other post-processing windows opened")
+        return true
+    }
+
     /// Resamples every movie frame of the series by these factors and shows
     /// the result in the viewer, with its ROIs spread over the new slices;
-    /// false, with the series as it was, when there is not enough memory.
+    /// false, with the viewer as it was (its series, ROIs, zoom, resampling
+    /// ratio and post-processed mark), when the series cannot be replaced or
+    /// there is not enough memory.
     func resample(xFactor: Float, yFactor: Float, zFactor: Float) -> Bool {
+        if refusesChangeOfSeries() { return false }
         viewer.checkEverythingLoaded()
         viewer.horos_imageView?.stopROIEditingForce(true)
 
@@ -269,22 +285,34 @@ public extension ViewerController {
 
             let newPixList = NSMutableArray(), newDcmList = NSMutableArray()
             var newData: NSData? = nil
-            guard ViewerController.resampleData(fromViewer: viewer, inPixArray: newPixList, fileArray: newDcmList, data: &newData,
-                                                withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor, movieIndex: Int32(j)) else { return false }
+            // The viewer is not marked yet: a movie frame that cannot be
+            // resampled leaves it as it was.
+            guard ViewerController.resampleData(fromPixArray: viewer.pixList(j) as? [Any], fileArray: viewer.fileList(j) as? [Any],
+                                                inPixArray: newPixList, fileArray: newDcmList, data: &newData,
+                                                withXFactor: xFactor, yFactor: yFactor, zFactor: zFactor) else { return false }
             resampled.append((newPixList, newDcmList, newData))
-            viewer.horos_postprocessed = true
         }
 
-        viewer.horos_resampleRatio = xFactor
+        let wasPostprocessed = viewer.horos_postprocessed
+        viewer.horos_postprocessed = true
 
         for (j, series) in resampled.enumerated() {
             if j == 0 {
                 viewerChangeImageData(viewer, series.pix, series.files, series.data, false)
+                // Kept the series after all (the window is closing): nothing
+                // else changes.
+                guard viewer.horos_pixList(at: 0) === series.pix else {
+                    viewer.horos_postprocessed = wasPostprocessed
+                    return false
+                }
             } else {
                 viewerAddMovieSerie(viewer, series.pix, series.files, series.data)
             }
         }
 
+        // Once the viewer shows the new series: the change of series sets
+        // the ratio back to 1.
+        viewer.horos_resampleRatio = xFactor
         viewer.setPostprocessed(true)
 
         _ = viewer.computeInterval()

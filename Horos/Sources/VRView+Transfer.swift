@@ -227,6 +227,8 @@ extension VRView {
 
         let points = array ?? []
 
+        // The 16-bit CLUT's opacity is replaced: the next one is applied again.
+        horos_appliedCLUT = nil
         vtk.removeAllOpacityPoints()
 
         if points.count > 0 {
@@ -268,9 +270,7 @@ extension VRView {
         if !vtk.hasProperty { return }
 
         horos_advancedCLUT = false
-        if horos_appliedCurves != nil {
-            horos_appliedCurves = nil
-        }
+        horos_appliedCLUT = nil
 
         var r = r, g = g, b = b
         let inverted = UnsafeMutablePointer<UInt8>.allocate(capacity: 3 * 256)

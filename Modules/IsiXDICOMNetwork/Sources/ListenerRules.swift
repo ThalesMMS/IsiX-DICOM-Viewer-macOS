@@ -104,6 +104,48 @@ public enum ListenerCommand: Int, Sendable {
     }
 }
 
+/// What an association the listener served ended on, when it was neither
+/// released nor cancelled here.
+public enum ListenerEndCondition: Sendable {
+    /// The peer aborted it, or closed the connection without releasing it.
+    case peerAbort
+    /// The peer began a message and then sent nothing more for the DIMSE
+    /// timeout, with the connection open: the rest of a command, the
+    /// identifier of a query or the data set of a C-STORE never came.
+    case noDataAvailable
+    /// Any other failure: a PDU that is not valid, a connection cut inside a
+    /// PDU, a command that is not answered, a presentation context that does
+    /// not fit, a release that could not be acknowledged.
+    case other
+}
+
+/// Whether the end of an association is said in the notices panel of the Mac
+/// that received it, or only in its log.
+public enum ListenerAssociationEndRules {
+
+    /// The commands whose message, cut by a peer that stopped sending, is
+    /// shown as a notice. None: the user of the receiving Mac has nothing to
+    /// do about a peer that goes quiet in the middle of a message, and a
+    /// client that queries every few seconds piles such notices up; the
+    /// association ends and its diagnostic stays in the log, as Horos kept it.
+    public static let commandsWhoseCutIsShown: Set<ListenerCommand> = []
+
+    /// Whether the end `condition` opens a notice. `command` is the command
+    /// of the message that was being served, nil when none was or when it is
+    /// not known; only the cut of a message is decided by it.
+    public static func showsNotice(_ condition: ListenerEndCondition, command: ListenerCommand?) -> Bool {
+        switch condition {
+        case .peerAbort:
+            return false
+        case .noDataAvailable:
+            guard let command else { return false }
+            return commandsWhoseCutIsShown.contains(command)
+        case .other:
+            return true
+        }
+    }
+}
+
 /// What the listener accepts: the services it negotiates and the commands it
 /// answers.
 public enum ListenerAcceptance {

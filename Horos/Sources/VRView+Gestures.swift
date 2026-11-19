@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 import IsiXVolumeRendering
 
 // The gestures of VRView other than a click and its drag: the plugins' first
@@ -84,25 +85,22 @@ extension VRView {
     /// current tool.
     @objc(getTool:)
     func getTool(_ event: NSEvent?) -> ToolMode {
-        var tool: ToolMode
-        let type = event?.type
-        if (type == .rightMouseDown || type == .rightMouseDragged || type == .rightMouseUp) && !horos_contextualMenuActive {
-            tool = .tZoom
-        } else if type == .otherMouseDown || type == .otherMouseDragged || type == .otherMouseUp {
-            tool = .tTranslate
-        } else {
-            tool = horos_currentTool
+        return getTool(event, buttonTool: nil)
+    }
+
+    /// The tool of an event whose button's tool the MPR may give
+    /// (`buttonTool`): IsiXImaging's VolumeViewButtons rule.
+    func getTool(_ event: NSEvent?, buttonTool: ToolMode?) -> ToolMode {
+        let button: ViewInput.Button
+        switch event?.type {
+        case .rightMouseDown?, .rightMouseDragged?, .rightMouseUp?: button = .right
+        case .otherMouseDown?, .otherMouseDragged?, .otherMouseUp?: button = .other(buttonNumber: event?.buttonNumber ?? 2)
+        default: button = .left
         }
-
-        let flags = event?.modifierFlags ?? []
-        if flags.contains(.control) { tool = .tRotate }
-        if flags.contains(.shift) { tool = .tZoom }
-        if flags.contains(.command) { tool = .tTranslate }
-        if flags.contains(.option) { tool = .tWL }
-        if flags.contains(.command) && flags.contains(.option) { tool = .tRotate }
-        if flags.contains(.command) && flags.contains(.control) { tool = .tCamera3D }
-
-        return tool
+        let tool = VolumeViewButtons.tool(button: button, current: horos_currentTool.rawValue, given: buttonTool?.rawValue,
+                                          modifiers: ViewInput.Modifiers(rawValue: event?.modifierFlags.rawValue ?? 0),
+                                          contextualMenuActive: horos_contextualMenuActive)
+        return ToolMode(rawValue: tool) ?? horos_currentTool
     }
 
     public override func flagsChanged(with event: NSEvent) {
@@ -123,7 +121,7 @@ extension VRView {
         horos_hasChanged = true
         if !vtk.prepareInteractor() { return }
 
-        horos_isRotating = false
+        setRotating(false)
         resetAutorotate(self)
 
         if projectionMode != 2 && !clipRangeActivated {
@@ -219,7 +217,7 @@ extension VRView {
 
     @objc(setRotate:)
     func setRotate(_ r: Bool) {
-        horos_isRotating = r
+        setRotating(r)
     }
 
     // MARK: - Hover

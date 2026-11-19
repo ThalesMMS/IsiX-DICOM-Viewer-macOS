@@ -250,7 +250,7 @@ case "read-back":
     for i in stride(from: 0, to: pixels.count, by: 3) { pixels[i] = 255 }
     let brush = ROI(texture: &pixels, textWidth: 6, textHeight: 5, textName: "Brush", positionX: 3, positionY: 4,
                     spacingX: 0.5, spacingY: 0.5, imageOrigin: .zero)!
-    // The fork's own values, written after placeholders for OsiriX 6's.
+    // The archive's own values, written after placeholders for those of the later LGPL format.
     brush.textNameOnly = true
     brush.hidden = true
     let length = HorosVolumeLengthROI(type: .tMesure, 1, 1, .zero)!
@@ -400,8 +400,8 @@ def build(tmp):
          '-o', str(tmp / 'HorosObjCException.o')])
     run(['xcrun', 'clang', '-fno-objc-arc', '-c', str(tmp / 'stubs.m'), '-o', str(tmp / 'stubs.o')])
     placeholders = set()
-    # dyld names one missing data symbol per attempt; functions bind lazily.
-    for _ in range(100):
+    # The data symbols the harness lacks get placeholders; functions bind lazily.
+    for _ in range(100 if objective_c else roi_harness.PLACEHOLDER_LIMIT):
         assembly = ''.join('.globl %s\n%s: .quad 0\n' % (s, s) for s in sorted(placeholders))
         (tmp / 'placeholders.s').write_text('.data\n' + assembly)
         run(['xcrun', 'clang', '-c', str(tmp / 'placeholders.s'), '-o', str(tmp / 'placeholders.o')])
@@ -414,10 +414,10 @@ def build(tmp):
              '-framework', 'QuartzCore', '-o', str(tmp / 'harness')])
         # Any other end of the link run but 0 or dyld's next symbol is a
         # harness that is not built (link_placeholders).
-        missing = link_placeholders.probe(tmp / 'harness', placeholders, 'the link probe of the ROI harness')
-        if missing is None:
+        missing = link_placeholders.lacking(tmp / 'harness', placeholders, 'the link probe of the ROI harness')
+        if not missing:
             return tmp / 'harness'
-        placeholders.add(missing)
+        placeholders.update(missing)
     raise RuntimeError('too many unresolved symbols in the ROI')
 
 

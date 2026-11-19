@@ -146,6 +146,19 @@ extension DCMTKQueryNode {
                    patience: patience, cancelled: { Thread.current.isCancelled })
             }
             refreshRetrieveInventory()
+            // A node that refused the listing of its series or instances, or
+            // answered it without naming any, as one that answers the STUDY
+            // level alone does, left nothing to compare what arrived with. Its
+            // own counters then judge the retrieve: every C-MOVE or C-GET ended
+            // in success with nothing failed, with a warning or left, and what
+            // they sent is in the index. Reported incomplete, every retrieve
+            // from such a node raised a notice over a study that had arrived
+            // whole. A listing that failed, sub-operations that failed or
+            // warned, and an instance that arrived and is not in the index keep
+            // the retrieve reported.
+            if !dicomweb && receivedIndexed && !Thread.current.isCancelled && inventory.judgeByPeerCounters() {
+                NSLog("---- retrieve complete by the node's counters: %@", inventory.summary)
+            }
             inventory.finish()
             dicomwebIndexed = receivedIndexed
             // A DICOMweb node that counts more instances than it listed, and than
@@ -230,6 +243,9 @@ extension DCMTKQueryNode {
             if (!localObjectUIDs.isEmpty || preferences[NetworkPreferences.multipleAssociationsRetrieve]) && !Thread.current.isCancelled {
                 let study = studyInstanceUID
                 let cFindThread = ActivityThread.startUnlisted(name: "IMAGE level C-FIND") { [self] _ in cFind(study: study) }
+                // What the listing showed so far: instances, any that is not
+                // here, and an entry that could not be read.
+                var listedInstances = false, askedForInstances = false, unreadableListing = false
                 Thread.sleep(forTimeInterval: 0.1)
                 // isFinished, not isExecuting: the worker may not have begun
                 // executing after the pause above, and the loop then never ran.
@@ -245,6 +261,7 @@ extension DCMTKQueryNode {
                             }
                             for case let image as DCMTKImageQueryNode in childrenArray {
                                 if let uid = image.uid() {
+                                    listedInstances = true
                                     if !localObjectUIDs.contains(uid) && !unsendableUIDs.contains(uid) {
                                         if let series = image.seriesInstanceUID() {
                                             if seriesUIDsToRetrieve[series] == nil { seriesOrder.append(series) }
@@ -253,16 +270,19 @@ extension DCMTKQueryNode {
                                             imagesWithoutSeries.append(uid)
                                         } else {
                                             NSLog("****** an image without series in a series' listing: %@", uid)
+                                            unreadableListing = true
                                             break
                                         }
                                     }
                                 } else {
                                     NSLog("****** no image uid !")
+                                    unreadableListing = true
                                 }
                                 if Thread.current.isCancelled { break }
                             }
                         })
                         if (!seriesUIDsToRetrieve.isEmpty || !imagesWithoutSeries.isEmpty) && !Thread.current.isCancelled {
+                            askedForInstances = true
                             // Each series is retrieved on its own, for peers that
                             // refuse a request across series.
                             let requests: [DICOMQueryIdentifier] = !seriesUIDsToRetrieve.isEmpty
@@ -305,6 +325,12 @@ extension DCMTKQueryNode {
                         }
                     }
                     Thread.sleep(forTimeInterval: 0.1)
+                }
+                // The node listed the study's instances and every one is here,
+                // or is one it cannot send: nothing is missing, and the STUDY
+                // level below would bring the whole study again.
+                if listedInstances && !askedForInstances && !unreadableListing && !Thread.current.isCancelled {
+                    retrievedDone = true
                 }
                 if Thread.current.isCancelled {
                     // The worker adds children until it returns: the list is not

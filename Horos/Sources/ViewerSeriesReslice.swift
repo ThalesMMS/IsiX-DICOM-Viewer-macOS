@@ -78,6 +78,9 @@ import IsiXImaging
                                     worker: worker) else { return nil }
             frames.append(frame)
         }
+        // Only once every time point is made: one that cannot be leaves the
+        // viewer as it was.
+        viewer.horos_postprocessed = true
         return frames
     }
 
@@ -168,7 +171,6 @@ import IsiXImaging
         worker.gatherAndWait(job)
 
         NSLog("reslice end")
-        viewer.horos_postprocessed = true
         viewer.endWaitWindow(waitWindow)
         return Frame(pixes: pixes, files: files, volume: volume)
     }

@@ -29,6 +29,14 @@
 				<key>red</key>
 				<real>1</real>
 			</dict>
+			<dict>
+				<key>blue</key>
+				<real>0.0</real>
+				<key>green</key>
+				<real>0.9992523193359375</real>
+				<key>red</key>
+				<real>1</real>
+			</dict>
 		</array>
 		<array>
 			<dict>
@@ -83,6 +91,12 @@
 			<dict>
 				<key>x</key>
 				<real>214.0443115234375</real>
+				<key>y</key>
+				<real>0.5300024151802063</real>
+			</dict>
+			<dict>
+				<key>x</key>
+				<real>3071</real>
 				<key>y</key>
 				<real>0.5300024151802063</real>
 			</dict>

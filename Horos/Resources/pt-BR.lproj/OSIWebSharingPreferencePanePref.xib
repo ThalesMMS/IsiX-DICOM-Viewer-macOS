@@ -701,7 +701,7 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="-1" id="535">
-                        <rect key="frame" x="98" y="25" width="66" height="17"/>
+                        <rect key="frame" x="98" y="25" width="67" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="Adicionar" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="536">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -785,7 +785,7 @@ DQ
                         </connections>
                     </searchField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="485">
-                        <rect key="frame" x="185" y="523" width="50" height="14"/>
+                        <rect key="frame" x="178" y="523" width="57" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Endereço:" id="486">
                             <font key="font" metaFont="smallSystem"/>
@@ -811,7 +811,7 @@ DQ
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="490">
-                        <rect key="frame" x="178" y="595" width="57" height="14"/>
+                        <rect key="frame" x="166" y="595" width="78" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Senha:" id="491">
                             <font key="font" metaFont="smallSystem"/>
@@ -837,7 +837,7 @@ DQ
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="495">
-                        <rect key="frame" x="194" y="547" width="41" height="14"/>
+                        <rect key="frame" x="170" y="547" width="65" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Telefone:" id="496">
                             <font key="font" metaFont="smallSystem"/>
@@ -863,7 +863,7 @@ DQ
                         </connections>
                     </textField>
                     <button tag="-1" id="500">
-                        <rect key="frame" x="190" y="213" width="215" height="18"/>
+                        <rect key="frame" x="190" y="213" width="310" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Criptografe arquivos ZIP, com senha de usuário" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="501">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -886,7 +886,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="652">
-                        <rect key="frame" x="174" y="232" width="236" height="18"/>
+                        <rect key="frame" x="174" y="232" width="259" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a baixar arquivos DICOM ZIP" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="653">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -901,7 +901,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="1178">
-                        <rect key="frame" x="174" y="194" width="203" height="18"/>
+                        <rect key="frame" x="174" y="194" width="293" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a visualizar laudos como PDF" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1179">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -916,7 +916,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="836">
-                        <rect key="frame" x="174" y="271" width="267" height="18"/>
+                        <rect key="frame" x="174" y="271" width="374" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a compartilhar um estudo com outro usuário" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="837">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -927,7 +927,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="609">
-                        <rect key="frame" x="174" y="98" width="185" height="18"/>
+                        <rect key="frame" x="174" y="98" width="310" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="E-mails de notificações automáticas" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="610">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -946,7 +946,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="1229">
-                        <rect key="frame" x="174" y="80" width="235" height="18"/>
+                        <rect key="frame" x="174" y="80" width="335" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Exibir uma lista de pacientes visualizados recentemente" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1230">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -957,7 +957,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="612">
-                        <rect key="frame" x="174" y="174" width="202" height="18"/>
+                        <rect key="frame" x="174" y="174" width="257" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a fazer upload de arquivos DICOM" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="613">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -968,7 +968,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="924">
-                        <rect key="frame" x="190" y="155" width="254" height="18"/>
+                        <rect key="frame" x="190" y="155" width="385" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Adicione arquivos enviados à lista de estudos específicos" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="925">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -987,7 +987,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="658">
-                        <rect key="frame" x="174" y="136" width="263" height="18"/>
+                        <rect key="frame" x="174" y="136" width="303" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a transferir arquivos DICOM para si mesmo" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="659">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -998,7 +998,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="662">
-                        <rect key="frame" x="190" y="117" width="262" height="18"/>
+                        <rect key="frame" x="190" y="117" width="340" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a transferir arquivos DICOM para qualquer pessoa" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="663">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1017,7 +1017,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="969">
-                        <rect key="frame" x="174" y="309" width="395" height="18"/>
+                        <rect key="frame" x="174" y="309" width="464" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a acessar todos os estudos de pacientes já parcialmente acessíveis" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="970">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1028,7 +1028,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="1156">
-                        <rect key="frame" x="174" y="290" width="186" height="18"/>
+                        <rect key="frame" x="174" y="290" width="238" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a navegar nos álbuns" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1157">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1039,7 +1039,7 @@ DQ
                         </connections>
                     </button>
                     <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="503">
-                        <rect key="frame" x="198" y="571" width="37" height="14"/>
+                        <rect key="frame" x="166" y="571" width="78" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="E-mail:" id="504">
                             <font key="font" metaFont="smallSystem"/>
@@ -1065,7 +1065,7 @@ DQ
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="508">
-                        <rect key="frame" x="279" y="499" width="137" height="14"/>
+                        <rect key="frame" x="182" y="499" width="234" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Filtro (nível da tabela de estudo):" id="509">
                             <font key="font" metaFont="smallSystem"/>
@@ -1074,7 +1074,7 @@ DQ
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="741">
-                        <rect key="frame" x="291" y="391" width="124" height="14"/>
+                        <rect key="frame" x="205" y="391" width="210" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Lista de estudos específicos:" id="742">
                             <font key="font" metaFont="smallSystem"/>
@@ -1083,19 +1083,19 @@ DQ
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="643">
-                        <rect key="frame" x="187" y="463" width="228" height="33"/>
+                        <rect key="frame" x="166" y="463" width="253" height="33"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" alignment="right" id="644">
                             <font key="font" metaFont="miniSystem"/>
-                            <string key="title">A sintaxe é semelhante à dos álbuns inteligentes. Por exemplo:
-(referindo-se ao Médico CONTÉM [cd] 'Prof. ROSSET')
-(SIM == NÃO) para uma lista vazia.</string>
+                            <string key="title">A sintaxe é a dos álbuns inteligentes. Exemplo:
+(referringPhysician CONTAINS[cd] 'Prof. ROSSET')
+(YES == NO) para uma lista vazia.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="764">
-                        <rect key="frame" x="261" y="372" width="154" height="11"/>
+                        <rect key="frame" x="196" y="372" width="219" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" alignment="right" title="UIDs de instância de estudo e UIDs de pacientes" id="765">
                             <font key="font" metaFont="miniSystem"/>
@@ -1162,9 +1162,9 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="645">
-                        <rect key="frame" x="235" y="439" width="70" height="17"/>
+                        <rect key="frame" x="166" y="439" width="131" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="roundRect" title="Tabelas de IsiX DICOM Viewer" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="648">
+                        <buttonCell key="cell" type="roundRect" title="Tabelas" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="648">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="miniSystem"/>
                         </buttonCell>
@@ -1173,7 +1173,7 @@ DQ
                         </connections>
                     </button>
                     <button horizontalHuggingPriority="249" verticalHuggingPriority="750" tag="2" id="738">
-                        <rect key="frame" x="382" y="439" width="32" height="17"/>
+                        <rect key="frame" x="375" y="439" width="46" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="Teste" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="739">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1204,7 +1204,7 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" tag="1" id="646">
-                        <rect key="frame" x="313" y="439" width="63" height="17"/>
+                        <rect key="frame" x="299" y="439" width="74" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="Sintaxe SQL" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="647">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1231,7 +1231,7 @@ DQ
                         </connections>
                     </datePicker>
                     <button id="692">
-                        <rect key="frame" x="174" y="60" width="137" height="18"/>
+                        <rect key="frame" x="107" y="60" width="212" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Exclua este usuário após:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="693">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1302,7 +1302,7 @@ DQ
                         </scroller>
                     </scrollView>
                     <button tag="-1" id="954">
-                        <rect key="frame" x="174" y="642" width="383" height="18"/>
+                        <rect key="frame" x="174" y="642" width="562" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a editar usuários através da interface Web (conta de administrador)" imagePosition="left" alignment="left" controlSize="small" inset="2" id="955">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1317,7 +1317,7 @@ DQ
                         </connections>
                     </button>
                     <button tag="-1" id="1204">
-                        <rect key="frame" x="190" y="252" width="366" height="18"/>
+                        <rect key="frame" x="190" y="252" width="542" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Autorizado a compartilhar um estudo criando um usuário temporário (e-mail)" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1205">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

@@ -48,15 +48,25 @@ import Cocoa
 /// (VRView+Subclasses.swift), with the main view's.
 @objc(VRPresetPreview)
 public final class VRPresetPreview: VRView {
-    // The former instance variables start as Objective-C's did, NO and 0,
-    // while VRView initializes, and take their values after.
-    private var isEmptyPreview = false
-    private var isSelectedPreview = false
-    @IBOutlet private weak var selectionView: SelectionView?
-    @IBOutlet private weak var presetController: VRController?
-    private var presetIndex: Int32 = 0
-    /// While it draws, the view does not ask to be drawn again.
-    private var noNeedsDisplay = false
+    // MARK: - Instance variables of the former plugin SDK
+
+    // Plugins built for the former Horos or OsiriX SDK read and write these at
+    // the offset the application exports for each, so each is a stored field
+    // of this class with the C declaration's type, never private, lazy, weak
+    // or observed; a plugin's write calls no setter. They start as
+    // Objective-C's did, NO and 0, while VRView initializes, and take their
+    // values after. noNeedsDisplay: while it draws, the view does not ask to
+    // be drawn again.
+    var isEmptyPreview = false, isSelectedPreview = false
+    var presetIndex: Int32 = 0
+    var noNeedsDisplay = false
+    // The two outlets of the SDK were not retained. The view keeps them weak,
+    // which no offset can export, and writes beside each the unretained copy
+    // the SDK's variable was; nothing here reads the copies.
+    @IBOutlet private weak var selectionView: SelectionView? { didSet { selectionViewOfSDK = selectionView } }
+    @IBOutlet private weak var presetController: VRController? { didSet { presetControllerOfSDK = presetController } }
+    unowned(unsafe) var selectionViewOfSDK: SelectionView?
+    unowned(unsafe) var presetControllerOfSDK: VRController?
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -68,6 +78,12 @@ public final class VRPresetPreview: VRView {
 
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
+    }
+
+    /// The unretained copy of the presets controller goes with the controller.
+    override func horosControllerWasReleased() {
+        super.horosControllerWasReleased()
+        presetControllerOfSDK = nil
     }
 
     isolated deinit {
@@ -122,6 +138,8 @@ public final class VRPresetPreview: VRView {
     }
 
     public override func draw(_ dirtyRect: NSRect) {
+        // The mapper is the main view's, gone with the controller.
+        guard horosCanDrawFrame else { return }
         noNeedsDisplay = true
         // An empty preview is the black background with nothing on it.
         if isEmptyPreview {

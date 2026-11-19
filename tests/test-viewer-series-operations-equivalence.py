@@ -1269,6 +1269,29 @@ REFERENCE_CORRECTIONS = [
      # gathered, and so does the Swift in both directions.
      '        srcVimage.height =  [pixList[ j] count];\n',
      '        srcVimage.height =  count;\n'),
+    ('the gantry tilt correction brings a slice to the model along the normal alone',
+     # +correctGangtryTilt: gave the reorientation the whole offset between
+     # the slice and the model as its translation. The slice is resampled in
+     # the frame of the slices (rows, columns, normal), where what brings it
+     # to the model's place is the distance between the two planes, along the
+     # normal; what is left of the offset, within the plane, is the shift of
+     # its pixels, and the whole offset shifted nothing in a stack sheared
+     # along its own rows or columns. The Swift gives the distance alone
+     # (GantryTiltCorrection.frameTranslation), with the products fused as
+     # clang fuses these.
+     '                    matrix[ 9] = xyz[ 0] - origin[ 0];\n'
+     '                    matrix[ 10] = xyz[ 1] - origin[ 1];\n'
+     '                    matrix[ 11] = xyz[ 2] - origin[ 2];\n',
+     '                    double offsetToModel[ 3] = {xyz[ 0] - origin[ 0], xyz[ 1] - origin[ 1], xyz[ 2] - origin[ 2]};\n'
+     '                    matrix[ 9] = 0;\n'
+     '                    matrix[ 10] = 0;\n'
+     '                    matrix[ 11] = offsetToModel[ 0] * vectorModel[ 6] + offsetToModel[ 1] * vectorModel[ 7]'
+     ' + offsetToModel[ 2] * vectorModel[ 8];\n'),
+    ('the origin of a corrected slice is still the model\'s, moved by the whole offset along the normal',
+     # The distance was read back from the translation, which is no longer the offset.
+     '                    double distance = matrix[ 9] * vectorModel[ 6] + matrix[ 10] * vectorModel[ 7] + matrix[ 11] * vectorModel[ 8];\n',
+     '                    double distance = offsetToModel[ 0] * vectorModel[ 6] + offsetToModel[ 1] * vectorModel[ 7]'
+     ' + offsetToModel[ 2] * vectorModel[ 8];\n'),
 ]
 
 
@@ -1363,7 +1386,44 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-') as tmp:
                 '    static let process = HarnessProcessGraph()\n'
                 '    let seriesResliceWorker = SeriesResliceWorker()\n}\n\n'
                 '@MainActor final class HarnessSessionGraph {\n'
-                '    var processGraph: HarnessProcessGraph { HarnessProcessGraph.process }\n}\n\n'
+                '    var processGraph: HarnessProcessGraph { HarnessProcessGraph.process }\n'
+                '    var preferences: HarnessPreferences { HarnessPreferences() }\n}\n\n'
+                'struct HarnessPreferences {}\n\n'
+                # The thick slab a change of plane keeps. The reference kept the number
+                # of images of the slider, within what the new series has; the
+                # thickness in millimetres the viewer keeps now has its own tests, and
+                # here the slab is that count, so that the two records compare.
+                '@MainActor struct ViewerThickSlab {\n'
+                '    let viewer: ViewerController\n'
+                '    init(viewer: ViewerController, preferences: HarnessPreferences) { self.viewer = viewer }\n'
+                '    func requestedMillimetres() -> Double? { nil }\n'
+                '    func request(millimetres: Double?, fallback: Int) {\n'
+                '        let slider = viewer.horos_sliderFusion\n'
+                '        let maximum = min(Int(slider?.maxValue ?? 0), viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0)\n'
+                '        slider?.integerValue = max(2, min(fallback, maximum))\n'
+                '        viewer.horos_stacksFusion?.integerValue = slider?.integerValue ?? 0\n'
+                '    }\n}\n\n'
+                # What the viewer remembers of the series a change of plane made, one per viewer.
+                '@MainActor final class HarnessGeometryState {\n'
+                '    weak var planeChangedSeries: AnyObject?\n}\n\n'
+                'nonisolated(unsafe) private var harnessGeometryStateKey: UInt8 = 0\n\n'
+                'extension ViewerController {\n'
+                '    var geometryState: HarnessGeometryState {\n'
+                '        if let state = objc_getAssociatedObject(self, &harnessGeometryStateKey) as? HarnessGeometryState { return state }\n'
+                '        let state = HarnessGeometryState()\n'
+                '        objc_setAssociatedObject(self, &harnessGeometryStateKey, state, .OBJC_ASSOCIATION_RETAIN)\n'
+                '        return state\n'
+                '    }\n'
+                '    var horos_movieCount: Int { Int(horos_maxMovieIndex) }\n}\n\n'
+                # Revert Series reads the series from its files again through the
+                # browser: no scenario here reverts, and the files have no series.
+                '@MainActor final class HarnessSeries {\n'
+                '    var isDeleted: Bool { false }\n}\n\n'
+                'extension DicomImage {\n'
+                '    @MainActor var series: HarnessSeries? { nil }\n}\n\n'
+                '@MainActor struct BrowserKeyImages {\n'
+                '    init(processGraph: HarnessProcessGraph) {}\n'
+                '    func load(_ series: HarnessSeries, into viewer: ViewerController, keyImagesOnly: Bool) {}\n}\n\n'
                 'extension ViewerController {\n'
                 '    var sessionGraph: HarnessSessionGraph { HarnessSessionGraph() }\n}\n\n'
                 # The viewer's series load, which a reslice asks to leave the series

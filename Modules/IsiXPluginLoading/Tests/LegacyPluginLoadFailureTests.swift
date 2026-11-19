@@ -33,6 +33,30 @@ import Testing
         #expect(failure.linkDetail == failure.dyldMessage)
     }
 
+    // A version 1 plugin made with a newer kit: the case of an enumeration
+    // this application's kit does not have. The reason shown says so; another
+    // link error keeps the error's sentence and adds what dyld missed, and an
+    // error that is no link error keeps its sentence alone.
+    @Test func aPluginMadeWithANewerKitSaysSo() {
+        let reason = """
+        dlopen(/Plugins/PIRADS.isixplugin/Contents/MacOS/PIRADS, 0x0109): Symbol not found: _$s13IsiXPluginKit0A8XCommandV9PlacementO6reportyA2EmFWC
+          Referenced from: <FFDD00A5-3B2F-38F7-B9AA-A27DE8B947F2> /Plugins/PIRADS.isixplugin/Contents/MacOS/PIRADS
+          Expected in:     <7D613EAE-1D47-3D53-9780-E4B2329BCE8B> /Applications/IsiX.app/Contents/Frameworks/IsiXPluginKit.framework/Versions/A/IsiXPluginKit
+        """
+        let newer = Failure(linkError(reason))
+        #expect(newer.missesKitSymbol)
+        let shown = newer.version1Reason(description: "The bundle “PIRADS” couldn’t be loaded.")
+        #expect(shown.hasPrefix("The plugin was made with a newer plugin SDK than this application has. Update the application"))
+        #expect(shown.hasSuffix("(Symbol not found: _$s13IsiXPluginKit0A8XCommandV9PlacementO6reportyA2EmFWC)"))
+
+        let other = Failure(linkError("dlopen(/Plugins/A.isixplugin/Contents/MacOS/A, 0x0109): Library not loaded: @rpath/Missing.framework/Missing"))
+        #expect(!other.missesKitSymbol)
+        #expect(other.version1Reason(description: "The bundle couldn’t be loaded.")
+                == "The bundle couldn’t be loaded. Library not loaded: @rpath/Missing.framework/Missing")
+        let plain = Failure(domain: NSCocoaErrorDomain, code: NSFileReadNoSuchFileError, dyldReason: nil)
+        #expect(plain.version1Reason(description: "The file is missing.") == "The file is missing.")
+    }
+
     // A two-level namespace import: the symbol, then the lines naming the
     // binary that refers to it and the one expected to define it.
     @Test func twoLevelNamespaceSymbol() {

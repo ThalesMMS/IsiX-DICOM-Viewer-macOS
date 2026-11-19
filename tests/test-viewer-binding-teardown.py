@@ -62,19 +62,31 @@ assert teardown < detach < autorelease, (
 assert 'flagListPODComparatives' in body[teardown:], (
     'the programmatic defaults binding must be torn down with the nib ones')
 
-# The Swift class keeps its outlets in holders, not in ivars the teardown can
-# walk, so it lists them; each holder lists every outlet it declares.
+# The Swift class keeps its outlets in fields the teardown cannot walk as
+# Objective-C ivars, so it lists them: the file of each nib lists every outlet
+# that nib connects, and the class lists the seven connected to its first
+# fields.
 swift_class = root / 'Horos/Sources/ViewerController.swift'
 if swift_class.exists():
     assert 'extension ViewerController: ViewerBindingTeardownRoots' in swift_class.read_text(), (
         'the Swift ViewerController must give the teardown its outlets')
     conformance = swift_class.read_text().split('extension ViewerController: ViewerBindingTeardownRoots', 1)[1]
-    assert 'windowOutlets.bindingTeardownRoots' in conformance and 'panelOutlets.bindingTeardownRoots' in conformance
+    assert 'ViewerWindowOutletRoots.roots(of: self)' in conformance and 'ViewerPanelOutletRoots.roots(of: self)' in conformance
+    own = set(re.findall(r'\b_(\w+)\b', conformance.split('\n        ]', 1)[0]))
+    fields = swift_class.read_text().split('// MARK: - Instance variables of the former plugin SDK', 1)[1].split('// MARK: - Shared by the viewers')[0]
     for name in ('WindowOutlets', 'PanelOutlets'):
         holder = (root / f'Horos/Sources/ViewerController+{name}.swift').read_text()
-        declared = re.findall(r'^    unowned\(unsafe\) var (\w+): ', holder, re.M)
-        listed_block = holder.split('var bindingTeardownRoots: [AnyObject?] {', 1)[1]
-        listed = re.findall(r'^            (\w+),$', listed_block, re.M)
+        connected = re.findall(r'^    @objc\(set\w+:\) private func connect\w+\(_ outlet: [\w.]+\?\) \{ _(\w+) = outlet \}$', holder, re.M)
+        listed_block = holder.split('static func roots(of viewer: ViewerController) -> [AnyObject?] {', 1)[1]
+        listed = re.findall(r'^            viewer\._(\w+),$', listed_block, re.M)
+        assert connected and sorted(listed, key=str.lower) == sorted((n for n in connected if n not in own), key=str.lower), \
+            f'{name}: the teardown list must name every outlet'
+        # An outlet is kept without a retain; the series list, which a floating
+        # panel takes out of the window, is retained.
+        for outlet in connected:
+            declaration = re.search(r'^    (.*)\bvar (?:.*, )?_' + outlet + r': ', fields, re.M)
+            assert declaration and ('unowned(unsafe)' in declaration.group(1)) == (outlet != 'previewMatrixScrollView'), outlet
+        declared = listed
         assert declared and listed == declared, f'{name}: the teardown list must name every outlet'
 
 helper = root / 'Horos/Sources/ViewerBindingTeardown.swift'

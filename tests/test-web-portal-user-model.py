@@ -26,6 +26,8 @@ import subprocess
 import sys
 import tempfile
 
+import former_sdk_objects
+
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -169,14 +171,17 @@ with tempfile.TemporaryDirectory(prefix='horos-portal-user-') as tmp:
                    check=True, capture_output=True)
     current = re.search(r'<string>(.*)\.xcdatamodel</string>',
                         (root / 'Horos/Models/WebPortalDB.xcdatamodeld/.xccurrentversion').read_text()).group(1)
-    (p / 'bridging.h').write_text('#import <Foundation/Foundation.h>\n#import "HorosObjCException.h"\n')
+    # NSError+OsiriX.h declares the error domain the validation uses; FormerPluginSDK+CAPI.m defines it.
+    (p / 'bridging.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import <Foundation/Foundation.h>\n'
+                                  '#import "HorosObjCException.h"\n#import "NSError+OsiriX.h"\n')
     subprocess.run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-I', str(root / 'Horos/Sources'),
                     str(root / 'Horos/Sources/HorosObjCException.m'), '-o', str(p / 'HorosObjCException.o')], check=True)
     (p / 'main.swift').write_text(MAIN)
     build = subprocess.run(['xcrun', 'swiftc', '-module-name', 'Horos', '-import-objc-header', str(p / 'bridging.h'),
                             '-Xcc', '-I' + str(root / 'Horos/Sources'), str(p / 'main.swift'),
                             str(root / 'Horos/Sources/WebPortalUserLookup.swift'),
-                            str(p / 'HorosObjCException.o'), '-o', str(p / 'user')], capture_output=True, text=True)
+                            str(p / 'HorosObjCException.o'), former_sdk_objects.app(p), '-o', str(p / 'user')],
+                           capture_output=True, text=True)
     if build.returncode != 0:
         print(build.stderr[-4000:])
         print('FAIL: the user harness did not compile')

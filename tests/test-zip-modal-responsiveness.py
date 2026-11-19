@@ -85,6 +85,11 @@ void DicomDatabaseLogError(const char* function, const char* file, int line, NSS
 + (BrowserController*)currentBrowser { return nil; }
 @end
 #define check(x) do { if (!(x)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x); return 1; } } while (0)
+// What unzip ends with after a wrong password for the encrypted entries of an
+// archive that has others: 1, and 2 when the password passes the one byte ZIP
+// checks it by before decompressing, as it does once in 256 for an entry. The
+// archives are made anew for each run, with an encryption header of their own.
+static BOOL wrongPassword(int status) { return status == 1 || status == 2; }
 int main(int argc, char **argv) { @autoreleasepool {
     [NSApplication sharedApplication];
     [NSUserDefaults.standardUserDefaults setVolatileDomain:@{@"HideZIPSuppressionMessage":@YES,@"deleteZIPfile":@NO} forName:NSArgumentDomain];
@@ -107,7 +112,7 @@ int main(int argc, char **argv) { @autoreleasepool {
         check([NSFileManager.defaultManager fileExistsAtPath:[dest stringByAppendingPathComponent:@"ok/IMG2.dcm"]]);
     }
     check(![BrowserController unzipFile:@(argv[6]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
-    check(status == 1);
+    check(wrongPassword(status));
     check([BrowserController unzipFile:@(argv[6]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
     check(status == 0);
     // The same warning about an absolute path, in an archive that also lists its folder.
@@ -123,12 +128,12 @@ int main(int argc, char **argv) { @autoreleasepool {
     }
     // The same archive with one file left behind, then whole.
     check(![BrowserController unzipFile:@(argv[10]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
-    check(status == 1);
+    check(wrongPassword(status));
     check([BrowserController unzipFile:@(argv[10]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
     check(status == 1);
     // A file whose name ends in a backslash is no folder: the one left behind is missed.
     check(![BrowserController unzipFile:@(argv[11]) withPassword:@"wrong" destination:dest showGUI:NO terminationStatus:&status]);
-    check(status == 1);
+    check(wrongPassword(status));
     check([BrowserController unzipFile:@(argv[11]) withPassword:@"secret" destination:dest showGUI:NO terminationStatus:&status]);
     check(status == 0);
     puts("PASS: ZIP wait processes main-run-loop events, releases its modal session, preserves bytes/archive, handles invalid ZIP, takes warned archives whole, those with backslashes between folders too, and refuses partial ones");
@@ -202,7 +207,7 @@ with tempfile.TemporaryDirectory(prefix='horos-zip-modal-') as temporary:
     at = export_rules.index('public enum ZipCommand {')
     (folder / 'ZipCommand.swift').write_text('import Foundation\n' + export_rules[at:export_rules.index('\n}\n', at) + 3])
     zip_sources = [str(root / 'Modules/IsiXDatabase/Sources' / name) for name in
-                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift')] + [str(folder / 'ZipCommand.swift')]
+                   ('ProtectedZipArchiver.swift', 'ZipPasswordTerminal.swift', 'ArchiveExpansionBudget.swift')] + [str(folder / 'ZipCommand.swift')]
     for command in (
         ['xcrun', 'swiftc', '-parse-as-library', '-wmo', '-swift-version', '6', '-module-name', 'Horos',
          '-import-objc-header', str(folder / 'Bridge.h'), '-Xcc', '-I', '-Xcc', str(sources),

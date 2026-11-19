@@ -1016,7 +1016,7 @@ public final class DICOMwebSessionPool: NSObject, @unchecked Sendable {
     private func removeIdle(olderThan date: Date?) -> [URLSession] {
         var ended: [URLSession] = []
         if let date {
-            for (key, entry) in entries where entry.active == 0 && entry.lastUsed <= date {
+            for (key, entry) in entries where entry.active == 0 && !(entry.lastUsed > date) {  // `<=` on dates needs macOS 27.2
                 ended.append(entry.session); entries[key] = nil
             }
         }
@@ -1335,8 +1335,8 @@ public final class DICOMwebClient: NSObject {
     /// sends, for a server that cannot convert to the first. "As stored" asks
     /// for the objects' own syntaxes first, then JPEG Lossless, then Explicit
     /// VR Little Endian: a minimal server that knows only named syntaxes
-    /// refuses `transfer-syntax=*`, and JPEG Lossless is what OsiriX asks
-    /// such a server for. Neither is lossy, so a server that takes `*` sends
+    /// refuses `transfer-syntax=*`, and JPEG Lossless is a lossless syntax
+    /// such servers commonly offer. Neither is lossy, so a server that takes `*` sends
     /// what it would have sent before, and one that does not still sends the
     /// pixels as acquired.
     var retrieveTransferSyntaxes: [String] {
@@ -1441,7 +1441,7 @@ public final class DICOMwebClient: NSObject {
                                                         maximumSTOWRequestBodyBytes: storeBodyLimit)
         configuration.retryPolicy = repeats ? Self.busyRetryPolicy : .none
         configuration.multipartLimits = .horosRetrieve
-        configuration.multipartCompatibility = .identifiedPixeonLegacyFraming
+        configuration.multipartCompatibility = .identifiedMissingOpeningBoundaryFraming
         configuration.maximumMetadataBytes = 32 * 1024 * 1024
         configuration.followsRedirects = false
         // Presented by the transport's task delegate, to the node's origin only.

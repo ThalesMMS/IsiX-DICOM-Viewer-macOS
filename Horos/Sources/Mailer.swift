@@ -39,6 +39,22 @@
 
 import AppKit
 
+/// Why Mail did not make the message: the number of the error the script
+/// ended with.
+public struct MailerFailure: Error, Equatable, Sendable {
+    public let number: Int
+
+    public init(number: Int) {
+        self.number = number
+    }
+
+    /// What the user is told: the text the drafts of the other exports have
+    /// for the same error of Mail.
+    public var message: String {
+        MailDraftComposer.message(errorInfo: [NSAppleScript.errorNumber: number], result: nil) ?? ""
+    }
+}
+
 /// Opens a new outgoing message in Mail, with an image attached, through an
 /// AppleScript. The 3D and MPR viewers use it for their Email export.
 ///
@@ -46,6 +62,11 @@ import AppKit
 /// <Horos/Mailer.h> are those of the former class.
 @objc(Mailer)
 public final class Mailer: NSObject {
+    /// myComponent of an older header of the former Horos and OsiriX plugin
+    /// SDK, exported at this field's offset for the plugins built with it: the
+    /// scripting component of the Component Manager the script once ran in.
+    /// The script runs in NSAppleScript: nothing here reads or writes it.
+    final var myComponent: UnsafeMutableRawPointer?
 
     /// The AppleScript that makes the message. Only the attachment is used:
     /// the other arguments were already ignored.
@@ -61,7 +82,10 @@ public final class Mailer: NSObject {
         s.append("tell composeMessage\n")
 
         if isMIME, let imagePath = imagePath, FileManager.default.fileExists(atPath: imagePath) {
-            s.append(String(format: "set aFile to \"%@\"\n", imagePath))
+            // A quote or a backslash in the path would end the script's
+            // string or escape what follows it.
+            let quoted = imagePath.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            s.append(String(format: "set aFile to \"%@\"\n", quoted))
             s.append("tell content\n")
             s.append("make new attachment with properties {file name:aFile}\n")
             s.append("end tell\n")
@@ -80,14 +104,39 @@ public final class Mailer: NSObject {
         return true
     }
 
+    /// Makes the message with the image attached and answers why Mail did not
+    /// make it, nil when it did. Mail is looked for first: a script that names
+    /// an application that is not installed may ask the user where it is.
+    public func mailFailure(image imagePath: String?, mailInstalled: Bool = Mailer.isMailInstalled) -> MailerFailure? {
+        guard mailInstalled else { return MailerFailure(number: Int(procNotFound)) }
+        return failure(running: mailScriptBody("--", to: "--", subject: "", isMIME: true, name: "--", sendNow: false, image: imagePath))
+    }
+
+    /// Makes the message with the image attached and tells the user when Mail
+    /// did not make it: every window that e-mails its image ends here, so
+    /// none fails in silence.
+    @MainActor public func mailShowingFailure(image imagePath: String?) {
+        guard let failure = mailFailure(image: imagePath) else { return }
+        HorosAlertPanel.run(title: NSLocalizedString("Email Export Failed", comment: ""), message: failure.message, defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+    }
+
+    public static var isMailInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: MailDraftComposer.mailBundleIdentifier) != nil
+    }
+
     @objc(runScript:)
     public func runScript(_ txt: String!) {
+        _ = failure(running: txt)
+    }
+
+    /// Runs the script and answers the error it ended with, nil when it ended well.
+    func failure(running txt: String?) -> MailerFailure? {
         // A nil source made a nil script, and the messages to it did nothing.
-        guard let txt = txt, let script = NSAppleScript(source: txt) else { return }
+        let script = txt.flatMap { NSAppleScript(source: $0) }
         var errs: NSDictionary? = nil
-        script.run(withArguments: nil, error: &errs)
-        if let errs = errs, errs.count > 0 {
-            NSLog("Error: AppleScript execution failed: %@", errs)
-        }
+        script?.run(withArguments: nil, error: &errs)
+        guard let errs, errs.count > 0 else { return nil }
+        NSLog("Error: AppleScript execution failed: %@", errs)
+        return MailerFailure(number: (errs[NSAppleScript.errorNumber] as? NSNumber)?.intValue ?? 0)
     }
 }

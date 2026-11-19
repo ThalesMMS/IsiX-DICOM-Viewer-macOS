@@ -62,7 +62,7 @@ private func style(_ style: N3BezierNodeStyle) -> BezierNodeStyle {
     BezierNodeStyle(rawValue: style.rawValue) ?? .openEnds
 }
 
-@_cdecl("N3BezierCoreCreateCurveWithNodes") @implementation
+@_cdecl("N3BezierCoreCreateCurveWithNodes") @implementation @usableFromInline
 func N3BezierCoreCreateCurveWithNodes(_ nodes: N3VectorArray?, _ numVectors: CFIndex, _ nodeStyle: N3BezierNodeStyle) -> OpaquePointer? {
     retainedHandle(BezierCore.curve(through: vectors(nodes, numVectors), style: style(nodeStyle)))
 }
@@ -175,7 +175,7 @@ func N3BezierCoreLengthToSegmentAtIndex(_ handle: OpaquePointer?, _ index: CFInd
     bezierCore(handle).length(throughSegmentAt: index, flatness: flatness)
 }
 
-@_cdecl("N3BezierCoreSegmentLengths") @implementation
+@_cdecl("N3BezierCoreSegmentLengths") @implementation @usableFromInline
 func N3BezierCoreSegmentLengths(_ handle: OpaquePointer?, _ lengths: UnsafeMutablePointer<CGFloat>?, _ numLengths: CFIndex, _ flatness: CGFloat) -> CFIndex {
     let segmentLengths = bezierCore(handle).segmentLengths(count: numLengths, flatness: flatness)
     for (i, length) in segmentLengths.enumerated() {

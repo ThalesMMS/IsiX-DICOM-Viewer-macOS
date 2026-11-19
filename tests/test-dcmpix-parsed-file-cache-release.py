@@ -294,13 +294,13 @@ with tempfile.TemporaryDirectory(prefix='horos-parsed-cache-') as name:
         subprocess.run(link, check=True, capture_output=True)
         # The probe's own run is the test's result. Whether it loads is not:
         # a probe killed while its image loads is not built (link_placeholders).
-        missing = link_placeholders.probe(work / 'probe', placeholders, 'the link probe of DCMPix.m')
-        if missing is None:
+        missing = link_placeholders.lacking(work / 'probe', placeholders, 'the link probe of DCMPix.m')
+        if not missing:
             run = subprocess.run([str(work / 'probe')], capture_output=True, text=True, timeout=120)
-            missing = link_placeholders.missing_symbol(run, placeholders)
-            if missing is None:
+            missing = [symbol for symbol in [link_placeholders.missing_symbol(run, placeholders)] if symbol]
+            if not missing:
                 break
-        placeholders.add(missing)
+        placeholders.update(missing)
     else:
         print('too many unresolved symbols in %s' % pix, file=sys.stderr)
         raise SystemExit(1)

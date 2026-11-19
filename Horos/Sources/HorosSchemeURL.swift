@@ -13,9 +13,10 @@
 import AppKit
 import CoreServices
 import Foundation
+import IsiXHTTPServer
 import Synchronization
 
-/// A `horos://` or `osirix://` invocation, parsed on its own.
+/// An `isix://`, `horos://` or `osirix://` invocation, parsed on its own.
 ///
 /// LaunchServices decides which application receives the Apple Event. Chrome
 /// decides whether a page is allowed to hand the URL to LaunchServices
@@ -51,12 +52,13 @@ public final class HorosSchemeURL: NSObject {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let colon = trimmed.firstIndex(of: ":") else {
             return HorosSchemeDiagnosis.parser(code: "unsupported-scheme",
-                                               message: "not a horos:// or osirix:// URL")
+                                               message: "not an isix://, horos:// or osirix:// URL")
         }
+        // The schemes the application declares, each read the same way.
         let scheme = String(trimmed[..<colon]).lowercased()
-        guard scheme == "horos" || scheme == "osirix" else {
+        guard LinkSchemeHandlers.isDeclared(scheme) else {
             return HorosSchemeDiagnosis.parser(code: "unsupported-scheme",
-                                               message: "not a horos:// or osirix:// URL")
+                                               message: "not an isix://, horos:// or osirix:// URL")
         }
 
         let specifier = String(trimmed[trimmed.index(after: colon)...])
@@ -124,7 +126,8 @@ public final class HorosSchemeURL: NSObject {
                                         message: "LaunchServices has no application for \(scheme)://",
                                         invocation: parsed.invocation)
         }
-        if let chosen = snapshot.chosenBundleID, !isHorosBundle(chosen) {
+        if snapshot.chosenBundleID != nil || snapshot.chosenPath != nil, !snapshot.chosenIsRunningApplication {
+            let chosen = [snapshot.chosenBundleID, snapshot.chosenPath].compactMap { $0 }.joined(separator: " at ")
             return HorosSchemeDiagnosis(layer: "launchServices", code: "other-handler",
                                         message: "LaunchServices would open \(chosen)",
                                         invocation: parsed.invocation)
@@ -153,7 +156,8 @@ public final class HorosSchemeURL: NSObject {
                                     message: "ok", invocation: parsed.invocation)
     }
 
-    /// Read-only: who LaunchServices picks, and Chrome's recorded protocol policy.
+    /// Read-only: who LaunchServices picks, the application that is running
+    /// to compare it with, and Chrome's recorded protocol policy.
     @objc(liveSnapshotForScheme:)
     public static func liveSnapshot(forScheme scheme: String) -> HorosSchemeLaunchSnapshot {
         let snapshot = HorosSchemeLaunchSnapshot()
@@ -163,8 +167,11 @@ public final class HorosSchemeURL: NSObject {
                 .compactMap { Bundle(url: $0)?.bundleIdentifier }
             if let chosen = NSWorkspace.shared.urlForApplication(toOpen: url) {
                 snapshot.chosenBundleID = Bundle(url: chosen)?.bundleIdentifier
+                snapshot.chosenPath = chosen.resolvingSymlinksInPath().path
             }
         }
+        snapshot.runningBundleID = Bundle.main.bundleIdentifier
+        snapshot.runningPath = runningBundlePath()
         snapshot.applyChromePreferencesIfPresent()
         snapshot.navigationHadUserGesture = false
         snapshot.appleEventDelivered = false
@@ -196,11 +203,14 @@ public final class HorosSchemeURL: NSObject {
         }
     }
 
-    static func isHorosBundle(_ identifier: String) -> Bool {
-        // The application itself, or a bundle below it: the development copy and
-        // the test hosts take its identifier as a prefix.
-        let own = "thalesmms.isis.workstation"
-        return identifier == own || identifier.hasPrefix(own + ".")
+    /// Where the bundle that is running is, with its links resolved, to
+    /// compare with the application LaunchServices picks. Unknown for a copy
+    /// the system runs from a randomized place of its own, which LaunchServices
+    /// knows by the place the user put it in: that copy is told by its
+    /// identifier alone.
+    static func runningBundlePath() -> String? {
+        let path = Bundle.main.bundleURL.resolvingSymlinksInPath().path
+        return path.contains("/AppTranslocation/") ? nil : path
     }
 
     static func hasDisplayStudyIdentifier(_ parameters: [String: String]) -> Bool {
@@ -283,6 +293,13 @@ public final class HorosSchemeLaunchSnapshot: NSObject {
     @objc public var scheme: String = ""
     @objc public var candidateBundleIDs: [String] = []
     @objc public var chosenBundleID: String?
+    /// Where the chosen application is, when LaunchServices was asked.
+    @objc public var chosenPath: String?
+    /// The application the choice is compared with: the one that is running.
+    /// No fixed identifier is the application's own: each build has its own,
+    /// and an earlier copy with another one is another application.
+    @objc public var runningBundleID: String?
+    @objc public var runningPath: String?
     @objc public var chromeExcludedSchemes: [String: Bool] = [:]
     @objc public var chromeMajorVersion: Int = 0
     @objc public var navigationHadUserGesture: Bool = false
@@ -296,6 +313,13 @@ public final class HorosSchemeLaunchSnapshot: NSObject {
         snapshot.chromeMajorVersion = majorVersion
         snapshot.chromeExcludedSchemes = excludedSchemes(fromPreferencesJSON: json)
         return snapshot
+    }
+
+    /// Whether LaunchServices picks the application that is running.
+    var chosenIsRunningApplication: Bool {
+        LinkSchemeHandlers.isRunningApplication(
+            LinkSchemeHandlers.Application(identifier: chosenBundleID, path: chosenPath),
+            running: LinkSchemeHandlers.Application(identifier: runningBundleID, path: runningPath))
     }
 
     func applyChromePreferencesIfPresent() {

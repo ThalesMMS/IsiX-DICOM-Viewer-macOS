@@ -112,19 +112,19 @@ extension ViewerController {
     nonisolated var horos_loadingThread: Thread? { loadingState.loadingThread }
     var horos_requestLoadingCancel: Bool {
         get { loadingState.requestLoadingCancel }
-        set { loadingState.requestLoadingCancel = newValue }
+        set { (loadingState.requestLoadingCancel, _requestLoadingCancel, _stopThreadLoadImage) = (newValue, newValue, newValue) }
     }
     var horos_checkEverythingLoadedFlag: Bool {
         get { loadingState.checkEverythingLoaded }
-        set { loadingState.checkEverythingLoaded = newValue }
+        set { (loadingState.checkEverythingLoaded, _checkEverythingLoaded) = (newValue, newValue) }
     }
     nonisolated var horos_windowWillClose: Bool {
         get { loadingState.windowWillClose }
-        set { loadingState.windowWillClose = newValue }
+        set { (loadingState.windowWillClose, _windowWillClose) = (newValue, newValue) }
     }
     nonisolated var horos_postprocessed: Bool {
         get { loadingState.postprocessed }
-        set { loadingState.postprocessed = newValue }
+        set { (loadingState.postprocessed, _postprocessed) = (newValue, newValue) }
     }
 }
 
@@ -200,7 +200,8 @@ public final class ViewerSeriesLoad: NSObject {
         let handle = SeriesLoadHandle()
         let request = SeriesLoadRequest(viewer: viewer, computeOpeningContentBounds: preferences[ViewerPreferences.scaleToFitOnOpen],
                                         handle: handle)
-        viewer.loadingState.load = handle
+        (viewer.loadingState.load, viewer._loadingThread) = (handle, handle)
+        (viewer._ThreadLoadImage, viewer._loadingPercentage) = (true, 0)
         state = .loading
         // The task keeps this load, not the viewer: a viewer freed meanwhile
         // has cancelled it, and its result is refused without reading the viewer.
@@ -230,6 +231,7 @@ public final class ViewerSeriesLoad: NSObject {
             return false
         }
         retire(cancelling: false)
+        viewer._loadingPercentage = 1
         state = .completed
         return true
     }
@@ -296,6 +298,9 @@ public final class ViewerSeriesLoad: NSObject {
             }
         }
 
+        // Every image says where it is now, and the interval is computed: the slab's scale measures them.
+        ViewerThickSlab(viewer: viewer, preferences: preferences).refreshScale()
+
         postViewerNotification(.OsirixViewerControllerDidLoadImages, viewer)
     }
 
@@ -335,7 +340,7 @@ public final class ViewerSeriesLoad: NSObject {
     private func retire(cancelling: Bool) {
         guard let load = viewer.loadingState.load else { return }
         if cancelling { load.cancel() }
-        viewer.loadingState.load = nil
+        (viewer.loadingState.load, viewer._loadingThread, viewer._ThreadLoadImage) = (nil, nil, false)
     }
 
     /// Records that this window shows `series`, and answers whether it had
@@ -565,6 +570,8 @@ extension ViewerSeriesLoad {
                 replace(given, previous: previous, orientation: orientation, previousLocation: previousLocation,
                         previousColumns: previousColumns, previousRows: previousRows,
                         previousFusion: previousFusion, previousFusionActivated: previousFusionActivated)
+                // The frame of the window goes by the study it shows.
+                ViewerWindowBorder.studyShown(firstImage()?.series?.study, in: viewer)
             }
 
             postViewerNotification(.OsirixViewerDidChange, viewer)
@@ -830,9 +837,12 @@ extension ViewerSeriesLoad {
         viewer.horos_convPopup?.selectItem(at: 0)
         let stackThickness = Int32(truncatingIfNeeded: preferences[ViewerPreferences.stackThickness])
         viewer.horos_stacksFusion?.intValue = stackThickness
-        viewer.horos_sliderFusion?.intValue = stackThickness
+        ViewerThickSlab(viewer: viewer, preferences: preferences).fitSliderToSeries()
+        viewer.horos_sliderFusion?.intValue = min(stackThickness, Int32(viewer.horos_sliderFusion?.maxValue ?? Double(stackThickness)))
         viewer.horos_sliderFusion?.isEnabled = false
         viewer.horos_activatedFusion?.state = .off
+        // The slider's track is the scale of the image shown, as far as the series says it yet.
+        ViewerThickSlab(viewer: viewer, preferences: preferences).refreshScale()
 
         // maxMovieIndex was just reset to 1: this series has one
         // time. A movie left running here kept firing behind a
@@ -846,6 +856,8 @@ extension ViewerSeriesLoad {
         viewer.horos_movieRateSlider?.isEnabled = false
         viewer.horos_moviePosSlider?.isEnabled = false
         viewer.horos_moviePlayStop?.isEnabled = false
+        // The slider kept the range of the times the window showed before.
+        ViewerFrames(viewer: viewer).fitTimeSlider()
 
         if preferences[ViewerPreferences.defaultMovieRate] != 0 {
             viewer.horos_movieRateSlider?.floatValue = preferences[ViewerPreferences.defaultMovieRate]
