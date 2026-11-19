@@ -287,6 +287,26 @@ public class ROI: NSObject, NSCoding {
         }
     }
 
+    private static let quietDecodingKey = "HorosROIQuietDecoding"
+
+    /// Runs `body` with the ROIs it decodes on this thread silent: they do not
+    /// post OsirixROIChange. For an archive read only to count its ROIs, as the
+    /// import does with an SR: those ROIs belong to no viewer, and an observer
+    /// that looks for one there (ROI-Enhancement's list, on a viewer being
+    /// closed) crashed on it.
+    static func decodingQuietly<T>(_ body: () -> T) -> T {
+        let dictionary = Thread.current.threadDictionary
+        let previous = dictionary[quietDecodingKey]
+        dictionary[quietDecodingKey] = true
+        var result: T?
+        let raised = HorosObjCException.caught { result = body() }
+        dictionary[quietDecodingKey] = previous
+        if let raised { raised.raise() }
+        return result!
+    }
+
+    private static var decodesQuietly: Bool { Thread.current.threadDictionary[quietDecodingKey] != nil }
+
     // MARK: Class settings
 
     @objc(setFontHeight:)
@@ -586,7 +606,7 @@ public class ROI: NSObject, NSCoding {
         stanStringAttrib = ROI.labelAttributes(size: 12.0 + Double(_thickness) * 2)
         _ = reduceTextureIfPossible()
 
-        postOnMainThreadOnly(.OsirixROIChange)
+        if !ROI.decodesQuietly { postOnMainThreadOnly(.OsirixROIChange) }
     }
 
     @objc(encodeWithCoder:)

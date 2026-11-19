@@ -67,6 +67,15 @@ for signature, notification in (('public required init?(coder: NSCoder)', 'Osiri
     if f'postOnMainThreadOnly(.{notification})' not in method or 'postChange(' in method:
         failures.append(f'{signature} does not post {notification} on the main thread only')
 
+# An SR read by the import only to count its ROIs decodes them quietly: they
+# reach no viewer, and an observer that looks for theirs crashed (ROI-Enhancement,
+# -[RoiEnhancementROIList indexInViewer:], while a viewer was closing).
+if 'if !ROI.decodesQuietly { postOnMainThreadOnly(.OsirixROIChange) }' not in body(code, 'init?(coder: NSCoder)'):
+    failures.append('a ROI decoded quietly still posts OsirixROIChange')
+reading = (root / 'Horos/Sources/DicomFile+DICOMReading.swift').read_text()
+if not re.search(r'ROI\.decodingQuietly \{ RestrictedUnarchiver\.unarchiveROIs\(with: roiData\)', reading):
+    failures.append('the import counts the ROIs of an SR with their notifications')
+
 if 'postChange()' not in body(code, 'func setNameValue('):
     failures.append('the name setter of ROI does not post its change through postChange')
 

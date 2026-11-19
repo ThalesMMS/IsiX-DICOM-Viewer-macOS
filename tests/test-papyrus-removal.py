@@ -80,13 +80,18 @@ for lock in ("STORESCP", "STORESCPTLS"):
 # The parsed-file cache in DCMPix+Loading.swift, the annotations in DCMPix+Annotations.swift.
 annotations = text("Horos/Sources/DCMPix+Annotations.swift")
 cache = text("Horos/Sources/DCMPix+Loading.swift")
-locks = pix.count("PapyrusLock?.lock()")
-unlocks = pix.count("PapyrusLock?.unlock()")
-check(cache.count("PapyrusLock?.lock()") >= 3 and annotations.count("PapyrusLock?.lock()") >= 1 and locks == unlocks,
-      "DCMPix no longer takes PapyrusLock in balanced pairs around the parsed-file cache and annotations")
+# Each region goes through HorosObjCException.locked(PapyrusLock) { }, which
+# leaves the lock when an NSException unwinds through it; a bare lock() whose
+# defer an exception skips leaves every image load behind it waiting.
+GUARDED = "HorosObjCException.locked(PapyrusLock)"
+GUARDED_ANY = re.compile(r"HorosObjCException\.locked(?:Throwing)?\(PapyrusLock\)")
+check("PapyrusLock?.lock()" not in pix and "PapyrusLock?.unlock()" not in pix,
+      "DCMPix takes PapyrusLock outside HorosObjCException.locked")
+check(cache.count(GUARDED) >= 4 and annotations.count(GUARDED) >= 1,
+      "DCMPix no longer takes PapyrusLock around the parsed-file cache and annotations")
 dcmtk = "".join(text("Horos/Sources/" + name) for name in DCMTK_READING)
-check(dcmtk.count("PapyrusLock?.lock()") >= 3 and dcmtk.count("PapyrusLock?.lock()") == dcmtk.count("PapyrusLock?.unlock()"),
-      "the field and crop reads of DicomFile no longer take PapyrusLock in balanced pairs")
+check(len(GUARDED_ANY.findall(dcmtk)) >= 3 and "PapyrusLock?.lock()" not in dcmtk,
+      "the field and crop reads of DicomFile no longer take PapyrusLock through HorosObjCException.locked")
 codes = re.search(r"enum EPhoto_Interpret\s*\{([^}]+)\}", pix)
 if codes is None and "loadNonDICOMImage" in pix:
     # The YBR conversion is in Swift (IsiXImaging), with the three codes it converts

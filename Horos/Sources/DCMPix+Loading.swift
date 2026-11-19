@@ -64,60 +64,60 @@ enum DCMPixParsedFileCache {
     /// The parsed object of `key`, taken by `pix`: the cached one, counted; or
     /// `parsed`, cached for the others. nil when neither is there.
     static func take(_ key: String?, parsed: DCMObject?, for pix: DCMPix) -> DCMObject? {
-        PapyrusLock?.lock()
-        defer { PapyrusLock?.unlock() }
-        let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
-        if let group {
-            let object = group.object(forKey: "dcmObject") as? DCMObject
-            if pix.horos_retainedCacheGroup != nil {
-                NSLog("******** DCMPix : retainedCacheGroup 3 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
+        HorosObjCException.locked(PapyrusLock) {
+            let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
+            if let group {
+                let object = group.object(forKey: "dcmObject") as? DCMObject
+                if pix.horos_retainedCacheGroup != nil {
+                    NSLog("******** DCMPix : retainedCacheGroup 3 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
+                }
+                group.setValue(NSNumber(value: ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) + 1), forKey: "count")
+                pix.horos_retainedCacheGroup = ObjectIdentifier(group)
+                pix.horos_cachedFileKey = key as NSString?
+                return object
             }
-            group.setValue(NSNumber(value: ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) + 1), forKey: "count")
-            pix.horos_retainedCacheGroup = ObjectIdentifier(group)
+            guard let parsed else { return nil }
+            let created = NSMutableDictionary()
+            created.setValue(parsed, forKey: "dcmObject")
+            if pix.horos_retainedCacheGroup != nil {
+                NSLog("******** DCMPix : retainedCacheGroup 4 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
+            }
+            created.setValue(NSNumber(value: Int32(1)), forKey: "count")
+            pix.horos_retainedCacheGroup = ObjectIdentifier(created)
             pix.horos_cachedFileKey = key as NSString?
-            return object
+            // The key is the file's: a load starts only with a source file, and
+            // parsedFileCacheKey() falls back to its path.
+            parsedFiles.setObject(created, forKey: key! as NSString)
+            return parsed
         }
-        guard let parsed else { return nil }
-        let created = NSMutableDictionary()
-        created.setValue(parsed, forKey: "dcmObject")
-        if pix.horos_retainedCacheGroup != nil {
-            NSLog("******** DCMPix : retainedCacheGroup 4 != nil ! %@", (pix.srcFile ?? "(null)") as NSString)
-        }
-        created.setValue(NSNumber(value: Int32(1)), forKey: "count")
-        pix.horos_retainedCacheGroup = ObjectIdentifier(created)
-        pix.horos_cachedFileKey = key as NSString?
-        // The key is the file's: a load starts only with a source file, and
-        // parsedFileCacheKey() falls back to its path.
-        parsedFiles.setObject(created, forKey: key! as NSString)
-        return parsed
     }
 
     /// What `pix` took of the cache, given back: the last image of a file removes it.
     static func release(_ pix: DCMPix) {
-        PapyrusLock?.lock()
-        defer { PapyrusLock?.unlock() }
-        // What a load retained, not whether pixels remain: deinit frees an
-        // owned fImage before it gets here, and the parsed file stayed cached.
-        guard let retained = pix.horos_retainedCacheGroup else { return }
-        let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile
-        let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
-        if let group, retained == ObjectIdentifier(group) {
-            let count = ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) - 1
-            group.setValue(NSNumber(value: count), forKey: "count")
-            pix.horos_retainedCacheGroup = nil
-            if count <= 0 { parsedFiles.removeObject(forKey: key! as NSString) }
+        HorosObjCException.locked(PapyrusLock) {
+            // What a load retained, not whether pixels remain: deinit frees an
+            // owned fImage before it gets here, and the parsed file stayed cached.
+            guard let retained = pix.horos_retainedCacheGroup else { return }
+            let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile
+            let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
+            if let group, retained == ObjectIdentifier(group) {
+                let count = ((group.object(forKey: "count") as? NSNumber)?.int32Value ?? 0) - 1
+                group.setValue(NSNumber(value: count), forKey: "count")
+                pix.horos_retainedCacheGroup = nil
+                if count <= 0 { parsedFiles.removeObject(forKey: key! as NSString) }
+            }
+            pix.horos_cachedFileKey = nil
         }
-        pix.horos_cachedFileKey = nil
     }
 
     /// The group `pix` took, while the cache still holds it.
     static func group(of pix: DCMPix) -> AnyObject? {
-        PapyrusLock?.lock()
-        defer { PapyrusLock?.unlock() }
-        guard let retained = pix.horos_retainedCacheGroup, let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile,
-              let group = parsedFiles.object(forKey: key as NSString) as AnyObject?,
-              retained == ObjectIdentifier(group) else { return nil }
-        return group
+        HorosObjCException.locked(PapyrusLock) {
+            guard let retained = pix.horos_retainedCacheGroup, let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile,
+                  let group = parsedFiles.object(forKey: key as NSString) as AnyObject?,
+                  retained == ObjectIdentifier(group) else { return nil }
+            return group
+        }
     }
 
     /// The DCMTK file format `pix` holds, given back.
@@ -143,11 +143,16 @@ enum DCMPixParsedFileCache {
             NSLog("****** failed to acquire lock on purgeCacheLock during 10 secs : purgeCacheLock condition: %d", Int32(loads.condition))
             return
         }
-        PapyrusLock?.lock()
-        parsedFiles.removeAllObjects()
-        H264StreamDecoder.purgeCache()
-        PapyrusLock?.unlock()
+        // Neither lock may stay held when the purge raises: loads would stop
+        // every later purge, PapyrusLock every image load.
+        let raised = HorosObjCException.caught {
+            HorosObjCException.locked(PapyrusLock) {
+                parsedFiles.removeAllObjects()
+                H264StreamDecoder.purgeCache()
+            }
+        }
         loads.unlock()
+        if let raised { raised.raise() }
     }
 }
 

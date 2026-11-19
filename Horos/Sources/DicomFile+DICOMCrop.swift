@@ -46,9 +46,7 @@ import Foundation
     @objc(writeCropOfFile:toPath:column:row:width:height:seriesUID:seriesNumber:error:)
     class func writeCrop(ofFile source: String!, toPath destination: String!, column: Int32, row: Int32,
                          width: Int32, height: Int32, seriesUID: String!, seriesNumber: Int32) throws {
-        PapyrusLock?.lock()
-        let file = try? IsiXDCMTKFile.file(atPath: source)
-        PapyrusLock?.unlock()
+        let file = HorosObjCException.locked(PapyrusLock) { try? IsiXDCMTKFile.file(atPath: source) }
         guard let file else {
             throw cropFailure("\(((source ?? "") as NSString).lastPathComponent) could not be read")
         }
@@ -142,10 +140,10 @@ import Foundation
         }
         put(newInstance, DicomFileTag.mediaStorageSOPInstanceUID, in: file.metaInfo)
 
-        PapyrusLock?.lock()
-        defer { PapyrusLock?.unlock() }
         do {
-            try file.write(toPath: destination ?? "", transferSyntax: "1.2.840.10008.1.2.1", removingPadding: false)
+            try HorosObjCException.lockedThrowing(PapyrusLock) {
+                try file.write(toPath: destination ?? "", transferSyntax: "1.2.840.10008.1.2.1", removingPadding: false)
+            }
         } catch {
             let text = ((error as NSError).userInfo[IsiXDCMTKConditionTextKey] as? String) ?? error.localizedDescription
             throw cropFailure("the cropped file could not be written (\(text))")

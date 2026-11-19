@@ -160,8 +160,8 @@ check('Load Image Data' in load_image and ('DicomFile.isDICOMFile(' if loader_sw
 check(('mayTranscode:NULL' in isdicom or 'mayTranscode: nil' in isdicom)
       and ('HorosDICOMProbe::inspect(path)' in probe_source or 'HorosDICOMProbe::inspect(fileSystemPath)' in probe_source),
       'DICOM identification must use the independent lazy probe')
-check('lockedFile(atPath: path)' in field and 'PapyrusLock?.lock()' in locked
-      and 'IsiXDCMTKFile.file(atPath: path)' in locked and 'PapyrusLock?.unlock()' in locked,
+check('lockedFile(atPath: path)' in field and 'HorosObjCException.locked(PapyrusLock)' in locked
+      and 'IsiXDCMTKFile.file(atPath: path)' in locked,
       'getDicomField must still take PapyrusLock around loadFile')
 # -loadSelectedSeries:rightClick: is Swift, in ViewerController+SeriesPopup.swift.
 check('loadSelectedSeries:' in (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')

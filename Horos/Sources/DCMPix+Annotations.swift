@@ -294,8 +294,8 @@ extension DCMPix {
     /// Empties the annotations: the next drawing builds them again.
     @objc(reloadAnnotations)
     public dynamic func reloadAnnotations() {
-        PapyrusLock?.lock()
-        horos_annotationsDictionary?.removeAllObjects()
-        PapyrusLock?.unlock()
+        HorosObjCException.locked(PapyrusLock) {
+            horos_annotationsDictionary?.removeAllObjects()
+        }
     }
 }

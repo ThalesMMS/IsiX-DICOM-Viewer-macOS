@@ -72,6 +72,9 @@ enum HorosObjCException {
     static func synchronized<T>(_ object: AnyObject?, _ body: () -> T) -> T { body() }
     @discardableResult
     static func raisingToCaller<T>(_ body: () -> T) -> T { body() }
+    @discardableResult
+    static func locked<T>(_ lock: NSLocking?, _ body: () -> T) -> T { lock?.lock(); defer { lock?.unlock() }; return body() }
+    static func lockedThrowing<T>(_ lock: NSLocking?, _ body: () throws -> T) throws -> T { lock?.lock(); defer { lock?.unlock() }; return try body() }
     static func throwing<T, Failure: Error>(_ failure: (NSException) -> Failure, _ body: () throws -> T) throws -> T { try body() }
 }
 '''
