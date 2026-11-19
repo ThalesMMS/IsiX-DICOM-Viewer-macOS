@@ -1,7 +1,7 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiX-DICOM-Viewer-6.0.4-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiX-DICOM-Viewer-6.0.4-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiX-DICOM-Viewer-6.0.5-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiX-DICOM-Viewer-6.0.5-Intel-Macs.zip)
 [![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
 <p align="center"><b>macOS</b></p>
@@ -28,7 +28,7 @@
   <sub>This repository holds the macOS version.</sub>
 </p>
 
-**6.0.4 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.4) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.4/IsiXPluginKit-SDK-6.0.4.zip).
+**6.0.5 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.5) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiXPluginKit-SDK-6.0.5.zip).
 This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
