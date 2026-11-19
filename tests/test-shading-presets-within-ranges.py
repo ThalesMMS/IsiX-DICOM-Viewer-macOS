@@ -56,7 +56,8 @@ revision = sys.argv[1] if len(sys.argv) > 1 else None
 CONTROLLER = 'Horos/Sources/ShadingArrayController.swift'
 PREVIEW = 'Horos/Sources/VRController+Presets.swift'
 STATE = 'Horos/Sources/VRView+State.swift'
-NIB_LANGUAGES = ['en', 'pt-BR', 'de', 'fr', 'ja-JP', 'ko', 'zh-Hans', 'ru', 'hi', 'ar']
+# Spanish, Italian and Japanese have no copy of the nibs: the English ones load there.
+NIB_LANGUAGES = ['en', 'pt-BR', 'de', 'fr', 'ko', 'zh-Hans', 'ru', 'hi', 'ar']
 RANGES = {'ambient': (0.0, 1.0), 'diffuse': (0.0, 1.0), 'specular': (0.0, 4.0), 'specularPower': (0.0, 50.0)}
 failures = []
 

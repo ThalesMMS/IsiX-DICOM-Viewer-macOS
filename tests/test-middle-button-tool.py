@@ -184,7 +184,8 @@ if 'ViewerROIToolPalette.choose(from: sender, in: self)' not in body(editing, 'f
     failures.append('setROITool: gives a ROI tool to the left button while the middle radio is chosen')
 
 english = None
-for language in LANGUAGES:
+# Japanese has no copy of the nib: the English one loads there, with its texts read from the catalog.
+for language in (language for language in LANGUAGES if language != 'ja-JP'):
     path = f'Horos/Resources/{language}.lproj/Viewer.xib'
     data = raw(path)
     if not data:

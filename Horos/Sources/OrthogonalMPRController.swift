@@ -1504,7 +1504,7 @@ public class OrthogonalMPRController: NSObject {
 
         let submenu = NSMenu(title: "Resize window")
 
-        let resizeWindowArray: NSArray = ["25%", "50%", "100%", "200%", "300%", "iPod Video"]
+        let resizeWindowArray: NSArray = ["25%", "50%", "100%", "200%", "300%", NSLocalizedString("iPod Video", comment: "")]
         i = 0
         for case let titleMenu as String in resizeWindowArray {
             let tag = i

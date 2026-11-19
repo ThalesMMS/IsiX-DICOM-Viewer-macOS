@@ -47,7 +47,7 @@ def check(condition, what):
 with tempfile.TemporaryDirectory(prefix='isix-sr-xib-actions-') as name:
     folder = Path(name)
     nibs = sorted(ROOT.glob('Horos/Resources/*.lproj/SR.xib'))
-    check(len(nibs) == 10, 'ten localized SR.xib (%d)' % len(nibs))
+    check(len(nibs) == 9, 'nine copies of SR.xib (%d)' % len(nibs))
     english = nib_actions((ROOT / 'Horos/Resources/en.lproj/SR.xib').read_text(encoding='utf-8'))
     for nib in nibs:
         actions = nib_actions(nib.read_text(encoding='utf-8'))

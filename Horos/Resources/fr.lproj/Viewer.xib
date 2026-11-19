@@ -360,13 +360,13 @@
                                         <action selector="setROITool:" target="-2" id="813"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Remarque" tag="19" keyEquivalent="" id="1288">
+                                <menuItem title="Point" tag="19" keyEquivalent="" id="1288">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="1290"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Brosse" tag="20" keyEquivalent="" id="1470">
+                                <menuItem title="Pinceau" tag="20" keyEquivalent="" id="1470">
                                     <modifierMask key="keyEquivalentModifierMask"/>
                                     <connections>
                                         <action selector="setROITool:" target="-2" id="1471"/>
@@ -442,13 +442,13 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Suivant" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Animé" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="595">
+                            <buttonCell type="bevel" title="Suivant" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Animer" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="595">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Length" imagePosition="only" alignment="center" borderStyle="border" toolTip="ROI Outil - Cliquez sur la petite flèche pour voir les autres" tag="5" imageScaling="proportionallyUpOrDown" inset="2" id="596">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Length" imagePosition="only" alignment="center" borderStyle="border" toolTip="Outil ROI - Cliquez sur la petite flèche pour voir les autres" tag="5" imageScaling="proportionallyUpOrDown" inset="2" id="596">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -474,13 +474,13 @@
             </constraints>
         </customView>
         <customView id="92" userLabel="WLWW">
-            <rect key="frame" x="0.0" y="0.0" width="157" height="47"/>
+            <rect key="frame" x="0.0" y="0.0" width="174" height="47"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="892">
-                    <rect key="frame" x="57" y="0.0" width="99" height="16"/>
+                    <rect key="frame" x="57" y="0.0" width="116" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="Kpw-88-7Kh"/>
+                        <constraint firstAttribute="width" constant="116" id="Kpw-88-7Kh"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="Opacité" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" enabled="NO" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="2119">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -517,9 +517,9 @@
                     </textFieldCell>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="494">
-                    <rect key="frame" x="57" y="15" width="99" height="16"/>
+                    <rect key="frame" x="57" y="15" width="116" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="fc3-lA-bTK"/>
+                        <constraint firstAttribute="width" constant="116" id="fc3-lA-bTK"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="497" id="2115">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -532,9 +532,9 @@
                     </popUpButtonCell>
                 </popUpButton>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="139">
-                    <rect key="frame" x="57" y="31" width="99" height="16"/>
+                    <rect key="frame" x="57" y="31" width="116" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="I5S-oF-8Mh"/>
+                        <constraint firstAttribute="width" constant="116" id="I5S-oF-8Mh"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="2114">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -551,7 +551,7 @@
                 <constraint firstItem="502" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="92" secondAttribute="leading" constant="5" id="108-0n-9jc"/>
                 <constraint firstItem="494" firstAttribute="trailing" secondItem="892" secondAttribute="trailing" id="AJP-c9-eKA"/>
                 <constraint firstItem="494" firstAttribute="leading" secondItem="139" secondAttribute="leading" id="DQ2-Cc-AaM"/>
-                <constraint firstItem="889" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="92" secondAttribute="leading" constant="19" id="Mvc-Zh-xs2"/>
+                <constraint firstItem="889" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="92" secondAttribute="leading" constant="2" id="Mvc-Zh-xs2"/>
                 <constraint firstItem="502" firstAttribute="trailing" secondItem="501" secondAttribute="trailing" id="NSU-5p-UbU"/>
                 <constraint firstItem="139" firstAttribute="top" secondItem="92" secondAttribute="top" id="RV0-pr-LXB"/>
                 <constraint firstAttribute="bottom" secondItem="892" secondAttribute="bottom" id="YDO-tm-iVz"/>
@@ -566,7 +566,7 @@
                 <constraint firstItem="139" firstAttribute="leading" secondItem="501" secondAttribute="trailing" id="t0B-1K-Asy"/>
                 <constraint firstItem="501" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="92" secondAttribute="leading" constant="5" id="t1J-3E-vc1"/>
                 <constraint firstItem="889" firstAttribute="top" secondItem="502" secondAttribute="bottom" constant="4" id="udy-et-ltR"/>
-                <constraint firstAttribute="width" constant="157" id="DUr-86-sMI"/>
+                <constraint firstAttribute="width" constant="174" id="DUr-86-sMI"/>
                 <constraint firstAttribute="height" constant="47" id="12q-me-ris"/>
             </constraints>
         </customView>
@@ -622,8 +622,8 @@
                                 <menuItem isSeparatorItem="YES" id="888">
                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 </menuItem>
-                                <menuItem title="Volume rendu - haut" tag="4" id="885"/>
-                                <menuItem title="Volume rendu - vers le bas" tag="5" id="886"/>
+                                <menuItem title="Rendu vol. - haut" tag="4" id="885"/>
+                                <menuItem title="Rendu vol. - bas" tag="5" id="886"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -702,11 +702,11 @@
             </constraints>
         </customView>
         <customView id="475" userLabel="Blending">
-            <rect key="frame" x="0.0" y="0.0" width="148" height="35"/>
+            <rect key="frame" x="0.0" y="0.0" width="178" height="35"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="820">
-                    <rect key="frame" x="44" y="17" width="99" height="16"/>
+                    <rect key="frame" x="44" y="17" width="122" height="16"/>
                     <popUpButtonCell key="cell" type="push" title="Linéaire" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="817" id="2157">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
@@ -722,17 +722,17 @@
                                         <action selector="blendingMode:" target="-2" id="824"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Faible" tag="2" id="816">
+                                <menuItem title="Faible-haute-faible" tag="2" id="816">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="825"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Journal" tag="3" id="814">
+                                <menuItem title="Logarithmique" tag="3" id="814">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="826"/>
                                     </connections>
                                 </menuItem>
-                                <menuItem title="Log inverse" tag="4" id="821">
+                                <menuItem title="Logarithmique inverse" tag="4" id="821">
                                     <connections>
                                         <action selector="blendingMode:" target="-2" id="827"/>
                                     </connections>
@@ -755,7 +755,7 @@
                     </textFieldCell>
                 </textField>
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="482">
-                    <rect key="frame" x="4" y="1" width="105" height="13"/>
+                    <rect key="frame" x="4" y="1" width="135" height="13"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="small" continuous="YES" enabled="NO" alignment="left" minValue="-256" maxValue="256" doubleValue="1.421085e-14" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2155">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
@@ -764,7 +764,7 @@
                     </connections>
                 </slider>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="481">
-                    <rect key="frame" x="110" y="2" width="34" height="13"/>
+                    <rect key="frame" x="140" y="2" width="34" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="30" id="KbM-eE-ruq"/>
                     </constraints>
@@ -788,7 +788,7 @@
                 <constraint firstItem="481" firstAttribute="leading" secondItem="482" secondAttribute="trailing" constant="3" id="kit-ix-QVU"/>
                 <constraint firstItem="482" firstAttribute="leading" secondItem="475" secondAttribute="leading" constant="4" id="lVq-VZ-MVh"/>
                 <constraint firstItem="482" firstAttribute="top" secondItem="820" secondAttribute="bottom" constant="3" id="xZm-bs-Rfd"/>
-                <constraint firstAttribute="width" constant="148" id="0R9-vG-D5l"/>
+                <constraint firstAttribute="width" constant="178" id="0R9-vG-D5l"/>
                 <constraint firstAttribute="height" constant="35" id="CEu-33-ixj"/>
             </constraints>
         </customView>
@@ -828,7 +828,7 @@
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="508">
                     <rect key="frame" x="25" y="1" width="99" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="95" id="Uz8-dg-jIj"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="60" id="Uz8-dg-jIj"/>
                     </constraints>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tickMarkPosition="above" numberOfTickMarks="1" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2160">
                         <font key="font" size="12" name="Helvetica"/>
@@ -840,7 +840,8 @@
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="507">
                     <rect key="frame" x="124" y="17" width="45" height="11"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="41" id="4a2-2W-60x"/>
+                        <constraint firstAttribute="width" priority="740" constant="41" id="4a2-2W-60x"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="41" id="mRt-w4-1mn"/>
                     </constraints>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 im/s" id="2159">
                         <font key="font" metaFont="miniSystem"/>
@@ -851,7 +852,7 @@
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="506">
                     <rect key="frame" x="25" y="17" width="99" height="11"/>
                     <constraints>
-                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="95" id="asA-Rt-TAa"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="60" id="asA-Rt-TAa"/>
                     </constraints>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" maxValue="60" doubleValue="10" tickMarkPosition="above" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2158">
                         <font key="font" size="12" name="Helvetica"/>
@@ -952,7 +953,7 @@
                                                 <action selector="mprViewer:" target="-2" id="2471"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="MPR curviligne 3D" tag="1" id="1090">
+                                        <menuItem title="MPR courbe 3D" tag="1" id="1090">
                                             <connections>
                                                 <action selector="cprViewer:" target="-2" id="2533"/>
                                             </connections>
@@ -1022,9 +1023,9 @@
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <button toolTip="aiguiser" verticalHuggingPriority="750" tag="21" translatesAutoresizingMaskIntoConstraints="NO" id="1663">
+                <button toolTip="accentuer la netteté" verticalHuggingPriority="750" tag="21" translatesAutoresizingMaskIntoConstraints="NO" id="1663">
                     <rect key="frame" x="25" y="17" width="36" height="22"/>
-                    <buttonCell key="cell" type="squareTextured" title="Aiguë" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="21" id="2231">
+                    <buttonCell key="cell" type="squareTextured" title="Net" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="21" id="2231">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -1032,8 +1033,8 @@
                         <action selector="subSharpen:" target="-2" id="1666"/>
                     </connections>
                 </button>
-                <slider customClass="HorosCellSlider" toolTip="Résumé des images suivantes [alt 1] [alt 2] [alt 3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
-                    <rect key="frame" x="107" y="3" width="64" height="16"/>
+                <slider customClass="HorosCellSlider" toolTip="Somme des images suivantes [alt 1] [alt 2] [alt 3]" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="20" translatesAutoresizingMaskIntoConstraints="NO" id="1656">
+                    <rect key="frame" x="119" y="3" width="52" height="16"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tag="20" minValue="1" maxValue="10" doubleValue="1" tickMarkPosition="below" numberOfTickMarks="10" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2230">
                         <font key="font" size="12" name="Helvetica"/>
                     </sliderCell>
@@ -1053,16 +1054,16 @@
                     </textFieldCell>
                 </textField>
                 <slider customClass="HorosCellSlider" toolTip="% soustraction [0,80 ... 1,00] (par défaut 1,00 %)" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" tag="16" translatesAutoresizingMaskIntoConstraints="NO" id="1621">
-                    <rect key="frame" x="107" y="22" width="64" height="12"/>
+                    <rect key="frame" x="119" y="22" width="52" height="12"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="64" id="hzS-u7-Wd0"/>
+                        <constraint firstAttribute="width" constant="52" id="hzS-u7-Wd0"/>
                     </constraints>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" continuous="YES" alignment="left" tag="16" minValue="0.80000000000000004" maxValue="1" doubleValue="1" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2228"/>
                     <connections>
                         <action selector="subCtrlSliders:" target="-2" id="1629"/>
                     </connections>
                 </slider>
-                <button toolTip="Annexe I Angiographie de sous-traction numérique" tag="15" translatesAutoresizingMaskIntoConstraints="NO" id="1583">
+                <button toolTip="[]+[/] Activer/désactiver l’angiographie numérique par soustraction" tag="15" translatesAutoresizingMaskIntoConstraints="NO" id="1583">
                     <rect key="frame" x="6" y="18" width="16" height="19"/>
                     <buttonCell key="cell" type="check" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="15" id="2227">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1072,7 +1073,7 @@
                         <action selector="subCtrlOnOff:" target="-1" id="1584"/>
                     </connections>
                 </button>
-                <button toolTip="pixel shift SE" verticalHuggingPriority="750" tag="3" translatesAutoresizingMaskIntoConstraints="NO" id="1551">
+                <button toolTip="[]+[3] Décalage de pixels SE" verticalHuggingPriority="750" tag="3" translatesAutoresizingMaskIntoConstraints="NO" id="1551">
                     <rect key="frame" x="89" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="3" inset="2" id="2226">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1082,7 +1083,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1608"/>
                     </connections>
                 </button>
-                <button toolTip="Déplacement du pixel S" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1550">
+                <button toolTip="[]+[2] Décalage de pixels S" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1550">
                     <rect key="frame" x="76" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="2" inset="2" id="2225">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1092,7 +1093,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1607"/>
                     </connections>
                 </button>
-                <button toolTip="pixel de déplacement SW" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1549">
+                <button toolTip="[]+[1] Décalage de pixels SO" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1549">
                     <rect key="frame" x="63" y="0.0" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="1" inset="2" id="2224">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1102,7 +1103,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1606"/>
                     </connections>
                 </button>
-                <button toolTip="Déplacement du pixel E" verticalHuggingPriority="750" tag="6" translatesAutoresizingMaskIntoConstraints="NO" id="1548">
+                <button toolTip="[]+[6] Décalage de pixels E" verticalHuggingPriority="750" tag="6" translatesAutoresizingMaskIntoConstraints="NO" id="1548">
                     <rect key="frame" x="89" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="6" inset="2" id="2223">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1112,7 +1113,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1605"/>
                     </connections>
                 </button>
-                <button toolTip="Revenir à la soustraction centrée" verticalHuggingPriority="750" tag="5" translatesAutoresizingMaskIntoConstraints="NO" id="1547">
+                <button toolTip="[]+[5] Revenir à la soustraction centrée" verticalHuggingPriority="750" tag="5" translatesAutoresizingMaskIntoConstraints="NO" id="1547">
                     <rect key="frame" x="76" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="5" inset="2" id="2222">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1122,7 +1123,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1604"/>
                     </connections>
                 </button>
-                <button toolTip="Déplacement du pixel W" verticalHuggingPriority="750" tag="4" translatesAutoresizingMaskIntoConstraints="NO" id="1546">
+                <button toolTip="[]+[4] Décalage de pixels O" verticalHuggingPriority="750" tag="4" translatesAutoresizingMaskIntoConstraints="NO" id="1546">
                     <rect key="frame" x="63" y="12" width="12" height="13"/>
                     <buttonCell key="cell" type="smallSquare" bezelStyle="smallSquare" alignment="center" controlSize="mini" borderStyle="border" tag="4" inset="2" id="2221">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1132,7 +1133,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1603"/>
                     </connections>
                 </button>
-                <button toolTip="Changement de pixel NE" verticalHuggingPriority="750" tag="9" translatesAutoresizingMaskIntoConstraints="NO" id="1545">
+                <button toolTip="[]+[9] Décalage de pixels NE" verticalHuggingPriority="750" tag="9" translatesAutoresizingMaskIntoConstraints="NO" id="1545">
                     <rect key="frame" x="89" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="lW6-tj-SbK"/>
@@ -1145,7 +1146,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1602"/>
                     </connections>
                 </button>
-                <button toolTip="Déplacement du pixel N" verticalHuggingPriority="750" tag="8" translatesAutoresizingMaskIntoConstraints="NO" id="1544">
+                <button toolTip="[]+[8] Décalage de pixels N" verticalHuggingPriority="750" tag="8" translatesAutoresizingMaskIntoConstraints="NO" id="1544">
                     <rect key="frame" x="76" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="Fh6-KB-VVE"/>
@@ -1158,7 +1159,7 @@
                         <action selector="subCtrlOffset:" target="-1" id="1601"/>
                     </connections>
                 </button>
-                <button toolTip="pixel de déplacement NW" verticalHuggingPriority="750" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="1543">
+                <button toolTip="[]+[7] Décalage de pixels NO" verticalHuggingPriority="750" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="1543">
                     <rect key="frame" x="63" y="24" width="12" height="13"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="12" id="sb6-bt-cxf"/>
@@ -1183,7 +1184,7 @@
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                     </textFieldCell>
                 </textField>
-                <button toolTip="Choisissez l'image actuelle comme masque" verticalHuggingPriority="750" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="790">
+                <button toolTip="[]+[*] Choisissez l'image actuelle comme masque" verticalHuggingPriority="750" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="790">
                     <rect key="frame" x="25" y="0.0" width="36" height="21"/>
                     <buttonCell key="cell" type="squareTextured" title="Masque" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" tag="11" inset="2" id="2216">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1312,7 +1313,8 @@
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="858">
                     <rect key="frame" x="39" y="25" width="86" height="12"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="86" id="YXf-OH-S42"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="68" id="YXf-OH-S42"/>
+                        <constraint firstAttribute="width" priority="740" constant="86" id="YXg-OH-S43"/>
                     </constraints>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" maxValue="1" doubleValue="1" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="2244">
                         <font key="font" size="12" name="Helvetica"/>
@@ -1417,7 +1419,7 @@
                                 <menuItem title="non lu" tag="1" id="1056"/>
                                 <menuItem title="révisé" tag="2" id="1055"/>
                                 <menuItem title="dictée" tag="3" id="1058"/>
-                                <menuItem title="validée" tag="4" id="2535"/>
+                                <menuItem title="validé" tag="4" id="2535"/>
                             </items>
                         </menu>
                     </popUpButtonCell>
@@ -1439,11 +1441,11 @@
             </constraints>
         </customView>
         <customView id="1204" userLabel="keyImage">
-            <rect key="frame" x="0.0" y="0.0" width="132" height="42"/>
+            <rect key="frame" x="0.0" y="0.0" width="192" height="42"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="2455">
-                    <rect key="frame" x="98" y="24" width="33" height="14"/>
+                    <rect key="frame" x="81" y="24" width="33" height="14"/>
                     <constraints>
                         <constraint firstAttribute="width" constant="29" id="NtW-58-Vbx"/>
                     </constraints>
@@ -1457,7 +1459,7 @@
                     </connections>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1525">
-                    <rect key="frame" x="3" y="2" width="124" height="20"/>
+                    <rect key="frame" x="3" y="2" width="184" height="20"/>
                     <popUpButtonCell key="cell" type="push" title="Images clés" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="1527" id="2313">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
@@ -1489,14 +1491,14 @@
                 </button>
             </subviews>
             <constraints>
-                <constraint firstItem="2455" firstAttribute="leading" secondItem="1205" secondAttribute="trailing" constant="21" id="0JE-4N-fXM"/>
+                <constraint firstItem="2455" firstAttribute="leading" secondItem="1205" secondAttribute="trailing" constant="4" id="0JE-4N-fXM"/>
                 <constraint firstItem="1205" firstAttribute="baseline" secondItem="2455" secondAttribute="baseline" id="6dP-ZG-o6R"/>
                 <constraint firstItem="1525" firstAttribute="leading" secondItem="1204" secondAttribute="leading" constant="3" id="7b7-OX-MeP"/>
                 <constraint firstItem="1205" firstAttribute="leading" secondItem="1204" secondAttribute="leading" constant="6" id="D5v-NL-84p"/>
                 <constraint firstItem="1525" firstAttribute="top" secondItem="1204" secondAttribute="top" constant="20" symbolic="YES" id="Qj7-pH-Iee"/>
                 <constraint firstAttribute="trailing" secondItem="1525" secondAttribute="trailing" constant="5" id="gRA-Uj-8Wn"/>
                 <constraint firstItem="1525" firstAttribute="top" secondItem="2455" secondAttribute="bottom" constant="2" id="zaD-pi-sYP"/>
-                <constraint firstAttribute="width" constant="132" id="uXL-rA-fFC"/>
+                <constraint firstAttribute="width" constant="192" id="uXL-rA-fFC"/>
                 <constraint firstAttribute="height" constant="42" id="reY-Bd-VuO"/>
             </constraints>
         </customView>
@@ -1581,7 +1583,7 @@
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="u4j-eI-2Sf" userLabel="Button holder">
                     <rect key="frame" x="0.0" y="0.0" width="35" height="35"/>
                     <subviews>
-                        <button toolTip="Étrier noircissant l'extérieur d'un rectangla ROI sélectionné" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
+                        <button toolTip="Obturateur noircissant l'extérieur d'une ROI rectangulaire sélectionnée" translatesAutoresizingMaskIntoConstraints="NO" id="1740">
                             <rect key="frame" x="3" y="4" width="27" height="27"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="27" id="L6a-SI-jea"/>

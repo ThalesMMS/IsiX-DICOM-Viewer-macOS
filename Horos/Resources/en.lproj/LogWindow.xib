@@ -448,7 +448,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="24">
+                                                            <tableColumn identifier="numberSent" editable="NO" width="80" minWidth="80" maxWidth="100" id="24">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Sent">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -464,7 +464,7 @@
                                                                     <binding destination="45" name="value" keyPath="arrangedObjects.numberSent" id="64"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberError" editable="NO" width="50" minWidth="50" maxWidth="100" id="25">
+                                                            <tableColumn identifier="numberError" editable="NO" width="80" minWidth="80" maxWidth="100" id="25">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Error">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -480,7 +480,7 @@
                                                                     <binding destination="45" name="value" keyPath="arrangedObjects.numberError" id="65"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="26">
+                                                            <tableColumn identifier="numberImages" editable="NO" width="80" minWidth="80" maxWidth="100" id="26">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Total">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -751,7 +751,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="87">
+                                                            <tableColumn identifier="numberSent" editable="NO" width="80" minWidth="80" maxWidth="100" id="87">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Sent">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -772,7 +772,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="240">
+                                                            <tableColumn identifier="numberImages" editable="NO" width="80" minWidth="80" maxWidth="100" id="240">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Total">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>

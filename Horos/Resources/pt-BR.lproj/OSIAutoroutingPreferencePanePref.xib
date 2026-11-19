@@ -322,7 +322,7 @@ Pressione a tecla Delete para excluir uma rota</string>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="qPp-Ci-P4x">
                                     <rect key="frame" x="216" y="15" width="24" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="to" id="q2s-tw-CXS">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="até" id="q2s-tw-CXS">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -462,7 +462,7 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <button id="bVi-cA-dMr">
                                     <rect key="frame" x="135" y="84" width="427" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Envie apenas objetos DICOM contendo dados de pixel (imagens)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="kJb-vd-Pan">
+                                    <buttonCell key="cell" type="check" title="Enviar apenas objetos DICOM contendo dados de pixel (imagens)" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="kJb-vd-Pan">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -473,7 +473,7 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="323">
                                     <rect key="frame" x="6" y="18" width="126" height="36"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Para cada estudo enviar também, se disponível na Base de Dados:" id="334">
+                                    <textFieldCell key="cell" controlSize="mini" sendsActionOnEndEditing="YES" alignment="right" title="Para cada estudo enviar também, se disponível no banco de dados:" id="334">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -490,12 +490,12 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <popUpButton verticalHuggingPriority="750" id="325">
                                     <rect key="frame" x="134" y="49" width="320" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Não envie estudo anterior" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="329" id="326">
+                                    <popUpButtonCell key="cell" type="push" title="Não enviar estudo anterior" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="329" id="326">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="327">
                                             <items>
-                                                <menuItem title="Não envie estudo anterior" state="on" id="329"/>
+                                                <menuItem title="Não enviar estudo anterior" state="on" id="329"/>
                                                 <menuItem isSeparatorItem="YES" id="328"/>
                                                 <menuItem title="O estudo anterior" tag="1" id="332"/>
                                                 <menuItem title="Os últimos 2 estudos anteriores" tag="2" id="331"/>
@@ -513,7 +513,7 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                         <font key="titleFont" metaFont="system" size="16"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="Candidatar-se a" id="uDZ-jM-cUc">
+                    <box autoresizesSubviews="NO" title="Aplicar a" id="uDZ-jM-cUc">
                         <rect key="frame" x="17" y="482" width="572" height="109"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="2SS-Ow-xMN">
@@ -575,7 +575,7 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="352">
                                     <rect key="frame" x="6" y="13" width="67" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Verifique:" id="353">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Verificar:" id="353">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -584,17 +584,17 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <popUpButton verticalHuggingPriority="750" id="341">
                                     <rect key="frame" x="75" y="37" width="295" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Tente 5 vezes a cada 30 segundos" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" imageScaling="proportionallyDown" inset="2" selectedItem="344" id="342">
+                                    <popUpButtonCell key="cell" type="push" title="Tentar 5 vezes a cada 30 segundos" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="5" imageScaling="proportionallyDown" inset="2" selectedItem="344" id="342">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="343">
                                             <items>
-                                                <menuItem title="Não tente reenviar" id="347"/>
+                                                <menuItem title="Não tentar reenviar" id="347"/>
                                                 <menuItem isSeparatorItem="YES" id="348"/>
-                                                <menuItem title="Tente 5 vezes a cada 30 segundos" state="on" tag="5" id="344"/>
-                                                <menuItem title="Tente 20 vezes a cada 30 segundos" tag="20" id="345"/>
-                                                <menuItem title="Tente 100 vezes a cada 30 segundos" tag="100" id="346"/>
-                                                <menuItem title="Tente 1.400 vezes a cada 30 segundos" tag="1400" id="349"/>
+                                                <menuItem title="Tentar 5 vezes a cada 30 segundos" state="on" tag="5" id="344"/>
+                                                <menuItem title="Tentar 20 vezes a cada 30 segundos" tag="20" id="345"/>
+                                                <menuItem title="Tentar 100 vezes a cada 30 segundos" tag="100" id="346"/>
+                                                <menuItem title="Tentar 1.400 vezes a cada 30 segundos" tag="1400" id="349"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -602,7 +602,7 @@ VW0gZmlsdHJvIHZhemlvIGVuY2FtaW5oYXLDoQPigKhUT0RBUyBhcyBpbWFnZW5zCg
                                 <button id="354">
                                     <rect key="frame" x="75" y="12" width="487" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Envie C-FIND para verificar se o estudo existe no destino" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="355">
+                                    <buttonCell key="cell" type="check" title="Enviar C-FIND para verificar se o estudo existe no destino" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="355">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

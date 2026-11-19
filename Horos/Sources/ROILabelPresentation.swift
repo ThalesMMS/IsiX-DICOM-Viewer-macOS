@@ -201,10 +201,11 @@ public final class ROILabelPresentation: NSObject {
     }
 
     /// The check's title: the statistic's name, as the catalog gives it to the
-    /// check. Most catalogs name the check as the label writes the readout, so
-    /// that both read the same; the Spanish, Italian and Japanese ones name it
-    /// in their own words while the label's readouts stay as their catalogs
-    /// have them. Without an entry, the English name the label writes.
+    /// check. Every catalog writes the readouts of the label in its own
+    /// language and names each check by the word of its readout, shortened
+    /// where the row of checks has no room for it; the width and the height
+    /// keep their letters in most of them. Without an entry, the English name
+    /// the label writes.
     @objc(titleForStatistic:)
     public static func title(forStatistic kind: String) -> String {
         let comment = "Viewers pane: the check that shows or hides a statistic in the labels of closed ROIs"

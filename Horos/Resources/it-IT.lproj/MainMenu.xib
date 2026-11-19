@@ -394,7 +394,7 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Rigenre le miniature selezionate" id="12643">
+                                        <menuItem title="Ricostruisci le miniature selezionate" id="12643">
                                             <connections>
                                                 <action selector="rebuildThumbnails:" target="898" id="12644"/>
                                             </connections>
@@ -666,22 +666,22 @@
                             <menuItem title="Converti tra BN e RGB" id="13182">
                                 <menu key="submenu" title="Converti tra BN e RGB" id="13183">
                                     <items>
-                                        <menuItem title="Red -&gt;BW" id="13184">
+                                        <menuItem title="Rosso -&gt; BN" id="13184">
                                             <connections>
                                                 <action selector="ConvertToBWMenu:" target="-1" id="13251"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Green -&gt;BW" tag="1" id="13185">
+                                        <menuItem title="Verde -&gt; BN" tag="1" id="13185">
                                             <connections>
                                                 <action selector="ConvertToBWMenu:" target="-1" id="13302"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Blue -&gt;BW" tag="2" id="13186">
+                                        <menuItem title="Blu -&gt; BN" tag="2" id="13186">
                                             <connections>
                                                 <action selector="ConvertToBWMenu:" target="-1" id="13294"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="RGB -&gt;BW" tag="3" id="13187">
+                                        <menuItem title="RGB -&gt; BN" tag="3" id="13187">
                                             <connections>
                                                 <action selector="ConvertToBWMenu:" target="-1" id="13267"/>
                                             </connections>
@@ -689,22 +689,22 @@
                                         <menuItem isSeparatorItem="YES" id="13321">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="BW -&gt; Red" id="13313">
+                                        <menuItem title="BN -&gt; Rosso" id="13313">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13319"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="BW -&gt; Green" tag="1" id="13314">
+                                        <menuItem title="BN -&gt; Verde" tag="1" id="13314">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13318"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="BW -&gt; Blue" tag="2" id="13315">
+                                        <menuItem title="BN -&gt; Blu" tag="2" id="13315">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13317"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="BW -&gt; RGB" tag="3" id="13316">
+                                        <menuItem title="BN -&gt; RGB" tag="3" id="13316">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13320"/>
                                             </connections>
@@ -1243,7 +1243,7 @@
                                                 <action selector="subSumSlider:" target="-1" id="13252"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="No Sum" tag="32" keyEquivalent="2" id="13128">
+                                        <menuItem title="Nessuna somma" tag="32" keyEquivalent="2" id="13128">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13261"/>
@@ -2173,7 +2173,7 @@ CA
                                                 <action selector="resizeWindow:" target="-1" id="12260"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="iPod Video" tag="5" id="12254">
+                                        <menuItem title="Video per iPod" tag="5" id="12254">
                                             <connections>
                                                 <action selector="resizeWindow:" target="-1" id="12262"/>
                                             </connections>
@@ -2363,7 +2363,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="11243">
                         <rect key="frame" x="57" y="25" width="291" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Example: http://www.osirix-viewer.com/internet.dcm" id="13361">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Esempio: http://www.osirix-viewer.com/internet.dcm" id="13361">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2414,27 +2414,27 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="8 bit color RGB" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="11457">
+                            <buttonCell type="radio" title="Colore RGB a 8 bit" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="11457">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="8 bit grayscale" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="11458">
+                            <buttonCell type="radio" title="Grigi a 8 bit" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="11458">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bit unsigned grayscale little Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
+                            <buttonCell type="radio" title="Grigi 16 bit senza segno, Little Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bit signed grayscale little Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="Grigi 16 bit con segno, Little Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bit unsigned grayscale big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
+                            <buttonCell type="radio" title="Grigi 16 bit senza segno, Big Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bit signed grayscale big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
+                            <buttonCell type="radio" title="Grigi 16 bit con segno, Big Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2635,7 +2635,7 @@ Gw
                     <connections>
                         <binding destination="898" name="value" keyPath="searchString" id="12308">
                             <dictionary key="options">
-                                <string key="NSNoSelectionPlaceholder">Search</string>
+                                <string key="NSNoSelectionPlaceholder">Cerca</string>
                             </dictionary>
                         </binding>
                         <outlet property="searchMenuTemplate" destination="11583" id="11586"/>
@@ -3734,7 +3734,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13874">
                                     <rect key="frame" x="14" y="176" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# out of #" id="13875">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# di #" id="13875">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3742,12 +3742,12 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="displayPatternValue2" keyPath="arrangedObjects.@count" previousBinding="13876" id="13877">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ di %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="displayPatternValue1" keyPath="selection.@count" id="13876">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ di %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                     </connections>
@@ -3859,31 +3859,31 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="predicate" keyPath="filterPredicate" id="13897">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">All</string>
+                                                <string key="NSDisplayName">Tutto</string>
                                                 <string key="NSPredicateFormat">(phone contains[c] $value) or (address contains[c] $value) or (email contains[c] $value) or (name contains[c] $value)</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate2" keyPath="filterPredicate" previousBinding="13897" id="13898">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Phone</string>
+                                                <string key="NSDisplayName">Telefono</string>
                                                 <string key="NSPredicateFormat">phone contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate3" keyPath="filterPredicate" previousBinding="13898" id="13899">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Address</string>
+                                                <string key="NSDisplayName">Indirizzo</string>
                                                 <string key="NSPredicateFormat">address contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate4" keyPath="filterPredicate" previousBinding="13899" id="13900">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Email</string>
+                                                <string key="NSDisplayName">E-mail</string>
                                                 <string key="NSPredicateFormat">email contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate5" keyPath="filterPredicate" previousBinding="13900" id="13901">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Name</string>
+                                                <string key="NSDisplayName">Nome</string>
                                                 <string key="NSPredicateFormat">name contains[c] $value</string>
                                             </dictionary>
                                         </binding>
@@ -3962,7 +3962,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13916">
                         <rect key="frame" x="421" y="152" width="375" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="This user account will be automatically deleted after: %{value1}@ days" id="13917">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Questo account utente verrà eliminato automaticamente dopo %{value1}@ giorni" id="13917">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3970,7 +3970,7 @@ Gw
                         <connections>
                             <binding destination="12279" name="displayPatternValue1" keyPath="values.temporaryUserDuration" id="13983">
                                 <dictionary key="options">
-                                    <string key="NSDisplayPattern">This user account will be automatically deleted after: %{value1}@ days</string>
+                                    <string key="NSDisplayPattern">Questo account utente verrà eliminato automaticamente dopo %{value1}@ giorni</string>
                                 </dictionary>
                             </binding>
                         </connections>
@@ -4025,7 +4025,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13939">
                                     <rect key="frame" x="17" y="224" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# out of #" id="13955">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# di #" id="13955">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4033,12 +4033,12 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="displayPatternValue2" keyPath="arrangedObjects.@count" previousBinding="13965" id="13966">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ di %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="displayPatternValue1" keyPath="selection.@count" id="13965">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ di %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                     </connections>
@@ -4150,31 +4150,31 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="predicate" keyPath="filterPredicate" id="13968">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">All</string>
+                                                <string key="NSDisplayName">Tutto</string>
                                                 <string key="NSPredicateFormat">(phone contains[c] $value) or (address contains[c] $value) or (email contains[c] $value) or (name contains[c] $value)</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate2" keyPath="filterPredicate" previousBinding="13968" id="13969">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Phone</string>
+                                                <string key="NSDisplayName">Telefono</string>
                                                 <string key="NSPredicateFormat">phone contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate3" keyPath="filterPredicate" previousBinding="13969" id="13970">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Address</string>
+                                                <string key="NSDisplayName">Indirizzo</string>
                                                 <string key="NSPredicateFormat">address contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate4" keyPath="filterPredicate" previousBinding="13970" id="13971">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Email</string>
+                                                <string key="NSDisplayName">E-mail</string>
                                                 <string key="NSPredicateFormat">email contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate5" keyPath="filterPredicate" previousBinding="13971" id="13972">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Name</string>
+                                                <string key="NSDisplayName">Nome</string>
                                                 <string key="NSPredicateFormat">name contains[c] $value</string>
                                             </dictionary>
                                         </binding>
@@ -4267,7 +4267,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">This function will re-import all DICOM files in the database, removing unavailable items and optimizing the SQL index file located in the IsiX Data folder.</string>
+                            <string key="title">Questa funzione importerà di nuovo tutti i file DICOM del database, rimuoverà gli elementi non disponibili e ottimizzerà il file di indice SQL nella cartella IsiX Data.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4335,12 +4335,12 @@ Gw
                                 <buttonCell type="radio" title="Ricostruzione completa" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">The SQL index will be deleted. IsiX DICOM Viewer will then import all files available in the DATABASE folder. All 'linked' files, that were not in the DATABASE folder, will NOT be re-imported.</string>
+                                    <string key="toolTip">L'indice SQL verrà eliminato. IsiX DICOM Viewer importerà quindi tutti i file disponibili nella cartella DATABASE. I file «collegati» che non erano nella cartella DATABASE NON verranno importati di nuovo.</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="Reimporta i file DICOM e pulisci" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">IsiX DICOM Viewer will re-import all files available in the DATABASE folder. IsiX DICOM Viewer will then check if all images of the studies are available. If not, IsiX DICOM Viewer will remove those studies without associated DICOM files.</string>
+                                    <string key="toolTip">IsiX DICOM Viewer importerà di nuovo tutti i file disponibili nella cartella DATABASE. Controllerà poi se tutte le immagini degli studi sono disponibili. In caso contrario, rimuoverà gli studi privi di file DICOM associati.</string>
                                 </buttonCell>
                             </column>
                         </cells>
@@ -4754,7 +4754,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="noFiles" editable="NO" width="58" minWidth="58" maxWidth="58" id="967">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# im">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="N. imm.">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4767,7 +4767,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noFiles"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="noSeries" editable="NO" width="70" minWidth="70" maxWidth="70" id="14758">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# series">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="N. serie">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4808,7 +4808,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="referringPhysician" editable="NO" width="120" minWidth="40" maxWidth="400" id="11708">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Medific Referente">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Medico referente">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -5215,8 +5215,8 @@ Gw
                                         </connections>
                                     </button>
                                     <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="14357">
-                                        <rect key="frame" x="27" y="3" width="406" height="14"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES"/>
+                                        <rect key="frame" x="27" y="3" width="400" height="14"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
                                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Informazioni sul database" id="14358">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" red="0.20000000300000001" green="0.20000000300000001" blue="0.20000000300000001" alpha="1" colorSpace="calibratedRGB"/>

@@ -41,7 +41,7 @@
                     <button id="101">
                         <rect key="frame" x="24" y="892" width="502" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Ative o ouvinte DICOM quando o IsiX DICOM Viewer estiver em execução" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="309">
+                        <buttonCell key="cell" type="check" title="Ativar o receptor DICOM quando o IsiX DICOM Viewer estiver em execução" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="309">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -305,7 +305,7 @@
                                 <button id="305">
                                     <rect key="frame" x="15" y="58" width="568" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Ative o receptor DICOM somente se esta sessão de usuário estiver ativa (troca de usuário)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
+                                    <buttonCell key="cell" type="check" title="Ativar o receptor DICOM somente se esta sessão de usuário estiver ativa (troca de usuário)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="329">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -335,7 +335,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="964" id="106">
                                     <rect key="frame" x="20" y="82" width="520" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Se o IsiX DICOM Viewer não conseguir abrir um arquivo recebido pelo ouvinte DICOM:" id="310">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Se o IsiX DICOM Viewer não conseguir abrir um arquivo recebido pelo receptor DICOM:" id="310">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -353,11 +353,11 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Exclua-o" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="115">
+                                            <buttonCell type="radio" title="Excluí-lo" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="115">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Mova-o para a pasta NOT READABLE" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
+                                            <buttonCell type="radio" title="Movê-lo para a pasta NOT READABLE" imagePosition="left" alignment="left" controlSize="small" inset="2" id="102">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -388,11 +388,11 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Não modifique" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="438">
+                                            <buttonCell type="radio" title="Não modificar" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="438">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Descompacte imagens compactadas" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="439">
+                                            <buttonCell type="radio" title="Descompactar imagens compactadas" imagePosition="left" alignment="left" controlSize="small" tag="1" inset="2" id="439">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -409,7 +409,7 @@
                                 <button misplaced="YES" id="gR7-my-CC9">
                                     <rect key="frame" x="17" y="17" width="363" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Substitua os arquivos existentes pelos arquivos recém-recebidos" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="TEQ-se-gKG">
+                                    <buttonCell key="cell" type="check" title="Substituir os arquivos existentes pelos arquivos recém-recebidos" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="TEQ-se-gKG">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -529,7 +529,7 @@
                                 <button id="260">
                                     <rect key="frame" x="15" y="55" width="240" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Gere logs para eventos de rede DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="317">
+                                    <buttonCell key="cell" type="check" title="Gerar logs para eventos de rede DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="317">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -630,7 +630,7 @@
                                 <button id="356">
                                     <rect key="frame" x="15" y="17" width="281" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Ative o suporte C-GET SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
+                                    <buttonCell key="cell" type="check" title="Ativar o suporte C-GET SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="357">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -641,7 +641,7 @@
                                 <button id="1067">
                                     <rect key="frame" x="300" y="17" width="283" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Ative o suporte C-FIND SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
+                                    <buttonCell key="cell" type="check" title="Ativar o suporte C-FIND SCP" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1068">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -663,7 +663,7 @@
                                 <button id="966">
                                     <rect key="frame" x="31" y="112" width="166" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Proteja-o com uma senha:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
+                                    <buttonCell key="cell" type="check" title="Proteger com uma senha:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="967">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -685,7 +685,7 @@
                                 <button id="332">
                                     <rect key="frame" x="15" y="238" width="399" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Ative o suporte de URL e servidor HTTP XML-RPC na porta:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="Ativar o suporte de URL e o servidor HTTP XML-RPC na porta:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -809,7 +809,7 @@
                                 <button id="1056">
                                     <rect key="frame" x="31" y="102" width="552" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Pesquise também nos servidores PACS-On-Demand (URLs [isix://, horos://, osirix://] e XML-RPC)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
+                                    <buttonCell key="cell" type="check" title="Pesquisar também nos servidores PACS-On-Demand (URLs [isix://, horos://, osirix://] e XML-RPC)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="1057">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -968,7 +968,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="736">
                                     <rect key="frame" x="294" y="12" width="77" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Escolha" bezelStyle="roundedRect" alignment="center" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="743">
+                                    <buttonCell key="cell" type="roundRect" title="Escolher" bezelStyle="roundedRect" alignment="center" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="743">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1074,7 +1074,7 @@ Gw
                                 <button id="1012">
                                     <rect key="frame" x="22" y="80" width="349" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use este AETitle para C-FIND SCU, C-STORE SCU, C-GET SCU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
+                                    <buttonCell key="cell" type="check" title="Usar este AETitle para C-FIND SCU, C-STORE SCU, C-GET SCU" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1013">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="miniSystem"/>
                                     </buttonCell>

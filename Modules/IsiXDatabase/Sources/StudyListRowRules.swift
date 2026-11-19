@@ -460,15 +460,32 @@ public enum StudyListColumns {
         }
     }
 
-    /// The column whose header has `title`, compared code unit by code unit,
-    /// as -indexOfObject: found it among the headers' titles.
-    public static func column(titled title: String, in titles: [String]) -> Int? {
-        titles.firstIndex { same($0, title) }
+    /// The column a key of the COLUMNSDATABASE preference names, among the
+    /// list's columns, given by their identifiers and by the titles of their
+    /// headers, in the list's order. The preference is saved by identifier; it
+    /// was saved by the title of the header in the language of the day, and
+    /// one saved so is still read. A key names, in this order:
+    ///
+    /// - the column that has it as its identifier;
+    /// - the first column whose header has it as its title now, compared code
+    ///   unit by code unit, as -indexOfObject: found it among the titles;
+    /// - the first column whose header had it as its title in some language
+    ///   (`titled`, StudyListColumnTitles unless another is given).
+    public static func column(named key: String, identifiers: [String], titles: [String],
+                              titled: (_ title: String, _ identifier: String) -> Bool = StudyListColumnTitles.names) -> Int? {
+        identifiers.firstIndex { same($0, key) } ?? titles.firstIndex { same($0, key) }
+            ?? identifiers.firstIndex { titled(key, $0) }
+    }
+
+    /// Whether `key` is the identifier of one of the list's columns, which is
+    /// how the preference names a column now.
+    private static func isIdentifier(_ key: String, among identifiers: [String]) -> Bool {
+        identifiers.contains { same($0, key) }
     }
 
     /// Whether the COLUMNSDATABASE preference can be read: absent, or a
-    /// dictionary of the state of each column by title. Anything else made the
-    /// former code raise, which it logged without changing a column.
+    /// dictionary of the state of each column. Anything else made the former
+    /// code raise, which it logged without changing a column.
     public static func savedIsReadable(_ saved: Any?) -> Bool {
         saved == nil || saved is [String: Any]
     }
@@ -482,15 +499,59 @@ public enum StudyListColumns {
         return !hidden(index)
     }
 
-    /// The COLUMNSDATABASE preference: the state of each item, by title,
-    /// leaving out the items without one.
-    /// A later item with the same title replaces the earlier one's state.
-    public static func saved(titles: [String], states: [Int]) -> [String: Int32] {
+    /// The COLUMNSDATABASE preference: the state of each column by its
+    /// identifier, which is the same in every language, leaving out the
+    /// columns without one. Two columns whose headers have the same title
+    /// keep a state each.
+    public static func saved(identifiers: [String], states: [Int]) -> [String: Int32] {
         var saved: [String: Int32] = [:]
-        for (title, state) in zip(titles, states) where (title as NSString).length > 0 {
-            saved[title] = Int32(truncatingIfNeeded: state)
+        for (identifier, state) in zip(identifiers, states) where (identifier as NSString).length > 0 {
+            saved[identifier] = Int32(truncatingIfNeeded: state)
         }
         return saved
+    }
+
+    /// What a saved COLUMNSDATABASE preference says of the list's columns.
+    public struct Reading {
+        /// The state it gives each column it names, by identifier, in the
+        /// order of its keys.
+        public var states: [(identifier: String, state: Any)]
+        /// The same preference with every column named by its identifier,
+        /// when it named one by a title: what is stored in its place, so that
+        /// it reads the same in every language. Nil when it names none so.
+        public var byIdentifier: [String: Any]?
+    }
+
+    /// Reads a saved preference, given as its keys and values in the order the
+    /// preferences have them, for a list whose columns have `identifiers`
+    /// and whose headers have `titles`.
+    ///
+    /// A key that names no column of the list is kept as it is and changes
+    /// nothing, as before. A column named both by its identifier and by a
+    /// title has the state its identifier gives it, and one named by two
+    /// titles the state of the first: the other key is dropped.
+    public static func read(_ saved: [(key: String, state: Any)], identifiers: [String], titles: [String],
+                            titled: (_ title: String, _ identifier: String) -> Bool = StudyListColumnTitles.names) -> Reading {
+        let byIdentifier = Set(saved.map(\.key).filter { isIdentifier($0, among: identifiers) })
+        var reading = Reading(states: [], byIdentifier: nil)
+        var stored: [String: Any] = [:]
+        var named = Set<String>()
+        var namedByTitle = false
+        for (key, state) in saved {
+            guard let index = column(named: key, identifiers: identifiers, titles: titles, titled: titled) else {
+                stored[key] = state
+                continue
+            }
+            let identifier = identifiers[index]
+            let isTitle = !same(identifier, key)
+            namedByTitle = namedByTitle || isTitle
+            if isTitle && byIdentifier.contains(identifier) { continue }
+            guard named.insert(identifier).inserted else { continue }
+            reading.states.append((identifier, state))
+            stored[identifier] = state
+        }
+        if namedByTitle { reading.byIdentifier = stored }
+        return reading
     }
 
     public struct Change: Equatable, Sendable {

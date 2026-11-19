@@ -31,8 +31,10 @@ public struct SeriesListModel: Sendable, Equatable {
         case none
         /// Another study, or one of its series.
         case otherStudy
-        /// A series this viewer shows, or a study with series hidden that has one.
-        case shown
+        /// A series this viewer shows, or a study with series hidden that has
+        /// one, in the colour of the study the viewer's window stands for
+        /// among the patient's open studies: the colour of its frame.
+        case shown(SeriesIdentity.Study)
         /// The series fused in this viewer.
         case fused
     }
@@ -92,12 +94,17 @@ public struct SeriesListModel: Sendable, Equatable {
     /// The cells the list is laid out for: one per listed study and the
     /// cells counted for the series and placeholders of the patient's studies.
     public var cellCount: Int
+    /// Which of the patient's open studies the viewer's window shows, as the
+    /// frame of its active view has it: the current one, or a previous one.
+    /// The series the viewer shows are tinted in that study's colour.
+    public var windowStudy: SeriesIdentity.Study
     /// `countedCells` is what the patient's studies count for their series and
     /// placeholders: the series of each database study whose series show, its
     /// placeholders, counted over every study of the patient, listed or not.
-    public init(studies: [Study], countedCells: Int) {
+    public init(studies: [Study], countedCells: Int, windowStudy: SeriesIdentity.Study = .current) {
         self.studies = studies
         cellCount = countedCells + studies.count
+        self.windowStudy = windowStudy
     }
 
     /// The cells in the order the list fills them: each study, then, unless
@@ -155,7 +162,7 @@ public struct SeriesListModel: Sendable, Equatable {
     }
 
     private func seriesTint(_ series: Series) -> Tint? {
-        if series.isShown { return .shown }
+        if series.isShown { return .shown(windowStudy) }
         if series.isFused { return .fused }
         return nil
     }

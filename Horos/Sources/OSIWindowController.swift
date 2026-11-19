@@ -85,6 +85,14 @@ enum OSIWindowControllerFlags {
         super.init(coder: coder)
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it, for every window of the application that descends from
+    /// this class. A controller whose class a plugin defines loads its own
+    /// nib, as always.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     deinit {
         NSLog("OSIWindowController released")
 

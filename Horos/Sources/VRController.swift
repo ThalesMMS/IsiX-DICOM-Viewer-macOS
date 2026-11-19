@@ -786,6 +786,9 @@ public class VRController: Window3DController, NSToolbarDelegate, NSToolbarItemV
 
         presetsPanel?.close()
         presetsInfoPanel?.close()
+        // The Shading and Point Info panels leave the screen with their
+        // window: left open, they outlived this controller.
+        CompanionPanels.takeOffScreen(shadingPanel, vrView?.point3DInfoPanel)
 
         // The Metal renderers and their GPU volumes go with the window.
         horosVolumeMetalDropRenderers()

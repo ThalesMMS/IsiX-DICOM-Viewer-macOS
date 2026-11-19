@@ -42,7 +42,8 @@ import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
-LOCALES = ('en', 'ja-JP')
+# Japanese has no copy of the nib: the English one loads there, with its texts read from the catalog.
+LOCALES = ('en',)
 # The views the viewer hands to these items, by the item identifier.
 VIEWS = {'WLWW': '141', '2DBlending': '67'}
 

@@ -3,13 +3,16 @@
 
 The 2D slider keeps the images asked for and shows the scale of the slab at
 the image the viewer shows (IsiXImaging's StackFusionScale): its track runs
-from the thickness of one image to that of the images left to the end of the
-series, in millimetres, on the linear or the logarithmic curve; its marks are
+from the thickness of one image to that of the series, in millimetres, on the
+linear or the logarithmic curve, and is the same at every image; its marks are
 stops; its bubble writes the scale's text, the toolbar's. Checked with series
 of 2 mm slices every 2 mm and every 1 mm, the two a user recorded: two images
 read 4.0 and 3.0 mm, a request for more images than are left reads what is
-fused and is kept at the thick end, the last image has one stop that a click
-does not change, and a slab that is off reads one image at the thin end.
+fused and stands where the images left end, the track beyond them drawn faded
+and out of the knob's way, the last image has one stop that a click does not
+change, and a slab that is off reads one image at the thin end. A third
+recording: with the request still, the knob stays where it is from one image
+of the series to the next.
 """
 import private_tmpdir  # noqa: F401
 import harness_defaults  # the harness's preferences stay in its own process
@@ -288,6 +291,19 @@ check(linearMarks.map { whole.thickness(requested: Int(slider.value(at: point(Do
 defaults.set(true, forKey: key)
 let exponentialMarks = slider.tickMarkFractions
 check(exponentialMarks != linearMarks, "2D marks change with the curve")
+// The exponential marks draw the curve: far apart at the thin end, each step
+// shorter than the one before, and the last two as close as a third of the
+// linear distance allows. They are more than the linear ruler's, and are not
+// stops; the linear marks stay evenly spaced.
+let exponentialGaps = zip(exponentialMarks, exponentialMarks.dropFirst()).map { Double($1 - $0) }
+check(exponentialMarks.count > linearMarks.count && exponentialMarks.count <= 17 && exponentialMarks.first == 0 && exponentialMarks.last == 1,
+      "2D exponential ruler has both ends and more marks than the linear one: \(exponentialMarks.count)")
+check(zip(exponentialGaps, exponentialGaps.dropFirst()).allSatisfy { $1 < $0 }, "2D exponential marks gather towards the thick end: \(exponentialGaps)")
+check((exponentialGaps.last ?? 0) * Double(track.width) >= 8.0 / 3 - 1e-9 && (exponentialGaps.last ?? 1) * Double(track.width) < 8,
+      "2D exponential marks are dense at the thick end and told apart: \(exponentialGaps)")
+check(exponentialGaps[0] < 1.0 / 3, "2D exponential ruler leaves the thin end no bare third of the track: \(exponentialGaps[0])")
+let linearGaps = zip(linearMarks, linearMarks.dropFirst()).map { Double($1 - $0) }.dropLast()
+check((linearGaps.max() ?? 1) - (linearGaps.min() ?? 0) < 1e-6, "2D linear marks are evenly spaced: \(linearGaps)")
 near(slider.value(at: point(0.5)), 8, "2D logarithmic midpoint: 16 mm, the stop nearest to the geometric mean of 2 and 120 mm")
 check(slider.value(at: point(0.75)) - slider.value(at: point(0.5)) > slider.value(at: point(0.5)) - slider.value(at: point(0.25)),
       "2D logarithmic: increasing sensitivity")
@@ -295,11 +311,14 @@ check(slider.value(at: point(0.75)) - slider.value(at: point(0.5)) > slider.valu
 // and the bubble writes the mark's thickness.
 for (exponential, marks) in [(false, linearMarks), (true, exponentialMarks)] {
     defaults.set(exponential, forKey: key)
-    check(marks.count >= 6 && marks.count <= 12 && marks.first == 0 && marks.last == 1, "2D main marks only, both ends: \(marks.count)")
+    check(marks.count >= 6 && marks.count <= (exponential ? 17 : 12) && marks.first == 0 && marks.last == 1, "2D main marks only, both ends: \(marks.count)")
     for (left, right) in zip(marks, marks.dropFirst()) {
-        check((right - left) * track.width >= 8 - 1e-9, "2D marks stay apart")
+        // The exponential ruler lets its marks gather: a third of the linear distance.
+        check((right - left) * track.width >= (exponential ? 8.0 / 3 : 8) - 1e-9, "2D marks stay apart")
     }
-    for mark in marks {
+    // A mark of the linear ruler is where the knob stops: a click on it puts
+    // the knob on it. Those of the exponential ruler are not stops.
+    for mark in exponential ? [] : marks {
         slider.integerValue = 30
         slider.doubleValue = slider.value(at: point(Double(mark)))
         near(slider.doubleValue, slider.doubleValue.rounded(), "2D marks are whole numbers of images")
@@ -320,7 +339,7 @@ for (exponential, marks) in [(false, linearMarks), (true, exponentialMarks)] {
         // A stop within half a point of a mark gives way to the mark: there
         // the stops are closer than a pixel, and the mark is the one aimed at.
         let mark = slider.tickMarkFractions.map(Double.init).min { abs($0 - knob) < abs($1 - knob) } ?? -1
-        let marked = abs(mark - knob) * Double(track.width) <= 0.5
+        let marked = !exponential && abs(mark - knob) * Double(track.width) <= 0.5
         let expected = marked ? whole.count(at: mark, exponential: exponential) : count
         // The thick end keeps a request that already holds it.
         slider.integerValue = count == 60 ? 59 : 60
@@ -344,8 +363,41 @@ for (images, text) in [(2, "4.0 mm"), (5, "10.0 mm"), (20, "40.0 mm"), (26, "52.
     slider.integerValue = images
     check(rest.text(requested: images, locale: english) == text && slider.valueText == rest.text(requested: images),
           "2 mm every 2 mm, \(images) images: \(slider.valueText)")
-    check((slider.fraction == 1) == (images >= 35), "the knob is at the thick end from the 35 images left on")
+    check((slider.fraction == slider.reachableFraction) == (images >= 35), "the knob is where the images left end from the 35 of them on")
 }
+defaults.set(false, forKey: key)
+near(Double(slider.reachableFraction), (70.0 - 2) / (120 - 2), "35 images of 60 left: the knob goes as far as 70 of the 120 mm")
+
+// The series scrolls under a request that stays: the knob and the marks do
+// not move, in either direction of the slab, on either curve; the bubble
+// reads the same thickness while the series has the images.
+for exponential in [false, true] {
+    defaults.set(exponential, forKey: key)
+    for towardsStart in [false, true] {
+        slider.integerValue = 5
+        slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? 59 : 0, towardsStart: towardsStart)
+        let still = (slider.fraction, slider.tickMarkFractions, slider.valueText)
+        check(slider.reachableFraction == 1, "the whole series before the image: the whole track")
+        var reach = CGFloat(2)
+        for left in stride(from: 59, through: 5, by: -1) {
+            slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? left - 1 : 60 - left, towardsStart: towardsStart)
+            check(slider.fraction == still.0 && slider.tickMarkFractions == still.1 && slider.valueText == still.2,
+                  "\(left) images left: the knob, the marks and the bubble stay")
+            check(slider.reachableFraction < reach && slider.reachableFraction >= slider.fraction, "the reach comes down to the knob, never under it")
+            reach = slider.reachableFraction
+        }
+        check(reach == slider.fraction, "five images left: the request is all of them")
+        // Fewer images left than asked for: the knob comes down with the reach, and the bubble reads what is fused.
+        slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? 2 : 57, towardsStart: towardsStart)
+        check(slider.fraction == slider.reachableFraction && slider.fraction < still.0 && slider.fraction > 0 && slider.integerValue == 5,
+              "three images left: the knob at the reach, the request kept")
+        check(slider.stackScale!.text(requested: 5, locale: english) == "6.0 mm" && slider.valueText == slider.stackScale!.text(requested: 3),
+              "and the bubble reads the three: \(slider.valueText)")
+        check(slider.tickMarkFractions == still.1, "the marks of the series are still there")
+    }
+}
+defaults.set(false, forKey: key)
+slider.stackScale = rest
 
 final class ActionTarget: NSObject {
     var counts: [Int] = []
@@ -374,10 +426,16 @@ func click(_ fraction: Double) {
 // is fused, and the thick end keeps the request, for where the series has it.
 defaults.set(false, forKey: key)
 slider.integerValue = 46
-check(slider.fraction == 1 && slider.valueText == rest.text(requested: 35), "a request beyond the images left shows what is fused: \(slider.valueText)")
-check(slider.value(at: point(1)) == 46 && slider.value(at: point(2)) == 46, "the thick end keeps a larger request")
-click(1)
-check(target.counts.isEmpty && slider.integerValue == 46, "a click on the thick end sends no action and keeps the request")
+let limit = Double(slider.reachableFraction)
+check(slider.fraction == slider.reachableFraction && limit < 1 && slider.valueText == rest.text(requested: 35),
+      "a request beyond the images left stands at the reach and shows what is fused: \(slider.valueText)")
+check([limit, (limit + 1) / 2, 1, 2].allSatisfy { slider.value(at: point($0)) == 46 }, "the reach and the track beyond it keep a larger request")
+for place in [limit, (limit + 1) / 2, 1] { click(place) }
+check(target.counts.isEmpty && slider.integerValue == 46, "a click at the reach or beyond it sends no action and keeps the request")
+// A smaller request does not pass the reach either: beyond it, it takes the images left.
+slider.integerValue = 10
+check(slider.value(at: point((limit + 1) / 2)) == 35 && slider.value(at: point(1)) == 35, "the knob does not pass the reach")
+slider.integerValue = 46
 slider.stackScale = stack(60, every: 2, thickness: 2, current: 50, towardsStart: true)
 check(slider.fraction < 1 && slider.stackScale!.text(requested: slider.integerValue, locale: english) == "92.0 mm"
       && slider.valueText == slider.stackScale!.text(requested: 46), "where the series has them, the request is whole again: \(slider.valueText)")
@@ -388,16 +446,52 @@ click(0.5)
 check(target.counts == [below] && slider.integerValue == below, "2D action receives the images of the stop, not a position")
 check(target.tracked == [true] && !slider.isTrackingMouse, "the action can tell the mouse's drag, which is over afterwards")
 
-// The last image in the slab's direction has one stop, its own thickness: no
-// mark, the knob at the thin end, and a click changes nothing.
+// The last image in the slab's direction has one stop, its own thickness: the
+// knob at the thin end of the series' track, none of it within reach, and a
+// click changes nothing.
 let lastImage = stack(60, every: 2, thickness: 2, current: 0, towardsStart: true)
 slider.integerValue = 10
 slider.stackScale = lastImage
-check(slider.fraction == 0 && slider.tickMarkFractions.isEmpty, "one stop: the thin end and no marks")
+check(slider.fraction == 0 && slider.reachableFraction == 0 && slider.tickMarkFractions == linearMarks, "one stop: the thin end, on the track of the series")
 check(lastImage.text(requested: 10, locale: english) == "2.0 mm" && slider.valueText == lastImage.text(requested: 10), "one stop reads one slice: \(slider.valueText)")
 for place in [-1, 0, 0.4, 1, 2] { check(slider.value(at: point(place)) == 10, "one stop: a click changes nothing") }
 click(0.8)
 check(target.counts == [below] && slider.integerValue == 10 && slider.isEnabled, "one stop: no action, the request kept and the slab left on")
+
+// The track beyond the images left is drawn faded, and whole up to them; a
+// knob at the reach is drawn whole on both sides of it.
+do {
+    func drawn() -> NSBitmapImageRep {
+        let bitmap = slider.bitmapImageRepForCachingDisplay(in: slider.bounds)!
+        slider.cacheDisplay(in: slider.bounds, to: bitmap)
+        return bitmap
+    }
+    func strength(_ bitmap: NSBitmapImageRep, at fraction: Double, offset: CGFloat = 0) -> CGFloat {
+        let scale = CGFloat(bitmap.pixelsWide) / slider.bounds.width
+        let place = point(fraction)
+        return bitmap.colorAt(x: Int(((place.x + offset) * scale).rounded(.down)), y: Int((place.y * scale).rounded(.down)))?.alphaComponent ?? -1
+    }
+    slider.integerValue = 5
+    slider.stackScale = whole
+    let open = drawn()
+    slider.stackScale = rest
+    let cut = drawn()
+    let reach = Double(slider.reachableFraction)
+    check(slider.fraction < slider.reachableFraction && reach < 0.9, "the knob short of the reach, the reach short of the end")
+    let (before, beyond) = ((Double(slider.fraction) + reach) / 2, (reach + 1) / 2)
+    check(strength(open, at: before) > 0 && strength(open, at: before) == strength(open, at: beyond), "a track within reach is one strength all along")
+    check(strength(cut, at: before) == strength(open, at: before), "up to the reach the track is as it was")
+    let faded = strength(cut, at: beyond) / strength(open, at: beyond)
+    check(faded > 0.15 && faded < 0.6, "beyond the reach the track is there, faded: \(faded)")
+    check(strength(cut, at: reach, offset: -2) == strength(open, at: before) && strength(cut, at: reach, offset: 2) < strength(open, at: before),
+          "the track changes at the reach")
+    // The knob at the reach: as strong to the right of its centre as to the left.
+    slider.integerValue = 46
+    let stopped = drawn()
+    check(slider.fraction == slider.reachableFraction, "the knob at the reach")
+    check(strength(stopped, at: reach, offset: 3) > 0.9 && strength(stopped, at: reach, offset: -3) > 0.9, "a knob at the reach is whole")
+    check(strength(stopped, at: beyond) == strength(cut, at: beyond), "and the track after it is faded")
+}
 
 // A slab switched off: the knob at the thin end and the thickness of one image, the request kept.
 slider.stackScale = whole
@@ -458,9 +552,12 @@ for exponential in [false, true] {
     let marks = mpr.tickMarkFractions
     check(marks.first == 0 && marks.last == 1, "MPR ruler endpoints")
     for (left, right) in zip(marks, marks.dropFirst()) {
-        check((right - left) * mprTrack.width >= 8 - 1e-9, "MPR marks stay apart")
+        check((right - left) * mprTrack.width >= (exponential ? 8.0 / 3 : 8) - 1e-9, "MPR marks stay apart")
     }
-    for mark in marks.dropFirst().dropLast() {
+    // The marks of the exponential ruler draw its curve, each step shorter than the one before; they are not stops.
+    let gaps = zip(marks, marks.dropFirst()).map { Double($1 - $0) }
+    if exponential { check(zip(gaps, gaps.dropFirst()).allSatisfy { $1 < $0 } && gaps[0] < 1.0 / 3, "MPR exponential marks gather: \(gaps)") }
+    for mark in exponential ? [] : Array(marks.dropFirst().dropLast()) {
         let mm = scale.thickness(at: Double(mark))
         near(mm, mm.rounded(), "MPR marks are whole millimeters", tolerance: 1e-6)
         // The knob stops on the mark: a click there leaves it there.
@@ -549,7 +646,8 @@ with tempfile.TemporaryDirectory(prefix='horos-thick-slab-slider-') as folder:
 # position, in every localization.
 windows = {name: list((root / 'Horos/Resources').glob(f'*.lproj/{name}.xib')) for name in ('MPR', 'CPR')}
 for name, nibs in windows.items():
-    assert len(nibs) == 10, f'{name} windows exist in ten languages: {len(nibs)}'
+    # English and the eight languages that have a copy; Spanish, Italian and Japanese load the English nib.
+    assert len(nibs) == 9, f'{name} windows exist in nine languages: {len(nibs)}'
     for path in nibs:
         document = ET.parse(path)
         slider = document.find('.//slider[@id="663"]')
@@ -625,7 +723,7 @@ print(f'PASS: {sum(map(len, windows.values()))} localized MPR and CPR slider bin
 # The orthogonal MPR's slab slider is the 2D viewer's component, in every
 # localization: its track is the scale the window gives it, not 2 to 128 images.
 orthogonal = list((root / 'Horos/Resources').glob('*.lproj/OrthogonalMPR.xib'))
-assert len(orthogonal) == 10, f'orthogonal MPR windows exist in ten languages: {len(orthogonal)}'
+assert len(orthogonal) == 9, f'orthogonal MPR windows exist in nine languages: {len(orthogonal)}'
 for path in orthogonal:
     document = ET.parse(path)
     slider = document.find('.//slider[@id="145"]')

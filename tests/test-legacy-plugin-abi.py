@@ -145,7 +145,8 @@ The result line names the bundle: its version, its build, the commit and the
 state of the tree it was built from (GitHash and GitState of its Info.plist)
 and the architectures checked. A build of build/Build/Products made from
 another commit than the one checked out is said in a warning, since its result
-says nothing of the tree as it is.
+says nothing of the tree as it is; when no bundle was named and the Release
+build found there is such a one, the test is skipped with that reason.
 
 A copy of the executable with one selector renamed in its method names, given
 with --app, must fail: that is how the test is shown to catch a removed
@@ -1025,9 +1026,16 @@ def main(argv=None):
         print(f'skipped: needs a built IsiX DICOM Viewer.app at {app}: '
               f'HOROS_DEV_CONFIGURATION={configuration} script/build_and_run.sh --verify', file=sys.stderr)
         return SKIPPED
+    info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+    if args.app is None and (info.get('GitHash') or '') != head_commit():
+        # The bundle nobody named, left in build/Build/Products by an earlier build: what it exports says nothing
+        # of the tree as it is, and every item added since would be reported as missing.
+        print(f'skipped: the Release build at {app} was made from {info.get("GitHash") or "an unknown commit"}, not from '
+              f'the commit checked out ({head_commit() or "unknown"}): build it again, or name the bundle to check '
+              f'(--release, --debug, --app)', file=sys.stderr)
+        return SKIPPED
     text = args.registry.read_text(encoding='utf-8')
     registry = json.loads(text)
-    info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
     archs = architectures(app / 'Contents/MacOS' / info['CFBundleExecutable'])
     runtime = SystemRuntime()
     surfaces = [Surface(app, arch, runtime) for arch in archs]

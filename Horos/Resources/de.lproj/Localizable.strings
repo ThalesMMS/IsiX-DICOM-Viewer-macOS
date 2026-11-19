@@ -7,7 +7,7 @@
 "\rSkewness: %2.4f Kurtosis: %2.4f " = "\rSkewness: %1$.4f Kurtosis: %2$.4f ";
 "   Angle: %2.1f degrees " = "   Winkel: %2.1f Grad ";
 "   Pixel: %@    %@ %@" = "   Pixel: %1$@    %2$@ %3$@";
-"   Scale: %2.3f %% " = "   Scale: %2.3f %% ";
+"   Scale: %2.3f %% " = "   Maßstab: %2.3f %% ";
 " & DICOM Nodes" = " & DICOM-Knoten";
 " (SUV Converted)" = " (SUV-konvertiert)";
 " (TLS)" = " (TLS)";
@@ -29,8 +29,7 @@
 " / Search: Study Description = %@" = " / Suche: Studienbeschreibung = %@";
 " / Time Interval: from: %@ to: %@" = " / Zeitraum: von: %1$@ bis: %2$@";
 " / Time Interval: since: %@" = " / Zeitraum: seit: %@";
-/* No special characters for this string, only ASCII characters. */
-" Angle: %0.0f" = " Angle: %0.0f";
+" Angle: %0.0f" = " Winkel: %0.0f";
 " DB" = " DB";
 " Your OsiriX files will not be modified during this process." = " Ihre OsiriX-Dateien werden während dieses Vorgangs nicht geändert.";
 " and " = " und ";
@@ -93,7 +92,7 @@
 "%lu file(s) could not be copied and were not indexed. Source files were preserved.\n\n%@\n\nFor OneDrive or another cloud provider, make the files available offline and retry. Also check access permissions and free disk space." = "%lu Dateien konnten nicht kopiert und wurden nicht indiziert. Die Quelldateien wurden erhalten.\n\n%@\n\nBei OneDrive oder anderen Cloudanbietern stellen Sie die Dateien offline bereit und versuchen Sie es erneut. Prüfen Sie auch Zugriffsrechte und freien Speicherplatz.";
 "%lu identifier(s) to resolve." = "%lu aufzulösende Kennungen.";
 "%lu report(s) could not be imported because their contents could not be read. Existing reports were preserved." = "%lu Befunde konnten nicht importiert werden, da ihr Inhalt nicht gelesen werden konnte. Vorhandene Befunde wurden erhalten.";
-"%{value1}@ im/s" = "%{value1}@ Bilder/s";
+"%{value1}@ im/s" = "%{value1}@ im/s";
 "%{value1}@ out of %{value2}@" = "%{value1}@ von %{value2}@";
 "(%d times)" = "(%d Mal)";
 "(0.1 ... 1.0)" = "(0.1 ... 1.0)";
@@ -200,8 +199,8 @@
 "10 GB" = "10 GB";
 "10 IN x 12 IN" = "10 Zoll x 12 Zoll";
 "10 IN x 14 IN" = "10 Zoll x 14 Zoll";
-"10 im/s" = "10 Bilder/s";
-"10 im/s\n" = "10 Bilder/s\n";
+"10 im/s" = "10 im/s";
+"10 im/s\n" = "10 im/s\n";
 "10'000" = "10'000";
 "100 MB" = "100 MB";
 "100%" = "100%";
@@ -260,11 +259,11 @@
 "2D Growing Region (current image only)" = "2D-Regionenwachstum (nur aktuelles Bild)";
 "2D Orthogonal MPR" = "Orthogonale 2D-MPR";
 "2D Planes" = "2D-Ebenen";
-"2D Pos: X:%0.3f %@ Y:%0.3f %@" = "2D Pos: X:%1$.3f %2$@ Y:%3$.3f %4$@";
-"2D Pos: X:%0.3f %@ Y:n/a %@" = "2D Pos: X:%1$.3f %2$@ Y:n/a %3$@";
-"2D Pos: X:%0.3f px Y:%0.3f px" = "2D Pos: X:%1$.3f px Y:%2$.3f px";
-"2D Pos: X:n/a %@ Y:%0.3f %@" = "2D Pos: X:n/a %1$@ Y:%2$.3f %3$@";
-"2D Pos: X:n/a %@ Y:n/a %@" = "2D Pos: X:n/a %1$@ Y:n/a %2$@";
+"2D Pos: X:%0.3f %@ Y:%0.3f %@" = "2D-Pos.: X:%1$.3f %2$@ Y:%3$.3f %4$@";
+"2D Pos: X:%0.3f %@ Y:n/a %@" = "2D-Pos.: X:%1$.3f %2$@ Y:n/a %3$@";
+"2D Pos: X:%0.3f px Y:%0.3f px" = "2D-Pos.: X:%1$.3f px Y:%2$.3f px";
+"2D Pos: X:n/a %@ Y:%0.3f %@" = "2D-Pos.: X:n/a %1$@ Y:%2$.3f %3$@";
+"2D Pos: X:n/a %@ Y:n/a %@" = "2D-Pos.: X:n/a %1$@ Y:n/a %2$@";
 "2D Result" = "2D-Ergebnis";
 "2D Series - Only Key Images" = "2D-Serie – nur Schlüsselbilder";
 "2D Series, including:" = "2D-Serie, einschließlich:";
@@ -313,7 +312,7 @@
 "3D Point" = "3D-Punkt";
 "3D Point Tool" = "3D-Punktwerkzeug";
 "3D Pos" = "3D-Position";
-"3D Pos: X:%0.3f mm Y:%0.3f mm Z:%0.3f mm" = "3D Pos: X:%1$.3f mm Y:%2$.3f mm Z:%3$.3f mm";
+"3D Pos: X:%0.3f mm Y:%0.3f mm Z:%0.3f mm" = "3D-Pos.: X:%1$.3f mm Y:%2$.3f mm Z:%3$.3f mm";
 "3D Position" = "3D-Position";
 "3D Position Panel" = "3D-Positionspalette";
 "3D Presets" = "3D-Vorgaben";
@@ -403,7 +402,7 @@
 "6" = "6";
 "6 hours" = "6 Stunden";
 "6 months" = "6 Monate";
-"60 im/s" = "60 Bilder/s";
+"60 im/s" = "60 im/s";
 "600" = "600";
 "64-bit" = "64-bit";
 "640" = "640";
@@ -634,10 +633,10 @@
 "And/Or to a temporary user, with this email:" = "Und/oder an einen temporären Benutzer mit der E-Mail:";
 "Angle" = "Winkel";
 "Angle " = "Winkel ";
-"Angle 2: %0.2f%@" = "Angle 2: %1$.2f%2$@";
-"Angle: %0.2f%@" = "Angle: %1$.2f%2$@";
-"Angle: %0.2f%@ with: %@" = "Angle: %1$.2f%2$@ with: %3$@";
-"Angle: %0.3f%@ / %0.3f%@" = "Angle: %1$.3f%2$@ / %3$.3f%4$@";
+"Angle 2: %0.2f%@" = "Winkel 2: %1$.2f%2$@";
+"Angle: %0.2f%@" = "Winkel: %1$.2f%2$@";
+"Angle: %0.2f%@ with: %@" = "Winkel: %1$.2f%2$@ mit: %3$@";
+"Angle: %0.3f%@ / %0.3f%@" = "Winkel: %1$.3f%2$@ / %3$.3f%4$@";
 "Angle: %2.1f degrees " = "Winkel: %2.1f Grad ";
 "Animate" = "Animieren";
 "Annotation Content" = "Anmerkungsinhalt";
@@ -716,13 +715,13 @@
 "Are you sure you want to reset the entire CLUT list to the default list?" = "Möchten Sie die gesamte CLUT-Liste auf die Standardliste zurücksetzen?";
 "Are you sure you want to stop editing the fields? The modifications have not been applied. The DICOM files will NOT be modified." = "Möchten Sie die Bearbeitung der Felder beenden? Die Änderungen wurden nicht angewendet. Die DICOM-Dateien werden NICHT geändert.";
 "Area (cm2)" = "Fläche (cm2)";
-"Area: %0.1f %cm²" = "Area: %1$.1f %2$cm²";
+"Area: %0.1f %cm²" = "Fläche: %1$.1f %2$cm²";
 "Area: %0.1f %cm² (W: %0.1f %cm H: %0.1f %cm)" = "Area: %1$.1f %2$cm² (W: %3$.1f %4$cm H: %5$.1f %6$cm)";
-"Area: %0.3f cm²" = "Area: %0.3f cm²";
+"Area: %0.3f cm²" = "Fläche: %0.3f cm²";
 "Area: %0.3f cm² (W: %0.3f cm H: %0.3f cm)" = "Area: %1$.3f cm² (W: %2$.3f cm H: %3$.3f cm)";
-"Area: %0.3f mm²" = "Area: %0.3f mm²";
+"Area: %0.3f mm²" = "Fläche: %0.3f mm²";
 "Area: %0.3f mm² (W: %0.3f mm H: %0.3f mm)" = "Area: %1$.3f mm² (W: %2$.3f mm H: %3$.3f mm)";
-"Area: %0.3f pix2" = "Area: %0.3f pix2";
+"Area: %0.3f pix2" = "Fläche: %0.3f pix2";
 "Area: %0.3f pix2 (W: %0.3f pix H: %0.3f pix)" = "Area: %1$.3f pix2 (W: %2$.3f pix H: %3$.3f pix)";
 "Arranging Points" = "Punkte werden angeordnet";
 "Arrow" = "Pfeil";
@@ -817,7 +816,7 @@
 "B" = "B";
 "B-C : %2.2f cm" = "B-C : %2.2f cm";
 "B-C: %@" = "B-C: %@";
-"B/W Inverse" = "Graustufen invers";
+"B/W Inverse" = "B/W Inverse";
 "B: %@" = "B: %@";
 "BICEPS" = "BICEPS";
 "BILINEAR" = "BILINEAR";
@@ -836,7 +835,7 @@
 "Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled." = "Hintergrundvorgänge laufen. Möchten Sie jetzt beenden? Diese Vorgänge werden abgebrochen.";
 "The database index is being rebuilt, and quitting now would leave it incomplete. Quitting goes on once the rebuild has ended." = "Der Datenbankindex wird neu aufgebaut, und ein Beenden jetzt würde ihn unvollständig lassen. Das Beenden wird fortgesetzt, sobald der Neuaufbau abgeschlossen ist.";
 "Background:" = "Hintergrund:";
-"Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "Background: red:%1$.0f%%, green:%2$.0f%%, blue:%3$.0f%%";
+"Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "Hintergrund: rot:%1$.0f%%, grün:%2$.0f%%, blau:%3$.0f%%";
 "Based on DICOM Validator - dciodvfy, by David A. Clunie :" = "Basierend auf DICOM Validator – dciodvfy von David A. Clunie:";
 "Basic" = "Einfach";
 "Basic (No Name)" = "Einfach (ohne Namen)";
@@ -919,17 +918,17 @@
 "CPR requires volumic data and BW images." = "CPR erfordert Volumendaten und Graustufenbilder.";
 "CR" = "CR";
 "CT" = "CT";
-"CT - Bone" = "CT – Knochen";
-"CT - Metal" = "CT – Metall";
-"CT - Skin" = "CT – Haut";
+"CT - Bone" = "CT - Bone";
+"CT - Metal" = "CT - Metal";
+"CT - Skin" = "CT - Skin";
 "CUBIC" = "KUBISCH";
-"Calcium Mass: %0.1f" = "Calcium Mass: %0.1f";
+"Calcium Mass: %0.1f" = "Kalkmasse: %0.1f";
 "Calcium Score" = "Kalziumscore";
-"Calcium Score: %0.1f" = "Calcium Score: %0.1f";
-"Calcium Score: Risk of Coronary Disease\n0: No identifiable plaque. Very low risk, generally less than 5%\n1-10: Minimal identifiable plaque. Low risk.\n11-100: Definite plaque.  Moderate risk.\n101-400: Definite plaque. Moderately High risk.\n401+: Extensive atherosclerotic. High likelihood of at least one stenosis." = "Kalziumscore: Risiko einer koronaren Herzkrankheit\n0: Keine erkennbare Plaque. Sehr geringes Risiko, üblicherweise unter 5 %\n1–10: Minimale erkennbare Plaque. Geringes Risiko.\n11–100: Eindeutige Plaque. Mäßiges Risiko.\n101–400: Eindeutige Plaque. Mäßig hohes Risiko.\n401+: Ausgeprägte Atherosklerose. Hohe Wahrscheinlichkeit mindestens einer Stenose.";
+"Calcium Score: %0.1f" = "Kalk-Score: %0.1f";
+"Calcium Score: Risk of Coronary Disease\n0: No identifiable plaque. Very low risk, generally less than 5%\n1-10: Minimal identifiable plaque. Low risk.\n11-100: Definite plaque.  Moderate risk.\n101-400: Definite plaque. Moderately High risk.\n401+: Extensive atherosclerotic. High likelihood of at least one stenosis." = "Kalziumscore: Risiko einer koronaren Herzkrankheit\n0: Keine erkennbare Plaque. Sehr geringes Risiko, üblicherweise unter 5 %\n1–10: Minimale erkennbare Plaque. Geringes Risiko.\n11–100: Eindeutige Plaque. Mäßiges Risiko.\n101–400: Eindeutige Plaque. Mäßig hohes Risiko.\n401+: Ausgeprägte Atherosklerose. Stenose sehr wahrscheinlich.";
 "Calcium Scoring" = "Kalziumbewertung";
 "Calcium Threshold:" = "Kalziumschwelle:";
-"Calcium Volume: %0.1f" = "Calcium Volume: %0.1f";
+"Calcium Volume: %0.1f" = "Kalkvolumen: %0.1f";
 "Calibrate Resolution" = "Auflösung kalibrieren";
 "Calibrate the dataset:" = "Datensatz kalibrieren:";
 "Camera Tool" = "Kamerawerkzeug";
@@ -1180,7 +1179,7 @@
 "Create/Open a report for selected study" = "Befund für ausgewählte Studie erstellen/öffnen";
 "Creating a DICOM series" = "DICOM-Serie wird erstellt";
 "Creating series" = "Serie wird erstellt";
-"Creation Mode" = "Erstellungsmodus";
+"Creation Mode" = "Erstellen";
 "Crop" = "Zuschneiden";
 "Cropping Cube" = "Zuschneidewürfel";
 "Cross" = "Kreuz";
@@ -1201,7 +1200,7 @@
 "Curved MPR Angle" = "Winkel der gekrümmten MPR";
 "Curved MPR Image" = "Bild der gekrümmten MPR";
 "Curved Path" = "Gekrümmter Pfad";
-"Curved Path simplification" = "Vereinfachung des gekrümmten Pfads";
+"Curved Path simplification" = "Kurvenpfad vereinfachen";
 "Custom" = "Benutzerdefiniert";
 "Custom DICOM Field" = "Benutzerdefiniertes DICOM-Feld";
 "Custom DICOM field" = "Eigenes DICOM-Feld";
@@ -1453,7 +1452,7 @@
 "Do not ask again" = "Nicht erneut fragen";
 "Do nothing: don't convert values and don't display SUV" = "Nichts tun: Werte nicht konvertieren und SUV nicht anzeigen";
 "Do you confirm to DEFINITIVELY change this study identity to this new identity:\r\r%@ / %@ ?" = "Bestätigen Sie die ENDGÜLTIGE Änderung dieser Studienidentität in diese neue Identität:\r\r%1$@ / %2$@?";
-"Do you want IsiX DICOM Viewer to flag the dabase folder?" = "Soll IsiX DICOM Viewer den Datenbankordner markieren?";
+"Do you want IsiX DICOM Viewer to flag the database folder?" = "Soll IsiX DICOM Viewer den Datenbankordner markieren?";
 "Do you want to only remove the selected images from the current album or delete them from the database? (%@)" = "Möchten Sie die ausgewählten Bilder nur aus dem aktuellen Album entfernen oder aus der Datenbank löschen? (%@)";
 "Don't Propagate WL&WW Between Series" = "WL&WW nicht zwischen Serien übertragen";
 "Don't delete a study, if it is stored in an album (smart albums are not considered)" = "Studie nicht löschen, wenn sie in einem Album gespeichert ist (intelligente Alben ausgenommen)";
@@ -1503,7 +1502,7 @@
 "Edit Album" = "Album bearbeiten";
 "Edit the notes of this study" = "Notizen dieser Studie bearbeiten";
 "Edit users" = "Benutzer bearbeiten";
-"Editing Mode" = "Bearbeitungsmodus";
+"Editing Mode" = "Bearbeiten";
 "Eject the disk when done copying" = "Datenträger nach dem Kopieren auswerfen";
 "Ejecting..." = "Auswerfen…";
 "Elapsed Time\n00:00:00" = "Verstrichene Zeit\n00:00:00";
@@ -1695,11 +1694,14 @@
 "Film Orientation:" = "Filmausrichtung:";
 "Film Size:" = "Filmgröße:";
 "Filter" = "Filter";
+"Filter: (none)" = "Filter: (keiner)";
+"Filter: %@" = "Filter: %@";
 "Filter (Study Table Level):" = "Filter (Ebene der Studientabelle):";
 "Filter(s):\n." = "Filter:\n.";
 "Filter:" = "Filter:";
 "Filtering..." = "Filterung…";
 "Filters" = "Filter";
+"Filters: %@" = "Filter: %@";
 "Final files size to burn: %3.2fMB" = "Endgültige Dateigröße zum Brennen: %3.2f MB";
 "Find Next Key Image" = "Nächstes Schlüsselbild suchen";
 "Find Previous Key Image" = "Vorheriges Schlüsselbild suchen";
@@ -1761,8 +1763,7 @@
 "From" = "Von";
 "From 1 to 65535" = "Von 1 bis 65535";
 "From:" = "Von:";
-/* No special characters for this string, only ASCII characters. */
-"From: %d %% (%0.2f) to: %d %% (%0.2f)" = "From: %1$d %% (%2$.2f) to: %3$d %% (%4$.2f)";
+"From: %d %% (%0.2f) to: %d %% (%0.2f)" = "Von: %1$d %% (%2$.2f) bis: %3$d %% (%4$.2f)";
 "Full" = "Vollständig";
 "Full (Patient Name)" = "Vollständig (Patientenname)";
 "Full 16-bit BW" = "Volle 16-Bit-Graustufen";
@@ -1772,15 +1773,13 @@
 "Full screen" = "Vollbild";
 "Fullscreen" = "Vollbild";
 "Fuse/De-Fuse PET/SPECT - CT" = "PET/SPECT – CT fusionieren/Fusion aufheben";
-/* No special characters for this string, only ASCII characters. */
-"Fused Image : X: %d px Y: %d px Value: %2.2f %@" = "Fused Image : X: %1$d px Y: %2$d px Value: %3$.2f %4$@";
-/* No special characters for this string, only ASCII characters. */
-"Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "Fused Image : X: %1$d px Y: %2$d px Value: R:%3$ld G:%4$ld B:%5$ld";
+"Fused Image : X: %d px Y: %d px Value: %2.2f %@" = "Fusionsbild: X: %1$d px Y: %2$d px Wert: %3$.2f %4$@";
+"Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "Fusionsbild: X: %1$d px Y: %2$d px Wert: R:%3$ld G:%4$ld B:%5$ld";
 "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@" = "Fused Image Mean: %1$.3f%2$@ SDev: %3$.3f%4$@ Sum: %5$.0f%6$@";
 "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@" = "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@";
 "Fused Image Min: %0.3f%@ Max: %0.3f%@" = "Fused Image Min: %1$.3f%2$@ Max: %3$.3f%4$@";
 "Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f" = "Fused Image Min: %1$.3f%2$@ Max: %3$.3f%4$@ Skewness: %5$.3f Kurtosis: %6$.3f";
-"Fused Image Value: %0.3f%@" = "Fused Image Value: %1$.3f%2$@";
+"Fused Image Value: %0.3f%@" = "Wert im Fusionsbild: %1$.3f%2$@";
 "Fused Series Only" = "Nur fusionierte Serie";
 "Fusion" = "Fusion";
 "Fusion : from 0% to 100% (in 20 images)" = "Fusion: von 0 % bis 100 % (in 20 Bildern)";
@@ -1946,13 +1945,11 @@
 "Ignore case sensitivity" = "Groß-/Kleinschreibung ignorieren";
 "Ignore it" = "Ignorieren";
 "Illegal group / element values" = "Ungültige Gruppen-/Elementwerte";
-/* No special characters for this string, only ASCII characters. */
 "Im: %ld-%ld/%ld %@" = "Im: %1$ld-%2$ld/%3$ld %4$@";
-/* No special characters for this string, only ASCII characters. */
 "Im: %ld/%ld %@" = "Im: %1$ld/%2$ld %3$@";
 "Image" = "Bild";
 "Image %d" = "Bild %d";
-"Image %d\r%.2f" = "Image %1$d\r%2$.2f";
+"Image %d\r%.2f" = "Bild %1$d\r%2$.2f";
 "Image Filters" = "Bildfilter";
 "Image Fusion" = "Bildfusion";
 "Image Position" = "Bildposition";
@@ -1960,7 +1957,7 @@
 "Image Tiling" = "Bildkachelung";
 "Image format:" = "Bildformat:";
 "Image level" = "Bildebene";
-"Image size: %ld x %ld" = "Image size: %1$ld x %2$ld";
+"Image size: %ld x %ld" = "Bildgröße: %1$ld x %2$ld";
 "Images" = "Bilder";
 "Images Only:" = "Nur Bilder:";
 "Images can be inserted into a Pages or Word report. This report is a different format. No document has been changed." = "Bilder können in einen Pages- oder Word-Befund eingefügt werden. Dieser Befund hat ein anderes Format. Kein Dokument wurde geändert.";
@@ -2052,7 +2049,7 @@
 "Invalid remote database model %@. When sharing databases, make sure both ends are running the same software versions." = "Ungültiges entferntes Datenbankmodell %@. Stellen Sie bei Datenbankfreigaben sicher, dass beide Seiten dieselben Softwareversionen verwenden.";
 "Invalid remote database model %@. When sharing databases, make sure both ends are running the same version of IsiX DICOM Viewer." = "Ungültiges Modell der entfernten Datenbank %@. Stellen Sie bei der Datenbankfreigabe sicher, dass beide Seiten dieselbe IsiX DICOM Viewer-Version verwenden.";
 "Invalid response data from remote host." = "Ungültige Antwortdaten vom entfernten Rechner.";
-"Inverse Log" = "Inverser Logarithmus";
+"Inverse Log" = "Invers logarithmisch";
 "Inverted Sides" = "Seiten vertauscht";
 "Is the user email correct? the @ character is not found." = "Ist die E-Mail-Adresse korrekt? Das Zeichen @ fehlt.";
 "Iso Contour" = "Isokontur";
@@ -2161,7 +2158,7 @@
 "Length" = "Länge";
 "Length Measurement" = "Längenmessung";
 "Length measurements require parallel projection. Select Parallel in the Perspective controls." = "Längenmessungen erfordern Parallelprojektion. Wählen Sie „Parallel“ in den Perspektiveneinstellungen.";
-"Length: X=%0.3f %@, Y=%0.3f %@" = "Length: X=%1$.3f %2$@, Y=%3$.3f %4$@";
+"Length: X=%0.3f %@, Y=%0.3f %@" = "Länge: X=%1$.3f %2$@, Y=%3$.3f %4$@";
 "Length: return to thin slices to place the second point" = "Länge: Zu dünnen Schichten zurückkehren, um den zweiten Punkt zu setzen";
 "Length: select the second point (Esc to cancel)" = "Länge: Zweiten Punkt wählen (Esc zum Abbrechen)";
 "Level of Detail" = "Detailgrad";
@@ -2172,7 +2169,7 @@
 "LibreOffice is required to convert '.odt' reports to PDF. Please install the latest version of LibreOffice." = "LibreOffice wird zum Konvertieren von .odt-Befunden in PDF benötigt. Installieren Sie die neueste LibreOffice-Version.";
 "Limit to Same Study" = "Auf dieselbe Studie beschränken";
 "Linear" = "Linear";
-"Linear Table" = "Lineare Tabelle";
+"Linear Table" = "Linear Table";
 "Linked original files will also be deleted." = "Verknüpfte Originaldateien werden ebenfalls gelöscht.";
 "Linked original files will be kept." = "Verknüpfte Originaldateien bleiben erhalten.";
 "List of SOP Class UIDs displayed: " = "Liste angezeigter SOP-Klassen-UIDs: ";
@@ -2227,8 +2224,8 @@
 "Locked Studies" = "Gesperrte Studien";
 "Locked studies and studies in albums are protected. Date cleanup excludes studies added in the last 7 days; space cleanup excludes the last 2 hours." = "Gesperrte Studien und Studien in Alben sind geschützt. Datumsbereinigung schließt die letzten 7 Tage aus; Speicherbereinigung die letzten 2 Stunden.";
 "Locking database..." = "Datenbank wird gesperrt…";
-"Log" = "Protokoll";
-"Logarithmic Inverse Table" = "Invers-logarithmische Tabelle";
+"Log" = "Logarithmisch";
+"Logarithmic Inverse Table" = "Logarithmic Inverse Table";
 "Login here:<br>" = "Hier anmelden:<br>";
 "Logs" = "Protokolle";
 "Logs - External IPs" = "Protokolle – externe IPs";
@@ -2306,8 +2303,7 @@
 "Mean" = "Mittelwert";
 "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@" = "Mean: %1$.3f%2$@ SDev: %3$.3f%4$@ Sum: %5$.0f%6$@";
 "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@" = "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@";
-/* ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS */
-"Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f" = "Mean: %1$.2f SDev: %2$.2f\nMin: %3$.2f Max: %4$.2f";
+"Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f" = "Mittelwert: %1$.2f StdAbw: %2$.2f\nMin: %3$.2f Max: %4$.2f";
 "Measure Angle Tool" = "Winkelmesswerkzeug";
 "Measure Between Slices (Projection vs 3D)" = "Zwischen Schichten messen (Projektion und 3D)";
 "Measure Length Tool" = "Längenmesswerkzeug";
@@ -2442,14 +2438,14 @@
 "Next/Previous Series" = "Nächste/vorherige Serie";
 "No" = "No";
 "No 'Propagate settings in series' for:" = "Einstellungen nicht übertragen für:";
-"No CLUT" = "Keine CLUT";
+"No CLUT" = "No CLUT";
 "No Compression" = "Keine Komprimierung";
 "No DICOM destinations available. See Preferences to add DICOM locations." = "Keine DICOM-Ziele verfügbar. Fügen Sie DICOM-Standorte in den Einstellungen hinzu.";
 "No DICOM files in this selection." = "Keine DICOM-Dateien in dieser Auswahl.";
 "No DICOM locations available. See Preferences to add DICOM locations." = "Keine DICOM-Standorte verfügbar. Fügen Sie DICOM-Standorte in den Einstellungen hinzu.";
 "No DICOM printers were found, please add a dicom printer in the preferences." = "Keine DICOM-Drucker gefunden. Fügen Sie einen DICOM-Drucker in den Einstellungen hinzu.";
 "No Files" = "Keine Dateien";
-"No Filter" = "Kein Filter";
+"No Filter" = "No Filter";
 "No Filters" = "Keine Filter";
 "No Groups" = "Keine Gruppen";
 "No Horos plugin server available." = "Kein Horos-Pluginserver verfügbar.";
@@ -3189,11 +3185,9 @@
 "SR" = "SR";
 "STERNUM" = "STERNUM";
 "SUV" = "SUV";
-/* SUV: Standard Uptake Value - No special characters for this string, only ASCII characters. */
-"SUV (fused image): %.2f" = "SUV (fused image): %.2f";
+"SUV (fused image): %.2f" = "SUV (Fusionsbild): %.2f";
 "SUV Computation" = "SUV-Berechnung";
 "SUV Error" = "SUV-Fehler";
-/* SUV: Standard Uptake Value - No special characters for this string, only ASCII characters. */
 "SUV: %.2f" = "SUV: %.2f";
 "Sagittal" = "Sagittal";
 "Sagittal Left" = "Sagittal links";
@@ -3855,10 +3849,10 @@
 "Thickness / Location / Position" = "Dicke / Lage / Position";
 "Thickness in mm" = "Dicke in mm";
 "Thickness:" = "Dicke:";
-"Thickness: %0.2f %cm Location: %0.2f %cm" = "Thickness: %1$.2f %2$cm Location: %3$.2f %4$cm";
-"Thickness: %0.2f %cm Location: %0.2f mm" = "Thickness: %1$.2f %2$cm Location: %3$.2f mm";
-"Thickness: %0.2f mm Location: %0.2f mm" = "Thickness: %1$.2f mm Location: %2$.2f mm";
-"Thickness: %@ Location: %0.2f mm" = "Thickness: %1$@ Location: %2$.2f mm";
+"Thickness: %0.2f %cm Location: %0.2f %cm" = "Dicke: %1$.2f %2$cm Position: %3$.2f %4$cm";
+"Thickness: %0.2f %cm Location: %0.2f mm" = "Dicke: %1$.2f %2$cm Position: %3$.2f mm";
+"Thickness: %0.2f mm Location: %0.2f mm" = "Dicke: %1$.2f mm Position: %2$.2f mm";
+"Thickness: %@ Location: %0.2f mm" = "Dicke: %1$@ Position: %2$.2f mm";
 "Thin" = "Dünn";
 "Thinning" = "Ausdünnen";
 "This 32-bit version cannot load this series, but I can load a subset of the series: 1 on %d images." = "Diese 32-Bit-Version kann die Serie nicht laden, aber eine Teilmenge: jedes %d. Bild.";
@@ -3940,7 +3934,7 @@
 "Time-out for DICOM communications:" = "Zeitlimit für DICOM-Kommunikation:";
 "Timeout:" = "Zeitlimit:";
 "Title" = "Titel";
-"To" = "To";
+"To" = "An";
 "To Screen:" = "Auf Bildschirm:";
 "To check" = "Zu prüfen";
 "To original value" = "Auf ursprünglichen Wert";
@@ -3951,7 +3945,7 @@
 "To remove an Opacity Table from the menu: select it while holding down the shift key.\nTo modify an Opacity Table from the menu: select it while holding down the alt/option key." = "Deckkrafttabelle aus dem Menü entfernen: bei gedrückter Umschalttaste auswählen.\nDeckkrafttabelle bearbeiten: bei gedrückter Alt-/Wahltaste auswählen.";
 "To see an animated series, you have to select multiple series of the same area at different times: e.g. a cardiac CT" = "Für eine animierte Serie wählen Sie mehrere Serien desselben Bereichs zu verschiedenen Zeitpunkten, z. B. ein Herz-CT";
 "To this new value:" = "Auf diesen neuen Wert:";
-"To:" = "To:";
+"To:" = "Bis:";
 "Today" = "Heute";
 "Today AM" = "Heute vormittags";
 "Today CR" = "Today CR";
@@ -4091,7 +4085,7 @@
 "Validating the files..." = "Dateien werden geprüft…";
 "Validator" = "Prüfung";
 "Value:" = "Wert:";
-"Value: %0.3f%@" = "Value: %1$.3f%2$@";
+"Value: %0.3f%@" = "Wert: %1$.3f%2$@";
 "Values stored in the DICOM file for this study:" = "In der DICOM-Datei dieser Studie gespeicherte Werte:";
 "Verify" = "Prüfen";
 "Verify printer..." = "Drucker prüfen…";
@@ -4110,13 +4104,13 @@
 "View Report as html, xml, DICOM" = "Befund als HTML, XML, DICOM ansehen";
 "View Size" = "Ansichtsgröße";
 "View Size:" = "Ansichtsgröße:";
-"View Size: %d x %d" = "View Size: %1$d x %2$d";
+"View Size: %d x %d" = "Ansichtsgröße: %1$d x %2$d";
 "View all Key Images" = "Alle Schlüsselbilder ansehen";
 "View all Key Images and ROIs" = "Alle Schlüsselbilder und ROIs ansehen";
 "View all ROIs Images" = "Alle ROI-Bilder ansehen";
 "View meta-data of this image" = "Metadaten dieses Bildes ansehen";
 "View selected study/series" = "Ausgewählte Studie/Serie ansehen";
-"View size: %ld x %ld" = "View size: %1$ld x %2$ld";
+"View size: %ld x %ld" = "Ansichtsgröße: %1$ld x %2$ld";
 "Viewer" = "Betrachter";
 "Viewers" = "Betrachter";
 "Views" = "Ansichten";
@@ -4128,8 +4122,8 @@
 "Volume Render" = "Volumendarstellung";
 "Volume Rendering" = "Volumendarstellung";
 "Volume Rendering " = "Volumendarstellung ";
-"Volume Rendering - Down" = "Volumendarstellung – verringern";
-"Volume Rendering - Up" = "Volumendarstellung – erhöhen";
+"Volume Rendering - Down" = "Volumendarstellung – unten";
+"Volume Rendering - Up" = "Volumendarstellung – oben";
 "Volume Rendering requires volumic data." = "Volumendarstellung erfordert Volumendaten.";
 "Volume: XXX cm3\nA\nB\nC\nD" = "Volumen: XXX cm3\nA\nB\nC\nD";
 "VolumePRO Error" = "VolumePRO-Fehler";
@@ -4211,10 +4205,8 @@
 "X only Axis Rotation - 36 frames" = "Drehung nur um X-Achse – 36 Einzelbilder";
 "X-Vector:" = "X-Vektor:";
 "X-Y Plot" = "X-Y-Diagramm";
-/* No special characters for this string, only ASCII characters. */
-"X: %d px Y: %d px Value: %2.2f %@" = "X: %1$d px Y: %2$d px Value: %3$.2f %4$@";
-/* No special characters for this string, only ASCII characters. */
-"X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "X: %1$d px Y: %2$d px Value: R:%3$ld G:%4$ld B:%5$ld";
+"X: %d px Y: %d px Value: %2.2f %@" = "X: %1$d px Y: %2$d px Wert: %3$.2f %4$@";
+"X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "X: %1$d px Y: %2$d px Wert: R:%3$ld G:%4$ld B:%5$ld";
 "XA" = "XA";
 "XC" = "XC";
 "XML cannot preserve a Length between slices. Use Export ROIs as JSON or save the ROI archive instead." = "XML kann eine Länge zwischen Schichten nicht erhalten. Exportieren Sie ROIs stattdessen als JSON oder speichern Sie das ROI-Archiv.";
@@ -4234,7 +4226,7 @@
 "Yesterday RF" = "Yesterday RF";
 "Yesterday US" = "Yesterday US";
 "Yesterday XA" = "Yesterday XA";
-"You can manually disable iCloud Drive in your macOS iCloud settings (recommended). Alternativelly, IsiX DICOM Viewer can flag the database folder making it ineligible for iCloud Drive synchronization (experimental)." = "Sie können iCloud Drive in den macOS-iCloud-Einstellungen deaktivieren (empfohlen). Alternativ kann IsiX DICOM Viewer den Datenbankordner markieren, damit er nicht mit iCloud Drive synchronisiert wird (experimentell).";
+"You can manually disable iCloud Drive in your macOS iCloud settings (recommended). Alternatively, IsiX DICOM Viewer can flag the database folder making it ineligible for iCloud Drive synchronization (experimental)." = "Sie können iCloud Drive in den macOS-iCloud-Einstellungen deaktivieren (empfohlen). Alternativ kann IsiX DICOM Viewer den Datenbankordner markieren, damit er nicht mit iCloud Drive synchronisiert wird (experimentell).";
 "You can only edit the 'Content' column." = "Nur die Spalte „Inhalt“ kann bearbeitet werden.";
 "You cannot delete the default protocol" = "Das Standardprotokoll kann nicht gelöscht werden";
 "You cannot modify a Distant Database." = "Eine entfernte Datenbank kann nicht geändert werden.";
@@ -4261,7 +4253,6 @@
 "Zoom Tool" = "Zoomwerkzeug";
 "Zoom centered around mouse position" = "Zoom um Mausposition zentrieren";
 "Zoom with horizontal scrollwheel" = "Zoom mit horizontalem Mausrad";
-/* No special characters for this string, only ASCII characters. */
 "Zoom: %0.0f%%" = "Zoom: %0.0f%%";
 "[]+[*]    choose the current image as mask" = "[]+[*]    aktuelles Bild als Maske wählen";
 "[]+[/]     On/Off Digital Subtraction Angiography" = "[]+[/]     Digitale Subtraktionsangiografie ein/aus";
@@ -4579,11 +4570,11 @@
 "Starting the listener..." = "Listener wird gestartet...";
 "Listening on port %d" = "Empfangsbereit auf Port %d";
 "Not listening: %@" = "Nicht empfangsbereit: %@";
-"Length: %@" = "Length: %@";
-"3D Length: %@" = "3D Length: %@";
+"Length: %@" = "Länge: %@";
+"3D Length: %@" = "3D-Länge: %@";
 "Length 3D: %@" = "3D-Länge: %@";
-"Length: %@ " = "Length: %@ ";
-"   Measurement: %@ " = "   Measurement: %@ ";
+"Length: %@ " = "Länge: %@ ";
+"   Measurement: %@ " = "   Messung: %@ ";
 "Length unit:" = "Längeneinheit:";
 "Automatic" = "Automatisch";
 "Decimal places:" = "Nachkommastellen:";
@@ -4663,14 +4654,14 @@
 "Save this report to keep a record of the problem. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um das Problem festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";
 "Save this report to keep a record of your feedback. Click Details to see what it contains." = "Sichern Sie diesen Bericht, um Ihr Feedback festzuhalten. Klicken Sie auf „Details“, um seinen Inhalt zu sehen.";
 "Statistics shown:" = "Angezeigte Statistik:";
-"Mean: %0.3f%@" = "Mean: %0.3f%@";
-"SDev: %0.3f%@" = "SDev: %0.3f%@";
-"Sum: %0.0f%@" = "Sum: %0.0f%@";
+"Mean: %0.3f%@" = "Mittelwert: %0.3f%@";
+"SDev: %0.3f%@" = "StdAbw: %0.3f%@";
+"Sum: %0.0f%@" = "Summe: %0.0f%@";
 "Median: %@%@" = "Median: %@%@";
 "Min: %0.3f%@" = "Min: %0.3f%@";
 "Max: %0.3f%@" = "Max: %0.3f%@";
-"Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
-"Fused Image" = "Fused Image";
+"Skewness: %0.3f Kurtosis: %0.3f" = "Schiefe: %0.3f Kurtosis: %0.3f";
+"Fused Image" = "Fusionsbild";
 "(W: %@ H: %@)" = "(W: %@ H: %@)";
 "Previous" = "Vorherige";
 "Show \"Previous\" on older studies" = "„Vorherige“ bei älteren Studien anzeigen";
@@ -5031,11 +5022,11 @@
 "%1$@: IsiX already has %2$@, and their versions cannot be compared." = "%1$@: IsiX hat bereits %2$@, und die Versionen lassen sich nicht vergleichen.";
 "%1$@ (%2$@) has the same name and was selected for loading instead of this plugin (%3$@). Remove the duplicate through Plugin Manager and restart IsiX DICOM Viewer." = "%1$@ (%2$@) hat denselben Namen und wurde anstelle dieses Plugins (%3$@) zum Laden ausgewählt. Entfernen Sie das Duplikat über die Pluginverwaltung und starten Sie IsiX DICOM Viewer neu.";
 "Hide ROI labels while Command-Shift is held" = "ROI-Beschriftungen ausblenden, solange Befehl-Umschalt gedrückt ist";
-"Area (ROI statistic)" = "Area";
+"Area (ROI statistic)" = "Fläche";
 "W/H (ROI statistic)" = "W/H";
-"Mean (ROI statistic)" = "Mean";
-"SDev (ROI statistic)" = "SDev";
-"Sum (ROI statistic)" = "Sum";
+"Mean (ROI statistic)" = "Mittelwert";
+"SDev (ROI statistic)" = "StdAbw";
+"Sum (ROI statistic)" = "Summe";
 "Median (ROI statistic)" = "Median";
 "Min (ROI statistic)" = "Min";
 "Max (ROI statistic)" = "Max";
@@ -5167,3 +5158,12 @@
 "The server accepted the test message for %@." = "Der Server hat die Testnachricht für %@ angenommen.";
 "The test message was not sent. %@" = "Die Testnachricht wurde nicht gesendet. %@";
 "No TLS" = "Kein TLS";
+"Stop synchronizing the IsiX DICOM Viewer database with iCloud Drive?" = "Synchronisierung der IsiX DICOM Viewer-Datenbank mit iCloud Drive beenden?";
+"The database and its image files will be moved from “%@” to “%@”. IsiX DICOM Viewer restarts when the move is finished." = "Die Datenbank und ihre Bilddateien werden von „%1$@“ nach „%2$@“ verschoben. IsiX DICOM Viewer wird neu gestartet, sobald das Verschieben abgeschlossen ist.";
+"MinIP" = "MinIP";
+"VR Up" = "VR oben";
+"VR Down" = "VR unten";
+"%d image" = "%d Bild";
+"Retrieve (button)" = "Abrufen";
+"Navigate in the series" = "In der Serie navigieren";
+"VOI LUT Applied" = "VOI-LUT angewendet";

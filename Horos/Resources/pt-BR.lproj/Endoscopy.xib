@@ -181,7 +181,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotateCamera" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Gire a câmera" tag="18" imageScaling="proportionallyUpOrDown" inset="2" id="187">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="3DRotateCamera" imagePosition="only" alignment="center" state="on" borderStyle="border" toolTip="Girar a câmera" tag="18" imageScaling="proportionallyUpOrDown" inset="2" id="187">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -244,7 +244,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" title="Próximo" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Navegue na série" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="63">
+                            <buttonCell type="bevel" title="Próximo" bezelStyle="regularSquare" image="Stack" imagePosition="only" alignment="center" borderStyle="border" toolTip="Navegar na série" tag="4" imageScaling="proportionallyUpOrDown" inset="2" id="63">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -268,7 +268,7 @@
                             </buttonCell>
                         </column>
                         <column>
-                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Cross" imagePosition="above" alignment="center" state="on" borderStyle="border" toolTip="Mova os aviões (ocultar/mostrar aviões com a tecla Espaço)" tag="8" imageScaling="proportionallyUpOrDown" inset="2" id="68">
+                            <buttonCell type="bevel" bezelStyle="regularSquare" image="Cross" imagePosition="above" alignment="center" state="on" borderStyle="border" toolTip="Mover os planos (ocultar/mostrar planos com a tecla Espaço)" tag="8" imageScaling="proportionallyUpOrDown" inset="2" id="68">
                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                 <font key="font" metaFont="system" size="10"/>
                             </buttonCell>
@@ -398,13 +398,13 @@
             </constraints>
         </customView>
         <customView id="140" userLabel="2DWLWW">
-            <rect key="frame" x="0.0" y="0.0" width="157" height="49"/>
+            <rect key="frame" x="0.0" y="0.0" width="174" height="49"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="174">
-                    <rect key="frame" x="57" y="0.0" width="100" height="16"/>
+                    <rect key="frame" x="57" y="0.0" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="dNN-mv-j36"/>
+                        <constraint firstAttribute="width" constant="116" id="dNN-mv-j36"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="Opacidade" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" enabled="NO" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="178" id="531">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -443,9 +443,9 @@
                     </textFieldCell>
                 </textField>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="164">
-                    <rect key="frame" x="57" y="16" width="100" height="16"/>
+                    <rect key="frame" x="57" y="16" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="ple-yo-BzW"/>
+                        <constraint firstAttribute="width" constant="116" id="ple-yo-BzW"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="168" id="529">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -460,9 +460,9 @@
                     </popUpButtonCell>
                 </popUpButton>
                 <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="169">
-                    <rect key="frame" x="57" y="32" width="100" height="16"/>
+                    <rect key="frame" x="57" y="32" width="117" height="16"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="99" id="n35-CE-q6d"/>
+                        <constraint firstAttribute="width" constant="116" id="n35-CE-q6d"/>
                     </constraints>
                     <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="173" id="530">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -478,7 +478,7 @@
                 </popUpButton>
             </subviews>
             <constraints>
-                <constraint firstAttribute="width" constant="157" id="ZBy-RJ-K2X"/>
+                <constraint firstAttribute="width" constant="174" id="ZBy-RJ-K2X"/>
                 <constraint firstAttribute="height" constant="49" id="Cot-zl-GIv"/>
                 <constraint firstItem="164" firstAttribute="leading" secondItem="174" secondAttribute="leading" id="6jx-xL-ae6"/>
                 <constraint firstAttribute="trailing" secondItem="169" secondAttribute="trailing" constant="1" id="9bF-Kr-lu1"/>
@@ -586,6 +586,7 @@
                     <constraint firstItem="202" firstAttribute="leading" secondItem="203" secondAttribute="leading" id="nXN-Ht-dBY"/>
                     <constraint firstItem="205" firstAttribute="top" secondItem="206" secondAttribute="bottom" constant="14" id="t63-c1-7Gb"/>
                     <constraint firstItem="204" firstAttribute="leading" secondItem="200" secondAttribute="leading" constant="19" id="tLN-Nf-8XN"/>
+                    <constraint firstItem="201" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="205" secondAttribute="trailing" constant="8" symbolic="YES" id="tLO-Nf-8XO"/>
                 </constraints>
             </view>
         </window>
@@ -1069,7 +1070,7 @@ Especular: 0,6, 2,0</string>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="574">
                         <rect key="frame" x="43" y="36" width="89" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Poder Especular:" id="575">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Pot. especular:" id="575">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1364,7 +1365,7 @@ Gw
                                 </button>
                                 <button horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="780">
                                     <rect key="frame" x="16" y="28" width="77" height="18"/>
-                                    <buttonCell key="cell" type="check" title="Olhe para trás" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
+                                    <buttonCell key="cell" type="check" title="Olhar para trás" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1410,7 +1411,7 @@ Gw
                                 <button horizontalHuggingPriority="230" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="810">
                                     <rect key="frame" x="157" y="5" width="100" height="20"/>
                                     <constraints>
-                                        <constraint firstAttribute="width" relation="lessThanOrEqual" constant="100" id="whO-Vn-JV3"/>
+                                        <constraint firstAttribute="width" relation="lessThanOrEqual" constant="140" id="whO-Vn-JV3"/>
                                     </constraints>
                                     <buttonCell key="cell" type="square" title="Fly Thru" bezelStyle="shadowlessSquare" image="FlyThru" imagePosition="left" alignment="center" controlSize="mini" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="811">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>

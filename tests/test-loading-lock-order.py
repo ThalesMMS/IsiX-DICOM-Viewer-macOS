@@ -13,7 +13,7 @@ its implementation, and the region fails if that work takes the same lock. A
 region is, in Swift, from `<name>.lock()` (also `lock(whenCondition:)` and
 `lock(before:)`) to its `unlock()`, or to the end of the scope when the unlock
 is deferred, the closure of `<name>.withLock { }` (NSLock, Mutex,
-OSAllocatedUnfairLock), and `os_unfair_lock_lock(&name)` to its unlock; in the
+OSAllocatedUnfairLock) and of `HorosObjCException.locked(<name>) { }`, and `os_unfair_lock_lock(&name)` to its unlock; in the
 Objective-C left, from `[<name>Lock lock]` to its `unlock`. The work handed over
 is a `#selector`/`@selector`, an Operation subclass whose `main` a queue runs, or
 a closure given to a queue or a thread together with the functions it calls.
@@ -80,6 +80,8 @@ OPERATION = re.compile(r'\[\s*\[\s*(\w+)\s+alloc\s*\]')
 # `drawLock?.lock()`, `DicomStudy.dbModifyLock()?.lock()`.
 SWIFT_LOCK = re.compile(r'\b(\w+)(?:\(\))?[?!]?\.lock\((?:whenCondition:[^)]*|before:[^)]*)?\)')
 SWIFT_WITH = re.compile(r'\b(\w+)(?:\(\))?[?!]?\.withLock(?:Unchecked)?\s*(?:\(\s*)?\{')
+# The exception-safe region of HorosObjCException+Guards.swift: `locked(name) { }`.
+SWIFT_GUARDED = re.compile(r'\bHorosObjCException\.locked(?:Throwing)?\(\s*(\w+)[?!]?\s*\)\s*\{')
 SWIFT_UNFAIR = re.compile(r'\bos_unfair_lock_lock\(\s*&\s*(\w+)\s*\)')
 SWIFT_SELECTOR = re.compile(r'#selector\(\s*(?:(?:getter|setter):\s*)?(?:[\w.]*\.)?([A-Za-z_]\w*)')
 SWIFT_OPERATION_CLASS = re.compile(r'\bclass\s+(\w+)\s*:\s*(?:Foundation\.)?(?:NS)?Operation\b')
@@ -275,7 +277,7 @@ for path, text in swift_bodies.items():
         if held and held[-1] != name:
             name = '%s(%s)' % (name, held[-1])
         regions.append((path.name, name, line(match.start()), line(end), text[match.end():end]))
-    for match in SWIFT_WITH.finditer(text):
+    for match in [*SWIFT_WITH.finditer(text), *SWIFT_GUARDED.finditer(text)]:
         end = block_end(text, match.end() - 1)
         regions.append((path.name, match.group(1), line(match.start()), line(end), text[match.end():end]))
     for match in SWIFT_UNFAIR.finditer(text):
@@ -313,7 +315,8 @@ for name, lock, start, end, body, reasons in waiting:
     core = re.escape(re.sub(r'^(?:_|horos_(?:static_)?)', '', re.findall(r'\w+', lock)[-1]))
     takesTheLock = re.compile(r'(?<![A-Za-z0-9])(?:_|horos_(?:static_)?)?%s\b(?:[^;\n]{0,60}?\block(?:WhenCondition)?\s*[\]:]'
                               r'|[^;\n{}]{0,60}?\.(?:lock\((?:whenCondition:[^)]*)?\)|withLock(?:Unchecked)?\b))'
-                              % core)
+                              r'|\bHorosObjCException\.locked(?:Throwing)?\(\s*(?:_|horos_(?:static_)?)?%s\b'
+                              % (core, core))
     for selector in sorted(set(SELECTOR.findall(body)) | set(SWIFT_SELECTOR.findall(body))):
         for worker in implementations(selector):
             if takesTheLock.search(worker):

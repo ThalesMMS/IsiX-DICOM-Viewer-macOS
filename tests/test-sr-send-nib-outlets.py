@@ -154,8 +154,9 @@ with tempfile.TemporaryDirectory(prefix='horos-sr-send-outlets-') as folder:
 
     for nib, controller in NIBS.items():
         copies = tracked(f'Horos/Resources/*.lproj/{nib}.xib')
-        if len(copies) != 10:
-            failures.append(f'{nib}.xib: {len(copies)} copies, not ten')
+        # English and the eight languages that have a copy; Spanish, Italian and Japanese load the English nib.
+        if len(copies) != 9:
+            failures.append(f'{nib}.xib: {len(copies)} copies, not nine')
         arguments = [nib]
         declared = {}
         for copy in copies:

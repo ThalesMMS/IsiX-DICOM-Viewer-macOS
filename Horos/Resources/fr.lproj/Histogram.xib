@@ -36,7 +36,7 @@
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="734">
                         <rect key="frame" x="26" y="6" width="57" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Largeur de la boîte:" id="757">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Largeur de classe:" id="757">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -93,7 +93,7 @@
                     <constraint firstItem="733" firstAttribute="top" secondItem="745" secondAttribute="bottom" constant="1" id="NQU-N4-Xi9"/>
                     <constraint firstAttribute="trailing" secondItem="745" secondAttribute="trailing" constant="10" id="TqL-LR-Sb1"/>
                     <constraint firstAttribute="bottom" secondItem="734" secondAttribute="bottom" constant="6" id="Vcr-Nf-8cN"/>
-                    <constraint firstItem="748" firstAttribute="leading" secondItem="638" secondAttribute="leading" constant="-24" id="amp-7X-zVJ"/>
+                    <constraint firstItem="748" firstAttribute="leading" secondItem="638" secondAttribute="leading" constant="2" id="amp-7X-zVJ"/>
                     <constraint firstItem="748" firstAttribute="top" secondItem="745" secondAttribute="top" id="boe-WP-ErV"/>
                     <constraint firstAttribute="trailing" secondItem="747" secondAttribute="trailing" constant="14" id="eZi-GM-srZ"/>
                     <constraint firstItem="733" firstAttribute="leading" secondItem="734" secondAttribute="trailing" constant="9" id="eqs-im-IV9"/>

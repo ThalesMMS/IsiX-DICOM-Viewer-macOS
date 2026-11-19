@@ -12,8 +12,8 @@ assert helper.is_file(), 'HorosCellSlider.swift is the cell-drawn host that repl
 
 slider_tag = re.compile(r'<slider\s[^>]*>')
 cell_tag = re.compile(r'<sliderCell\s[^>]*>')
-for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib',
-            root / 'Horos/Resources/ja-JP.lproj/Viewer.xib'):
+# Japanese has no copy of the nib: the English one loads there.
+for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib',):
     text = xib.read_text()
     sliders = slider_tag.findall(text)
     cells = cell_tag.findall(text)

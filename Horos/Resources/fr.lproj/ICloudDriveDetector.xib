@@ -33,7 +33,7 @@
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Uut-ij-FbJ">
                                     <rect key="frame" x="20" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="Demande-moi plus tard." bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Z6Z-zf-1Kh">
+                                    <buttonCell key="cell" type="smallSquare" title="Demander plus tard" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Z6Z-zf-1Kh">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                         <string key="keyEquivalent" base64-UTF8="YES">
@@ -45,11 +45,11 @@ Aw
                                     </connections>
                                 </button>
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Yty-Ga-bxi">
-                                    <rect key="frame" x="47" y="235" width="656" height="72"/>
+                                    <rect key="frame" x="47" y="223" width="656" height="96"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="dA0-CP-hHe">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Il semble que vous utilisez le lecteur iCloud et votre base de données locale IsiX DICOM Viewer est stockée et partagée via Apple iCloud. Cela peut entraîner une perte de données si vous utilisez IsiX DICOM Viewer sur plusieurs postes de travail avec le même identifiant Apple.</string>
+                                        <string key="title">Il semble que vous utilisez iCloud Drive et votre base de données locale IsiX DICOM Viewer est stockée et partagée via Apple iCloud. Cela peut entraîner une perte de données si vous utilisez IsiX DICOM Viewer sur plusieurs postes de travail avec le même identifiant Apple.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -59,7 +59,7 @@ Aw
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="L1z-zK-Jgv">
                                         <font key="font" metaFont="system" size="18"/>
-                                        <string key="title">Vous pouvez désactiver manuellement le lecteur iCloud dans vos paramètres iCloud macOS (recommandé). Alternativement, IsiX DICOM Viewer peut indiquer le dossier de base de données ce qui le rend inadmissible à la synchronisation iCloud Drive (expérimental).</string>
+                                        <string key="title">Vous pouvez désactiver iCloud Drive manuellement dans les réglages iCloud de macOS (recommandé). Sinon, IsiX DICOM Viewer peut marquer le dossier de la base de données pour l’exclure de la synchronisation iCloud Drive (expérimental).</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -67,7 +67,7 @@ Aw
                                 <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="XL5-xw-6QT">
                                     <rect key="frame" x="18" y="90" width="715" height="24"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Voulez-vous que IsiX DICOM Viewer affiche le dossier dabase ?" id="Ko3-kz-8vd">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" title="Voulez-vous que IsiX DICOM Viewer marque le dossier de la base de données ?" id="Ko3-kz-8vd">
                                         <font key="font" metaFont="system" size="20"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -76,7 +76,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="p6R-lO-dpb">
                                     <rect key="frame" x="521" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="Non, gardez ça dans iCloud" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
+                                    <buttonCell key="cell" type="smallSquare" title="Non, garder dans iCloud" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="g9t-mK-17K">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>
@@ -96,7 +96,7 @@ Aw
                                 <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4np-9z-rA5">
                                     <rect key="frame" x="270" y="19" width="210" height="35"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="smallSquare" title="Oui, rendez-le local seulement" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
+                                    <buttonCell key="cell" type="smallSquare" title="Oui, local uniquement" bezelStyle="smallSquare" imagePosition="overlaps" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="2mB-nk-qZI">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system" size="18"/>
                                     </buttonCell>

@@ -105,6 +105,12 @@ public final class ITKSegmentation3DController: NSWindowController, NSWindowDele
         newNameField = field
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override var windowNibName: NSNib.Name? {
         return "ITKSegmentation"
     }

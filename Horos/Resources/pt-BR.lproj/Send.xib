@@ -182,7 +182,7 @@ Gw
                     </textField>
                     <button misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="90">
                         <rect key="frame" x="181" y="59" width="253" height="18"/>
-                        <buttonCell key="cell" type="check" title="Inclui ROIs, comentários, laudos, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
+                        <buttonCell key="cell" type="check" title="Incluir ROIs, comentários, laudos, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="105">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -208,14 +208,14 @@ Gw
                     </textField>
                     <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="108">
                         <rect key="frame" x="172" y="229" width="75" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="Artigo 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="111" id="109">
+                        <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="111" id="109">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Outras visualizações" id="110">
                                 <items>
-                                    <menuItem title="Artigo 1" state="on" id="111"/>
+                                    <menuItem title="Item 1" state="on" id="111"/>
                                     <menuItem title="Item 2" id="112"/>
-                                    <menuItem title="Artigo 3" id="113"/>
+                                    <menuItem title="Item 3" id="113"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>

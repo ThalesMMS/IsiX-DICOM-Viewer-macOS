@@ -147,7 +147,7 @@ extension VRController {
         if vrView?.advancedCLUT() != true, let opacity = horos_curOpacityMenu {
             dict.setObject(opacity, forKey: "OpacityName" as NSString)
         }
-        if horos_curCLUTMenu == NSLocalizedString("16-bit CLUT", comment: "") || horos_curCLUTMenu == "16-bit CLUT" {
+        if AnyLanguage.says(horos_curCLUTMenu, "16-bit CLUT") {
             if let curves = clutOpacityView?.convertCurvesForPlist() { dict.setObject(curves, forKey: "16bitClutCurves" as NSString) }
             if let colors = clutOpacityView?.convertPointColorsForPlist() { dict.setObject(colors, forKey: "16bitClutColors" as NSString) }
         }
@@ -173,11 +173,13 @@ extension VRController {
         var has16bitCLUT = false
         // The 16-bit CLUT a state holds, checked whole: a malformed one (a
         // state from another machine) leaves the default CLUT and opacity.
-        var clutName = dict?.object(forKey: "CLUTName") as? String
+        // The 16-bit colour table and the absence of one, as the state of
+        // another day wrote them, are the menu's of today.
+        var clutName = AnyLanguage.tableName(stored: dict?.object(forKey: "CLUTName") as? String)
         var saved16bitCLUT: NSDictionary?
         var refused16bitCLUT = false
         let isAdvancedCLUT = (dict?.object(forKey: "isAdvancedCLUT") as? NSNumber)?.boolValue ?? false
-        if let name = clutName, isAdvancedCLUT, name == NSLocalizedString("16-bit CLUT", comment: "") || name == "16-bit CLUT" {
+        if let name = clutName, isAdvancedCLUT, AnyLanguage.says(name, "16-bit CLUT") {
             saved16bitCLUT = RestrictedUnarchiver.plistCLUT(curves: dict?.object(forKey: "16bitClutCurves"),
                                                        colors: dict?.object(forKey: "16bitClutColors"),
                                                        source: ((str ?? "") as NSString).lastPathComponent)

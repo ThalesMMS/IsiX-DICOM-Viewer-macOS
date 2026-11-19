@@ -52,6 +52,14 @@ gone, an exception without its reason, and a new path in `files`, the last
 also on a throwaway git repository. Patterns quoted only in comments and
 strings, an exception with its reason, a renamed file that moves its entry and
 a registry lowered by --lower must be accepted.
+
+--lower does not guess. A pattern of a file with a `files` count and an
+exception that loses some of its lines and keeps others is left with both
+numbers, since nothing says which of the two the lines belonged to: the fall
+stays refused, with the two numbers and the edit to make by hand, either edit
+is accepted, and the tool exits with status 1 after lowering the rest (run on
+the throwaway repository). With one of the two numbers only, or with every
+line gone, --lower writes the fall as it did.
 """
 from pathlib import Path
 import importlib.util
@@ -266,6 +274,69 @@ accepted('a new file with an exception and its reason', check(kvc_probe, with_re
 unexplained = dict(registry, exceptions=dict(registry['exceptions'], **{f'{probe} kvc': {'count': 1, 'reason': 'needed'}}))
 refused('an exception without its reason', 'an exception needs its technical reason', check(kvc_probe, with_registry=unexplained))
 
+# A pattern with a `files` count and an exception that loses one line: which of
+# the two numbers lost it is not in the registry, and --lower leaves both.
+split_key = f'{probe} force_cast'
+split_reason = 'the archive hands back an untyped object'
+
+
+def split_text(lines):
+    return ''.join(f'let idiomRatchetSplit{number} = object{number} as! Int\n' for number in range(lines))
+
+
+def split_registry(listed, excepted):
+    """The registry with `listed` lines of the probe in `files` and `excepted` by exception."""
+    exceptions = dict(registry['exceptions'])
+    if excepted:
+        exceptions[split_key] = {'count': excepted, 'reason': split_reason}
+    entries = dict(registry['files'], **({probe: {'force_cast': listed}} if listed else {}))
+    return dict(registry, exceptions=exceptions, files=entries)
+
+
+def split_summary(lines):
+    return indicator.summarize(dict(files, **{probe: indicator.measure_file(probe, split_text(lines))}))
+
+
+def split_lowered(listed, excepted, lines):
+    """(files count, exception count) of the probe once --lower saw `lines` lines."""
+    lower = indicator.lowered(split_summary(lines), split_registry(listed, excepted))
+    return (lower['files'].get(probe, {}).get('force_cast', 0), lower['exceptions'].get(split_key, {}).get('count', 0)), lower
+
+
+both = split_registry(2, 1)
+accepted('a file with a files count and an exception, at their sum', check({probe: split_text(3)}, with_registry=both))
+found = check({probe: split_text(2)}, with_registry=both)
+refused('a fall in a file with a files count and an exception', f'{probe}: force_cast fell from 3 to 2', found)
+refused('a fall --lower cannot split without saying both numbers',
+        f'allows 2 in files and 1 by the exception "{split_key}"', found)
+refused('a fall --lower cannot split without saying what to edit', 'by hand, to 2 in all', found)
+if any('(--lower does)' in problem for problem in found if problem.startswith(probe + ':')):
+    fail('the ratchet sends a fall --lower does not write to --lower')
+left = [entry for entry in indicator.undecided(split_summary(2), both) if entry[0] == probe]
+if left != [(probe, 'force_cast', 2, 1, 2)]:
+    fail(f'--lower does not report the fall it cannot split: {left}')
+counts, lower = split_lowered(2, 1, 2)
+if counts != (2, 1):
+    fail(f'--lower guessed which line went away: files and exception became {counts}, not (2, 1)')
+refused('the registry --lower left undecided', f'{probe}: force_cast fell from 3 to 2',
+        check({probe: split_text(2)}, with_registry=lower))
+if {name: value for name, value in lower['files'].items() if name != probe} != registry['files'] \
+        or {name: value for name, value in lower['exceptions'].items() if name != split_key} != registry['exceptions']:
+    fail('--lower changed other entries while it left a fall undecided')
+for listed, excepted, edit in ((1, 1, 'the files entry'), (2, 0, 'the exception')):
+    accepted(f'a fall split by hand, taken from {edit}', check({probe: split_text(2)}, with_registry=split_registry(listed, excepted)))
+if indicator.undecided(split_summary(3), both) or indicator.undecided(split_summary(4), both):
+    fail('--lower holds back a pattern that did not fall')
+# What needs no guess is written as before.
+for listed, excepted, lines, expected, name in ((2, 1, 0, (0, 0), 'every line gone'), (0, 3, 2, (0, 2), 'an exception alone'),
+                                               (3, 0, 2, (2, 0), 'a files count alone')):
+    counts, lower = split_lowered(listed, excepted, lines)
+    if counts != expected:
+        fail(f'--lower with {name}: files and exception became {counts}, not {expected}')
+    if indicator.undecided(split_summary(lines), split_registry(listed, excepted)):
+        fail(f'--lower holds back {name}')
+    accepted(f'the registry lowered by --lower with {name}', check({probe: split_text(lines)}, with_registry=lower))
+
 previous, moved = indicator.previous_revision(root)
 if previous is None:
     print(f'SKIP: no previous revision of {indicator.REGISTRY_PATH} here to compare new paths with')
@@ -347,6 +418,38 @@ with tempfile.TemporaryDirectory() as folder:
     committed('renamed')
     accepted('a rename that a clean clone receives in its last commit', judged(repository))
 
+    # The tool itself, on a fall it cannot split and one it can.
+    split = indicator.APP + 'IdiomSplit.swift'
+
+    def lower_run(listed, excepted, lines, others=40):
+        """--lower on the repository; (status, what it said, files count, exception count, the other file's count)."""
+        (repository / split).write_text(split_text(lines))
+        (repository / new).write_text(''.join(body.splitlines(keepends=True)[:others]))
+        git('add', '--all')
+        (repository / indicator.REGISTRY_PATH).write_text(indicator.registry_text({
+            'exceptions': {f'{split} force_cast': {'count': excepted, 'reason': split_reason}} if excepted else {},
+            'files': {new: {'force_cast': 40}, split: {'force_cast': listed}}, 'hub_classes': {}, 'large_files': {}}))
+        run = subprocess.run([sys.executable, str(root / 'tools/swift-idiom-indicator.py'), '--lower', '--root', folder],
+                             capture_output=True, text=True)
+        after = json.loads((repository / indicator.REGISTRY_PATH).read_text())
+        return (run.returncode, run.stderr, after['files'].get(split, {}).get('force_cast', 0),
+                after['exceptions'].get(f'{split} force_cast', {}).get('count', 0), after['files'][new]['force_cast'])
+
+    status, said, listed, excepted, others = lower_run(2, 1, 2, others=39)
+    if status != 1 or (listed, excepted) != (2, 1):
+        fail(f'--lower on a fall it cannot split: status {status}, files and exception {(listed, excepted)}; '
+             'expected status 1 and (2, 1)')
+    if f'NOT LOWERED: {split}: force_cast fell from 3 to 2' not in said or 'allows 2 in files and 1 by the exception' not in said \
+            or 'by hand, to 2 in all' not in said:
+        fail(f'--lower does not say the two numbers and the edit of the fall it left: {said[-300:]!r}')
+    if others != 39:
+        fail(f'--lower did not lower the rest beside a fall it left: {others}, not 39')
+    for listed, excepted, lines, expected in ((2, 1, 3, (2, 1)), (1, 1, 2, (1, 1)), (3, 0, 2, (2, 0)), (2, 1, 0, (0, 0))):
+        status, said, *counts = lower_run(listed, excepted, lines)
+        if status != 0 or tuple(counts[:2]) != expected or 'NOT LOWERED' in said:
+            fail(f'--lower with files {listed}, exception {excepted} and {lines} lines: status {status}, '
+                 f'{tuple(counts[:2])}; expected status 0 and {expected}')
+
 if failures:
     sys.exit(1)
 axis_a = {pattern: sum(counts.get(pattern, 0) for counts in summary['files'].values()) for pattern in indicator.AXIS_A}
@@ -357,4 +460,5 @@ print('PASS: axis B matches the registry: ' + ', '.join(f'{name} {count}' for na
       + f'; {len(summary["large_files"])} files above {indicator.LARGE} lines')
 print('PASS: a rise, a new file with a pattern, each form of a background start and of a direct ingest, a hub class spread into a new extension, category or typealias, '
       'a new large file, a fall or a gone file left in the registry, an exception without reason and a new path in files are refused; '
-      'comments, strings, a reasoned exception, a renamed file and a registry lowered by --lower are accepted')
+      'comments, strings, a reasoned exception, a renamed file and a registry lowered by --lower are accepted; '
+      '--lower leaves a fall it cannot split between a files count and an exception, says both numbers and exits with status 1')

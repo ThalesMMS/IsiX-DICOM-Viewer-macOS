@@ -140,7 +140,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="AETitle" width="90" minWidth="90" maxWidth="90" id="102">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETítulo">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -373,7 +373,7 @@
                                 <button id="242">
                                     <rect key="frame" x="14" y="34" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Procure outros nós DICOM através do protocolo Bonjour" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="Procurar outros nós DICOM através do protocolo Bonjour" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -384,7 +384,7 @@
                                 <button id="462">
                                     <rect key="frame" x="14" y="52" width="775" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Reinicie as configurações de consulta e recuperação automática do DICOM, na inicialização" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
+                                    <buttonCell key="cell" type="check" title="Reiniciar as configurações de consulta e recuperação automática do DICOM, na inicialização" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="463">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -456,7 +456,7 @@
                                 <button id="363">
                                     <rect key="frame" x="14" y="70" width="384" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Sincronize automaticamente a lista de nós DICOM deste URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
+                                    <buttonCell key="cell" type="check" title="Sincronizar automaticamente a lista de nós DICOM deste URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="364">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -590,7 +590,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="RetrieveSyntax" width="138" minWidth="60" maxWidth="300" id="W99-c6-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Recuperar sintaxe">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Sintaxe de recup.">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -631,7 +631,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Enviar sintaxe">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Sintaxe de envio">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -885,7 +885,7 @@
                                 <button id="360">
                                     <rect key="frame" x="15" y="11" width="774" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Desative o protocolo de pesquisa Bonjour - Não pesquise bancos de dados Bonjour IsiX DICOM Viewer" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
+                                    <buttonCell key="cell" type="check" title="Desativar o protocolo de pesquisa Bonjour - Não pesquisar bancos de dados Bonjour IsiX DICOM Viewer" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="361">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -908,7 +908,7 @@
                                 <button verticalHuggingPriority="750" id="259">
                                     <rect key="frame" x="626" y="5" width="166" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Adicione um caminho local" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
+                                    <buttonCell key="cell" type="push" title="Adicionar um caminho local" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="338">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1371,7 +1371,7 @@ Gw
                                 <button verticalHuggingPriority="750" id="996">
                                     <rect key="frame" x="294" y="14" width="77" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="roundRect" title="Escolha" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="997">
+                                    <buttonCell key="cell" type="roundRect" title="Escolher" bezelStyle="roundedRect" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="997">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

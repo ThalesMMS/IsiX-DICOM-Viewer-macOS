@@ -13,7 +13,8 @@ tabs, labels (not what an editable field holds), placeholders, tooltips, the
 items of a pop-up, segment labels, table headers and the items of a table's
 pop-up cells, and the names a search field's predicate bindings give its menu
 (attribute ELEMENT_TEXT, the text of their <string key="NSDisplayName">); a
-tooltip IB stores on a cell (a radio button of a matrix) is never shown. What a binding gives (a label's value, a button's title, the
+tooltip IB stores on a cell is shown only by the cells of a TipMatrix (the
+tools of the viewers, the radio buttons of a pane), which keeps them. What a binding gives (a label's value, a button's title, the
 items of a pop-up whose content or selected value is bound) and the rows of a
 table are data, and are left out; so are the texts of controls that the pane's
 code fills, given by the outlets it fills them through.
@@ -24,8 +25,9 @@ after the catalog was applied, the room each pop-up and each table header
 needs, whether controls whose text a binding gives kept it, whether the
 subviews of standard controls were left alone, and what a pane's code does
 after loading its nib (the pop-ups it fills, the rows and columns PaneFit lays
-out, the date pickers it fits, and the room the settings window's toolbar
-leaves a pane's title).
+out, the columns of a saved layout it widens to their headers, the date
+pickers it fits, and the room the settings window's toolbar leaves a pane's
+title).
 """
 from pathlib import Path
 import base64
@@ -42,6 +44,9 @@ DATA_BINDINGS = {
     'popUpButton': {'content', 'contentObjects', 'contentValues', 'selectedObject', 'selectedValue'},
 }
 TABLES = ('tableView', 'outlineView')
+# The matrix whose cells keep the tooltips of their nib.
+TIP_MATRIX = 'IsiXTipMatrix'
+TIP_MATRIX_SOURCE = 'Horos/Sources/TipMatrix.swift'
 
 
 class Checkout:
@@ -170,9 +175,11 @@ def shown_texts(window, root, filled_in_code=()):
                 and chain[1].tag == 'binding' and re.fullmatch(r'predicate\d*', chain[1].get('name') or ''):
             found.append((element, ELEMENT_TEXT))
             continue
-        # A cell's tooltip is never shown: AppKit keeps tooltips on views, and drops those IB stores on the
-        # cells of a matrix.
-        if text_of(element, 'toolTip') and not element.tag.endswith('Cell'):
+        # AppKit keeps tooltips on views, and drops those IB stores on a cell: only the cells of a matrix that
+        # tells them where they are (TipMatrix) show theirs.
+        if text_of(element, 'toolTip') and (not element.tag.endswith('Cell') or (
+                element.get('key') != 'prototype'
+                and any(ancestor.tag == 'matrix' and ancestor.get('customClass') == TIP_MATRIX for ancestor in chain))):
             found.append((element, 'toolTip'))
         data = control is not None and _bound(control)
         if element.tag == 'box' and element.get('titlePosition') != 'noTitle':
@@ -407,6 +414,27 @@ do {
         PaneFit.flowRow(startingAt: first, until: row.count > 1 ? view(row[1], in: roots) : nil)
     }
     if spec["fitColumns"] as? Bool == true { tables.forEach(PaneFit.fitColumns) }
+    // A layout the user saved: the widths its columns are given back, the column the table is sorted by, and the
+    // widening of the columns that cut their header under those widths.
+    if let saved = spec["savedWidths"] as? [String: Double] {
+        for table in tables where table.tableColumns.contains(where: { $0.identifier.rawValue == spec["savedTable"] as? String }) {
+            for column in table.tableColumns {
+                if let width = saved[column.identifier.rawValue] { column.width = CGFloat(width) }
+            }
+            if let key = spec["sortedBy"] as? String, let prototype = table.tableColumns.compactMap(\.sortDescriptorPrototype).first(where: { $0.key == key }) {
+                table.sortDescriptors = [prototype]
+            }
+            report["restored"] = table.tableColumns.filter { !$0.isHidden }.map { column -> [String: Any] in
+                ["id": column.identifier.rawValue, "width": column.width,
+                 "indicator": column.headerCell.sortIndicatorRect(forBounds: NSRect(x: 0, y: 0, width: 200, height: table.headerView?.frame.height ?? 0)).width]
+            }
+            if spec["widenColumns"] as? Bool == true { report["widened"] = PaneFit.widenColumnsToHeaders(of: table) }
+            report["saved"] = table.tableColumns.filter { !$0.isHidden }.map { column -> [String: Any] in
+                ["id": column.identifier.rawValue, "title": column.title, "width": column.width,
+                 "header": column.title.isEmpty ? 0 : column.headerCell.cellSize.width]
+            }
+        }
+    }
     report["views"] = (spec["report"] as? [String] ?? []).compactMap { id -> [String: Any]? in
         guard let found = view(id, in: roots) else { return nil }
         return ["id": id, "minX": found.frame.minX, "maxX": found.frame.maxX, "width": found.frame.width,
@@ -541,14 +569,19 @@ def run_harness(helper_source, runs, folder):
     unbound controls CatalogTranslation was run on ({'bound': [...], 'free': [...]}); under ('controls', '') what it
     changed in the subviews of standard controls ('changed'), the search field's placeholder and predicate names, and
     the controls' own titles, with a catalog that writes each text in «»; and under ('spec|' + label, '') what a run's
-    spec gave: {'views', 'columns', 'datePickers', 'titleRoom'}. Raises if CatalogTranslation does not compile."""
+    spec gave: {'views', 'columns', 'datePickers', 'titleRoom'}, and for a spec with 'savedWidths' (the widths, by
+    identifier, given back to the columns of the table that has the column 'savedTable', sorted by 'sortedBy')
+    {'restored', 'widened', 'saved'}: the columns under those widths, whether PaneFit.widenColumnsToHeaders
+    ('widenColumns') widened one, and the columns after it. Raises if CatalogTranslation does not compile."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     (folder / 'main.swift').write_text(HARNESS, encoding='utf-8')
     (folder / 'PaneCatalogTranslation.swift').write_text(helper_source, encoding='utf-8')
+    # The matrices of the nibs are TipMatrix: without the class a nib loads a plain matrix, which drops the
+    # tooltips of its cells.
     compiled = subprocess.run(['xcrun', 'swiftc', '-swift-version', '6', '-module-cache-path', str(folder / 'modules'),
                                str(folder / 'main.swift'), str(folder / 'PaneCatalogTranslation.swift'),
-                               '-o', str(folder / 'harness')], capture_output=True, text=True)
+                               str(ROOT / TIP_MATRIX_SOURCE), '-o', str(folder / 'harness')], capture_output=True, text=True)
     if compiled.returncode:
         raise RuntimeError('the harness with CatalogTranslation does not compile\n'
                            + compiled.stdout[-2000:] + compiled.stderr[-2000:])

@@ -97,7 +97,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="Mondial" id="157">
+                    <box horizontalCompressionResistancePriority="1000" title="Global" id="157">
                         <rect key="frame" x="17" y="291" width="688" height="65"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rBx-In-YYz">
@@ -184,7 +184,7 @@
                                 <button verticalHuggingPriority="750" id="366">
                                     <rect key="frame" x="160" y="10" width="141" height="32"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Configuration" bezelStyle="rounded" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="372">
+                                    <buttonCell key="cell" type="push" title="Configurer" bezelStyle="rounded" alignment="center" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="372">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -272,7 +272,7 @@ Gw
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
                                             </tableHeaderCell>
-                                            <popUpButtonCell key="dataCell" type="bevel" title="JPEG2000 Perte/perte" bezelStyle="rounded" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" tag="3" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="231" id="227">
+                                            <popUpButtonCell key="dataCell" type="bevel" title="JPEG2000 sans/avec perte" bezelStyle="rounded" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="bezel" tag="3" imageScaling="proportionallyDown" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="231" id="227">
                                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="menu"/>
                                                 <menu key="menu" title="Autres vues" id="228">
@@ -281,8 +281,8 @@ Gw
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="286"/>
                                                         <menuItem title="Pas de compression" tag="1" id="232"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="336"/>
-                                                        <menuItem title="JPEG2000 Perte/perte" state="on" tag="3" id="231"/>
-                                                        <menuItem title="JPEG-LS Perte/perte" tag="4" id="396"/>
+                                                        <menuItem title="JPEG2000 sans/avec perte" state="on" tag="3" id="231"/>
+                                                        <menuItem title="JPEG-LS sans/avec perte" tag="4" id="396"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>
@@ -364,8 +364,8 @@ Gw
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="299"/>
                                                         <menuItem title="Pas de compression" tag="1" id="300"/>
                                                         <menuItem isSeparatorItem="YES" tag="-1" id="337"/>
-                                                        <menuItem title="JPEG2000 Perte/perte" tag="3" id="301"/>
-                                                        <menuItem title="JPEG-LS Perte/perte" tag="4" id="395"/>
+                                                        <menuItem title="JPEG2000 sans/avec perte" tag="3" id="301"/>
+                                                        <menuItem title="JPEG-LS sans/avec perte" tag="4" id="395"/>
                                                     </items>
                                                 </menu>
                                             </popUpButtonCell>

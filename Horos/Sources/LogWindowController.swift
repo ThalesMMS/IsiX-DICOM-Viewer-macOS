@@ -149,6 +149,12 @@ public final class LogWindowController: NSWindowController {
         super.init(coder: coder)
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// Does not call super, as the former class did not.
     public override func awakeFromNib() {
         _ = MainActor.assumeIsolated {

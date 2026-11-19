@@ -35,7 +35,7 @@ import AppKit
 '''
 with tempfile.TemporaryDirectory(prefix='horos-progress-panel-') as folder:
  p=Path(folder);(p/'test.swift').write_text(code);nibs=[]
- for loc,kind in [(loc,kind) for loc in ['en','ja-JP'] for kind in ['Wait','WaitRendering']]:
+ for loc,kind in [(loc,kind) for loc in ['en'] for kind in ['Wait','WaitRendering']]:
   rel=f'Horos/Resources/{loc}.lproj/{kind}.xib'
   loc=loc+'-'+kind
   source=subprocess.check_output(['git','show',sys.argv[1]+':'+rel]) if len(sys.argv)>1 else (root/rel).read_bytes()

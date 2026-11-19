@@ -343,6 +343,16 @@ public final class PluginManagerController: NSWindowController {
     public func configurePluginLoadDetails() {
         guard let view = installedPluginsTabViewItem?.view, let uninstallPluginButton,
               view.viewWithTag(16601) == nil else { return }
+        // The nib gives the button that uninstalls a plugin the width of its
+        // English title, and its row, shared with three more buttons, has no
+        // room for the widest translation of each in every language: the
+        // button takes what its own title needs, from its trailing edge.
+        if let needed = uninstallPluginButton.cell?.cellSize.width.rounded(.up), needed > uninstallPluginButton.frame.width {
+            var frame = uninstallPluginButton.frame
+            frame.origin.x -= needed - frame.width
+            frame.size.width = needed
+            uninstallPluginButton.frame = frame
+        }
         let install = NSButton(title: NSLocalizedString("Install Plugin...", comment: ""), target: self, action: #selector(installPlugin(_:)))
         let details = NSButton(title: NSLocalizedString("Loading Details...", comment: ""), target: self, action: #selector(showPluginLoadDetails(_:)))
         details.tag = 16601
@@ -436,9 +446,36 @@ public final class PluginManagerController: NSWindowController {
         }
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override func awakeFromNib() {
         super.awakeFromNib()
 
+    }
+
+    /// The nib holds every column of the list of the installed plugins at
+    /// one width, and their sum is 9 points more than the list's view, which
+    /// has no horizontal scroller: the column of the names, the widest, is
+    /// let narrow to 200 points and gives the list the width of its view,
+    /// then and when the window is made narrower. A column whose header
+    /// needs more than the nib gave it, in a language with a longer one,
+    /// takes the room from the names too, and none can be made narrower than
+    /// its header after that.
+    public override func windowDidLoad() {
+        super.windowDidLoad()
+        guard let pluginTable else { return }
+        if let names = pluginTable.tableColumns.max(by: { $0.width < $1.width }) {
+            names.minWidth = min(names.minWidth, 200)
+        }
+        PaneFit.fitColumns(of: pluginTable)
+        for column in pluginTable.tableColumns where !column.title.isEmpty {
+            column.minWidth = max(column.minWidth, ceil(column.headerCell.cellSize.width))
+        }
+        pluginTable.sizeToFit()
     }
 
     @objc(refreshPluginList)

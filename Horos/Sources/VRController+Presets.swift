@@ -72,7 +72,7 @@ extension VRController {
         if let shadingPresetName { preset.setObject(shadingPresetName, forKey: "shading" as NSString) }
         preset.setObject(NSNumber(value: isAdvancedCLUT), forKey: "advancedCLUT" as NSString)
         if let clut { preset.setObject(clut, forKey: "CLUT" as NSString) }
-        if clut == NSLocalizedString("16-bit CLUT", comment: "") || clut == "16-bit CLUT" {
+        if AnyLanguage.says(clut, "16-bit CLUT") {
             if let curves = clutOpacityView?.convertCurvesForPlist() { preset.setObject(curves, forKey: "16bitClutCurves" as NSString) }
             if let colors = clutOpacityView?.convertPointColorsForPlist() { preset.setObject(colors, forKey: "16bitClutColors" as NSString) }
         }
@@ -82,13 +82,14 @@ extension VRController {
         return preset
     }
 
-    /// "Filters: a, b." or "Filter: a." or "Filter: (none)."
+    /// "Filters: a, b", "Filter: a" or "Filter: (none)". Each is a whole line of the catalog, as the other
+    /// lines of the summary are: a line put together from a word, a colon and a value had the capital and
+    /// the punctuation of no language, and the word alone is translated as it stands inside a sentence.
     final func filtersDescription(_ filters: NSArray?) -> String {
         let names = (filters as? [Any])?.map { "\($0)" } ?? []
-        var text = names.count > 1 ? NSLocalizedString("Filters", comment: "") : NSLocalizedString("Filter", comment: "")
-        text += ": "
-        text += names.isEmpty ? NSLocalizedString("(none).", comment: "") : names.joined(separator: ", ") + "."
-        return text
+        if names.isEmpty { return NSLocalizedString("Filter: (none)", comment: "") }
+        let line = names.count > 1 ? NSLocalizedString("Filters: %@", comment: "") : NSLocalizedString("Filter: %@", comment: "")
+        return String(format: line, names.joined(separator: ", "))
     }
 
     /// The name of a projection mode: perspective, parallel or endoscopy.
@@ -113,6 +114,11 @@ extension VRController {
         (value as? NSObject) ?? ("(null)" as NSString)
     }
 
+    /// The colour or opacity table a preset names, as the menus list it today.
+    private func tableText(_ value: Any?) -> NSObject {
+        text(AnyLanguage.tableName(stored: value as? String) ?? value)
+    }
+
     /// From the menu, the sheet that names the current settings; from its
     /// Save button, the preset written and its group shown.
     @IBAction @objc(save3DSettings:)
@@ -124,11 +130,11 @@ extension VRController {
         let senderClass = (sender as? NSObject)?.className
         if senderClass == "NSMenuItem" {
             if flag(preset, "advancedCLUT") {
-                settingsCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (16-bit)", comment: ""), text(preset.object(forKey: "CLUT")))
+                settingsCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (16-bit)", comment: ""), tableText(preset.object(forKey: "CLUT")))
                 settingsOpacityTextField?.stringValue = NSLocalizedString("Opacity: (defined in the CLUT)", comment: "")
             } else {
-                settingsCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (8-bit)", comment: ""), text(preset.object(forKey: "CLUT")))
-                settingsOpacityTextField?.stringValue = String(format: NSLocalizedString("Opacity: %@", comment: ""), text(preset.object(forKey: "opacity")))
+                settingsCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (8-bit)", comment: ""), tableText(preset.object(forKey: "CLUT")))
+                settingsOpacityTextField?.stringValue = String(format: NSLocalizedString("Opacity: %@", comment: ""), tableText(preset.object(forKey: "opacity")))
             }
             if !flag(preset, "useShading") {
                 settingsShadingsTextField?.stringValue = NSLocalizedString("Shadings: Off", comment: "")
@@ -344,7 +350,7 @@ extension VRController {
             // window level/width
             setWLWW(number(preset, "wl"), number(preset, "ww"))
         } else {
-            if clut == NSLocalizedString("16-bit CLUT", comment: "") || clut == "16-bit CLUT" {
+            if AnyLanguage.says(clut, "16-bit CLUT") {
                 // Checked whole; a malformed CLUT leaves the current one.
                 let source = String(format: "of the 3D preset %@", text(preset.object(forKey: "name")))
                 if let checked = RestrictedUnarchiver.plistCLUT(curves: preset.object(forKey: "16bitClutCurves"),
@@ -478,7 +484,7 @@ extension VRController {
                 preview.setCLUT(nil, nil, nil)
             }
             // opacity
-            if let aOpacity = opacityTablePresets[preset.object(forKey: "opacity") as? String] {
+            if let aOpacity = opacityTablePresets[AnyLanguage.tableName(stored: preset.object(forKey: "opacity") as? String)] {
                 preview.setOpacity(aOpacity.storedPoints)
             }
             // window level/width
@@ -503,7 +509,7 @@ extension VRController {
                 path = (path as NSString).appendingPathExtension("plist") ?? path
                 if FileManager.default.fileExists(atPath: path) {
                     clut = RestrictedUnarchiver.plistCLUT(atPath: path)
-                } else if aClutName == NSLocalizedString("16-bit CLUT", comment: "") || aClutName == "16-bit CLUT" {
+                } else if AnyLanguage.says(aClutName, "16-bit CLUT") {
                     clut = RestrictedUnarchiver.plistCLUT(curves: preset.object(forKey: "16bitClutCurves"),
                                                      colors: preset.object(forKey: "16bitClutColors"),
                                                      source: String(format: "of the 3D preset %@", text(preset.object(forKey: "name"))))
@@ -642,11 +648,11 @@ extension VRController {
         }
         infoNameTextField?.stringValue = String(format: NSLocalizedString("Name: %@", comment: ""), text(preset.object(forKey: "name")))
         if flag(preset, "advancedCLUT") {
-            infoCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (16-bit)", comment: ""), text(preset.object(forKey: "CLUT")))
+            infoCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (16-bit)", comment: ""), tableText(preset.object(forKey: "CLUT")))
             infoOpacityTextField?.stringValue = NSLocalizedString("Opacity: (defined in the CLUT)", comment: "")
         } else {
-            infoCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (8-bit)", comment: ""), text(preset.object(forKey: "CLUT")))
-            infoOpacityTextField?.stringValue = String(format: NSLocalizedString("Opacity: %@", comment: ""), text(preset.object(forKey: "opacity")))
+            infoCLUTTextField?.stringValue = String(format: NSLocalizedString("CLUT: %@ (8-bit)", comment: ""), tableText(preset.object(forKey: "CLUT")))
+            infoOpacityTextField?.stringValue = String(format: NSLocalizedString("Opacity: %@", comment: ""), tableText(preset.object(forKey: "opacity")))
         }
         if !flag(preset, "useShading") {
             infoShadingsTextField?.stringValue = NSLocalizedString("Shadings: Off", comment: "")

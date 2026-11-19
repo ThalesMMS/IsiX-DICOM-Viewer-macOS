@@ -305,7 +305,7 @@ NS_SWIFT_NAME(SeriesListIdentification)
 
 NS_SWIFT_NAME(SeriesListColors)
 @interface HorosSeriesListColors : NSObject
-@property(class, readonly) NSColor *shown, *fused, *otherStudy;
+@property(class, readonly) NSColor *shown, *shownPrevious, *fused, *otherStudy;
 @end
 
 NS_SWIFT_NAME(AnnotationLevel)
@@ -1038,6 +1038,7 @@ static NSColor *Named(NSString *name, CGFloat r, CGFloat g, CGFloat b) {
     return c;
 }
 + (NSColor*) shown { return Named(@"shown", 0.9, 0.6, 0.5); }
++ (NSColor*) shownPrevious { return Named(@"shownPrevious", 0.9, 0.7, 0.4); }
 + (NSColor*) fused { return Named(@"fused", 0.7, 0.9, 0.5); }
 + (NSColor*) otherStudy { return Named(@"otherStudy", 0.5, 0.5, 0.5); }
 @end
@@ -2507,6 +2508,18 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
         identifiers = re.search(r'\n@objc\(HorosPasteboardObjectIdentifiers\)\npublic final class PasteboardObjectIdentifiers: NSObject \{.*?\n}\n',
                                 drag_export, re.S)
         identifiers = identifiers.group(0) if identifiers else ''
+        # The list tints the series its viewer shows, and the menu highlights
+        # them, by the study the rule of the window's frame gives it. Each
+        # viewer of the harness is the only window of its study, which is the
+        # current one: no frame, and the fill of the current study, as the
+        # code compared had for every study.
+        window_study = ('', '')
+        list_presenter = read(args.current, 'Horos/Sources/SeriesListPresenter.swift') or b''
+        if b'windowStudy: windowStudy' in list_presenter or b'static func windowStudy(of viewer: ViewerController)' in list_presenter:
+            window_study = ('    let registry = ViewerRegistryStandIn()\n    var windowStudies = WindowStudies()\n',
+                            '@MainActor final class ViewerRegistryStandIn {\n    var severalViewersAreOnScreen: Bool { false }\n}\n'
+                            'extension SeriesListIdentification {\n'
+                            '    static func study(of viewer: AnyObject?) -> SeriesIdentity.Study { .current }\n}\n')
         # The graphs the presenters are made over: the process's browser (the
         # stand-in's +currentBrowser), application controller and preferences.
         # The database window's graph holds the same browser.
@@ -2519,7 +2532,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
                   '    var preferences: UserDefaults { UserDefaults.standard }\n}\n'
                   '@MainActor final class BrowserWindowGraph {\n    let browser: BrowserController\n'
                   '    init(browser: BrowserController) { self.browser = browser }\n}\n'
-                  '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n}\n'
+                  '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n' + window_study[0] + '}\n' + window_study[1] +
                   'extension ViewerController {\n    var sessionGraph: ViewerSessionGraph! { ViewerSessionGraph() }\n'
                   '    static var processGraph: ProcessGraph { ProcessGraph.harness }\n}\n')
         # The fusion sheet a drop opens is ViewerFusion's, once the tree has
@@ -2586,6 +2599,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
         # panels of the screens: the stand-in keeps that reach, so that the rest compares.
         panels = 'enum ViewerWindowArranger { static var maximumScreens: Int { NSScreen.screens.count } }\n'
         (swift / 'Helpers.swift').write_text('import AppKit\n' + ('import IsiXPreferences\n' if temporary else '')
+                                             + ('import IsiXImaging\n' if window_study[0] else '')
                                              + panels + sender + attempt + add + main_actor + truncate + identifiers + graphs + fusion + rows + dropped + temporary)
         sources.append(str(swift / 'Helpers.swift'))
         libraries = []

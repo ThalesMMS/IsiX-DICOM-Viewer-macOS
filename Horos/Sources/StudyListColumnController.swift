@@ -51,6 +51,15 @@ import IsiXPreferences
 /// names (HIDEPATIENTNAME). The order of the items, their checks and what is
 /// saved are IsiXDatabase's StudyListColumns. After the columns come the items
 /// of the named column presets, which StudyListColumnPresetMenu makes and answers.
+///
+/// COLUMNSDATABASE keeps the state of each column under the column's
+/// identifier. It kept it under the title of the header, which is the
+/// language's: a preference written with the titles of one language named no
+/// column of the list in another, and two columns a language gives the same
+/// title had one state between them, so that the item of one of them showed
+/// or hid the other. A preference that names a column by a title, in any
+/// language the application has, is still read, and is stored again by
+/// identifier when it is.
 @MainActor final class StudyListColumnController {
     private unowned let browser: BrowserController
     private let preferences: any PreferenceStore
@@ -117,7 +126,8 @@ import IsiXPreferences
             preferences.set(item.state.rawValue == 0, for: DatabasePreferences.hidesPatientName)
         } else {
             let items = columnItems
-            let saved = StudyListColumns.saved(titles: items.map(\.title), states: items.map { $0.state.rawValue })
+            let saved = StudyListColumns.saved(identifiers: items.map { $0.representedObject as? String ?? "" },
+                                               states: items.map { $0.state.rawValue })
             preferences.set(saved, forKey: DatabasePreferences.databaseColumns.name)
             refresh()
         }
@@ -136,14 +146,16 @@ import IsiXPreferences
             let shown = column.identifier.rawValue == StudyListColumnPreset.fixedColumn ? namesShown : !column.isHidden
             return shown ? 1 : 0
         }
-        preferences.set(StudyListColumns.saved(titles: columns.map { $0.headerCell.stringValue }, states: states),
+        preferences.set(StudyListColumns.saved(identifiers: columns.map(\.identifier.rawValue), states: states),
                         forKey: DatabasePreferences.databaseColumns.name)
         preferences.set(outline.columnState(), forKey: DatabasePreferences.databaseColumnState.name)
         buildMenu()
     }
 
     /// Shows and hides the columns as COLUMNSDATABASE says, then makes the
-    /// menu again. What raises on the way (a preference that is not a
+    /// menu again. A preference that names a column by the title of its
+    /// header is stored again with the identifiers, the states it gives
+    /// unchanged. What raises on the way (a preference that is not a
     /// dictionary) is logged, and the menu is left as it was.
     func refresh() {
         if let raised = HorosObjCException.caught({
@@ -155,22 +167,29 @@ import IsiXPreferences
             // Swift dictionary would change at every launch: a column shown
             // moves to the front, so the order decides where the columns land.
             let columnsDatabase = saved as? NSDictionary
-            for case let (title as String, state) in columnsDatabase ?? [:] {
-                guard let outline else { continue }
-                // Read again for each column: hiding one takes it out of the outline.
-                let titles = outline.tableColumns.map { $0.headerCell.title }
-                guard let index = StudyListColumns.column(titled: title, in: titles) else { continue }
-
-                let identifier = outline.tableColumns[index].identifier
-                guard let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier.rawValue), saved: state,
-                                                           isSelectedColumn: { outline.column(withIdentifier: identifier) == outline.selectedColumn })
-                else { continue }
-                if change.selectFirstColumn {
-                    outline.selectColumnIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+            var entries: [(key: String, state: Any)] = []
+            for case let (key as String, state) in columnsDatabase ?? [:] {
+                entries.append((key, state))
+            }
+            if let outline {
+                let columns = outline.tableColumns
+                let reading = StudyListColumns.read(entries, identifiers: columns.map(\.identifier.rawValue),
+                                                    titles: columns.map { $0.headerCell.title })
+                for (name, state) in reading.states {
+                    let identifier = NSUserInterfaceItemIdentifier(name)
+                    guard let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(name), saved: state,
+                                                               isSelectedColumn: { outline.column(withIdentifier: identifier) == outline.selectedColumn })
+                    else { continue }
+                    if change.selectFirstColumn {
+                        outline.selectColumnIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+                    }
+                    outline.setColumnWithIdentifier(name, visible: change.visible)
+                    if change.scrollToColumn {
+                        outline.scrollColumnToVisible(outline.column(withIdentifier: identifier))
+                    }
                 }
-                outline.setColumnWithIdentifier(identifier.rawValue, visible: change.visible)
-                if change.scrollToColumn {
-                    outline.scrollColumnToVisible(outline.column(withIdentifier: identifier))
+                if let byIdentifier = reading.byIdentifier {
+                    preferences.set(byIdentifier, forKey: DatabasePreferences.databaseColumns.name)
                 }
             }
 

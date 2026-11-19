@@ -180,8 +180,8 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
     @IBOutlet private var WLWW3DView: NSView?
     @IBOutlet private var WLWW2DView: NSView?
-    @IBOutlet private var wlww2DPopup: NSPopUpButton?
-    @IBOutlet private var clut2DPopup: NSPopUpButton?
+    @IBOutlet private var wlww2DPopup: NSPopUpButton? { didSet { PresetPullDownTitle.install(on: wlww2DPopup) } }
+    @IBOutlet private var clut2DPopup: NSPopUpButton? { didSet { PresetPullDownTitle.install(on: clut2DPopup) } }
 
     @IBOutlet private var exportDCMWindow: NSWindow?
     @IBOutlet private var exportDCMViewsChoice: NSMatrix?
@@ -906,6 +906,14 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
 
         self.window?.acceptsMouseMovedEvents = false
 
+        // The panels of the nib leave the screen with the window: left open,
+        // they outlived this controller and the VR controller of the nib,
+        // which their controls message. The Path Assistant is released when
+        // it is closed and is opened again from its outlet: it is ordered
+        // out, never closed here, so it is not released a second time.
+        CompanionPanels.takeOffScreen(pathAssistantPanel, assistantSettingPanel,
+                                      vrController?.shadingPanel, vrController?.vrView?.point3DInfoPanel)
+
         NotificationCenter.default.post(name: NSNotification.Name.OsirixWindow3dClose, object: self, userInfo: nil)
         NotificationCenter.default.post(name: NSNotification.Name.OsirixWindow3dClose, object: vrController, userInfo: nil)	//<- to close the FlyThru controller !
 
@@ -1070,7 +1078,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
             toolbarItem?.view = WLWW3DView
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWW3DView), maximum: ToolbarPolicy.designedSize(of: WLWW3DView))
 
-            (vrController?.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: vrController?.wlwwPopup())
         } else if itemIdent.rawValue == WLWW2DToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("MPR WL/WW & CLUT & Opacity", comment: "")
@@ -1081,7 +1089,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
             toolbarItem?.view = WLWW2DView
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWW2DView), maximum: ToolbarPolicy.designedSize(of: WLWW2DView))
 
-            (wlww2DPopup?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: wlww2DPopup)
         } else if itemIdent.rawValue == ExportToolbarItemIdentifier {
             toolbarItem?.label = NSLocalizedString("DICOM File", comment: "")
             toolbarItem?.paletteLabel = NSLocalizedString("Save as DICOM", comment: "")
@@ -1520,14 +1528,19 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         flyAssistantPositionIndex = 0
     }
 
+    /// The two titles of the basic mode's button: it locks the path, then deletes it.
+    private static var lockPathTitle: String { NSLocalizedString("Lock Path", comment: "") }
+    private static var deletePathTitle: String { NSLocalizedString("Delete Path", comment: "") }
+
     @IBAction @objc(pathAssistantBasicModeButtonAction:)
     public dynamic func pathAssistantBasicModeButtonAction(_ sender: Any!) {
-        if pathAssistantBasicModeButton?.title == "Lock Path" {
+        // The button says what it does next, in the language: the title it was last given tells which.
+        if pathAssistantBasicModeButton?.title == Self.lockPathTitle {
             self.pathAssistantLockPath(self)
-            pathAssistantBasicModeButton?.title = "Delete Path"
-        } else if pathAssistantBasicModeButton?.title == "Delete Path" {
+            pathAssistantBasicModeButton?.title = Self.deletePathTitle
+        } else if pathAssistantBasicModeButton?.title == Self.deletePathTitle {
             self.pathAssistantDeletePath(self)
-            pathAssistantBasicModeButton?.title = "Lock Path"
+            pathAssistantBasicModeButton?.title = Self.lockPathTitle
         }
     }
 
@@ -1536,7 +1549,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         if intOf(sender, "selectedRow") == 0 {
             isFlyPathLocked = false
             pathAssistantBasicModeButton?.isEnabled = true
-            pathAssistantBasicModeButton?.title = "Lock Path"
+            pathAssistantBasicModeButton?.title = Self.lockPathTitle
             pathAssistantSetPointAButton?.isEnabled = false
             pathAssistantSetPointBButton?.isEnabled = false
             pathAssistantExportToFlyThruButton?.isEnabled = false
@@ -1546,7 +1559,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
             flyAssistantMode = NAVIGATORMODE_BASIC
         } else if intOf(sender, "selectedRow") == 1 {
             pathAssistantBasicModeButton?.isEnabled = false
-            pathAssistantBasicModeButton?.title = "Lock Path"
+            pathAssistantBasicModeButton?.title = Self.lockPathTitle
             pathAssistantSetPointAButton?.isEnabled = true
             pathAssistantSetPointBButton?.isEnabled = false
             pathAssistantExportToFlyThruButton?.isEnabled = false
@@ -1682,7 +1695,7 @@ public final class EndoscopyViewer: Window3DController, NSToolbarDelegate, NSSpl
         flyAssistantMode = NAVIGATORMODE_BASIC
         isFlyPathLocked = false
 
-        pathAssistantBasicModeButton?.title = "Lock Path"
+        pathAssistantBasicModeButton?.title = Self.lockPathTitle
         pathAssistantSetPointAButton?.isEnabled = false
         pathAssistantSetPointBButton?.isEnabled = false
 

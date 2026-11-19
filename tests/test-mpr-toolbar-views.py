@@ -18,8 +18,11 @@ as its title, the button as its own, and neither reaches the values. The check
 box shows whether the hidden view renders with shading when the window opens.
 
 Thick Slab: the mode popup showed "MIP - Max Intensity Pr..." cut in
-its 132 pt. HorosMPRThickSlabModePopUpButtonCell draws the name before " - "
-("MIP") and keeps the full names in the menu, which the overflow menu copies.
+its 132 pt. HorosMPRThickSlabModePopUpButtonCell draws the name before the
+dash ("MIP") and keeps the full names in the menu, which the overflow menu
+copies. The dash is the one the language writes: the German copy, which has
+an en dash, and the Russian one, which has an em dash for one mode, showed
+the whole name cut; every mode of every copy is checked.
 
 The views of every MPR.xib localization are copied into a nib of their own,
 compiled with ibtool and loaded in AppKit; the palette is opened on a toolbar
@@ -41,6 +44,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the mode popup takes a mode's short name from IsiXImaging
 import sources
 
 root = Path(__file__).resolve().parents[1]
@@ -88,6 +92,7 @@ if not re.search(r'horosShowShadingValues\(\)\s*shadingCheck\?\.state = \(hidden
 
 code = r'''
 import AppKit
+import IsiXImaging
 
 final class Host: NSObject, NSToolbarDelegate {
     var views: [String: NSView] = [:]
@@ -160,11 +165,26 @@ func descendants<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
 /// The mode popup shows the short name of every mode, whole, with the full
 /// names in its menu and in the overflow menu.
 @MainActor func checkThickSlab(_ view: NSView, _ item: NSToolbarItem?, _ context: String) {
-    // The names of the nibs that keep the modes in English.
-    guard context.hasPrefix("en ") || context.hasPrefix("ja-JP ") else { return }
     let popups = descendants(NSPopUpButton.self, in: view)
     check(popups.count == 1, "\(context) Thick Slab: \(popups.count) popups")
     guard let popup = popups.first, let cell = popup.cell as? NSPopUpButtonCell else { return }
+    // In every language: the name up to the dash the language writes, whole
+    // in the popup, with the menu's name as the tooltip.
+    for (index, listed) in popup.itemArray.enumerated() {
+        popup.selectItem(at: index)
+        let shown = cell.menuItem?.title ?? ""
+        check(shown == ThickSlabModeName.short(of: listed.title) && !shown.isEmpty,
+              "\(context) Thick Slab: the popup shows \"\(shown)\" for \"\(listed.title)\"")
+        check(!shown.contains(" - ") && !shown.contains(" \u{2013} ") && !shown.contains(" \u{2014} "),
+              "\(context) Thick Slab: the popup shows \"\(shown)\", dash and all")
+        // A mode with no abbreviation is as wide as its translation, which
+        // is the nib's to hold; the abbreviation of one that has it fits.
+        check(shown == listed.title.trimmingCharacters(in: .whitespaces) || cell.cellSize.width <= popup.frame.width,
+              "\(context) Thick Slab: \"\(shown)\" needs \(cell.cellSize.width) pt in a \(popup.frame.width) pt popup")
+        check(popup.toolTip == listed.title, "\(context) Thick Slab: tooltip \(popup.toolTip ?? "nil") for \"\(listed.title)\"")
+    }
+    // The names of the nib that keeps the modes in English.
+    guard context.hasPrefix("en ") else { popup.selectItem(withTag: 1); return }
     let expected = [1: ("MIP", "MIP - Max Intensity Projection"), 2: ("minIP", "minIP - Min Intensity Projection"),
                     3: ("Mean", "Mean"), 0: ("Volume Rendering", "Volume Rendering ")]
     for (tag, names) in expected.sorted(by: { $0.key < $1.key }) {
@@ -292,7 +312,8 @@ with tempfile.TemporaryDirectory(prefix='horos-mpr-toolbar-') as folder:
     swift = work / 'Test.swift'
     swift.write_text(code)
     binary = work / 'test'
-    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift']), '-parse-as-library', str(swift), *map(str, SWIFT), '-o', str(binary)],
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', *map(str, [root / 'Horos/Sources/ToolbarPolicy.swift', root / 'Horos/Sources/ToolbarImage.swift']), '-parse-as-library', str(swift), *map(str, SWIFT),
+                            *isix_modules.module_flags('IsiXImaging', work / 'isix'), '-o', str(binary)],
                    capture_output=True, text=True)
     if built.returncode:
         sys.exit('FAIL: the toolbar views do not compile with the test\n' + built.stderr[-4000:])

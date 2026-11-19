@@ -261,7 +261,10 @@ extension VRController {
     }
 
     public override func applyOpacityString(_ str: String!) {
-        guard let str else { return }
+        // The linear table, or the table volume rendering opens with, of a state
+        // or a preset saved when a language had its own words for it: under the
+        // name the menu lists, by which the presets have the second.
+        guard let str = AnyLanguage.tableName(stored: str) else { return }
         horos_curOpacityMenu = str
         if AnyLanguage.says(str, "Linear Table") {
             vrView?.setOpacity([])

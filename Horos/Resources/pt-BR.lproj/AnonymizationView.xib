@@ -55,14 +55,14 @@
                     <constraints>
                         <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="150" id="Uvj-LD-y6Q"/>
                     </constraints>
-                    <popUpButtonCell key="cell" type="push" title="Artigo 1" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="113" id="109">
+                    <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="113" id="109">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="smallSystem"/>
                         <menu key="menu" title="Outras visualizações" id="110">
                             <items>
-                                <menuItem title="Artigo 1" state="on" id="113"/>
+                                <menuItem title="Item 1" state="on" id="113"/>
                                 <menuItem title="Item 2" id="112"/>
-                                <menuItem title="Artigo 3" id="111"/>
+                                <menuItem title="Item 3" id="111"/>
                             </items>
                         </menu>
                     </popUpButtonCell>

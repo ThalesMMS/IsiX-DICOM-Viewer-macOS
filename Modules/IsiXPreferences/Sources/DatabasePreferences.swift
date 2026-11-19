@@ -75,6 +75,9 @@ public enum DatabasePreferences {
     public static let ejectsMediaAfterAutoCopy = PreferenceKey<Bool>("CDDVDEjectAfterAutoCopy", registered: "1")
     /// Once a validated report's DICOM PDF is in the study, the report open in Pages is closed.
     public static let closePagesReportWhenValidated = PreferenceKey<Bool>("closePagesReportWhenValidated", registered: "1")
+    /// The columns of the study list that are shown and hidden: the state of each, 1 or 0, by the identifier of the
+    /// column. It was kept by the title of the header, in the language of the day, and IsiXDatabase's
+    /// StudyListColumns still reads one kept so.
     public static let databaseColumns = PreferenceKey<[String: PropertyListValue]?>("COLUMNSDATABASE", registered: PreferenceDefault { _ in [String: Any]() })
     /// The named arrangements of the study list's columns, in the order they were saved: each a name and its
     /// columns by identifier with their widths, which IsiXDatabase's StudyListColumnPresets reads and writes.

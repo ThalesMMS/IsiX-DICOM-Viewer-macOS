@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory() as tmp:
         # 2. The interval slider, as the nib and then the sheet set it up.
         interval_lines = '\n'.join(line.strip() for line in sheet.splitlines()
                                    if line.strip().startswith('dcmInterval?.') and '=' in line)
-        for language in ('en', 'ja-JP'):
+        for language in ('en',):
             nib = read(f'Horos/Resources/{language}.lproj/{nib_name}')
             outlet = re.search(r'<outlet property="dcmInterval" destination="([^"]+)"', nib)
             cell = re.search(r'<slider [^>]*id="%s">.*?(<sliderCell [^>]*>)' % outlet.group(1), nib, re.S) if outlet else None

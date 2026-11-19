@@ -31,17 +31,24 @@ enum SheetLabelColumn {
         return !field.isEditable && !field.isBezeled && !field.drawsBackground
     }
 
-    /// Lays out `sheet`: labels whose trailing edge is at or before
-    /// `controlColumn` form the label column; every other view is a control.
-    /// The column's labels end at one edge, the column's own or further right
-    /// when a label needs it; labels beside the controls take their text's
-    /// width. Running it again changes nothing.
+    /// Lays out `sheet`: labels that begin before `controlColumn` form the
+    /// label column; every other view is a control. The column's labels end
+    /// at one edge, the column's own or further right when a label needs it;
+    /// labels beside the controls take their text's width. Running it again
+    /// changes nothing.
+    ///
+    /// The column's own edge is the furthest one a label of the nib ends at
+    /// without passing `controlColumn`. A label drawn a point or two past it,
+    /// widened in the nib for a longer text, is still a label of the column
+    /// and is brought back to that edge: taken for a control, it would keep
+    /// its frame of the nib and end over the controls.
     @MainActor
     static func fit(_ sheet: NSWindow, controlColumn: CGFloat) {
         guard let content = sheet.contentView else { return }
         let views = content.subviews
-        let column = views.filter { isLabel($0) && $0.frame.maxX <= controlColumn }
-        guard let columnEnd = column.map(\.frame.maxX).max() else { return }
+        let column = views.filter { isLabel($0) && $0.frame.minX < controlColumn }
+        guard !column.isEmpty else { return }
+        let columnEnd = column.map(\.frame.maxX).filter { $0 <= controlColumn }.max() ?? controlColumn
         let needed = column.map { ceil(($0 as! NSTextField).fittingSize.width) }.max() ?? 0
         let shift = max(0, leadingMargin + needed - columnEnd)
         for view in views {

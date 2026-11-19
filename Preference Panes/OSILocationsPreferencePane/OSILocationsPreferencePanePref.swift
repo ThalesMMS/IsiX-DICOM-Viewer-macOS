@@ -423,7 +423,7 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
         // An https server is trusted the way the system trusts it, as the
         // retrieval itself does: a private CA is added to the Keychain, not
-        // waived here (docs/wado-https-trust.md).
+        // waived here.
 
         guard let url else {
             // -[NSData dataWithContentsOfURL:options:error:] raised on a nil URL,

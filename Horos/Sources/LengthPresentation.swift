@@ -37,8 +37,8 @@ public final class LengthPresentation: NSObject {
     @objc public static let changedNotification = "HorosLengthPresentationDidChange"
 
     /// The text of a length given in millimetres. `micrometres` lets the
-    /// automatic unit go below a millimetre's tenth; a renderer that draws
-    /// only ASCII passes false and gets millimetres instead.
+    /// automatic unit go below a millimetre's tenth; without it a length that
+    /// small stays in millimetres, and the text has no micro sign.
     public static func format(millimetres: Double, unit: LengthUnit, decimals: Int,
                               micrometres: Bool = true) -> String {
         let places = min(max(decimals, 0), maximumDecimals)
@@ -94,6 +94,9 @@ public final class LengthPresentation: NSObject {
         format(millimetres: centimetres * 10, unit: unit, decimals: decimals)
     }
 
+    /// The text of a length without the micro sign. Every text of the
+    /// application is drawn in any script and none asks for it any more; it
+    /// stays for the plugins built with the SDK that published it.
     @objc(asciiStringWithCentimetres:)
     public static func asciiString(centimetres: Double) -> String {
         format(millimetres: centimetres * 10, unit: unit, decimals: decimals, micrometres: false)

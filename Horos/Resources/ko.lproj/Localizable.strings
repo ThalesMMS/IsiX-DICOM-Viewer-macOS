@@ -1,4 +1,4 @@
-// Korean localization. Technical and ASCII overlay exceptions follow the host catalog contract.
+// Korean localization. Technical exceptions follow the host catalog contract.
 "\n - the same location for each image" = "\n - 각 영상의 위치가 동일함";
 "\n - the same number of images" = "\n - 영상 수가 동일함";
 "\n - the same pixels spacing" = "\n - 픽셀 간격이 동일함";
@@ -29,8 +29,7 @@
 " / Search: Study Description = %@" = " / 검색 : 검사 설명 = %@";
 " / Time Interval: from: %@ to: %@" = " / 시간 간격: 시작: %1$@ 종료: %2$@";
 " / Time Interval: since: %@" = " / 시간 간격: 이후:%@";
-/* No special characters for this string, only ASCII characters. */
-" Angle: %0.0f" = " Angle: %0.0f";
+" Angle: %0.0f" = " 각도: %0.0f";
 " DB" = " DB";
 " Your OsiriX files will not be modified during this process." = " OsiriX 파일은이 과정에서 수정되지 않습니다.";
 " and " = " 및 ";
@@ -227,7 +226,7 @@
 "16 bit unsigned grayscale big endian" = "16비트 부호 없는 그레이스케일 빅 엔디언";
 "16 bit unsigned grayscale little Endian" = "16비트 부호 없는 그레이스케일 리틀 엔디언";
 "16-bit" = "16 비트";
-"16-bit CLUT" = "16비트 CLUT";
+"16-bit CLUT" = "16-bit CLUT";
 "16-bit CLUT Editor" = "16비트 CLUT 편집기";
 "16-bit CLUTs" = "16비트 CLUT";
 "180 degrees" = "180도";
@@ -260,11 +259,11 @@
 "2D Growing Region (current image only)" = "2D 영역 확장 (현재 영상만)";
 "2D Orthogonal MPR" = "2D 직교 MPR";
 "2D Planes" = "2D 평면";
-"2D Pos: X:%0.3f %@ Y:%0.3f %@" = "2D Pos: X:%1$.3f %2$@ Y:%3$.3f %4$@";
-"2D Pos: X:%0.3f %@ Y:n/a %@" = "2D Pos: X:%1$.3f %2$@ Y:n/a %3$@";
-"2D Pos: X:%0.3f px Y:%0.3f px" = "2D Pos: X:%1$.3f px Y:%2$.3f px";
-"2D Pos: X:n/a %@ Y:%0.3f %@" = "2D Pos: X:n/a %1$@ Y:%2$.3f %3$@";
-"2D Pos: X:n/a %@ Y:n/a %@" = "2D Pos: X:n/a %1$@ Y:n/a %2$@";
+"2D Pos: X:%0.3f %@ Y:%0.3f %@" = "2D 위치: X:%1$.3f %2$@ Y:%3$.3f %4$@";
+"2D Pos: X:%0.3f %@ Y:n/a %@" = "2D 위치: X:%1$.3f %2$@ Y:n/a %3$@";
+"2D Pos: X:%0.3f px Y:%0.3f px" = "2D 위치: X:%1$.3f px Y:%2$.3f px";
+"2D Pos: X:n/a %@ Y:%0.3f %@" = "2D 위치: X:n/a %1$@ Y:%2$.3f %3$@";
+"2D Pos: X:n/a %@ Y:n/a %@" = "2D 위치: X:n/a %1$@ Y:n/a %2$@";
 "2D Result" = "2D 결과";
 "2D Series - Only Key Images" = "2D 시리즈 - 키 영상만";
 "2D Series, including:" = "2D 시리즈:";
@@ -313,7 +312,7 @@
 "3D Point" = "3D 포인트";
 "3D Point Tool" = "3D 포인트 도구";
 "3D Pos" = "3D 위치";
-"3D Pos: X:%0.3f mm Y:%0.3f mm Z:%0.3f mm" = "3D Pos: X:%1$.3f mm Y:%2$.3f mm Z:%3$.3f mm";
+"3D Pos: X:%0.3f mm Y:%0.3f mm Z:%0.3f mm" = "3D 위치: X:%1$.3f mm Y:%2$.3f mm Z:%3$.3f mm";
 "3D Position" = "3D 위치";
 "3D Position Panel" = "3D 위치 패널";
 "3D Presets" = "3D 사전 설정";
@@ -817,7 +816,7 @@
 "B" = "B";
 "B-C : %2.2f cm" = "B-C : %2.2f cm";
 "B-C: %@" = "B-C: %@";
-"B/W Inverse" = "흑백 반전";
+"B/W Inverse" = "B/W Inverse";
 "B: %@" = "B: %@";
 "BICEPS" = "BICEPS";
 "BILINEAR" = "BILINEAR";
@@ -836,7 +835,7 @@
 "Background operations are currently running. Are you sure you want to quit now? These operations will be cancelled." = "백그라운드 작업이 실행 중입니다. 지금 종료하시겠습니까? 이 작업은 취소됩니다.";
 "The database index is being rebuilt, and quitting now would leave it incomplete. Quitting goes on once the rebuild has ended." = "데이터베이스 인덱스를 다시 만드는 중이며, 지금 종료하면 인덱스가 불완전하게 남습니다. 다시 만들기가 끝나면 종료가 계속됩니다.";
 "Background:" = "배경:";
-"Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "Background: red:%1$.0f%%, green:%2$.0f%%, blue:%3$.0f%%";
+"Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%" = "배경: 빨강:%1$.0f%%, 녹색:%2$.0f%%, 파란색:%3$.0f%%";
 "Based on DICOM Validator - dciodvfy, by David A. Clunie :" = "DICOM 검증기 기반 - dciodvfy, David A. Clunie :";
 "Basic" = "기본 정보";
 "Basic (No Name)" = "기본 (이름 없음)";
@@ -919,9 +918,9 @@
 "CPR requires volumic data and BW images." = "CPR에는 볼륨 데이터와 흑백 영상이 필요합니다.";
 "CR" = "CR";
 "CT" = "CT";
-"CT - Bone" = "CT - 뼈";
-"CT - Metal" = "CT - 금속";
-"CT - Skin" = "CT - 피부";
+"CT - Bone" = "CT - Bone";
+"CT - Metal" = "CT - Metal";
+"CT - Skin" = "CT - Skin";
 "CUBIC" = "CUBIC";
 "Calcium Mass: %0.1f" = "칼슘 질량: %0.1f";
 "Calcium Score" = "칼슘 점수";
@@ -1062,7 +1061,7 @@
 "Colorprint" = "색깔 인쇄";
 "Columns:" = "열:";
 "Combine" = "결합";
-"Comments" = "메모";
+"Comments" = "댓글";
 "Comments & Status fields" = "댓글 및 상태 필드";
 "Comments 2" = "댓글 2";
 "Comments 3" = "댓글 3";
@@ -1451,7 +1450,7 @@
 "Do not ask again" = "다시 묻지 않음";
 "Do nothing: don't convert values and don't display SUV" = "아무것도 하지 않음: 값을 변환하지 않고 SUV를 표시하지 않음";
 "Do you confirm to DEFINITIVELY change this study identity to this new identity:\r\r%@ / %@ ?" = "이 검사 정보를 다음 새 정보로 영구 변경하시겠습니까:\r\r%1$@ / %2$@ ?";
-"Do you want IsiX DICOM Viewer to flag the dabase folder?" = "IsiX DICOM Viewer가 데이터베이스 폴더에 플래그를 지정하도록 하시겠습니까?";
+"Do you want IsiX DICOM Viewer to flag the database folder?" = "IsiX DICOM Viewer가 데이터베이스 폴더에 플래그를 지정하도록 하시겠습니까?";
 "Do you want to only remove the selected images from the current album or delete them from the database? (%@)" = "선택한 영상을 현재 앨범에서만 제거하시겠습니까, 아니면 데이터베이스에서 삭제하시겠습니까? (%@)";
 "Don't Propagate WL&WW Between Series" = "시리즈 간 WL&WW 전파 안 함";
 "Don't delete a study, if it is stored in an album (smart albums are not considered)" = "앨범에 저장된 검사는 삭제하지 않음 (스마트 앨범 제외)";
@@ -1691,11 +1690,14 @@
 "Film Orientation:" = "필름 방향:";
 "Film Size:" = "필름 크기:";
 "Filter" = "필터";
+"Filter: (none)" = "필터: (없음)";
+"Filter: %@" = "필터: %@";
 "Filter (Study Table Level):" = "필터 (검사 테이블 수준):";
 "Filter(s):\n." = "필터(s):\n.";
 "Filter:" = "필터:";
 "Filtering..." = "필터링 ...";
 "Filters" = "필터";
+"Filters: %@" = "필터: %@";
 "Final files size to burn: %3.2fMB" = "구울 최종 파일 크기: %3.2fMB";
 "Find Next Key Image" = "다음 키 영상 찾기";
 "Find Previous Key Image" = "이전 키 영상 찾기";
@@ -1757,8 +1759,7 @@
 "From" = "시작";
 "From 1 to 65535" = "1에서 65535까지";
 "From:" = "시작:";
-/* No special characters for this string, only ASCII characters. */
-"From: %d %% (%0.2f) to: %d %% (%0.2f)" = "From: %1$d %% (%2$.2f) to: %3$d %% (%4$.2f)";
+"From: %d %% (%0.2f) to: %d %% (%0.2f)" = "시작: %1$d %% (%2$.2f) 끝: %3$d %% (%4$.2f)";
 "Full" = "전체";
 "Full (Patient Name)" = "전체 (환자 이름)";
 "Full 16-bit BW" = "풀 16 비트 BW";
@@ -1768,15 +1769,13 @@
 "Full screen" = "전체 화면";
 "Fullscreen" = "전체 화면";
 "Fuse/De-Fuse PET/SPECT - CT" = "PET/SPECT - CT 융합/융합 해제";
-/* No special characters for this string, only ASCII characters. */
-"Fused Image : X: %d px Y: %d px Value: %2.2f %@" = "Fused Image : X: %1$d px Y: %2$d px Value: %3$.2f %4$@";
-/* No special characters for this string, only ASCII characters. */
-"Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "Fused Image : X: %1$d px Y: %2$d px Value: R:%3$ld G:%4$ld B:%5$ld";
+"Fused Image : X: %d px Y: %d px Value: %2.2f %@" = "융합 영상: X: %1$d px Y: %2$d px 값: %3$.2f %4$@";
+"Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "융합 영상: X: %1$d px Y: %2$d px 값: R:%3$ld G:%4$ld B:%5$ld";
 "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@" = "Fused Image Mean: %1$.3f%2$@ SDev: %3$.3f%4$@ Sum: %5$.0f%6$@";
 "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@" = "융합 영상 평균: %0.3f%@ SDev: %0.3f%@ 합계: %0.0f%@ 중앙값: %@%@";
 "Fused Image Min: %0.3f%@ Max: %0.3f%@" = "Fused Image Min: %1$.3f%2$@ Max: %3$.3f%4$@";
 "Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f" = "Fused Image Min: %1$.3f%2$@ Max: %3$.3f%4$@ Skewness: %5$.3f Kurtosis: %6$.3f";
-"Fused Image Value: %0.3f%@" = "Fused Image Value: %1$.3f%2$@";
+"Fused Image Value: %0.3f%@" = "융합 영상 값: %1$.3f%2$@";
 "Fused Series Only" = "융합된 시리즈 전용";
 "Fusion" = "융합";
 "Fusion : from 0% to 100% (in 20 images)" = "융합: 0%에서 100%까지(영상 20개)";
@@ -1942,9 +1941,7 @@
 "Ignore case sensitivity" = "대소문자 무시";
 "Ignore it" = "무시하기";
 "Illegal group / element values" = "잘못된 그룹/요소 값";
-/* No special characters for this string, only ASCII characters. */
 "Im: %ld-%ld/%ld %@" = "Im: %1$ld-%2$ld/%3$ld %4$@";
-/* No special characters for this string, only ASCII characters. */
 "Im: %ld/%ld %@" = "Im: %1$ld/%2$ld %3$@";
 "Image" = "영상";
 "Image %d" = "영상 %d";
@@ -2167,7 +2164,7 @@
 "LibreOffice is required to convert '.odt' reports to PDF. Please install the latest version of LibreOffice." = "'.odt' 보고서를 PDF로 변환하려면 LibreOffice가 필요합니다. LibreOffice 최신 버전을 설치하십시오.";
 "Limit to Same Study" = "동일한 검사로 제한";
 "Linear" = "선형";
-"Linear Table" = "선형 테이블";
+"Linear Table" = "Linear Table";
 "Linked original files will also be deleted." = "링크된 원본 파일도 삭제됩니다.";
 "Linked original files will be kept." = "링크 된 원본 파일은 보관됩니다.";
 "List of SOP Class UIDs displayed: " = "표시된 SOP 클래스 UID 목록: ";
@@ -2223,7 +2220,7 @@
 "Locked studies and studies in albums are protected. Date cleanup excludes studies added in the last 7 days; space cleanup excludes the last 2 hours." = "잠긴 검사와 앨범 속 검사는 보호됩니다. 날짜 정리는 최근 7일 동안 추가된 검사를, 공간 정리는 최근 2시간을 제외합니다.";
 "Locking database..." = "데이터베이스를 잠그는 중...";
 "Log" = "로그";
-"Logarithmic Inverse Table" = "로그 역 테이블";
+"Logarithmic Inverse Table" = "Logarithmic Inverse Table";
 "Login here:<br>" = "로그인:<br>";
 "Logs" = "로그";
 "Logs - External IPs" = "로그 - 외부 IP";
@@ -2300,8 +2297,7 @@
 "Mean" = "평균";
 "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@" = "평균: %1$.3f%2$@ SDev: %3$.3f%4$@ 합계: %5$.0f%6$@";
 "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@" = "평균: %0.3f%@ SDev: %0.3f%@ 합계: %0.0f%@ 중앙값: %@%@";
-/* ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS */
-"Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f" = "Mean: %1$.2f SDev: %2$.2f\nMin: %3$.2f Max: %4$.2f";
+"Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f" = "평균: %1$.2f 표준편차: %2$.2f\n최소: %3$.2f 최대: %4$.2f";
 "Measure Angle Tool" = "각도 측정 도구";
 "Measure Between Slices (Projection vs 3D)" = "단면 사이 측정 (투영 대 3D)";
 "Measure Length Tool" = "길이 측정 도구";
@@ -2436,14 +2432,14 @@
 "Next/Previous Series" = "다음/이전 시리즈";
 "No" = "아니요";
 "No 'Propagate settings in series' for:" = "시리즈 설정 전파 제외:";
-"No CLUT" = "CLUT 없음";
+"No CLUT" = "No CLUT";
 "No Compression" = "압축 없음";
 "No DICOM destinations available. See Preferences to add DICOM locations." = "DICOM 대상이 없습니다. DICOM 위치를 추가하려면 설정을 참조하십시오.";
 "No DICOM files in this selection." = "이 선택에는 DICOM 파일이 없습니다.";
 "No DICOM locations available. See Preferences to add DICOM locations." = "사용 가능한 DICOM 위치가 없습니다. DICOM 위치를 추가하려면 기본 설정을 참조하세요.";
 "No DICOM printers were found, please add a dicom printer in the preferences." = "DICOM 프린터를 찾지 못했습니다. 환경설정에서 DICOM 프린터를 추가하십시오.";
 "No Files" = "파일 없음";
-"No Filter" = "필터 없음";
+"No Filter" = "No Filter";
 "No Filters" = "필터 없음";
 "No Groups" = "그룹 없음";
 "No Horos plugin server available." = "Horos 플러그인 서버가 없습니다.";
@@ -2573,7 +2569,7 @@
 "Only Secondary Captures (SC)" = "2차 캡처만 (SC)";
 "Only accept WADO request from identified user" = "식별된 사용자로부터 WADO 요청만 허용";
 "Only display images of the same patient" = "동일한 환자의 영상만 표시";
-"Only if 'comments' field:" = "'메모' 필드가 다음과 같은 경우에만:";
+"Only if 'comments' field:" = "'댓글' 필드가 다음과 같은 경우에만:";
 "Only if not stored in an album" = "앨범에 저장되지 않은 경우에만 해당";
 "Only key images" = "키 영상만";
 "Only studies with ROIs or segmentations" = "ROI 또는 분할이 있는 검사만";
@@ -3182,11 +3178,9 @@
 "SR" = "SR";
 "STERNUM" = "STERNUM";
 "SUV" = "SUV";
-/* SUV: Standard Uptake Value - No special characters for this string, only ASCII characters. */
-"SUV (fused image): %.2f" = "SUV (fused image): %.2f";
+"SUV (fused image): %.2f" = "SUV (융합 영상): %.2f";
 "SUV Computation" = "SUV 계산";
 "SUV Error" = "SUV 오류";
-/* SUV: Standard Uptake Value - No special characters for this string, only ASCII characters. */
 "SUV: %.2f" = "SUV: %.2f";
 "Sagittal" = "시상면";
 "Sagittal Left" = "왼쪽 시상면";
@@ -4201,10 +4195,8 @@
 "X only Axis Rotation - 36 frames" = "X축만 회전 - 36 프레임";
 "X-Vector:" = "X 벡터:";
 "X-Y Plot" = "X-Y 그래프";
-/* No special characters for this string, only ASCII characters. */
-"X: %d px Y: %d px Value: %2.2f %@" = "X: %1$d px Y: %2$d px Value: %3$.2f %4$@";
-/* No special characters for this string, only ASCII characters. */
-"X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "X: %1$d px Y: %2$d px Value: R:%3$ld G:%4$ld B:%5$ld";
+"X: %d px Y: %d px Value: %2.2f %@" = "X: %1$d px Y: %2$d px 값: %3$.2f %4$@";
+"X: %d px Y: %d px Value: R:%ld G:%ld B:%ld" = "X: %1$d px Y: %2$d px 값: R:%3$ld G:%4$ld B:%5$ld";
 "XA" = "XA";
 "XC" = "XC";
 "XML cannot preserve a Length between slices. Use Export ROIs as JSON or save the ROI archive instead." = "XML은 슬라이스 간 길이를 보존할 수 없습니다. 대신 'ROI를 JSON으로 내보내기'를 사용하거나 ROI 아카이브를 저장하십시오.";
@@ -4224,7 +4216,7 @@
 "Yesterday RF" = "어제 RF";
 "Yesterday US" = "어제 US";
 "Yesterday XA" = "어제 XA";
-"You can manually disable iCloud Drive in your macOS iCloud settings (recommended). Alternativelly, IsiX DICOM Viewer can flag the database folder making it ineligible for iCloud Drive synchronization (experimental)." = "macOS의 iCloud 설정에서 iCloud Drive를 직접 비활성화할 수 있습니다(권장). 또는 IsiX DICOM Viewer가 데이터베이스 폴더를 iCloud Drive 동기화 대상에서 제외하도록 표시할 수 있습니다(실험적 기능).";
+"You can manually disable iCloud Drive in your macOS iCloud settings (recommended). Alternatively, IsiX DICOM Viewer can flag the database folder making it ineligible for iCloud Drive synchronization (experimental)." = "macOS의 iCloud 설정에서 iCloud Drive를 직접 비활성화할 수 있습니다(권장). 또는 IsiX DICOM Viewer가 데이터베이스 폴더를 iCloud Drive 동기화 대상에서 제외하도록 표시할 수 있습니다(실험적 기능).";
 "You can only edit the 'Content' column." = "'내용' 열만 편집할 수 있습니다.";
 "You cannot delete the default protocol" = "기본 프로토콜을 삭제할 수 없습니다.";
 "You cannot modify a Distant Database." = "원격 데이터베이스는 수정할 수 없습니다.";
@@ -4251,8 +4243,7 @@
 "Zoom Tool" = "줌 도구";
 "Zoom centered around mouse position" = "마우스 위치를 중심으로 확대/축소";
 "Zoom with horizontal scrollwheel" = "수평 스크롤 휠로 확대/축소";
-/* No special characters for this string, only ASCII characters. */
-"Zoom: %0.0f%%" = "Zoom: %0.0f%%";
+"Zoom: %0.0f%%" = "확대/축소: %0.0f%%";
 "[]+[*]    choose the current image as mask" = "[]+[*]    현재 영상을 마스크로 선택";
 "[]+[/]     On/Off Digital Subtraction Angiography" = "[]+[/]     디지털 감산 혈관조영 켜기/끄기";
 "[]+[1]    pixel shift SW" = "[]+[1]    픽셀 이동 SW";
@@ -4572,7 +4563,7 @@
 "Length: %@" = "길이: %@";
 "3D Length: %@" = "3D 길이: %@";
 "Length 3D: %@" = "3D 길이: %@";
-"Length: %@ " = "Length: %@ ";
+"Length: %@ " = "길이: %@ ";
 "   Measurement: %@ " = "   측정: %@ ";
 "Length unit:" = "길이 단위:";
 "Automatic" = "자동";
@@ -4659,13 +4650,13 @@
 "Save this report to keep a record of your feedback. Click Details to see what it contains." = "의견을 기록해 두려면 이 보고서를 저장하십시오. 내용을 보려면 세부사항을 클릭하십시오.";
 "Statistics shown:" = "표시할 통계:";
 "Mean: %0.3f%@" = "평균: %0.3f%@";
-"SDev: %0.3f%@" = "SDev: %0.3f%@";
+"SDev: %0.3f%@" = "표준편차: %0.3f%@";
 "Sum: %0.0f%@" = "합계: %0.0f%@";
 "Median: %@%@" = "중앙값: %@%@";
 "Min: %0.3f%@" = "최소: %0.3f%@";
 "Max: %0.3f%@" = "최대: %0.3f%@";
-"Skewness: %0.3f Kurtosis: %0.3f" = "Skewness: %0.3f Kurtosis: %0.3f";
-"Fused Image" = "Fused Image";
+"Skewness: %0.3f Kurtosis: %0.3f" = "왜도: %0.3f 첨도: %0.3f";
+"Fused Image" = "융합 영상";
 "(W: %@ H: %@)" = "(W: %@ H: %@)";
 "Previous" = "이전";
 "Show \"Previous\" on older studies" = "더 오래된 검사에 '이전' 표시";
@@ -5029,7 +5020,7 @@
 "Area (ROI statistic)" = "면적";
 "W/H (ROI statistic)" = "W/H";
 "Mean (ROI statistic)" = "평균";
-"SDev (ROI statistic)" = "SDev";
+"SDev (ROI statistic)" = "표준편차";
 "Sum (ROI statistic)" = "합계";
 "Median (ROI statistic)" = "중앙값";
 "Min (ROI statistic)" = "최소";
@@ -5165,3 +5156,12 @@
 "The server accepted the test message for %@." = "서버가 %@ 앞으로 보낸 테스트 메시지를 받았습니다.";
 "The test message was not sent. %@" = "테스트 메시지를 보내지 못했습니다. %@";
 "No TLS" = "TLS 사용 안 함";
+"Stop synchronizing the IsiX DICOM Viewer database with iCloud Drive?" = "IsiX DICOM Viewer 데이터베이스의 iCloud Drive 동기화를 중단하시겠습니까?";
+"The database and its image files will be moved from “%@” to “%@”. IsiX DICOM Viewer restarts when the move is finished." = "데이터베이스와 이미지 파일이 “%1$@”에서 “%2$@”(으)로 이동됩니다. 이동이 끝나면 IsiX DICOM Viewer가 재시작됩니다.";
+"MinIP" = "MinIP";
+"VR Up" = "VR 위";
+"VR Down" = "VR 아래";
+"%d image" = "%d 영상";
+"Retrieve (button)" = "가져오기";
+"Navigate in the series" = "시리즈 내 탐색";
+"VOI LUT Applied" = "VOI LUT 적용됨";

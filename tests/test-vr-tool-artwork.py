@@ -43,7 +43,7 @@ def code(text):
 
 
 # The cells: enabled, with the black artwork, in the tools matrix of both nibs.
-for locale in ('en', 'ja-JP'):
+for locale in ('en',):
     document = ET.fromstring(read(f'Horos/Resources/{locale}.lproj/VR.xib'))
     matrix = document.find('.//matrix[@id="243"]')
     if matrix is None:

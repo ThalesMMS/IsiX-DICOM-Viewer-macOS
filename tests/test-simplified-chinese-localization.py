@@ -33,7 +33,7 @@ for key, value in zh.items():
     assert value or not original, f'Empty translation: {key}'
     # Positional and line-break binding formats must also remain intact.
     assert Counter(re.findall(r'%\{value\d+\}@', original)) == Counter(re.findall(r'%\{value\d+\}@', value)), repr(key)
-TECHNICAL_UI = {'WL / WW', 'WL/WW & CLUT', 'WL: WW:', 'LibreOffice (.odt)', 'Pages (.pages)', 'Power Crust', 'REPLICATE', 'RLE', 'SQL', 'Soundex', 'TLS', 'asdasd', 'dd/bb/cc', 'wado', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS', 'DICOMCD', 'WL/WW', '3D VR', '3D MPR', '<< do not localize >>', '3D MIP', 'OsiriX CT - 129', 'ROI 1', 'TRUEPREDICATE', '3D SR', 'Delaunay', 'Papyrus', 'WL/WW:', 'DICOM 1', '<<do not localize window title>>', 'HTTPS', 'Mail.app', 'asdasdasdqq', 'https://www.preferences-server.com/preferences.plist'}
+TECHNICAL_UI = {'10 im/s', '10 im/s\n', '60 im/s', '%{value1}@ im/s', 'WL / WW', 'WL/WW & CLUT', 'WL: WW:', 'LibreOffice (.odt)', 'Pages (.pages)', 'Power Crust', 'REPLICATE', 'RLE', 'SQL', 'Soundex', 'TLS', 'asdasd', 'dd/bb/cc', 'wado', 'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS', 'DICOMCD', 'WL/WW', '3D VR', '3D MPR', '<< do not localize >>', '3D MIP', 'OsiriX CT - 129', 'ROI 1', 'TRUEPREDICATE', '3D SR', 'Delaunay', 'Papyrus', 'WL/WW:', 'DICOM 1', '<<do not localize window title>>', 'HTTPS', 'Mail.app', 'asdasdasdqq', 'https://www.preferences-server.com/preferences.plist'}
 for key, value in zh.items():
     original = en.get(key, key)
     assert value != original or residual.is_residual(key, original) or key in TECHNICAL_UI or re.fullmatch(r'(?:https?://|www\.)[A-Za-z0-9./?=&_%+:#~-]+', original), f'Untranslated text: {key}'
@@ -42,9 +42,6 @@ for key, value in zh.items():
     original = en.get(key, key)
     assert Counter(x.rstrip('.') for x in URL.findall(original)) == Counter(x.rstrip('.') for x in URL.findall(value)), f'Changed URL: {key}'
     assert Counter(re.findall(r'</?(?:a|b|br|i|u|strong|em|span|font|p|div|html|head|body)(?:\s[^>]*|/)?>', original)) == Counter(re.findall(r'</?(?:a|b|br|i|u|strong|em|span|font|p|div|html|head|body)(?:\s[^>]*|/)?>', value)), f'Changed markup: {key}'
-for key in residual.english_comments():
-    assert zh[key].isascii(), f'Legacy overlay requires ASCII: {key}'
-
 VISIBLE = {'title', 'label', 'toolTip', 'placeholderString', 'alternateTitle', 'stringValue', 'paletteLabel', 'headerToolTip'}
 STRING_KEYS = VISIBLE | {'NSDisplayName', 'NSDisplayPattern', 'NSNullPlaceholder', 'NSNoSelectionPlaceholder'}
 def structure(node):
@@ -108,4 +105,4 @@ for value in strings.values {
 }
 print("PASS: Foundation locale resolution and \(characters.count) CJK glyphs in the system font cascade")
 '''], input=json.dumps(zh, ensure_ascii=False), text=True, check=True)
-print(f'PASS: {len(zh)} keys, formats and ASCII overlays; {len(sources)} current XIBs preserve structure and match catalog. Fluent review/build/app QA remain separate.')
+print(f'PASS: {len(zh)} keys and formats; {len(sources)} current XIBs preserve structure and match catalog. Fluent review/build/app QA remain separate.')

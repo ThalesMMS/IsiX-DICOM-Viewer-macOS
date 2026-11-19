@@ -21,8 +21,9 @@ import PreferencePanes
 /// buttons, radio buttons and tabs, labels, placeholders, tooltips, the items
 /// of a pop-up (and so the item it shows), the labels of segments and toolbar
 /// items, the headers of table columns with the items of their pop-up cells,
-/// and the names a search field's predicate bindings give its menu and
-/// placeholder. A text the catalog lacks stays as it is.
+/// the names a search field's predicate bindings give its menu and
+/// placeholder, and the pattern a label's bindings write their values into.
+/// A text the catalog lacks stays as it is.
 ///
 /// What a binding gives is data, not a text of the nib, and is left alone: a
 /// label's value, a button's title and the items of a pop-up whose content or
@@ -133,6 +134,7 @@ enum CatalogTranslation {
             // Read before the predicate bindings are bound again, which shows the first one's (translated) name.
             let placeholder = field.placeholderString
             if let search = field as? NSSearchField { translatePredicateNames(of: search, with: catalog) }
+            translateDisplayPattern(of: field, with: catalog)
             if let placeholder { field.placeholderString = text(placeholder, catalog) }
             if !field.isEditable && !isBound(field, [.value]) { field.stringValue = text(field.stringValue, catalog) }
         default:
@@ -167,6 +169,36 @@ enum CatalogTranslation {
             guard let observed = binding.info[.observedObject], let keyPath = binding.info[.observedKeyPath] as? String else { continue }
             var bound = options(binding.info)
             if let shown = bound[.displayName] as? String { bound[.displayName] = text(shown, catalog) }
+            field.bind(binding.name, to: observed, withKeyPath: keyPath, options: bound)
+        }
+    }
+}
+
+extension CatalogTranslation {
+    /// The bindings `displayPatternValue1`, `displayPatternValue2`, ... of a label write the values they give into
+    /// one pattern ("%{value1}@ out of %{value2}@"), which is a text of the nib: they are bound again, to the same
+    /// objects and key paths, with the catalog's pattern. A pattern the catalog lacks, or one that lost a value in
+    /// its translation, stays as it is.
+    fileprivate static func translateDisplayPattern(of field: NSTextField, with catalog: (String) -> String) {
+        var bindings: [(name: NSBindingName, info: [NSBindingInfoKey: Any])] = []
+        while true {
+            let name = NSBindingName("displayPatternValue\(bindings.count + 1)")
+            guard let info = field.infoForBinding(name) else { break }
+            bindings.append((name, info))
+        }
+        func options(_ info: [NSBindingInfoKey: Any]) -> [NSBindingOption: Any] {
+            (info[.options] as? [NSBindingOption: Any] ?? [:]).filter { !($0.value is NSNull) }
+        }
+        guard let first = bindings.first, let pattern = options(first.info)[.displayPattern] as? String, !pattern.isEmpty else { return }
+        let translated = catalog(pattern)
+        guard translated != pattern,
+              bindings.indices.allSatisfy({ translated.contains("%{value\($0 + 1)}@") }) else { return }
+        // Each binding after the first belongs to the one before it: they are unbound from the last and bound again in order.
+        for binding in bindings.reversed() { field.unbind(binding.name) }
+        for binding in bindings {
+            guard let observed = binding.info[.observedObject], let keyPath = binding.info[.observedKeyPath] as? String else { continue }
+            var bound = options(binding.info)
+            bound[.displayPattern] = translated
             field.bind(binding.name, to: observed, withKeyPath: keyPath, options: bound)
         }
     }
@@ -378,6 +410,36 @@ enum PaneFit {
             table.enclosingScrollView?.hasHorizontalScroller = true
             table.enclosingScrollView?.autohidesScrollers = true
         }
+    }
+
+    /// Widens each column of a table whose header needs more than the column
+    /// has, and takes the room from no other column: the widths are a layout
+    /// the user saved, under the headers of another language or before any
+    /// header was fitted, and only a column that cuts its header changes. The
+    /// column the table is sorted by draws the sort indicator beside its
+    /// header, and needs room for both. A table that grows wider than its
+    /// view scrolls. Returns whether a column was widened.
+    @discardableResult
+    static func widenColumnsToHeaders(of table: NSTableView) -> Bool {
+        let sortedBy = table.sortDescriptors.first?.key
+        let headerHeight = table.headerView?.frame.height ?? 0
+        var widened = false
+        for column in table.tableColumns where !column.isHidden && !column.title.isEmpty {
+            var needed = column.headerCell.cellSize.width
+            if let sortedBy, column.sortDescriptorPrototype?.key == sortedBy {
+                needed += column.headerCell.sortIndicatorRect(forBounds: NSRect(x: 0, y: 0, width: needed, height: headerHeight)).width
+            }
+            needed = ceil(needed)
+            guard needed > column.width else { continue }
+            if column.maxWidth < needed { column.maxWidth = needed }
+            column.width = needed
+            widened = true
+        }
+        if widened, let scroll = table.enclosingScrollView, table.frame.width > scroll.contentSize.width {
+            scroll.hasHorizontalScroller = true
+            scroll.autohidesScrollers = true
+        }
+        return widened
     }
 
     /// Fits the columns of every table in `view` (see `fitColumns(of:)`).

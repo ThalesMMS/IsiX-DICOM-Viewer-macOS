@@ -43,7 +43,8 @@ VIEWS = {
     'WLWW2D': '140', 'WLWW3D': '106', 'Tools2D': '58', 'Tools3D': '40',
     'Shading': '280', 'LOD': '310',
 }
-LOCALES = ('en', 'ja-JP')
+# Japanese has no copy of the nib: the English one loads there, with its texts read from the catalog.
+LOCALES = ('en',)
 
 
 def read(relative):

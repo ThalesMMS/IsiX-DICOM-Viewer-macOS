@@ -192,6 +192,9 @@ import IsiXInstallation
         try HorosNativeInstallOperations.shellQuote(source.path).write(to: root.appendingPathComponent("quoted.txt"), atomically: true, encoding: .utf8)
         try HorosNativeInstallOperations.relaunchScript(source, pid: 2147483646, diskImage: "/dev/synthetic's disk")
             .write(to: root.appendingPathComponent("relaunch.txt"), atomically: true, encoding: .utf8)
+        try HorosNativeInstallOperations.relaunchScript(source, pid: 2147483646, diskImage: nil,
+                                                        arguments: ["-DATABASELOCATIONURL", "/Volumes/It's here/a b", "-flag", ""])
+            .write(to: root.appendingPathComponent("relaunch-arguments.txt"), atomically: true, encoding: .utf8)
     }
 }
 '''
@@ -288,4 +291,9 @@ with tempfile.TemporaryDirectory(prefix='horos-installation-') as folder:
         subprocess.run(['/bin/sh', '-c', script], env={**os.environ, 'INSTALL_RECORD': str(record)}, check=True, timeout=5)
         assert record.read_text().splitlines() == [str(app), 'detach', "/dev/synthetic's disk"]
         assert 'xattr' not in script
+        # A restart gives the copy the arguments of the launch, each one whole.
+        record.unlink()
+        script = (folder / 'relaunch-arguments.txt').read_text().replace('/usr/bin/open', str(fake_open))
+        subprocess.run(['/bin/sh', '-c', script], env={**os.environ, 'INSTALL_RECORD': str(record)}, check=True, timeout=5)
+        assert record.read_text().split('\n') == [str(app), '--args', '-DATABASELOCATIONURL', "/Volumes/It's here/a b", '-flag', '', '']
         print('PASS: generated relaunch/DMG detach argument quoting executed with disposable command substitutes; quarantine untouched')

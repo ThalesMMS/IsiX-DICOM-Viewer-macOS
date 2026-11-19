@@ -355,6 +355,9 @@ private struct ConvolvedSlices: @unchecked Sendable {
 
     /// Applies the opacity table `name`: "Linear Table" or a stored table.
     func applyOpacityTable(_ name: String?, in viewer: ViewerController) {
+        // The linear table a preference holds in the words a language once
+        // had for it, under the name the menu lists.
+        let name = AnyLanguage.tableName(stored: name)
         if AnyLanguage.says(name, "Linear Table") {
             viewer.horos_thickSlab?.setOpacity([])
 

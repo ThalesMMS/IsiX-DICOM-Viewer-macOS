@@ -713,7 +713,9 @@ with tempfile.TemporaryDirectory(prefix='horos-xml-editor-') as tmp:
             # The editor reads its preferences through the process graph.
             # The guards the editor puts around what may raise: HorosObjCException.caught.
             swift = [SOURCES / 'XMLController.swift', SOURCES / 'XMLController+DICOMEditing.swift', SOURCES / 'XMLEditingToolbarItem.swift', *helpers,
-                     SOURCES / 'HorosObjCException+Guards.swift', work / 'ToolbarPolicy.swift', process_graph_stand_in.source(work)]
+                     SOURCES / 'HorosObjCException+Guards.swift', work / 'ToolbarPolicy.swift', process_graph_stand_in.source(work),
+                     # The window loads its nib through these.
+                     SOURCES / 'WindowNibCatalog.swift', SOURCES.parents[1] / 'Preference Panes/PaneCatalogTranslation.swift']
             if 'removeReplacedRows(' in (SOURCES / 'XMLController.swift').read_text(encoding='utf-8'):
                 swift.append(work / 'EditedFiles.swift')
             (work / 'bridge.h').write_text('#define HOROS_BRIDGING_HEADER 1\n#import "stubs.h"\n'

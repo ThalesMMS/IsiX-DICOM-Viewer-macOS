@@ -177,8 +177,7 @@ EXPECTED = json.loads(r'''{
   "Horos/Sources/BrowserController+DatabaseMaintenance.swift": [
     [
       "csv",
-      "txt",
-      "numbers"
+      "txt"
     ]
   ],
   "Horos/Sources/OrthogonalMPRPETCTViewer.swift": [

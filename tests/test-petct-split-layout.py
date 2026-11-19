@@ -703,7 +703,7 @@ with tempfile.TemporaryDirectory(prefix='horos-petct-split-') as folder:
              and run(['xcrun', 'swiftc', str(work / 'harness.o'), str(work / 'kf.o'),
                       *isix_modules.module_flags('IsiXPreferences', work / 'isix'),
                       '-framework', 'Cocoa', '-o', str(work / 'harness')], 'the harness link'))
-    for locale in ('en', 'ja-JP') if built else ():
+    for locale in ('en',) if built else ():
         xib = work / f'{locale}.xib'
         xib.write_text(window_xib(read(f'Horos/Resources/{locale}.lproj/PETCT.xib')))
         nib = resources / f'{locale}.nib'

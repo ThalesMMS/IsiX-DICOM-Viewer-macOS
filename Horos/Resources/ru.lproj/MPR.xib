@@ -118,14 +118,14 @@
         </objectController>
         <window title="Экспорт DICOM" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="413" userLabel="exportDCM">
             <windowStyleMask key="styleMask" titled="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="608" height="435"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="674" height="435"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <view key="contentView" id="414">
-                <rect key="frame" x="0.0" y="0.0" width="608" height="435"/>
+                <rect key="frame" x="0.0" y="0.0" width="674" height="435"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button verticalHuggingPriority="750" tag="1" id="420">
-                        <rect key="frame" x="505" y="7" width="97" height="32"/>
+                        <rect key="frame" x="571" y="7" width="97" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="OK" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="465">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -139,7 +139,7 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="419">
-                        <rect key="frame" x="408" y="7" width="97" height="32"/>
+                        <rect key="frame" x="474" y="7" width="97" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="push" title="Отмена" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="466">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -153,10 +153,10 @@ Gw
                         </connections>
                     </button>
                     <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="428">
-                        <rect key="frame" x="98" y="291" width="228" height="58"/>
+                        <rect key="frame" x="153" y="291" width="294" height="58"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="226" height="18"/>
+                        <size key="cellSize" width="294" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="429">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -186,10 +186,10 @@ Gw
                         </connections>
                     </matrix>
                     <box title="Название" titlePosition="noTitle" id="426">
-                        <rect key="frame" x="38" y="60" width="561" height="225"/>
+                        <rect key="frame" x="38" y="60" width="627" height="225"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="63Y-Ni-i6L">
-                            <rect key="frame" x="2" y="2" width="557" height="221"/>
+                            <rect key="frame" x="2" y="2" width="623" height="221"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" id="476">
@@ -224,7 +224,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <slider verticalHuggingPriority="750" id="441">
-                                    <rect key="frame" x="189" y="168" width="319" height="17"/>
+                                    <rect key="frame" x="189" y="168" width="385" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" continuous="YES" alignment="left" minValue="1" maxValue="360" doubleValue="40" tickMarkPosition="below" numberOfTickMarks="60" sliderType="linear" id="442">
                                         <font key="font" size="12" name="Helvetica"/>
@@ -244,7 +244,7 @@ Gw
                                     </connections>
                                 </slider>
                                 <slider verticalHuggingPriority="750" id="485">
-                                    <rect key="frame" x="162" y="88" width="378" height="17"/>
+                                    <rect key="frame" x="162" y="88" width="444" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" continuous="YES" alignment="left" maxValue="256" doubleValue="10" tickMarkPosition="below" numberOfTickMarks="32" sliderType="linear" id="486">
                                         <font key="font" size="12" name="Helvetica"/>
@@ -268,7 +268,7 @@ Gw
                                     </connections>
                                 </slider>
                                 <slider verticalHuggingPriority="750" id="489">
-                                    <rect key="frame" x="301" y="37" width="189" height="17"/>
+                                    <rect key="frame" x="325" y="37" width="189" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" continuous="YES" alignment="left" minValue="1" maxValue="200" doubleValue="40" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="490">
                                         <font key="font" size="12" name="Helvetica-Bold"/>
@@ -303,7 +303,7 @@ Gw
                                     </connections>
                                 </slider>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="440">
-                                    <rect key="frame" x="61" y="168" width="123" height="17"/>
+                                    <rect key="frame" x="38" y="168" width="146" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Количество кадров:" id="443">
                                         <font key="font" metaFont="system"/>
@@ -324,7 +324,7 @@ Gw
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="487">
-                                    <rect key="frame" x="65" y="38" width="92" height="17"/>
+                                    <rect key="frame" x="56" y="38" width="101" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Интервал (мм):" id="488">
                                         <font key="font" metaFont="system"/>
@@ -333,7 +333,7 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" id="439">
-                                    <rect key="frame" x="510" y="168" width="40" height="17"/>
+                                    <rect key="frame" x="576" y="168" width="40" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="40" id="444">
                                         <font key="font" metaFont="system"/>
@@ -345,7 +345,7 @@ Gw
                                     </connections>
                                 </textField>
                                 <slider verticalHuggingPriority="750" id="499">
-                                    <rect key="frame" x="162" y="63" width="378" height="17"/>
+                                    <rect key="frame" x="162" y="63" width="444" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" continuous="YES" alignment="left" maxValue="256" doubleValue="40" tickMarkPosition="below" numberOfTickMarks="32" sliderType="linear" id="504">
                                         <font key="font" size="12" name="Helvetica"/>
@@ -381,7 +381,7 @@ Gw
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="497">
-                                    <rect key="frame" x="498" y="35" width="49" height="19"/>
+                                    <rect key="frame" x="522" y="35" width="49" height="19"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="center" title="40" drawsBackground="YES" id="498">
                                         <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.##" negativeFormat="#.##" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="5" maximumFractionDigits="2" decimalSeparator="." groupingSeparator="'" currencySymbol="¤" internationalCurrencySymbol="¤¤" currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix="" negativePrefix="-" negativeSuffix="" id="1145">
@@ -434,10 +434,10 @@ Gw
                                     </connections>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="438">
-                                    <rect key="frame" x="189" y="122" width="101" height="38"/>
+                                    <rect key="frame" x="189" y="122" width="112" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="101" height="18"/>
+                                    <size key="cellSize" width="112" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="447">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -470,7 +470,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="437">
-                                    <rect key="frame" x="122" y="143" width="62" height="17"/>
+                                    <rect key="frame" x="111" y="143" width="73" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Вращение:" id="448">
                                         <font key="font" metaFont="system"/>
@@ -479,10 +479,10 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="641">
-                                    <rect key="frame" x="369" y="122" width="88" height="38"/>
+                                    <rect key="frame" x="402" y="122" width="128" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="88" height="18"/>
+                                    <size key="cellSize" width="128" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="644">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -515,7 +515,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" id="642">
-                                    <rect key="frame" x="298" y="143" width="66" height="17"/>
+                                    <rect key="frame" x="305" y="143" width="92" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Направление:" id="643">
                                         <font key="font" metaFont="system"/>
@@ -524,7 +524,7 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <button id="493">
-                                    <rect key="frame" x="160" y="37" width="136" height="18"/>
+                                    <rect key="frame" x="160" y="37" width="160" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="То же, что и толщина" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="494">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -549,7 +549,7 @@ Gw
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="505">
-                                    <rect key="frame" x="34" y="13" width="123" height="17"/>
+                                    <rect key="frame" x="11" y="13" width="146" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Количество кадров:" id="506">
                                         <font key="font" metaFont="system"/>
@@ -586,7 +586,7 @@ Gw
                         </view>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="425">
-                        <rect key="frame" x="98" y="400" width="184" height="22"/>
+                        <rect key="frame" x="153" y="400" width="184" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" continuous="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" title="3D MPR" drawsBackground="YES" id="456">
                             <font key="font" metaFont="system"/>
@@ -598,7 +598,7 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="424">
-                        <rect key="frame" x="9" y="403" width="84" height="17"/>
+                        <rect key="frame" x="6" y="403" width="142" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Название серии:" id="457">
                             <font key="font" metaFont="system"/>
@@ -607,7 +607,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="423">
-                        <rect key="frame" x="25" y="332" width="68" height="17"/>
+                        <rect key="frame" x="6" y="332" width="142" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Последовательность:" id="458">
                             <font key="font" metaFont="system"/>
@@ -616,7 +616,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="422">
-                        <rect key="frame" x="301" y="403" width="34" height="17"/>
+                        <rect key="frame" x="342" y="403" width="66" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Размер:" id="459">
                             <font key="font" metaFont="system"/>
@@ -625,7 +625,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="894">
-                        <rect key="frame" x="282" y="375" width="53" height="17"/>
+                        <rect key="frame" x="326" y="375" width="82" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Формат:" id="895">
                             <font key="font" metaFont="system"/>
@@ -634,7 +634,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="421">
-                        <rect key="frame" x="337" y="397" width="91" height="26"/>
+                        <rect key="frame" x="410" y="397" width="91" height="26"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="Текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="463" id="460">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -657,7 +657,7 @@ Gw
                         </connections>
                     </popUpButton>
                     <button horizontalCompressionResistancePriority="1000" id="418">
-                        <rect key="frame" x="14" y="9" width="286" height="18"/>
+                        <rect key="frame" x="14" y="9" width="330" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="После экспорта отправить их на узел DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="467">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -668,7 +668,7 @@ Gw
                         </connections>
                     </button>
                     <button horizontalCompressionResistancePriority="1000" id="417">
-                        <rect key="frame" x="14" y="33" width="182" height="18"/>
+                        <rect key="frame" x="14" y="33" width="290" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Отметить их как ключевые изображения" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="468">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -679,10 +679,10 @@ Gw
                         </connections>
                     </button>
                     <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="896">
-                        <rect key="frame" x="340" y="354" width="200" height="38"/>
+                        <rect key="frame" x="412" y="354" width="250" height="38"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="200" height="18"/>
+                        <size key="cellSize" width="250" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="897">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -710,7 +710,7 @@ Gw
                         </connections>
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="436">
-                        <rect key="frame" x="40" y="375" width="53" height="17"/>
+                        <rect key="frame" x="6" y="375" width="142" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Качество:" id="449">
                             <font key="font" metaFont="system"/>
@@ -719,10 +719,10 @@ Gw
                         </textFieldCell>
                     </textField>
                     <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="435">
-                        <rect key="frame" x="98" y="354" width="119" height="38"/>
+                        <rect key="frame" x="153" y="354" width="150" height="38"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="119" height="18"/>
+                        <size key="cellSize" width="150" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="452">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -745,7 +745,7 @@ Gw
                         </connections>
                     </matrix>
                     <button horizontalCompressionResistancePriority="1000" id="1150">
-                        <rect key="frame" x="338" y="331" width="125" height="18"/>
+                        <rect key="frame" x="410" y="331" width="202" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Включить все виды" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1151">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -760,15 +760,15 @@ Gw
         </window>
         <window title="Затенение" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" hidesOnDeactivate="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="525" userLabel="shading Panel" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" utility="YES" nonactivatingPanel="YES" HUD="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="332" height="202"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="374" height="202"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="213" height="113"/>
             <view key="contentView" id="526">
-                <rect key="frame" x="0.0" y="0.0" width="332" height="202"/>
+                <rect key="frame" x="0.0" y="0.0" width="374" height="202"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <slider verticalHuggingPriority="750" id="546">
-                        <rect key="frame" x="200" y="116" width="124" height="17"/>
+                        <rect key="frame" x="242" y="116" width="124" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" maxValue="1" doubleValue="0.14999999999999999" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="547">
                             <font key="font" size="9" name="Helvetica"/>
@@ -780,7 +780,7 @@ Gw
                         </connections>
                     </slider>
                     <slider verticalHuggingPriority="750" id="545">
-                        <rect key="frame" x="200" y="88" width="124" height="19"/>
+                        <rect key="frame" x="242" y="88" width="124" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" maxValue="1" doubleValue="0.90000000000000002" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="548">
                             <font key="font" size="9" name="Helvetica"/>
@@ -792,7 +792,7 @@ Gw
                         </connections>
                     </slider>
                     <slider verticalHuggingPriority="750" id="544">
-                        <rect key="frame" x="200" y="61" width="124" height="17"/>
+                        <rect key="frame" x="242" y="61" width="124" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" maxValue="4" doubleValue="0.29999999999999999" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="549">
                             <font key="font" size="9" name="Helvetica"/>
@@ -804,7 +804,7 @@ Gw
                         </connections>
                     </slider>
                     <slider verticalHuggingPriority="750" id="543">
-                        <rect key="frame" x="200" y="33" width="124" height="20"/>
+                        <rect key="frame" x="242" y="33" width="124" height="20"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" maxValue="50" doubleValue="15" tickMarkPosition="below" numberOfTickMarks="10" sliderType="linear" id="550">
                             <font key="font" size="9" name="Helvetica"/>
@@ -816,7 +816,7 @@ Gw
                         </connections>
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="542">
-                        <rect key="frame" x="74" y="177" width="45" height="14"/>
+                        <rect key="frame" x="5" y="177" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Предустановки:" id="551">
                             <font key="font" metaFont="smallSystem"/>
@@ -825,11 +825,11 @@ Gw
                         </textFieldCell>
                     </textField>
                     <box verticalHuggingPriority="750" boxType="separator" id="539">
-                        <rect key="frame" x="-16" y="166" width="360" height="5"/>
+                        <rect key="frame" x="-16" y="166" width="402" height="5"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="538">
-                        <rect key="frame" x="80" y="141" width="39" height="14"/>
+                        <rect key="frame" x="5" y="141" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Имя:" id="555">
                             <font key="font" metaFont="smallSystem"/>
@@ -838,7 +838,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="537">
-                        <rect key="frame" x="126" y="141" width="198" height="19"/>
+                        <rect key="frame" x="168" y="141" width="198" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" drawsBackground="YES" id="556">
                             <font key="font" metaFont="smallSystem"/>
@@ -851,7 +851,7 @@ Gw
                         </connections>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="536">
-                        <rect key="frame" x="123" y="173" width="154" height="22"/>
+                        <rect key="frame" x="165" y="173" width="154" height="22"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="Пункт 1" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="560" id="557">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -871,7 +871,7 @@ Gw
                         </connections>
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="535">
-                        <rect key="frame" x="9" y="117" width="110" height="14"/>
+                        <rect key="frame" x="5" y="117" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Фоновый коэффициент:" id="562">
                             <font key="font" metaFont="smallSystem"/>
@@ -880,7 +880,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="534">
-                        <rect key="frame" x="13" y="89" width="106" height="14"/>
+                        <rect key="frame" x="5" y="89" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Диффузный коэффициент:" id="563">
                             <font key="font" metaFont="smallSystem"/>
@@ -889,7 +889,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="533">
-                        <rect key="frame" x="5" y="62" width="114" height="14"/>
+                        <rect key="frame" x="5" y="62" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулярный коэффициент:" id="564">
                             <font key="font" metaFont="smallSystem"/>
@@ -898,7 +898,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="532">
-                        <rect key="frame" x="30" y="35" width="89" height="14"/>
+                        <rect key="frame" x="5" y="35" width="156" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Спекулярная степень:" id="565">
                             <font key="font" metaFont="smallSystem"/>
@@ -907,7 +907,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" id="531">
-                        <rect key="frame" x="126" y="114" width="66" height="19"/>
+                        <rect key="frame" x="168" y="114" width="66" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" drawsBackground="YES" id="566">
                             <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0.00" negativeFormat="" hasThousandSeparators="NO" thousandSeparator="'" id="567">
@@ -928,7 +928,7 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="530">
-                        <rect key="frame" x="126" y="87" width="66" height="19"/>
+                        <rect key="frame" x="168" y="87" width="66" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" drawsBackground="YES" id="568">
                             <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0.00" negativeFormat="" hasThousandSeparators="NO" thousandSeparator="'" id="569">
@@ -948,7 +948,7 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="529">
-                        <rect key="frame" x="126" y="60" width="66" height="19"/>
+                        <rect key="frame" x="168" y="60" width="66" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" drawsBackground="YES" id="570">
                             <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0.00" negativeFormat="" hasThousandSeparators="NO" thousandSeparator="'" id="571">
@@ -968,7 +968,7 @@ Gw
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="528">
-                        <rect key="frame" x="126" y="33" width="66" height="19"/>
+                        <rect key="frame" x="168" y="33" width="66" height="19"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" borderStyle="bezel" alignment="center" drawsBackground="YES" id="572">
                             <numberFormatter key="formatter" formatterBehavior="10_0" positiveFormat="0.00" negativeFormat="" hasThousandSeparators="NO" thousandSeparator="'" id="573">
@@ -988,7 +988,7 @@ Gw
                         </connections>
                     </textField>
                     <button id="527">
-                        <rect key="frame" x="265" y="4" width="60" height="23"/>
+                        <rect key="frame" x="265" y="4" width="102" height="23"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="bevel" title="редактировать" bezelStyle="regularSquare" image="buttonCell:574:image" imagePosition="overlaps" alignment="center" controlSize="small" borderStyle="border" id="574">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -1019,7 +1019,7 @@ Gw
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="655">
-                        <rect key="frame" x="-1" y="18" width="24" height="13"/>
+                        <rect key="frame" x="-1" y="18" width="54" height="13"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Детально" id="656">
                             <font key="font" metaFont="label"/>
@@ -1038,7 +1038,7 @@ Gw
                         </connections>
                     </slider>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="654">
-                        <rect key="frame" x="83" y="18" width="37" height="13"/>
+                        <rect key="frame" x="72" y="18" width="48" height="13"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Грубый" id="657">
                             <font key="font" metaFont="label"/>
@@ -1050,14 +1050,14 @@ Gw
             </view>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="659" userLabel="tb Thick Slab">
-            <rect key="frame" x="0.0" y="0.0" width="177" height="40"/>
+            <rect key="frame" x="0.0" y="0.0" width="181" height="40"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="qbC-j4-iwK">
-                <rect key="frame" x="0.0" y="0.0" width="177" height="40"/>
+                <rect key="frame" x="0.0" y="0.0" width="181" height="40"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <slider customClass="HorosMPRThickSlabSlider" toolTip="Толщина в мм" verticalHuggingPriority="750" id="663">
-                        <rect key="frame" x="61" y="2" width="114" height="17"/>
+                        <rect key="frame" x="61" y="2" width="118" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" enabled="NO" alignment="left" maxValue="1" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="664">
                             <font key="font" size="12" name="Helvetica"/>
@@ -1067,7 +1067,7 @@ Gw
                         </connections>
                     </slider>
                     <popUpButton verticalHuggingPriority="750" id="660">
-                        <rect key="frame" x="44" y="21" width="132" height="15"/>
+                        <rect key="frame" x="44" y="21" width="136" height="15"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" customClass="HorosMPRThickSlabModePopUpButtonCell" type="push" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="667">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1111,14 +1111,14 @@ Gw
             </view>
         </box>
         <box autoresizesSubviews="NO" borderType="none" title="Box" titlePosition="noTitle" id="672" userLabel="tb WLWW">
-            <rect key="frame" x="0.0" y="0.0" width="155" height="60"/>
+            <rect key="frame" x="0.0" y="0.0" width="177" height="60"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
             <view key="contentView" id="Afy-dx-8kR">
-                <rect key="frame" x="0.0" y="0.0" width="155" height="60"/>
+                <rect key="frame" x="0.0" y="0.0" width="177" height="60"/>
                 <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                 <subviews>
                     <popUpButton verticalHuggingPriority="750" id="678">
-                        <rect key="frame" x="50" y="38" width="100" height="15"/>
+                        <rect key="frame" x="56" y="38" width="116" height="15"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="681" id="679">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1133,7 +1133,7 @@ Gw
                         </popUpButtonCell>
                     </popUpButton>
                     <popUpButton verticalHuggingPriority="750" id="677">
-                        <rect key="frame" x="50" y="22" width="100" height="15"/>
+                        <rect key="frame" x="56" y="22" width="116" height="15"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="686" id="684">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1148,7 +1148,7 @@ Gw
                         </popUpButtonCell>
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="676">
-                        <rect key="frame" x="12" y="40" width="40" height="11"/>
+                        <rect key="frame" x="4" y="40" width="54" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WL/WW:" id="689">
                             <font key="font" metaFont="miniSystem"/>
@@ -1157,7 +1157,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="675">
-                        <rect key="frame" x="22" y="24" width="30" height="11"/>
+                        <rect key="frame" x="4" y="24" width="54" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="CLUT:" id="690">
                             <font key="font" metaFont="miniSystem"/>
@@ -1166,16 +1166,16 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="674">
-                        <rect key="frame" x="12" y="9" width="40" height="11"/>
+                        <rect key="frame" x="4" y="9" width="54" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Непрозрачность:" id="691">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Непрозр.:" id="691">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="673">
-                        <rect key="frame" x="50" y="6" width="100" height="15"/>
+                        <rect key="frame" x="56" y="6" width="116" height="15"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="Непрозрачность" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" enabled="NO" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="694" id="692">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1424,13 +1424,13 @@ Gw
             </subviews>
         </customView>
         <customView id="843" userLabel="tbMovie">
-            <rect key="frame" x="0.0" y="0.0" width="173" height="36"/>
+            <rect key="frame" x="0.0" y="0.0" width="200" height="36"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" id="844">
-                    <rect key="frame" x="133" y="23" width="39" height="11"/>
+                    <rect key="frame" x="134" y="23" width="64" height="11"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 им/с" id="855">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 im/s" id="855">
                         <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="# im/s" negativeFormat="# im/s" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="309" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix=" im/s" negativePrefix="-" negativeSuffix=" im/s" id="885">
                             <nil key="negativeInfinitySymbol"/>
                             <nil key="positiveInfinitySymbol"/>
@@ -1444,7 +1444,7 @@ Gw
                     </connections>
                 </textField>
                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="845">
-                    <rect key="frame" x="16" y="9" width="22" height="11"/>
+                    <rect key="frame" x="2" y="9" width="44" height="11"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Поз.:" id="854">
                         <font key="font" metaFont="miniSystem"/>
@@ -1453,7 +1453,7 @@ Gw
                     </textFieldCell>
                 </textField>
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" id="846">
-                    <rect key="frame" x="38" y="22" width="95" height="12"/>
+                    <rect key="frame" x="46" y="22" width="86" height="12"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" minValue="1" maxValue="60" doubleValue="10" tickMarkPosition="above" allowsTickMarkValuesOnly="YES" sliderType="linear" id="853">
                         <font key="font" size="12" name="Helvetica"/>
@@ -1464,7 +1464,7 @@ Gw
                     </connections>
                 </slider>
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" id="847">
-                    <rect key="frame" x="38" y="6" width="95" height="17"/>
+                    <rect key="frame" x="46" y="6" width="86" height="17"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="mini" continuous="YES" alignment="left" tickMarkPosition="above" numberOfTickMarks="1" allowsTickMarkValuesOnly="YES" sliderType="linear" id="852">
                         <font key="font" size="12" name="Helvetica"/>
@@ -1476,7 +1476,7 @@ Gw
                     </connections>
                 </slider>
                 <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="848">
-                    <rect key="frame" x="12" y="24" width="26" height="11"/>
+                    <rect key="frame" x="2" y="24" width="44" height="11"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Частота:" id="851">
                         <font key="font" metaFont="miniSystem"/>
@@ -1485,9 +1485,9 @@ Gw
                     </textFieldCell>
                 </textField>
                 <button verticalHuggingPriority="750" id="849">
-                    <rect key="frame" x="139" y="2" width="30" height="19"/>
+                    <rect key="frame" x="134" y="2" width="64" height="19"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="squareTextured" title="Воспроизвести" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" inset="2" id="850">
+                    <buttonCell key="cell" type="squareTextured" title="Пуск" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" inset="2" id="850">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -1500,11 +1500,11 @@ Gw
             </subviews>
         </customView>
         <customView id="856" userLabel="tbBlending">
-            <rect key="frame" x="0.0" y="0.0" width="126" height="38"/>
+            <rect key="frame" x="0.0" y="0.0" width="168" height="38"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <popUpButton verticalHuggingPriority="750" id="857">
-                    <rect key="frame" x="42" y="20" width="80" height="15"/>
+                    <rect key="frame" x="42" y="20" width="122" height="15"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <popUpButtonCell key="cell" type="push" title="Линейный" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="869" id="864">
                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1512,8 +1512,8 @@ Gw
                         <menu key="menu" title="Другие виды" id="865">
                             <items>
                                 <menuItem title="Линейный" state="on" id="869"/>
-                                <menuItem title="Высоко-низко-высокий" tag="1" id="867"/>
-                                <menuItem title="Низкий-высокий-низкий" tag="2" id="868"/>
+                                <menuItem title="Выс.-низк.-выс." tag="1" id="867"/>
+                                <menuItem title="Низк.-выс.-низк." tag="2" id="868"/>
                                 <menuItem title="Логарифм" tag="3" id="866"/>
                                 <menuItem title="Обр. логарифм" tag="4" id="870"/>
                                 <menuItem title="Плоский" tag="5" id="871"/>
@@ -1526,7 +1526,7 @@ Gw
                     </connections>
                 </popUpButton>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="858">
-                    <rect key="frame" x="8" y="21" width="34" height="13"/>
+                    <rect key="frame" x="1" y="21" width="41" height="13"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Режим:" id="863">
                         <font key="font" metaFont="label"/>
@@ -1535,7 +1535,7 @@ Gw
                     </textFieldCell>
                 </textField>
                 <slider customClass="HorosCellSlider" verticalHuggingPriority="750" id="859">
-                    <rect key="frame" x="0.0" y="3" width="86" height="15"/>
+                    <rect key="frame" x="0.0" y="3" width="128" height="15"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="small" continuous="YES" enabled="NO" alignment="left" maxValue="100" doubleValue="1.421085e-14" tickMarkPosition="below" sliderType="linear" id="862">
                         <font key="font" size="12" name="Helvetica"/>
@@ -1546,7 +1546,7 @@ Gw
                     </connections>
                 </slider>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="860">
-                    <rect key="frame" x="87" y="1" width="41" height="17"/>
+                    <rect key="frame" x="129" y="1" width="41" height="17"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" title="-" id="861">
                         <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="# " negativeFormat="#" numberStyle="decimal" usesGroupingSeparator="NO" paddingCharacter="*" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="309" decimalSeparator="." groupingSeparator="," currencyDecimalSeparator="." plusSign="+" minusSign="-" notANumberSymbol="NaN" perMillSymbol="‰" percentSymbol="%" exponentSymbol="E" positivePrefix="" positiveSuffix=" %" negativePrefix="" negativeSuffix=" %" id="891">
@@ -1603,10 +1603,10 @@ Gw
                         </connections>
                     </button>
                     <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="915">
-                        <rect key="frame" x="76" y="271" width="226" height="40"/>
+                        <rect key="frame" x="151" y="271" width="294" height="40"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="226" height="18"/>
+                        <size key="cellSize" width="294" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="988">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1714,7 +1714,7 @@ Gw
                                     </connections>
                                 </slider>
                                 <slider verticalHuggingPriority="750" id="928">
-                                    <rect key="frame" x="307" y="37" width="190" height="17"/>
+                                    <rect key="frame" x="325" y="37" width="172" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" minValue="1" maxValue="200" doubleValue="40" tickMarkPosition="below" numberOfTickMarks="20" sliderType="linear" id="967">
                                         <font key="font" size="12" name="Helvetica-Bold"/>
@@ -1747,7 +1747,7 @@ Gw
                                     </connections>
                                 </slider>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="938">
-                                    <rect key="frame" x="61" y="168" width="123" height="17"/>
+                                    <rect key="frame" x="38" y="168" width="146" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Количество кадров:" id="951">
                                         <font key="font" metaFont="system"/>
@@ -1768,7 +1768,7 @@ Gw
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="942">
-                                    <rect key="frame" x="102" y="38" width="55" height="17"/>
+                                    <rect key="frame" x="88" y="38" width="69" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Интервал:" id="947">
                                         <font key="font" metaFont="system"/>
@@ -1853,10 +1853,10 @@ Gw
                                     </connections>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="936">
-                                    <rect key="frame" x="189" y="122" width="101" height="38"/>
+                                    <rect key="frame" x="189" y="122" width="112" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="101" height="18"/>
+                                    <size key="cellSize" width="112" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="953">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1889,7 +1889,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="930">
-                                    <rect key="frame" x="122" y="143" width="62" height="17"/>
+                                    <rect key="frame" x="111" y="143" width="73" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Вращение:" id="965">
                                         <font key="font" metaFont="system"/>
@@ -1898,10 +1898,10 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <matrix verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="932">
-                                    <rect key="frame" x="374" y="122" width="88" height="38"/>
+                                    <rect key="frame" x="402" y="122" width="128" height="38"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="cellSize" width="88" height="18"/>
+                                    <size key="cellSize" width="128" height="18"/>
                                     <size key="intercellSpacing" width="4" height="2"/>
                                     <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="963">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1937,7 +1937,7 @@ Gw
                                     </connections>
                                 </matrix>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="931">
-                                    <rect key="frame" x="303" y="143" width="66" height="17"/>
+                                    <rect key="frame" x="305" y="143" width="92" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Направление:" id="964">
                                         <font key="font" metaFont="system"/>
@@ -1946,7 +1946,7 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <button horizontalCompressionResistancePriority="1000" id="934">
-                                    <rect key="frame" x="160" y="37" width="136" height="18"/>
+                                    <rect key="frame" x="160" y="37" width="160" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="То же, что и толщина" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="959">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -1971,7 +1971,7 @@ Gw
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="933">
-                                    <rect key="frame" x="34" y="13" width="123" height="17"/>
+                                    <rect key="frame" x="11" y="13" width="146" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Количество кадров:" id="960">
                                         <font key="font" metaFont="system"/>
@@ -2008,7 +2008,7 @@ Gw
                         </view>
                     </box>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="914">
-                        <rect key="frame" x="3" y="294" width="68" height="17"/>
+                        <rect key="frame" x="6" y="294" width="140" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Последовательность:" id="989">
                             <font key="font" metaFont="system"/>
@@ -2017,7 +2017,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="917">
-                        <rect key="frame" x="293" y="337" width="34" height="17"/>
+                        <rect key="frame" x="306" y="337" width="66" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Размер:" id="979">
                             <font key="font" metaFont="system"/>
@@ -2026,7 +2026,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" id="916">
-                        <rect key="frame" x="329" y="331" width="91" height="25"/>
+                        <rect key="frame" x="374" y="331" width="91" height="25"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <popUpButtonCell key="cell" type="push" title="Текущий" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="983" id="980">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -2044,7 +2044,7 @@ Gw
                         </connections>
                     </popUpButton>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" id="913">
-                        <rect key="frame" x="16" y="337" width="53" height="17"/>
+                        <rect key="frame" x="6" y="337" width="140" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Качество:" id="990">
                             <font key="font" metaFont="system"/>
@@ -2053,10 +2053,10 @@ Gw
                         </textFieldCell>
                     </textField>
                     <matrix verticalHuggingPriority="751" horizontalCompressionResistancePriority="1000" allowsEmptySelection="NO" autorecalculatesCellSize="YES" id="912">
-                        <rect key="frame" x="76" y="316" width="119" height="38"/>
+                        <rect key="frame" x="151" y="316" width="150" height="38"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="119" height="18"/>
+                        <size key="cellSize" width="150" height="18"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="radio" title="Радио" imagePosition="left" alignment="left" inset="2" id="993">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>

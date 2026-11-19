@@ -107,10 +107,20 @@ struct OrthogonalThickSlabTests {
             #expect(track.count(at: 1, exponential: exponential) == 30)
             #expect(track.position(ofCount: 2, exponential: exponential) == 0)
             #expect(track.position(ofCount: 1, exponential: exponential) == 0)
-            let marks = track.tickCounts(minimumSpacing: 0.05, exponential: exponential)
-            #expect(marks.first == 2 && marks.last == 30)
+            // The marks are those of the series, from two images to all of them; the knob goes as far as the images left.
+            let marks = track.tickCounts(minimumSpacing: 0.05)
+            #expect(marks.first == 2 && marks.last == 60)
             #expect(marks == marks.sorted() && Set(marks).count == marks.count)
-            for mark in marks { #expect(track.count(at: track.position(ofCount: mark, exponential: exponential), exponential: exponential) == mark) }
+            #expect(marks == scale(regular(60, every: 2), at: 0, thickness: 2).tickCounts(minimumSpacing: 0.05))
+            let places = track.tickPlaces(minimumSpacing: 0.05, exponential: exponential)
+            #expect(places.first == 0 && places.last == 1 && places == places.sorted())
+            #expect(places == scale(regular(60, every: 2), at: 0, thickness: 2).tickPlaces(minimumSpacing: 0.05, exponential: exponential))
+            for mark in marks {
+                let place = track.trackPosition(ofStop: mark, exponential: exponential)
+                #expect(track.count(at: place, exponential: exponential) == min(mark, 30))
+                #expect(track.position(ofCount: mark, exponential: exponential) == min(place, track.reach(exponential: exponential)))
+            }
+            #expect(track.reach(exponential: exponential) == track.trackPosition(ofStop: 30, exponential: exponential))
         }
         #expect(track.text(requested: 1, locale: Locale(identifier: "en_US")) == "4.0 mm")
         #expect(track.text(requested: 46, locale: Locale(identifier: "it_IT")) == "60,0 mm")

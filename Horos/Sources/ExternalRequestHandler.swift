@@ -143,7 +143,15 @@ struct LinkRequest: Sendable {
             if result == HorosAlertPanel.alternateResponse {
                 preferences.set(true, for: NetworkPreferences.xmlrpcServer)
                 processGraph.preferences.synchronize()
-                controller.terminate(controller)
+                // The button promises a restart: the application opens again
+                // by itself. When that cannot be arranged it stays open and
+                // says what is left to do, instead of only disappearing.
+                if case .notScheduled(let reason) = controller.lifecycle.restart(controller) {
+                    NSLog("URL scheme turned on, but the application could not be scheduled to reopen: %@", reason as NSString)
+                    _ = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""),
+                                                         message: NSLocalizedString("Restart IsiX DICOM Viewer to apply this change.", comment: ""),
+                                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+                }
             }
             return
         }

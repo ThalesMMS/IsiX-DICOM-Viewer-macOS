@@ -443,6 +443,12 @@ public final class AYDicomPrintWindowController: NSWindowController, NSWindowDel
         return "AYDicomPrint"
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// Does not call super, as the former method did not.
     public override func awakeFromNib() {
         MainActor.assumeIsolated {

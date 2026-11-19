@@ -35,7 +35,7 @@
                         </textFieldCell>
                     </textField>
                     <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="217">
-                        <rect key="frame" x="95" y="11" width="108" height="17"/>
+                        <rect key="frame" x="97" y="11" width="106" height="17"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <sliderCell key="cell" controlSize="small" continuous="YES" alignment="left" minValue="1" maxValue="20" doubleValue="5.7989689999999996" tickMarkPosition="below" numberOfTickMarks="5" sliderType="linear" id="229">
                             <font key="font" size="12" name="Helvetica"/>
@@ -45,7 +45,7 @@
                         </connections>
                     </slider>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="218">
-                        <rect key="frame" x="68" y="11" width="26" height="17"/>
+                        <rect key="frame" x="70" y="11" width="26" height="17"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="22" id="eUq-wW-5Rh"/>
@@ -96,7 +96,7 @@
                     <constraint firstItem="218" firstAttribute="bottom" secondItem="217" secondAttribute="bottom" id="XiI-bF-95T"/>
                     <constraint firstItem="216" firstAttribute="baseline" secondItem="218" secondAttribute="baseline" id="ZY6-yc-Bd7"/>
                     <constraint firstItem="216" firstAttribute="trailing" secondItem="221" secondAttribute="trailing" id="kJ7-qD-uNN"/>
-                    <constraint firstItem="218" firstAttribute="leading" secondItem="216" secondAttribute="trailing" constant="2" id="lP6-OZ-6td"/>
+                    <constraint firstItem="218" firstAttribute="leading" secondItem="216" secondAttribute="trailing" constant="4" id="lP6-OZ-6td"/>
                     <constraint firstItem="218" firstAttribute="top" secondItem="219" secondAttribute="bottom" constant="9" id="vOC-NH-2jm"/>
                     <constraint firstItem="217" firstAttribute="leading" secondItem="218" secondAttribute="trailing" constant="3" id="y6y-0l-wnj"/>
                 </constraints>

@@ -122,27 +122,48 @@ import Testing
         #expect(flat.tickPositions(minimumSpacing: 0.05).isEmpty)
     }
 
-    @Test func everyMarkIsWhereTheKnobStops() {
-        for exponential in [false, true] {
-            for (minimum, maximum) in [(1.0, 128.0), (1.0, 347.3), (0.6, 100.0), (0.625, 100.0), (0.7, 180.0), (2.5, 51.0), (1.0, 3.0)] {
-                let scale = ThickSlabSliderScale(minimum: minimum, maximum: maximum, exponential: exponential)
-                for spacing in [0.02, 0.05, 0.12, 0.3] {
-                    for mark in scale.tickPositions(minimumSpacing: spacing) {
-                        #expect(abs(scale.wholeThickness(at: mark) - scale.thickness(at: mark)) < 1e-6)
-                    }
+    @Test func everyMarkOfALinearRulerIsWhereTheKnobStops() {
+        for (minimum, maximum) in [(1.0, 128.0), (1.0, 347.3), (0.6, 100.0), (0.625, 100.0), (0.7, 180.0), (2.5, 51.0), (1.0, 3.0)] {
+            let scale = ThickSlabSliderScale(minimum: minimum, maximum: maximum, exponential: false)
+            for spacing in [0.02, 0.05, 0.12, 0.3] {
+                for mark in scale.tickPositions(minimumSpacing: spacing) {
+                    #expect(abs(scale.wholeThickness(at: mark) - scale.thickness(at: mark)) < 1e-6)
                 }
             }
         }
     }
 
-    @Test func anExponentialRulerMarksTheStopsNearestToEqualSharesOfTheTrack() {
-        let scale = ThickSlabSliderScale(minimum: 1, maximum: 350, exponential: true)
-        let marks = scale.tickPositions(minimumSpacing: 0.05)
-        #expect(values(scale, spacing: 0.05) == [1, 2, 3, 6, 10, 19, 34, 60, 108, 195, 350])
-        // Each within half a millimeter of its share of the track.
-        for (index, mark) in marks.enumerated() {
-            #expect(abs(scale.thickness(at: mark) - scale.thickness(at: Double(index) / 10)) <= 0.5 + 1e-9)
+    @Test func anExponentialRulerGathersItsMarksTowardsItsThickEnd() {
+        let track = 8.0 / 172
+        for (minimum, maximum) in [(1.0, 350.0), (2.0, 687.0), (0.625, 400.0), (1.0, 128.0), (2.0, 20.0), (2.5, 51.0)] {
+            let scale = ThickSlabSliderScale(minimum: minimum, maximum: maximum, exponential: true)
+            let marks = scale.tickPositions(minimumSpacing: track)
+            #expect(marks.first == 0 && marks.last == 1 && marks.count == 17)
+            let gaps = zip(marks, marks.dropFirst()).map { $1 - $0 }
+            // Each step is shorter than the one before it, whatever the range.
+            #expect(zip(gaps, gaps.dropFirst()).allSatisfy { $1 < $0 }, "\(minimum) to \(maximum): gaps \(gaps)")
+            #expect((gaps.last ?? 0) >= track / 3 - 1e-12)
+            // The thicknesses marked grow by steps that grow by the same amount.
+            let marked = marks.map { scale.thickness(at: $0) }
+            let steps = zip(marked, marked.dropFirst()).map { $1 - $0 }
+            let growth = zip(steps, steps.dropFirst()).map { $1 - $0 }
+            #expect(growth.allSatisfy { abs($0 - growth[0]) < 1e-6 * maximum }, "steps \(steps)")
         }
+        // 2 to 687 mm, the track of a long series: the first mark at a quarter of the track, where equal steps of
+        // thickness had it past the middle, and the last two as close as 3.6 points.
+        let long = ThickSlabSliderScale(minimum: 2, maximum: 687, exponential: true).tickPositions(minimumSpacing: track)
+        #expect(long[1] > 0.2 && long[1] < 0.3 && long.filter { $0 > 0 && $0 < 0.61 }.count >= 4)
+        #expect(1 - long[long.count - 2] < 0.025)
+        // A short track has fewer marks, and a scale of few stops no more intervals than stops.
+        let scale = ThickSlabSliderScale(minimum: 1, maximum: 350, exponential: true)
+        #expect(scale.tickPositions(minimumSpacing: 0.2).count == 6)
+        #expect(scale.tickPositions(minimumSpacing: track, most: 5).count == 6)
+        #expect(scale.tickPositions(minimumSpacing: track, most: 1) == [0, 1])
+        #expect(scale.tickPositions(minimumSpacing: 2) == [0, 1])
+        // The linear ruler of the same range stays evenly spaced.
+        let even = ThickSlabSliderScale(minimum: 1, maximum: 350, exponential: false).tickPositions(minimumSpacing: track)
+        let evenGaps = zip(even, even.dropFirst()).map { $1 - $0 }.dropLast()
+        #expect((evenGaps.max() ?? 1) - (evenGaps.min() ?? 0) < 1e-12)
     }
 
     @Test func marksKeepTheirDistanceAndBothEnds() {
@@ -154,8 +175,9 @@ import Testing
         for scale in scales {
             for spacing in [0, 0.01, 0.03, 0.2, 2, Double.nan] {
                 let marks = scale.tickPositions(minimumSpacing: spacing)
-                #expect(marks.first == 0 && marks.last == 1 && marks.count <= 12)
-                let least = (spacing.isNaN ? 0 : min(spacing, 1)) - 1e-12
+                #expect(marks.first == 0 && marks.last == 1 && marks.count <= (scale.exponential ? 17 : 12))
+                // The last marks of an exponential ruler stand three times closer.
+                let least = (spacing.isNaN ? 0 : min(spacing, 1)) / (scale.exponential ? ThickSlabSliderScale.exponentialCrowding : 1) - 1e-12
                 #expect(zip(marks, marks.dropFirst()).allSatisfy { $1 - $0 >= least && $1 > $0 })
             }
         }

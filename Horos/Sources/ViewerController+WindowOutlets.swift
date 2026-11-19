@@ -19,10 +19,10 @@ extension ViewerController {
     @objc(setBlendingSlider:) private func connectBlendingSlider(_ outlet: NSSlider?) { _blendingSlider = outlet }
     @objc(setBlendingView:) private func connectBlendingView(_ outlet: NSView?) { _BlendingView = outlet }
     @objc(setButtonToolMatrix:) private func connectButtonToolMatrix(_ outlet: NSMatrix?) { _buttonToolMatrix = outlet }
-    @objc(setClutPopup:) private func connectClutPopup(_ outlet: NSPopUpButton?) { _clutPopup = outlet }
+    @objc(setClutPopup:) private func connectClutPopup(_ outlet: NSPopUpButton?) { _clutPopup = outlet; PresetPullDownTitle.install(on: outlet) }
     @objc(setCommentsField:) private func connectCommentsField(_ outlet: NSButton?) { _CommentsField = outlet }
     @objc(setComparativesButton:) private func connectComparativesButton(_ outlet: NSButton?) { _comparativesButton = outlet }
-    @objc(setConvPopup:) private func connectConvPopup(_ outlet: NSPopUpButton?) { _convPopup = outlet }
+    @objc(setConvPopup:) private func connectConvPopup(_ outlet: NSPopUpButton?) { _convPopup = outlet; PresetPullDownTitle.install(on: outlet) }
     @objc(setConvView:) private func connectConvView(_ outlet: NSView?) { _ConvView = outlet }
     @objc(setDisplay12bitToolbarItemMatrix:) private func connectDisplay12bitToolbarItemMatrix(_ outlet: NSMatrix?) { _display12bitToolbarItemMatrix = outlet }
     @objc(setDisplay12bitToolbarItemView:) private func connectDisplay12bitToolbarItemView(_ outlet: NSView?) { _display12bitToolbarItemView = outlet }
@@ -36,7 +36,7 @@ extension ViewerController {
     @objc(setMovieRateSlider:) private func connectMovieRateSlider(_ outlet: NSSlider?) { _movieRateSlider = outlet }
     @objc(setMovieTextSlide:) private func connectMovieTextSlide(_ outlet: NSTextField?) { _movieTextSlide = outlet }
     @objc(setMovieView:) private func connectMovieView(_ outlet: NSView?) { _movieView = outlet }
-    @objc(setOpacityPopup:) private func connectOpacityPopup(_ outlet: NSPopUpButton?) { _OpacityPopup = outlet }
+    @objc(setOpacityPopup:) private func connectOpacityPopup(_ outlet: NSPopUpButton?) { _OpacityPopup = outlet; PresetPullDownTitle.install(on: outlet) }
     @objc(setOrientationMatrix:) private func connectOrientationMatrix(_ outlet: NSMatrix?) { _orientationMatrix = outlet }
     @objc(setOrientationView:) private func connectOrientationView(_ outlet: NSView?) { _orientationView = outlet }
     @objc(setPagePad:) private func connectPagePad(_ outlet: NSView?) { _PagePad = outlet }
@@ -88,7 +88,7 @@ extension ViewerController {
     @objc(setViewerView:) private func connectViewerView(_ outlet: NSView?) { _viewerView = outlet }
     @objc(setWindowsTiling:) private func connectWindowsTiling(_ outlet: NSView?) { _windowsTiling = outlet }
     @objc(setWindowsTilingMenu:) private func connectWindowsTilingMenu(_ outlet: NSPopUpButton?) { _windowsTilingMenu = outlet }
-    @objc(setWlwwPopup:) private func connectWlwwPopup(_ outlet: NSPopUpButton?) { _wlwwPopup = outlet }
+    @objc(setWlwwPopup:) private func connectWlwwPopup(_ outlet: NSPopUpButton?) { _wlwwPopup = outlet; PresetPullDownTitle.install(on: outlet) }
     @objc(setWLWWView:) private func connectWLWWView(_ outlet: NSView?) { _WLWWView = outlet }
 }
 

@@ -16,8 +16,9 @@ centred with the slider.
 
 The palette gives an item label the view's width plus 4 pt. «WL/WW & CLUT &
 Opacity» needs a little more than the 148 pt the 144 pt WLWW view got, so it
-wrapped into two lines there. The view is 160 pt wide now, the extra width in
-its three pop-up menus, and the label stays on one line in the palette and on
+wrapped into two lines there. The view is 172 pt wide now, the extra width in
+its three pop-up menus and, for the last 12 pt, in the labels before them, which
+a translation makes longer; the label stays on one line in the palette and on
 the bar.
 
 The Perspective item put its three radios in a 2 × 2 grid, Parallel and
@@ -58,7 +59,8 @@ VIEWS = {
     'WLWW': '209', 'Tools': '239', 'OrientationsView': '888', 'Shading': '514',
     'LOD': '350', 'ConvolutionView': '953', 'CLUTEditors': '2298', '2DBlending': '386',
 }
-LOCALES = ('en', 'ja-JP')
+# Japanese has no copy of the nib: the English one loads there, with its texts read from the catalog.
+LOCALES = ('en',)
 
 
 def read(relative):

@@ -28,7 +28,7 @@ def read(path):
 
 
 failures = []
-for xib in ('Horos/Resources/en.lproj/SmartAlbum.xib', 'Horos/Resources/ja-JP.lproj/SmartAlbum.xib'):
+for xib in ('Horos/Resources/en.lproj/SmartAlbum.xib',):
     text = read(xib)
     if re.search(r'<color key="backgroundColor" white="(1|0\.91\d*)" alpha="1" colorSpace="calibratedWhite"/>', text):
         failures.append(f'{xib}: the editor or the SQL view still has a fixed light background')

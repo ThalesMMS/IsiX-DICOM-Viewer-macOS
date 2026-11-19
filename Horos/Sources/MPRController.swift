@@ -3100,6 +3100,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
     public override dynamic func windowWillClose(_ notification: Notification) {
         if (notification.object as AnyObject?) === self.window {
             self.window?.acceptsMouseMovedEvents = false
+            // The Shading panel leaves the screen with its window: left open, it outlived this controller.
+            CompanionPanels.takeOffScreen(shadingPanel)
 
             self.saveRememberedPlanes()
 
@@ -3116,10 +3118,8 @@ public final class MPRController: Window3DController, NSToolbarDelegate, NSSplit
 
             NotificationCenter.default.post(name: NSNotification.Name.OsirixWindow3dClose, object: self, userInfo: nil)
 
-            if let timer = movieTimer {
-                timer.invalidate()
-                movieTimer = nil
-            }
+            movieTimer?.invalidate()
+            movieTimer = nil
 
             hiddenVRController?.close()
             if let controller = hiddenVRController {

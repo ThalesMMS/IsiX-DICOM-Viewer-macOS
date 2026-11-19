@@ -24,9 +24,30 @@ public final class DatabaseBrowserLayout: NSObject {
         popup.controlSize = .regular
         popup.font = .systemFont(ofSize: NSFont.systemFontSize)
         popup.translatesAutoresizingMaskIntoConstraints = false
-        popup.widthAnchor.constraint(equalToConstant: 124).isActive = true
+        // The items of both filters are the ones of the nib, in the language of the application: nothing fills
+        // either menu later, so the widest of them is known here, once the font is the one they are drawn in.
+        let attributes: [NSAttributedString.Key: Any] = [.font: popup.font ?? .systemFont(ofSize: NSFont.systemFontSize)]
+        let titles = popup.itemArray.filter { !$0.isSeparatorItem && !$0.isHidden }.map(\.title)
+        let widths = titles.map { NSAttributedString(string: $0, attributes: attributes).size().width }
+        popup.widthAnchor.constraint(equalToConstant: filterWidth(itemWidths: widths)).isActive = true
         installStack([popup], in: view)
     }
+
+    /// The least width of a filter's pop-up, the one it had whatever its items.
+    static let filterMinimumWidth: CGFloat = 124
+    /// What a pop-up of the regular size needs in a toolbar beside the title it draws, for its bezel and its arrows.
+    static let filterTitleMargin: CGFloat = 26
+
+    /// The width of a filter's pop-up: its widest item in whole points and the margin, so that no item is cut
+    /// when it is the chosen one, and never less than the least width. A fixed width cut «Все модальности»,
+    /// which needs 137 points, and «Todas las modalidades», which needs 164.
+    static func filterWidth(itemWidths: [CGFloat]) -> CGFloat {
+        max(filterMinimumWidth, (itemWidths.max() ?? 0).rounded(.up) + filterTitleMargin)
+    }
+
+    /// The widths of the search field in the toolbar: the one it has while the toolbar has room, and the least
+    /// it is taken down to before an item goes to the overflow menu.
+    static let searchFieldWidths: ClosedRange<CGFloat> = 160...180
 
     @objc(prepareSearchView:)
     public static func prepareSearchView(_ view: NSView) {
@@ -35,12 +56,14 @@ public final class DatabaseBrowserLayout: NSObject {
         search.controlSize = .regular
         search.font = .systemFont(ofSize: NSFont.systemFontSize)
         search.translatesAutoresizingMaskIntoConstraints = false
-        let preferredWidth = search.widthAnchor.constraint(equalToConstant: 180)
-        preferredWidth.priority = .defaultHigh
+        // A toolbar reads the range of an item from the constraints of its view: the least size they allow is
+        // the least the item gets, the greatest the most, and the item has the most while the toolbar has room
+        // and comes down to the least before any item leaves for the overflow menu. A width the field prefers
+        // at a high priority is no range: the least size that satisfies it is the preferred one, so the field
+        // kept its 180 points while items left the toolbar.
         NSLayoutConstraint.activate([
-            search.widthAnchor.constraint(greaterThanOrEqualToConstant: 160),
-            search.widthAnchor.constraint(lessThanOrEqualToConstant: 280),
-            preferredWidth
+            search.widthAnchor.constraint(greaterThanOrEqualToConstant: searchFieldWidths.lowerBound),
+            search.widthAnchor.constraint(lessThanOrEqualToConstant: searchFieldWidths.upperBound)
         ])
         for case let button as NSButton in controls {
             button.controlSize = .small

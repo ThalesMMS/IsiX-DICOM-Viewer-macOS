@@ -11,24 +11,26 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 
 /// The mode popup of the 3D MPR's Thick Slab item.
 ///
 /// The menu keeps the full names ("MIP - Max Intensity Projection"), and the
-/// overflow menu copies them; the closed popup shows the name before " - "
-/// ("MIP"), which fits the item at the window's default width instead of being
-/// cut with an ellipsis. The full name is the popup's tooltip. The selection is
+/// overflow menu copies them; the closed popup shows the name before the dash
+/// ("MIP"), whichever dash the language writes (ThickSlabModeName), which fits
+/// the item at the window's default width instead of being cut with an
+/// ellipsis. The full name is the popup's tooltip. The selection is
 /// the menu's own, so the selectedTag binding, `selectedItem` and
 /// `selectItemWithTag:` behave as before.
 @objc(HorosMPRThickSlabModePopUpButtonCell)
 public final class MPRThickSlabModePopUpButtonCell: NSPopUpButtonCell {
 
-    /// "MIP - Max Intensity Projection" → "MIP"; a title without " - " stays whole.
+    /// "MIP - Max Intensity Projection" → "MIP"; a title without a dash
+    /// between spaces stays whole.
     @objc(shortTitleForItem:)
     public static func shortTitle(for item: NSMenuItem?) -> String {
         guard let title = item?.title else { return "" }
-        let short = title.components(separatedBy: " - ").first ?? title
-        return short.trimmingCharacters(in: .whitespaces)
+        return ThickSlabModeName.short(of: title)
     }
 
     private var updatingTitle = false

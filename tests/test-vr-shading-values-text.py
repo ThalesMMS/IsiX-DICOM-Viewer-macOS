@@ -67,8 +67,8 @@ KEY = 'Ambient: %1$@\nDiffuse: %2$@\nSpecular: %3$@/%4$@'
 FORMER_KEYS = ('Ambient: %2.1f\nDiffuse: %2.1f\nSpecular :%2.1f-%2.1f',
                'Ambient: %2.2f\nDiffuse: %2.2f\nSpecular :%2.2f, %2.2f')
 LANGUAGES = ['en', 'pt-BR', 'de', 'fr', 'es', 'it-IT', 'ja-JP', 'ko', 'zh-Hans', 'ru', 'hi', 'ar']
-# The languages with copies of the nibs; Spanish and Italian show the English ones.
-NIB_LANGUAGES = [language for language in LANGUAGES if language not in ('es', 'it-IT')]
+# The languages with copies of the nibs; Spanish, Italian and Japanese show the English ones.
+NIB_LANGUAGES = [language for language in LANGUAGES if language not in ('es', 'it-IT', 'ja-JP')]
 # A region of each language, and the separator its numbers take there.
 REGIONS = {'en': 'en_US', 'pt-BR': 'pt_BR', 'de': 'de_DE', 'fr': 'fr_FR', 'es': 'es_ES', 'it-IT': 'it_IT',
            'ja-JP': 'ja_JP', 'ko': 'ko_KR', 'zh-Hans': 'zh_CN', 'ru': 'ru_RU', 'hi': 'hi_IN', 'ar': 'ar_SA'}

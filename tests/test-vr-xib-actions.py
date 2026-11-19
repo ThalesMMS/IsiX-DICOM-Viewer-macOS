@@ -49,7 +49,7 @@ def outlets(text):
 with tempfile.TemporaryDirectory(prefix='isix-vr-xib-actions-') as name:
     folder = Path(name)
     nibs = sorted(ROOT.glob('Horos/Resources/*.lproj/VR.xib'))
-    check(len(nibs) == 10, 'ten localized VR.xib (%d)' % len(nibs))
+    check(len(nibs) == 9, 'nine copies of VR.xib (%d)' % len(nibs))
     english_text = (ROOT / 'Horos/Resources/en.lproj/VR.xib').read_text(encoding='utf-8')
     english = nib_actions(english_text)
     for nib in nibs:

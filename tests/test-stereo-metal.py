@@ -116,7 +116,8 @@ stereo_item = {'VR': 'case Self.stereoItem:', 'SR': 'case StereoIdentifier:'}
 # How each view declares an action: both in Swift.
 view_action = {'VR': r'@objc\(%s:\)', 'SR': r'@objc\(%s:\)'}
 views = {'VR': vr, 'SR': scene}
-for nib in ('en.lproj', 'ja-JP.lproj'):
+# Japanese has no copy of the two nibs: the English ones load there.
+for nib in ('en.lproj',):
     for kind in ('VR', 'SR'):
         xib = read('Horos/Resources/%s/%s.xib' % (nib, kind))
         items = re.findall(r'<menuItem ([^>]*)>\s*(?:<modifierMask[^>]*/>\s*)?<connections>\s*<action selector="SwitchStereoMode:"', xib)

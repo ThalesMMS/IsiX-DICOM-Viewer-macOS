@@ -58,7 +58,7 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Multicorte (Limite: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
+                                            <buttonCell type="radio" title="Multicorte (limiar: 90HU)" imagePosition="left" alignment="left" state="on" inset="2" id="8">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -155,8 +155,8 @@
                                     <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
                                     <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                     <tableColumns>
-                                        <tableColumn width="200" minWidth="200" maxWidth="200" id="52">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Embarcação">
+                                        <tableColumn width="164" minWidth="164" maxWidth="164" id="52">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Vaso">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -171,7 +171,7 @@
                                                 <binding destination="48" name="value" keyPath="arrangedObjects.vesselName" id="57"/>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn width="40" minWidth="40" maxWidth="40" id="53">
+                                        <tableColumn width="66" minWidth="66" maxWidth="66" id="53">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Pontuação">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -194,7 +194,7 @@
                                                 <binding destination="48" name="value" keyPath="arrangedObjects.score" id="58"/>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn width="45" minWidth="45" maxWidth="45" id="54">
+                                        <tableColumn width="55" minWidth="55" maxWidth="55" id="54">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Volume">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -218,7 +218,7 @@
                                             </connections>
                                         </tableColumn>
                                         <tableColumn width="45" minWidth="45" maxWidth="45" id="55">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Missa">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Massa">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -337,8 +337,8 @@
                         <string key="title">Pontuação de cálcio: risco de doença coronariana
 0: Nenhuma placa identificável. Risco muito baixo, geralmente inferior a 5%
 1-10: Placa mínima identificável. Baixo risco.
-11-100: Placa definitiva.  Risco moderado.
-101-400: Placa definitiva. Risco moderadamente alto.
+11-100: Placa definida.  Risco moderado.
+101-400: Placa definida. Risco moderadamente alto.
 401+: Aterosclerose extensa. Alta probabilidade de pelo menos uma estenose.</string>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -391,8 +391,8 @@
                                 <color key="backgroundColor" name="controlBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                 <tableColumns>
-                                    <tableColumn width="250" minWidth="250" maxWidth="250" id="100">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Embarcação">
+                                    <tableColumn width="222" minWidth="222" maxWidth="222" id="100">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Vaso">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" white="0.33333299" alpha="1" colorSpace="calibratedWhite"/>
@@ -407,7 +407,7 @@
                                             <binding destination="48" name="value" keyPath="arrangedObjects.vesselName" id="102"/>
                                         </connections>
                                     </tableColumn>
-                                    <tableColumn width="50" minWidth="50" maxWidth="50" id="98">
+                                    <tableColumn width="70" minWidth="70" maxWidth="70" id="98">
                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Pontuação">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -430,7 +430,7 @@
                                             <binding destination="48" name="value" keyPath="arrangedObjects.score" id="103"/>
                                         </connections>
                                     </tableColumn>
-                                    <tableColumn width="50" minWidth="50" maxWidth="50" id="96">
+                                    <tableColumn width="58" minWidth="58" maxWidth="58" id="96">
                                         <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Volume">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -454,7 +454,7 @@
                                         </connections>
                                     </tableColumn>
                                     <tableColumn width="50" minWidth="50" maxWidth="50" id="94">
-                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Missa">
+                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Massa">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>

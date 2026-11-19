@@ -72,12 +72,8 @@ import Testing
         #expect(StudyListEdit.write(key: "lockedStudy", value: "1", rowType: { "Series" }) == .skip)
         #expect(StudyListEdit.write(key: "lockedStudy", value: 1, rowType: { "Study" }) == .locked(true))
         #expect(StudyListColumns.menuOrder(titles: ["b", "a", "c"]) == [1, 0, 2])
-        #expect(StudyListColumns.saved(titles: ["A", "", "B"], states: [1, 1, 0]) == ["A": 1, "B": 0])
-        #expect(StudyListColumns.saved(titles: ["A", "A"], states: [1, 0]) == ["A": 0])
         // Equal titles keep the order of the columns.
         #expect(StudyListColumns.menuOrder(titles: ["b", "", "a", "", "b"]) == [1, 3, 2, 0, 4])
-        #expect(StudyListColumns.column(titled: "Date", in: ["Name", "Date"]) == 1)
-        #expect(StudyListColumns.column(titled: "e\u{301}", in: ["\u{e9}"]) == nil)
         #expect(StudyListColumns.savedIsReadable(nil) && StudyListColumns.savedIsReadable(["Name": 1]))
         #expect(StudyListColumns.savedIsReadable("Name") == false && StudyListColumns.savedIsReadable([1, 2]) == false)
         #expect(StudyListColumns.change(visible: true, saved: 1, isSelectedColumn: { true }) == nil)

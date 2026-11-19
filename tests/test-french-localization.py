@@ -44,6 +44,11 @@ for key, value in french.items():
     assert all(original.count(c) == value.count(c) for c in '\n\r\t'), f'Changed layout escape: {key!r}'
     assert value or not original, f'Empty translation: {key!r}'
     assert not re.search(r'QXZ', value), f'Temporary translation token: {key!r}'
+# The two ends of a range are labelled in one language: a word of two letters passes for a token in the list of
+# the texts that stay English, and a label read "to" beside a translated "from".
+range_ends = [key for key in ('From:', 'To:', 'From', 'To', 'from:', 'to:', 'to') if key in french]
+assert len({french[key] == key for key in range_ends}) <= 1, \
+    f'A range has its ends in two languages: {[french[key] for key in range_ends]}'
 # French cognates and unchanged technical/design-time values outside the legacy
 # shared residual list. An English sentence added later must be translated.
 unchanged_french_or_technical = set([' version ',
@@ -54,6 +59,7 @@ unchanged_french_or_technical = set([' version ',
  'Surface',
  'Position',
  'Rotation',
+ '%d image',
  '%d images',
  '%d pages',
  '%d pixels',
@@ -105,6 +111,7 @@ unchanged_french_or_technical = set([' version ',
  'Identification',
  'Image',
  'Image %d',
+ 'Image %d\r%.2f',  # an image of the preview's matrix with its location
  'Images',
  'Interpolation',
  'LibreOffice (.odt)',
@@ -167,7 +174,19 @@ unchanged_french_or_technical = set([' version ',
  'images',
  'minute',
  'minutes',
- 'mm:\t\tx:0 y:0 z:0',
+ 'mm:\t\tx:0 y:0 z:0', 'px:\t\tx:0 y:0 z:0',
+ # Words French writes as English does, where the translation had another sense.
+ 'Description', 'Global', 'Index', 'Log', 'Perspective', 'Point', 'Point ', 'Spline', 'Standard',
+ # The film layouts of a DICOM print, STANDARD\columns,rows.
+ 'Standard 1,1', 'Standard 1,2', 'Standard 2,1', 'Standard 2,2', 'Standard 2,3', 'Standard 2,4',
+ 'Standard 3,3', 'Standard 3,4', 'Standard 3,5', 'Standard 4,4', 'Standard 4,5', 'Standard 4,6',
+ 'Standard 5,6', 'Standard 5,7',
+ # The names of an algorithm, of a phonetic key, of a disc label and of an application.
+ 'Power Crust', 'Soundex', 'DICOMCD', 'TextEdit (.rtf)',
+ # Abbreviations the rest of the catalog keeps.
+ 'BW -> RGB', 'WL: WW:',
+ # The predefined values of a surface carry the names of window level presets, which are stored.
+ 'CT - Bone', 'CT - Metal', 'CT - Skin',
  'mmm',
  'pixels',
  'texture',
@@ -178,9 +197,6 @@ for key, value in french.items():
     original = english.get(key, key)
     if value == original:
         assert residual.is_residual(key, original) or key in unchanged_french_or_technical, key
-
-for key in residual.english_comments():
-    assert french[key].isascii(), f'Non-ASCII legacy overlay: {key!r}'
 
 visible = {'title', 'label', 'toolTip', 'placeholderString', 'alternateTitle',
            'stringValue', 'content', 'paletteLabel', 'headerToolTip'}
@@ -223,5 +239,5 @@ if len(sys.argv) > 1:
     for path in sources:
         if path.parent.parent == ROOT / 'Horos/Resources':
             assert (resources / 'fr.lproj' / (path.stem + '.nib')).exists(), path.name
-print(f'PASS: {len(french)} French keys; formats and ASCII overlays; '
+print(f'PASS: {len(french)} French keys and formats; '
       f'{len(sources)} current English interfaces with unchanged connections, identifiers and shortcuts')

@@ -713,7 +713,7 @@ initialize = block(controller, 'private func initialize(')
 check('self.window?.title = NSLocalizedString("Curved MPR", comment: "")' in initialize,
       'the Curved MPR window is not titled "Curved MPR"')
 
-for xib in ['Horos/Resources/en.lproj/CPR.xib', 'Horos/Resources/ja-JP.lproj/CPR.xib']:
+for xib in ['Horos/Resources/en.lproj/CPR.xib']:
     text = source(xib).decode('utf-8')
     cell = re.search(r'<slider [^>]*id="1570">.*?<sliderCell [^>]*/>', text, re.S)
     check(cell is not None, f'{xib}: no simplification slider')

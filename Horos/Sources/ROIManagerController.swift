@@ -122,6 +122,12 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
     private var volumes: [String: Double] = [:]
     private var volumeGeneration = 0
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
     public override init(window: NSWindow?) {
         super.init(window: window)
@@ -178,8 +184,12 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         super.windowDidLoad()
         guard let window else { return }
         window.minSize = NSSize(width: 640, height: 320)
+        // The nib holds the window at 800 points at the most, the size of the table it showed: the window could
+        // not be made as wide as the list and its inspector, and a saved frame came back cut to 800.
+        window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         if window.frame.width < 640 || window.frame.height < 320 {
-            window.setContentSize(NSSize(width: 820, height: 460))
+            // Wide enough for every column of the list beside the inspector: 703 points and 251.
+            window.setContentSize(NSSize(width: 960, height: 460))
         }
         buildContent(in: window)
     }
@@ -225,8 +235,9 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
         outline.usesAlternatingRowBackgroundColors = true
         outline.allowsMultipleSelection = true
         outline.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
-        outline.autosaveName = "ROIManagerOutline"
-        outline.autosaveTableColumns = true
+        // A table made in code has 17 points between its columns, and the outline was 801 points wide for the
+        // 650 of its columns: it has the 3 points of the tables of the nibs.
+        outline.intercellSpacing = NSSize(width: 3, height: 2)
         func column(_ id: String, _ title: String, _ width: CGFloat, cell: NSCell? = nil) -> NSTableColumn {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             column.title = title
@@ -257,6 +268,19 @@ public final class ROIManagerController: NSWindowController, NSOutlineViewDataSo
             cell.controlSize = .small
             let c = column(check.rawValue, title, 64, cell: cell)
             c.headerCell.alignment = .center
+        }
+        // The outline reads the widths and the order the user left its columns in when it is given the name
+        // they are saved under, and only the columns it has then: named before it had any, it saved them and
+        // never read them again.
+        outline.autosaveName = "ROIManagerOutline"
+        outline.autosaveTableColumns = true
+        // The widths above are those of the English headers, and the saved ones were left under the headers of
+        // the language of that day: a longer header, "Заблокирована" in the 64 points of "Locked", takes the
+        // room it needs from the columns that have some to spare, and no column can be made narrower than its
+        // header after that.
+        PaneFit.fitColumns(of: outline)
+        for column in outline.tableColumns where !column.title.isEmpty {
+            column.minWidth = max(column.minWidth, ceil(column.headerCell.cellSize.width))
         }
         outline.dataSource = self
         outline.delegate = self

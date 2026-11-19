@@ -226,13 +226,13 @@
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="33">
                                     <rect key="frame" x="15" y="98" width="95" height="26"/>
-                                    <popUpButtonCell key="cell" type="push" title="Revista" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="268" id="538">
+                                    <popUpButtonCell key="cell" type="push" title="Magazine" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="268" id="538">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="34">
                                             <items>
                                                 <menuItem title="Processador" id="42"/>
-                                                <menuItem title="Revista" state="on" tag="1" id="268"/>
+                                                <menuItem title="Magazine" state="on" tag="1" id="268"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -387,7 +387,7 @@
                                         <menu key="menu" title="Outras visualizações" id="118">
                                             <items>
                                                 <menuItem title="ALTO" id="119"/>
-                                                <menuItem title="MÉDICO" tag="1" id="120"/>
+                                                <menuItem title="MÉDIO" tag="1" id="120"/>
                                                 <menuItem title="BAIXO" state="on" tag="2" id="121"/>
                                             </items>
                                         </menu>
@@ -498,7 +498,7 @@
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="138">
                                     <rect key="frame" x="220" y="33" width="30" height="13"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Anfitrião:" id="560">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Host:" id="560">
                                         <font key="font" metaFont="label"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -942,7 +942,7 @@ Gw
             <subviews>
                 <button verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="451">
                     <rect key="frame" x="29" y="-4" width="136" height="32"/>
-                    <buttonCell key="cell" type="push" title="Verifique a impressora..." bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="583">
+                    <buttonCell key="cell" type="push" title="Verificar impressora..." bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="583">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>

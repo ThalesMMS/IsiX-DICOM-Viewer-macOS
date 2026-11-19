@@ -2,31 +2,30 @@
 """English values that stay English on purpose in the host catalogs.
 
 Technical names, product names, units, hanging-protocol anatomy codes, format
-tokens and the ASCII overlay strings used by legacy rendering are not
-translations. Everything else in the Italian and Spanish catalogs must differ
-from the English value.
+tokens and the abbreviations written over the image are not translations.
+Everything else in the Italian and Spanish catalogs must differ from the
+English value.
+
+The texts written over the image follow the language of the interface:
+tests/test-image-overlay-translations.py lists them and requires each one in
+every catalog. What stays here of them is what no language translates (WL, WW,
+Im, SUV, the letters of a measurement, the units) and, in OVERLAY_SAME_WORD,
+the readouts a language writes as English does because its word is the same.
 """
-import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Overlay strings the English catalog marks ASCII-only for legacy rendering.
-ASCII_OVERLAYS = {
-    " Angle: %0.0f",
-    "From: %d %% (%0.2f) to: %d %% (%0.2f)",
-    "Fused Image : X: %d px Y: %d px Value: %2.2f %@",
-    "Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld",
-    "Im: %ld-%ld/%ld %@",
-    "Im: %ld/%ld %@",
-    "Length: %@ ",
-    "Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f",
-    "SUV (fused image): %.2f",
-    "SUV: %.2f",
-    "X: %d px Y: %d px Value: %2.2f %@",
-    "X: %d px Y: %d px Value: R:%ld G:%ld B:%ld",
+# Readouts over the image whose word a language shares with English: Zoom in
+# Spanish, Area, Min, Max and Pixel in Italian. The test of the texts over the
+# image says which language may write each one as English does.
+OVERLAY_SAME_WORD = {
     "Zoom: %0.0f%%",
+    "Min: %0.3f%@", "Max: %0.3f%@",
+    "Area: %0.1f %cm²", "Area: %0.3f cm²", "Area: %0.3f mm²", "Area: %0.3f pix2",
+    "   Pixel: %@    %@ %@",
+    "Area (ROI statistic)", "Min (ROI statistic)", "Max (ROI statistic)",
 }
 
 # Product, platform, format and protocol names that are the same in every UI.
@@ -42,33 +41,29 @@ PRODUCT = {
 }
 
 TECHNICAL = {
-    "DICOM", "DICOMDIR", "PACS", "ROI", "ROIs", "ROI ", "CLUT", "WLWW",
-    "WL / WW", "WL & WW", "WL/WW & CLUT", "WL/WW & CLUT & Opacity",
-    "Default WL & WW", "Default WW/WL", "Full Dynamic WW/WL",
-    "MIP", "MPR", "CPR", "PET", "SUV", "RGB", "JPEG", "TIFF", "LOD",
+    "DICOM", "DICOMDIR", "DICOMDIR:", "URL:", "Soundex", "PACS", "ROI", "ROIs", "ROI ", "CLUT", "WLWW",
+    "WL / WW", "WL & WW", "WL/WW & CLUT",
+    "MIP", "MinIP", "MPR", "CPR", "PET", "SUV", "RGB", "JPEG", "TIFF", "LOD",
     "WADO", "QIDO", "C-MOVE", "C-GET", "RTSTRUCT",
-    "16-bit CLUT", "16-bit CLUT Editor", "16-bit CLUTs",
-    "8-bit CLUT Editor", "8-bit CLUTs",
-    "No CLUT", "CLUT Editor",
+    "16-bit CLUT",
+    "No CLUT",
     "3DCut", "3DRotate", "3DRotateCamera", "2D/3D", "3D", "32-bit", "64-bit",
     "BW", "B/W Inverse", "Cobb", "Repulsor", "FlyThru", "Fly Thru",
     "AccessionNumber",
     "DICOMNodes.plist", "DICOMPrinters.plist", "DatabaseAlbums.albums",
     "N/A", "n/a", "OK", "OK !", "OPENGL ERROR",
     "Plugin", "Preset", "Password", "Password:", "Password:<br><br>", "Server:",
-    "Listener", "Routing", "Routing...", "Query", "Zoom", "Frame", "Frames",
-    "On-Demand", "Stereo", "CD/DVD", "Database", "Database & DICOM",
+    "Routing", "Routing...", "Query", "Zoom", "Frame",
+    "On-Demand", "Stereo", "CD/DVD", "Database",
         "File", "file", "N2Connection timeout.",
-        "%d series", "%i bytes", "bytes",
-        "Series", "series", "Album: %@", "Axial", "CD-Rom", "CD/DVD",
+        "%d series", "%@ (%d series)", "%i bytes", "bytes",
+        "series", "Album: %@", "Axial", "CD-Rom", "CD/DVD",
         "Color", "Coronal", "Error", "Error: %@", "File: %@",
         "General", "Horizontal", "Vertical", "Local", "Local %", "Total", "Zoom",
         "Incompatible", "N2Connection timeout.", "Routing...",
         "Perpendicular", "Rendering...", "Reslicing...", "Report PDF",
-        "Database: %@", "Name: %@", "Opacity: %@", "Projection: %@",
-        "Shadings: %@", "Meta-Data: %@",
+        "Database: %@", "Name: %@", "Projection: %@",
     "Q&R Auto-Query", "Q&R Auto-Retrieve",
-    "WW/WL Tool",
     "Ortho", "Endo",
     "%ld ROIs", "Color:", "Inspector",
 }
@@ -112,27 +107,21 @@ TODAY_YESTERDAY = {
     "Yesterday RF", "Yesterday US", "Yesterday XA",
 }
 
-# On-image measurement readouts. Legacy rendering and the Italian catalog keep
-# these English; translating them would also violate several ASCII comments.
+# Readouts that stay as English writes them: the abbreviations, letters and
+# units written over the image (WL, WW, Im, SUV, the points of a measurement,
+# W and H), the texts of other windows, and entries no source reads any more.
 OVERLAY = {
+    "Im: %ld-%ld/%ld %@",
+    "Im: %ld/%ld %@",
+    "SUV: %.2f",
     "\n - the same location for each image",
     "\n - the same number of images",
     "\n - the same pixels spacing",
     "\rMean: %2.4f SDev: %2.4f Total: %2.4f",
     "\rMin: %2.4f Max: %2.4f ",
     "\rSkewness: %2.4f Kurtosis: %2.4f ",
-    "   Measurement: %@ ",
-    "   Pixel: %@    %@ %@",
-    "   Scale: %2.3f %% ",
     "%0.0f im/s",
     "%0.1f im/s",
-    "2D Pos: X:%0.3f %@ Y:%0.3f %@",
-    "2D Pos: X:%0.3f %@ Y:n/a %@",
-    "2D Pos: X:%0.3f px Y:%0.3f px",
-    "2D Pos: X:n/a %@ Y:%0.3f %@",
-    "2D Pos: X:n/a %@ Y:n/a %@",
-    "3D Length: %@",
-    "3D Pos: X:%0.3f mm Y:%0.3f mm Z:%0.3f mm",
     "A-B : %2.2f cm",
     "A-C : %2.2f cm",
     "A: %@",
@@ -140,54 +129,26 @@ OVERLAY = {
     "B-C: %@",
     "B: %@",
     "C: %@",
-    "Angle 2: %0.2f%@",
-    "Angle: %0.2f%@",
-    "Angle: %0.2f%@ with: %@",
-    "Angle: %0.3f%@ / %0.3f%@",
-    "Area: %0.1f %cm²",
     "Area: %0.1f %cm² (W: %0.1f %cm H: %0.1f %cm)",
-    "Area: %0.3f cm²",
     "Area: %0.3f cm² (W: %0.3f cm H: %0.3f cm)",
-    "Area: %0.3f mm²",
     "Area: %0.3f mm² (W: %0.3f mm H: %0.3f mm)",
-    "Area: %0.3f pix2",
     "Area: %0.3f pix2 (W: %0.3f pix H: %0.3f pix)",
-    "Calcium Mass: %0.1f",
-    "Calcium Score: %0.1f",
-    "Calcium Volume: %0.1f",
     "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@",
     "Fused Image Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@",
     "Fused Image Min: %0.3f%@ Max: %0.3f%@",
     "Fused Image Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f",
-    "Fused Image Value: %0.3f%@",
-    "Length: %@",
-    "Length: %@ ",
-    "Length: X=%0.3f %@, Y=%0.3f %@",
     "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@",
     "Mean: %0.3f%@ SDev: %0.3f%@ Sum: %0.0f%@ Median: %@%@",
     "Min: %0.3f%@ Max: %0.3f%@",
     "Min: %0.3f%@ Max: %0.3f%@ Skewness: %0.3f Kurtosis: %0.3f",
-    # The same readouts written one statistic at a time, so that the Viewers
-    # pane can hide each.
-    "Mean: %0.3f%@", "SDev: %0.3f%@", "Sum: %0.0f%@", "Median: %@%@",
-    "Min: %0.3f%@", "Max: %0.3f%@", "Skewness: %0.3f Kurtosis: %0.3f",
-    "Fused Image", "(W: %@ H: %@)",
-    # The names the Viewers pane's checks give those statistics: a catalog that
-    # keeps the readouts English names the checks as the readouts do, and
-    # Italian writes Area, Min and Max as English does.
-    "Area (ROI statistic)", "W/H (ROI statistic)", "Mean (ROI statistic)",
-    "SDev (ROI statistic)", "Sum (ROI statistic)", "Median (ROI statistic)",
-    "Min (ROI statistic)", "Max (ROI statistic)",
-    "Thickness: %0.2f %cm Location: %0.2f %cm",
-    "Thickness: %0.2f %cm Location: %0.2f mm",
-    "Thickness: %0.2f mm Location: %0.2f mm",
-    "Thickness: %@ Location: %0.2f mm",
+    # The width and the height of an ROI keep their letters, as the name the
+    # Viewers pane's check gives them does where a catalog writes W/H.
+    "(W: %@ H: %@)", "W/H (ROI statistic)",
     "Volume : %2.4f cm³",
     "Volume : %2.4f mm³",
     "WL: %.0f WW: %.0f",
     "WL: %0.4f WW: %0.4f",
     "WL: %d WW: %d",
-    "Value: %0.3f%@",
     "value : %.0f",
     "value : %.0f\nalpha : %1.3f",
     "value:\t%2.2f",
@@ -195,11 +156,6 @@ OVERLAY = {
     "mm:\t\tx:%2.2f y:%2.2f z:%2.2f",
     "px:\t\tx:%d y:%d",
     "r:%.0f%%, g:%.0f%%, b:%.0f%%",
-    "Background: red:%.0f%%, green:%.0f%%, blue:%.0f%%",
-    "Image %d\r%.2f",
-    "Image size: %ld x %ld",
-    "View Size: %d x %d",
-    "View size: %ld x %ld",
     "zoom x %.1f",
     "Elapsed Time:\r%2.2d:%2.2d:%2.2d",
     "Last Duration:\r%2.2d:%2.2d:%2.2d",
@@ -209,14 +165,18 @@ OVERLAY = {
 }
 
 EXACT = (
-    ASCII_OVERLAYS | PRODUCT | TECHNICAL | MODALITY | ANATOMY | UNITS
+    OVERLAY_SAME_WORD | PRODUCT | TECHNICAL | MODALITY | ANATOMY | UNITS
     | TODAY_YESTERDAY | OVERLAY | {
         " (TLS)", " (SUV Converted)", " (retired)",
         "Horos Screen Captures", "IsiX Screen Captures",
         "iChat Theatre shared view",
         "MPEG-2 File",
         "Uncompressed BigEndian",
-        "Linear Table", "Logarithmic Inverse Table",
+        # Names stored in a database, a 3D state or the preferences, which stay as English writes them.
+        "Linear Table", "Logarithmic Inverse Table", "No Filter",
+        # The predefined values of a surface: one is the name of a window level preset, and the two
+        # beside it in the menu are written the same way.
+        "CT - Bone", "CT - Skin", "CT - Metal",
     }
 )
 
@@ -241,14 +201,3 @@ def is_residual(key, english_value=None):
     if is_format_or_token(key) and is_format_or_token(value):
         return True
     return False
-
-
-def english_comments():
-    source = (ROOT / "Horos/Resources/en.lproj/Localizable.strings").read_text(
-        encoding="utf-16")
-    ascii_keys = []
-    for comment, literal in re.findall(
-            r'/\*(.*?)\*/\s*("(?:\\.|[^"\\])*")\s*=', source, re.S):
-        if "ASCII" in comment:
-            ascii_keys.append(json.loads(literal))
-    return ascii_keys

@@ -33,8 +33,15 @@ def conversions(text):
     return [(index + 1, kind) for index, (_, kind) in enumerate(found)]
 
 
+# A tooltip of the 2D viewer with a literal percentage, never put through a format: its "% s" reads as a conversion.
+LITERAL_PERCENT = {'% subtraction [0.80 ... 1.00] (default 1.00 %)'}
+
 failures = []
 for key, value in catalog.items():
+    if key in LITERAL_PERCENT:
+        if re.findall(r'[\d.]+', key) != re.findall(r'[\d.]+', value) or key.count('%') != value.count('%'):
+            failures.append(f'{key!r} = {value!r}: the numbers or the percent signs differ')
+        continue
     if conversions(key) != conversions(value):
         failures.append(f'{key!r} = {value!r}: the conversions differ')
 

@@ -87,6 +87,12 @@ public final class CustomIntervalPanel: NSWindowController, NSWindowDelegate {
         processGraph.currentBrowser?.timeIntervalType = 0
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// The designated initializer -initWithWindowNibName: goes through, as
     /// before. The outlets are not loaded yet here, so the locales set on the
     /// pickers reach nothing, as in the former class.

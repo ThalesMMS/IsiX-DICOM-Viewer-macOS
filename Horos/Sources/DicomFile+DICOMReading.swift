@@ -763,7 +763,8 @@ private let structuredReportReading = NSLock()
             }
             // An SR without ROI data hands back nil, which the unarchiver does not survive.
             let roiData = SRAnnotation.roi(fromDICOM: path)
-            let count = RestrictedUnarchiver.unarchiveROIs(with: roiData)?.count ?? 0
+            // Counted only: these ROIs reach no viewer, so they tell no observer.
+            let count = ROI.decodingQuietly { RestrictedUnarchiver.unarchiveROIs(with: roiData)?.count ?? 0 }
             elements.setObject(NSNumber(value: Int32(truncatingIfNeeded: count)), forKey: "numberOfROIs" as NSString)
         }) {
             _N2LogExceptionImpl(exception, true, "-[DicomFile(DICOMReading) getDicomFileDCMTK]")

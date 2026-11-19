@@ -21,14 +21,14 @@ import Testing
 
     /// The viewer's study with three series, an older study with one, a PACS
     /// study with none.
-    private func patient(lastIsViewerStudyOnPACS: Bool = false) -> SeriesMenuModel {
+    private func patient(lastIsViewerStudyOnPACS: Bool = false, windowStudy: SeriesIdentity.Study = .current) -> SeriesMenuModel {
         SeriesMenuModel(studies: [
             .init(title: "today / CT", picture: .number(studyIndex: 0), isViewerStudyOnPACS: false,
                   series: [Self.series("Axial", 120, shown: true, window: true), Self.series("Scout", 1), Self.series("Fused", 3, fused: true)]),
             .init(title: "last year / MR", picture: .number(studyIndex: 1), isViewerStudyOnPACS: false,
                   series: [Self.series("T1", 20, shown: true, window: true)]),
             .init(title: nil, picture: .retrieve, isViewerStudyOnPACS: lastIsViewerStudyOnPACS, series: []),
-        ])
+        ], windowStudy: windowStudy)
     }
 
     @Test func itemsInTheOrderOfTheMenu() {
@@ -51,10 +51,33 @@ import Testing
 
     @Test func highlightsShownThenFusedThenWindowColour() {
         let model = patient()
-        #expect(model.highlight(of: Self.series("a", 1, shown: true, fused: true, window: true)) == .shown)
+        #expect(model.highlight(of: Self.series("a", 1, shown: true, fused: true, window: true)) == .shown(.current))
         #expect(model.highlight(of: Self.series("a", 1, fused: true, window: true)) == .fused)
         #expect(model.highlight(of: Self.series("a", 1, window: true)) == .windowColour)
         #expect(model.highlight(of: Self.series("a", 1)) == SeriesMenuModel.Highlight.none)
+    }
+
+    /// The series the viewer shows take the colour of the study its window
+    /// stands for: a previous exam's is not the current study's. A menu told
+    /// nothing is of the current study, as a single study is.
+    @Test func theSeriesShownIsHighlightedAsTheStudyOfTheWindow() {
+        let shown = Self.series("a", 1, shown: true, fused: true, window: true)
+        #expect(patient(windowStudy: .previous).highlight(of: shown) == .shown(.previous))
+        #expect(patient(windowStudy: .current).highlight(of: shown) == .shown(.current))
+        #expect(SeriesMenuModel(studies: []).highlight(of: shown) == .shown(.current))
+        #expect(SeriesMenuModel.Highlight.shown(.previous) != .shown(.current))
+
+        // Every series the viewer shows, of whichever listed study, and only
+        // those: the fused one and the one of another window keep theirs.
+        let previous = patient(windowStudy: .previous)
+        let highlights = previous.studies.flatMap { $0.series.map(previous.highlight(of:)) }
+        #expect(highlights == [.shown(.previous), SeriesMenuModel.Highlight.none, .fused, .shown(.previous)])
+        #expect(previous.highlight(of: Self.series("a", 1, fused: true, window: true)) == .fused)
+        #expect(previous.highlight(of: Self.series("a", 1, window: true)) == .windowColour)
+
+        // The study of the window changes no item and no selection.
+        #expect(previous.items == patient().items)
+        #expect(previous.selectedItem == patient().selectedItem)
     }
 
     @Test func seriesTitlesCountTheirImages() {
@@ -62,5 +85,11 @@ import Testing
         #expect(SeriesMenuModel.title(of: Self.series("Scout", 1)) == "Scout / 1 image")
         #expect(SeriesMenuModel.title(of: Self.series("", 0)) == " / 0 images")
         #expect(SeriesMenuModel.title(of: Self.series("Axial", 1200)) == "Axial / \(decimal(1200)) images")
+    }
+
+    @Test func seriesTitlesCountTheirImagesInTheLanguageOfTheMenu() {
+        let spanish = { (count: Int) in count == 1 ? "1 imagen" : "\(count) imágenes" }
+        #expect(SeriesMenuModel.title(of: Self.series("Scout", 1), images: spanish) == "Scout / 1 imagen")
+        #expect(SeriesMenuModel.title(of: Self.series("AVEC I.V.", 461), images: spanish) == "AVEC I.V. / 461 imágenes")
     }
 }

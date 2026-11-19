@@ -48,13 +48,14 @@ def ids(node):
 
 def shape(node):
     # Structure without the translated texts: tags, ids and connections. The
-    # tool dependencies are not part of it (ja-JP declares one more).
+    # tool dependencies are not part of it (a copy may declare one more).
     return (node.tag, node.get('id'), node.get('destination'), node.get('selector'), node.get('property'),
             [shape(child) for child in node if child.tag != 'dependencies'])
 
 
 languages = sorted(p.parent.name for p in resources.glob('*.lproj/ViewerPanels.xib'))
-check(len(languages) == 10, f'ViewerPanels.xib in {len(languages)} languages, expected 10')
+# English and the eight languages that have a copy; Spanish, Italian and Japanese load the English nib.
+check(len(languages) == 9, f'ViewerPanels.xib in {len(languages)} languages, expected 9')
 english = ET.parse(resources / 'en.lproj/ViewerPanels.xib').getroot()
 for language in languages:
     viewer = ET.parse(resources / language / 'Viewer.xib').getroot()

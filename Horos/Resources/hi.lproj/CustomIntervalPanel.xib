@@ -63,7 +63,7 @@
                             </binding>
                         </connections>
                     </datePicker>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" preferredMaxLayoutWidth="20" translatesAutoresizingMaskIntoConstraints="NO" id="233">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="233">
                         <rect key="frame" x="4" y="199" width="24" height="17"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="को:" id="254">
                             <font key="font" metaFont="system"/>

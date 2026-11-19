@@ -14,8 +14,9 @@ en=strings(root/'Horos/Resources/en.lproj/Localizable.strings')
 it=strings(root/'Horos/Resources/it-IT.lproj/Localizable.strings')
 assert en.keys()<=it.keys(), 'Catalog keys must contain the current English catalog'
 fmt=re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztLq])?[@diuoxXfFeEgGaAcCsSpn%]')
-# Labels of the Viewers settings with a literal percentage, not a format: the number and the sign stay.
-literal_percent={'At 100% of resolution','At 150% of resolution','At 200% of resolution'}
+# Labels of the Viewers settings and of the 2D viewer with a literal percentage, not a format: the number and the sign stay.
+literal_percent={'At 100% of resolution','At 150% of resolution','At 200% of resolution',
+                 '% subtraction [0.80 ... 1.00] (default 1.00 %)','Fusion : from 0% to 100% (in 20 images)'}
 for key in it:
     original=en.get(key,key)
     if key in literal_percent:
@@ -23,17 +24,14 @@ for key in it:
         continue
     assert Counter(fmt.findall(original))==Counter(fmt.findall(it[key])),repr(key)
     assert it[key] or not original, f'Unexpected empty translation: {key}'
-# Legacy rendering paths explicitly require ASCII in these catalog comments.
-source=(root/'Horos/Resources/en.lproj/Localizable.strings').read_text(encoding='utf-16')
-for comment, literal in re.findall(r'/\*(.*?)\*/\s*("(?:\\.|[^"\\])*")\s*=',source,re.S):
-    if 'ASCII' in comment:
-        key=json.loads(literal)
-        assert it[key].isascii(), f'Non-ASCII translation in constrained rendering string: {key}'
 subprocess.run([sys.executable,str(root/'tools/localize-main-menu.py'),'--check'],check=True)
 visible={'title','label','toolTip','placeholderString','alternateTitle','stringValue'}
+# The string elements the generator translates: long titles and tooltips, and what a binding shows.
+visible_strings=visible|{'NSDisplayName','NSDisplayPattern','NSNullPlaceholder','NSNoSelectionPlaceholder'}
 def structural(node):
+    text='' if node.tag=='string' and node.get('key') in visible_strings else (node.text or '').strip()
     return (node.tag, sorted((k,v) for k,v in node.attrib.items() if k not in visible),
-            (node.text or '').strip(), [structural(child) for child in node])
+            text, [structural(child) for child in node])
 en_tree=ET.parse(root/'Horos/Resources/en.lproj/MainMenu.xib').getroot()
 it_tree=ET.parse(root/'Horos/Resources/it-IT.lproj/MainMenu.xib').getroot()
 assert structural(en_tree)==structural(it_tree), 'Localization changed nib structure/connections'

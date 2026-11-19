@@ -18,10 +18,15 @@ import IsiXPreferences
 /// for, in images, the unit of the projection controller, of the scroll
 /// wheel, of the reslice and of the saved thickness. What the user sees is
 /// the scale of the slab at the image shown (`stackScale`), in millimetres:
-/// the track runs from the thickness of one image to that of the images left
-/// to the end of the series, the knob stands where the thickness fused is,
-/// the marks are thicknesses the knob stops at, and the bubble writes what
-/// the toolbar does.
+/// the track runs from the thickness of one image to that of the series, or
+/// of the images the slider can ask for, and is the same at every image, so
+/// the knob stays where the request is while the series scrolls. The marks
+/// of the linear track are thicknesses the knob stops at, evenly spaced;
+/// those of the exponential one draw its curve, closer at every step towards
+/// the thick end, and are not stops. The bubble writes what the toolbar
+/// does: the thickness fused. Where the series has fewer images left than
+/// the track holds, the track beyond them is drawn faded and the knob does
+/// not pass it.
 @objc(HorosThickSlabSlider)
 public class HorosThickSlabSlider: HorosCellSlider {
     /// The preferences of the process graph, whose curve of the ruler the slider reads and observes.
@@ -84,7 +89,7 @@ public class HorosThickSlabSlider: HorosCellSlider {
         }
     }
 
-    /// The 2D knob stands at the thickness fused: at the thick end for a
+    /// The 2D knob stands at the request: where the images left end for a
     /// request the image shown cannot hold whole, at the thin end while the
     /// slab is off.
     public override var fraction: CGFloat {
@@ -99,11 +104,80 @@ public class HorosThickSlabSlider: HorosCellSlider {
         let length = isHorizontalSlider ? trackRect.width : trackRect.height
         guard length > 0, numberOfTickMarks >= 2 else { return [] }
         let spacing = Self.markSpacing / Double(length)
-        if storesNormalizedPosition { return scale.tickPositions(minimumSpacing: spacing).map { CGFloat($0) } }
+        if storesNormalizedPosition {
+            // No more intervals than whole units the knob stops at.
+            let curve = scale
+            return curve.tickPositions(minimumSpacing: spacing, most: max(1, Int(curve.maximum - curve.minimum))).map { CGFloat($0) }
+        }
         guard let stackScale else { return [] }
-        let exponential = isExponential
-        return stackScale.tickCounts(minimumSpacing: spacing, exponential: exponential)
-            .map { CGFloat(stackScale.position(ofCount: $0, exponential: exponential)) }
+        return stackScale.tickPlaces(minimumSpacing: spacing, exponential: isExponential).map { CGFloat($0) }
+    }
+
+    // MARK: - The track beyond the images left
+
+    /// How far along its track the knob can go at the image shown, 0 … 1: the
+    /// track beyond is of images the series does not have from there. The
+    /// whole track for a slider that has no scale of a series.
+    @objc public var reachableFraction: CGFloat {
+        guard !storesNormalizedPosition, let stackScale else { return 1 }
+        return CGFloat(stackScale.reach(exponential: isExponential))
+    }
+
+    /// How much of its own strength the track beyond the reach is drawn with.
+    private static let unreachableStrength: CGFloat = 0.35
+
+    /// The slider up to the reach and beyond it, each across its whole
+    /// thickness: the track and the marks along it. Nil when the knob can go
+    /// to the end. The parts meet on a pixel, without a seam.
+    private var partsAtReach: (within: NSRect, beyond: NSRect)? {
+        let reach = reachableFraction
+        guard reach < 1 else { return nil }
+        let track = trackRect
+        let limit = isHorizontalSlider ? NSPoint(x: track.minX + track.width * reach, y: bounds.minY)
+                                       : NSPoint(x: bounds.minX, y: track.minY + track.height * reach)
+        let aligned = backingAlignedRect(NSRect(origin: limit, size: .zero), options: .alignAllEdgesNearest).origin
+        let parts = isHorizontalSlider ? bounds.divided(atDistance: aligned.x - bounds.minX, from: .minXEdge)
+                                       : bounds.divided(atDistance: aligned.y - bounds.minY, from: .minYEdge)
+        return parts.remainder.isEmpty ? nil : (parts.slice, parts.remainder)
+    }
+
+    /// The slider draws itself whole up to the reach, and faded beyond it:
+    /// the same track and marks, weaker, under a knob that is drawn whole
+    /// where it stands over the limit.
+    public override func draw(_ dirtyRect: NSRect) {
+        guard let parts = partsAtReach, let context = NSGraphicsContext.current?.cgContext else {
+            super.draw(dirtyRect)
+            return
+        }
+        let center = knobCenter
+        let knob = NSRect(x: center.x - knobDiameter / 2, y: center.y - knobDiameter / 2, width: knobDiameter, height: knobDiameter)
+
+        // Up to the reach, as it is.
+        context.saveGState()
+        context.clip(to: parts.within)
+        super.draw(dirtyRect)
+        context.restoreGState()
+
+        // Beyond it, around the knob: faded.
+        context.saveGState()
+        context.clip(to: parts.beyond)
+        let aroundKnob = CGMutablePath()
+        aroundKnob.addRect(bounds.insetBy(dx: -1, dy: -1))
+        aroundKnob.addEllipse(in: knob)
+        context.addPath(aroundKnob)
+        context.clip(using: .evenOdd)
+        context.setAlpha(Self.unreachableStrength)
+        super.draw(dirtyRect)
+        context.restoreGState()
+
+        // The half of a knob that stands at the reach, as it is.
+        guard knob.intersects(parts.beyond) else { return }
+        context.saveGState()
+        context.clip(to: parts.beyond)
+        context.addEllipse(in: knob)
+        context.clip()
+        super.draw(dirtyRect)
+        context.restoreGState()
     }
 
     /// The least distance between two marks, in points: the main marks only.
@@ -111,22 +185,23 @@ public class HorosThickSlabSlider: HorosCellSlider {
 
     public override var highlightsSelectedTickMarks: Bool { true }
 
-    /// How close to a mark, in points, a click lands on it: half a pixel at 1x.
-    /// Where several stops share one pixel (the thick end of a long series, or
-    /// of the logarithmic curve) the mark is the stop the user aims at; where
+    /// How close to a mark of the linear track, in points, a click lands on
+    /// it: half a pixel at 1x. Where several stops share one pixel (the thick
+    /// end of a long series) the mark is the stop the user aims at; where
     /// every stop has a pixel of its own, the stops beside a mark stay
-    /// reachable.
+    /// reachable. The marks of the exponential track are not stops.
     private static let markSnap: CGFloat = 0.5
 
     /// The knob stops at the thicknesses whole numbers of images make (2D) or
     /// at whole millimeters (MPR, CPR), on either curve, the ends of the scale
-    /// kept as they are; a click on a mark lands on the mark's own stop.
+    /// kept as they are; a click on a mark of the linear track lands on the
+    /// mark's own stop.
     public override func value(at point: NSPoint) -> Double {
         let track = trackRect
         let length = isHorizontalSlider ? track.width : track.height
         let offset = isHorizontalSlider ? point.x - track.minX : point.y - track.minY
         var position = length > 0 ? Double(min(1, max(0, offset / length))) : 0
-        if length > 0, let mark = tickMarkFractions.min(by: { abs($0 * length - offset) < abs($1 * length - offset) }),
+        if length > 0, !isExponential, let mark = tickMarkFractions.min(by: { abs($0 * length - offset) < abs($1 * length - offset) }),
            abs(mark * length - offset) <= Self.markSnap {
             position = Double(mark)
         }
@@ -136,10 +211,11 @@ public class HorosThickSlabSlider: HorosCellSlider {
     }
 
     /// The images asked for by a pointer at `position` of the track: those of
-    /// the stop there. The thick end, the images left at the image shown,
+    /// the stop there, and of the last stop the image shown reaches for a
+    /// pointer beyond it. That stop, the images left at the image shown,
     /// leaves a request for those or more as it is: a click or a drag that
-    /// ends there does not cut what the series holds elsewhere, and the last
-    /// image, whose only stop it is, changes nothing.
+    /// ends there or beyond does not cut what the series holds elsewhere, and
+    /// the last image, whose only stop it is, changes nothing.
     private func requestedCount(at position: Double) -> Double {
         guard let stackScale else { return doubleValue }
         let count = stackScale.count(at: position, exponential: isExponential)
@@ -272,10 +348,11 @@ public final class HorosMPRThickSlabSlider: HorosThickSlabSlider {
 @MainActor struct StackSlabBar {
     var requested = 2
 
-    /// The track from two images to those left and the thickness fused, in
-    /// millimeters, by one text for the bubble and the field. Off, both are
-    /// disabled at the thickness that will be fused; at the last image, which
-    /// has no slab, the slider has nothing to choose.
+    /// The track from two images to those of the series, as far as those
+    /// left, and the thickness fused, in millimeters, by one text for the
+    /// bubble and the field. Off, both are disabled at the thickness that
+    /// will be fused; at the last image, which has no slab, the slider has
+    /// nothing to choose.
     func show(_ scale: StackFusionScale?, active: Bool, slider: NSSlider?, field: NSTextField?) {
         if let slider {
             (slider as? HorosThickSlabSlider)?.stackScale = scale

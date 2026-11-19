@@ -100,6 +100,16 @@ new_paths). A measurement below it fails too, until the registry is lowered in
 the same change: `--lower` rewrites the registry with every number that fell
 (never one that rose), removes what reached zero, the files that are gone and
 the files no longer above 2,000 lines. A renamed file moves its entry by hand.
+
+One fall `--lower` does not write. The registry keeps two numbers for a pattern
+of a file that has an exception, and no record of which lines each one counts:
+when some of those lines go away and others stay, the tool cannot tell whether
+a line of `files` or a line the exception explains went. It leaves the two
+entries as they are, lowers the rest, says both numbers and the measurement,
+and exits with status 1; the two are then edited by hand, to the measurement
+in all, the reason of the exception with them if what it explains changed. A
+pattern that has only one of the two numbers, a pattern whose lines are all
+gone and a file that is gone are lowered as before.
 """
 from pathlib import Path
 import argparse
@@ -460,6 +470,8 @@ def problems(summary, registry):
                          'without the pattern, or register the exception with its technical reason')
         elif now > allowed:
             found.append(f'{path}: {pattern} rose from {allowed} to {now}')
+        elif now < allowed and now and listed and excepted:
+            found.append(f'{path}: {pattern} fell from {allowed} to {now}: {split_by_hand(path, pattern, listed, excepted, now)}')
         elif now < allowed:
             found.append(f'{path}: {pattern} fell from {allowed} to {now}: lower {REGISTRY_PATH} '
                          'in the same change (--lower does)')
@@ -487,16 +499,40 @@ def problems(summary, registry):
     return found
 
 
+def split_by_hand(path, pattern, listed, excepted, now):
+    """What to do about a fall --lower does not write: the two numbers and the edit."""
+    return (f'{REGISTRY_PATH} allows {listed} in files and {excepted} by the exception "{path} {pattern}", and nothing '
+            f'says which lines went away: lower the files entry, the count of the exception (with its reason, if what '
+            f'it explains changed) or both by hand, to {now} in all (--lower leaves the two as they are)')
+
+
+def undecided(summary, registry):
+    """[(path, pattern, files count, exception count, measured)] of the falls
+    --lower does not write: a pattern of a file that has both a `files` count
+    and an exception, of which some lines went away and some stay. Which of
+    the two numbers lost them is not in the registry."""
+    measured, exceptions, found = summary['files'], exception_counts(registry), []
+    for path, counts in sorted(registry['files'].items()):
+        for pattern, listed in sorted(counts.items()):
+            excepted = exceptions.get((path, pattern), 0)
+            now = measured.get(path, {}).get(pattern, 0)
+            if listed and excepted and 0 < now < listed + excepted:
+                found.append((path, pattern, listed, excepted, now))
+    return found
+
+
 def lowered(summary, registry):
-    """The registry with every number that fell lowered, and nothing raised."""
+    """The registry with every number that fell lowered, and nothing raised.
+    The entries of undecided() stay as they are."""
     measured, exceptions = summary['files'], dict(registry['exceptions'])
+    left = {(path, pattern) for path, pattern, _, _, _ in undecided(summary, registry)}
     files = {}
     for path, counts in registry['files'].items():
         kept = {}
         for pattern, count in counts.items():
             now = measured.get(path, {}).get(pattern, 0)
             excepted = exceptions.get(f'{path} {pattern}', {}).get('count', 0)
-            kept[pattern] = min(count, max(0, now - excepted))
+            kept[pattern] = count if (path, pattern) in left else min(count, max(0, now - excepted))
             if kept[pattern] == 0:
                 del kept[pattern]
         if kept:
@@ -504,6 +540,8 @@ def lowered(summary, registry):
     for key, entry in list(exceptions.items()):
         path, _, pattern = key.rpartition(' ')
         now = measured.get(path, {}).get(pattern, 0)
+        if (path, pattern) in left:
+            continue
         if now < entry.get('count', 0):
             if now:
                 exceptions[key] = dict(entry, count=now)
@@ -636,8 +674,15 @@ def main():
                                        'hub_classes': summary['hub_classes'], 'large_files': summary['large_files']}))
         print(f'wrote {REGISTRY_PATH}')
     elif arguments.lower:
-        path.write_text(registry_text(lowered(summary, load_registry(arguments.root))))
+        registry = load_registry(arguments.root)
+        path.write_text(registry_text(lowered(summary, registry)))
         print(f'lowered {REGISTRY_PATH}')
+        left = undecided(summary, registry)
+        for name, pattern, listed, excepted, now in left:
+            print(f'NOT LOWERED: {name}: {pattern} fell from {listed + excepted} to {now}: '
+                  f'{split_by_hand(name, pattern, listed, excepted, now)}', file=sys.stderr)
+        if left:
+            sys.exit(1)
 
 
 if __name__ == '__main__':

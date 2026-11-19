@@ -218,6 +218,8 @@ TECHNICAL = {
     'ExternalRequestHandler.swift': {
         'parsed.message as NSString': 'what the parser of a horos:// link found wrong, in its own words: none quotes the link',
         '(reason ?? "") as NSString': 'why a study did not open: a sentence of StudyNotOpenedReason, with a Study Instance UID',
+        'reason as NSString': 'why the application could not be scheduled to reopen: the system\'s error for starting the '
+                              'shell that waits for the process, which names no link, study or peer',
     },
     'XMLRPCInterface+Display.swift': {
         'reason as NSString': 'why a study did not open: a sentence of StudyNotOpenedReason, with a Study Instance UID',

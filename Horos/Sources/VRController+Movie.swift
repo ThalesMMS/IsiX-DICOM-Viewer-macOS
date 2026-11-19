@@ -99,7 +99,7 @@ extension VRController {
         if let timer = movieTimer {
             timer.invalidate()
             movieTimer = nil
-            moviePlayStop?.title = "Play"
+            moviePlayStop?.title = NSLocalizedString("Play", comment: "")
             movieTextSlide?.stringValue = String(format: NSLocalizedString("%0.0f im/s", comment: "im/s = images per second"),
                                                  movieRateSlider?.floatValue ?? 0)
         } else {
@@ -109,7 +109,7 @@ extension VRController {
             RunLoop.current.add(timer, forMode: .eventTracking)
             movieTimer = timer
             lastMovieTime = Date.timeIntervalSinceReferenceDate
-            moviePlayStop?.title = "Stop"
+            moviePlayStop?.title = NSLocalizedString("Stop", comment: "")
         }
     }
 

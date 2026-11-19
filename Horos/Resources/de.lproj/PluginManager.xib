@@ -67,7 +67,7 @@
                                                                     <binding destination="26" name="value" keyPath="arrangedObjects.typeIcon" id="Ceh-QB-oo3"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="" editable="NO" width="120" minWidth="120" maxWidth="120" id="OCE-FJ-HJu">
+                                                            <tableColumn identifier="" editable="NO" width="126" minWidth="126" maxWidth="126" id="OCE-FJ-HJu">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Ladestatus">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -86,7 +86,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn editable="NO" width="360" minWidth="360" maxWidth="360" id="19">
+                                                            <tableColumn editable="NO" width="344" minWidth="344" maxWidth="344" id="19">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Name">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -150,7 +150,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn width="60" minWidth="60" maxWidth="60" id="18">
+                                                            <tableColumn width="70" minWidth="70" maxWidth="70" id="18">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Aktivieren">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -201,7 +201,7 @@
                                             </connections>
                                         </button>
                                         <textField hidden="YES" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="8vS-5X-10a">
-                                            <rect key="frame" x="9" y="53" width="319" height="21"/>
+                                            <rect key="frame" x="9" y="53" width="430" height="21"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Im geschützten Modus werden keine Plugins geladen" id="6iv-KU-g57">
                                                 <font key="font" metaFont="system" size="17"/>

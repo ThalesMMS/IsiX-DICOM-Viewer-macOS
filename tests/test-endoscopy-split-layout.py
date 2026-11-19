@@ -293,7 +293,7 @@ with tempfile.TemporaryDirectory(prefix='horos-endoscopy-split-') as folder:
         (work / 'harness.m').write_text(objc_harness + harness_defaults.OBJC)
         run(['xcrun', 'clang', '-fobjc-arc', '-Wno-deprecated-declarations', '-framework', 'Cocoa',
              str(work / 'harness.m'), '-o', str(work / 'harness')], 'the harness')
-    for locale in ('en', 'ja-JP') if not failures else ():
+    for locale in ('en',) if not failures else ():
         xib = work / f'{locale}.xib'
         xib.write_text(window_xib(read(f'Horos/Resources/{locale}.lproj/Endoscopy.xib')))
         nib = resources / f'{locale}.nib'

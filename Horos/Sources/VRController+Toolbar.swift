@@ -200,7 +200,7 @@ extension VRController {
         case Self.wlwwItem:
             viewItem(item, label: L("WL/WW & CLUT & Opacity"), palette: L("WL/WW & CLUT & Opacity"),
                      tip: L("Change the WL/WW & CLUT & Opacity"), view: WLWWView, fixedMaximum: false)
-            (wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: wlwwPopup())
         case Self.movieItem:
             viewItem(item, label: L("4D Player"), palette: L("4D Player"), tip: L("4D Player"), view: movieView, fixedMaximum: true)
         case Self.orientationsViewItem:
@@ -221,7 +221,7 @@ extension VRController {
         case Self.lodItem:
             viewItem(item, label: L("Level of Detail"), palette: L("Level of Detail"), tip: L("Change Level of Detail"), view: LODView,
                      fixedMaximum: false)
-            (wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: wlwwPopup())
         case Self.toolsItem:
             viewItem(item, label: L("Mouse button function"), palette: L("Mouse button function"), tip: nil, view: toolsView,
                      fixedMaximum: true)

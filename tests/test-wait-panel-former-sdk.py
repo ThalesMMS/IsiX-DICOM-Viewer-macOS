@@ -331,15 +331,19 @@ def main():
         return 2
     failures = [f'{key}: the fixture of the selector types does not name it' for key in ADDED if key not in TYPES]
     xibs = sorted((ROOT / 'Horos/Resources').glob('*.lproj/Wait.xib'))
-    if len(xibs) != 10:
-        failures.append(f'{len(xibs)} localized copies of Wait.xib instead of 10')
+    # English and the eight languages that have a copy of the nib; the others read the English nib's texts from
+    # their catalog.
+    if len(xibs) != 9:
+        failures.append(f'{len(xibs)} copies of Wait.xib instead of 9')
     with tempfile.TemporaryDirectory(prefix='isix-wait-panel-') as folder:
         folder = Path(folder).resolve()
         (folder / 'Stubs.swift').write_text(STUBS)
         (folder / 'main.m').write_text(DRIVER)
         swift = [str(SOURCES / name) for name in ('Wait.swift', 'Wait+LegacyPluginSDK.swift', 'WaitProgressIndicator.swift',
                                                    'WaitIndeterminateBar.swift', 'KeyWindowReturn.swift', 'ProgressPanel.swift',
-                                                   'MainActorCallbacks.swift')]
+                                                   'MainActorCallbacks.swift',
+                                                   # The panel loads its nib through these.
+                                                   'WindowNibCatalog.swift')] + [str(ROOT / 'Preference Panes/PaneCatalogTranslation.swift')]
         run(['xcrun', 'clang', '-c', '-fno-objc-arc', '-Wno-deprecated-declarations', str(folder / 'main.m'), '-o', str(folder / 'main.o')],
             'the driver does not compile')
         # The language mode and the concurrency checking of the application.

@@ -217,7 +217,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="136">
                         <rect key="frame" x="5" y="10" width="318" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche de décalage enfoncée." id="2128">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche Maj enfoncée." id="2128">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -256,7 +256,9 @@ Gw
                     <constraint firstItem="105" firstAttribute="trailing" secondItem="107" secondAttribute="trailing" id="InI-Nq-DM4"/>
                     <constraint firstItem="106" firstAttribute="top" secondItem="115" secondAttribute="bottom" constant="11" id="Ksv-Ay-1jy"/>
                     <constraint firstItem="117" firstAttribute="top" secondItem="116" secondAttribute="bottom" constant="7" id="Kyo-Rm-Zx3"/>
-                    <constraint firstItem="116" firstAttribute="leading" secondItem="114" secondAttribute="trailing" constant="14" id="NCd-RJ-yFL"/>
+                    <constraint firstItem="116" firstAttribute="leading" secondItem="114" secondAttribute="trailing" priority="750" constant="14" id="NCd-RJ-yFL"/>
+                    <constraint firstItem="116" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="114" secondAttribute="trailing" constant="14" id="wLv-Lb-g14"/>
+                    <constraint firstItem="116" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="115" secondAttribute="trailing" constant="8" symbolic="YES" id="wWd-Lb-g08"/>
                     <constraint firstItem="106" firstAttribute="top" secondItem="117" secondAttribute="bottom" constant="8" symbolic="YES" id="OkZ-Pu-9Ra"/>
                     <constraint firstItem="144" firstAttribute="leading" secondItem="116" secondAttribute="trailing" constant="7" id="OsG-CB-KdI"/>
                     <constraint firstItem="105" firstAttribute="top" secondItem="106" secondAttribute="bottom" constant="11" id="PkS-G0-ikU"/>
@@ -492,8 +494,8 @@ Gw
                         <rect key="frame" x="29" y="10" width="330" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2131">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Pour supprimer un filtre du menu : sélectionnez-le avec la touche de décalage vers le bas.
-Pour modifier un filtre dans le menu : sélectionnez-le avec la touche option vers le bas.</string>
+                            <string key="title">Pour supprimer un filtre du menu : sélectionnez-le avec la touche Maj enfoncée.
+Pour modifier un filtre dans le menu : sélectionnez-le avec la touche Option enfoncée.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -724,7 +726,7 @@ Gw
                         <rect key="frame" x="17" y="12" width="517" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2148">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Pour supprimer une table de recherche couleur dans le menu : sélectionnez-la tout en maintenant la touche de changement.
+                            <string key="title">Pour supprimer une table de recherche couleur dans le menu : sélectionnez-la tout en maintenant la touche Maj.
 Pour modifier une table de recherche couleur dans le menu : sélectionnez-la tout en maintenant la touche alt/option.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -761,14 +763,14 @@ Pour modifier une table de recherche couleur dans le menu : sélectionnez-la tou
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="447">
                         <rect key="frame" x="18" y="153" width="106" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Fonction actuelle :" id="2151">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Position actuelle :" id="2151">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="449">
-                        <rect key="frame" x="121" y="153" width="114" height="17"/>
+                        <rect key="frame" x="124" y="153" width="114" height="17"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="110" id="L0J-1l-Dlf"/>
                         </constraints>
@@ -783,7 +785,7 @@ Pour modifier une table de recherche couleur dans le menu : sélectionnez-la tou
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="0Sb-Ml-EqV"/>
                         </constraints>
-                        <buttonCell key="cell" type="push" title="Mise à jour" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2153">
+                        <buttonCell key="cell" type="push" title="Mettre à jour" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2153">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -793,7 +795,7 @@ Pour modifier une table de recherche couleur dans le menu : sélectionnez-la tou
                     </button>
                 </subviews>
                 <constraints>
-                    <constraint firstItem="449" firstAttribute="leading" secondItem="447" secondAttribute="trailing" constant="1" id="2tp-gF-V6r"/>
+                    <constraint firstItem="449" firstAttribute="leading" secondItem="447" secondAttribute="trailing" constant="4" id="2tp-gF-V6r"/>
                     <constraint firstAttribute="trailing" secondItem="434" secondAttribute="trailing" constant="20" symbolic="YES" id="4vO-wE-0V9"/>
                     <constraint firstItem="787" firstAttribute="top" secondItem="422" secondAttribute="bottom" constant="12" id="5gH-Mg-NiV"/>
                     <constraint firstItem="422" firstAttribute="trailing" secondItem="426" secondAttribute="trailing" id="712-Dh-XtM"/>
@@ -1007,9 +1009,9 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2077">
-                                    <rect key="frame" x="62" y="11" width="77" height="14"/>
+                                    <rect key="frame" x="62" y="11" width="204" height="14"/>
                                     <constraints>
-                                        <constraint firstAttribute="width" constant="73" id="5jb-20-lY9"/>
+                                        <constraint firstAttribute="width" constant="200" id="5jb-20-lY9"/>
                                     </constraints>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" title="40 images" id="2177">
                                         <font key="font" metaFont="smallSystem"/>
@@ -1047,6 +1049,7 @@ Gw
                             <constraint firstItem="2076" firstAttribute="baseline" secondItem="2077" secondAttribute="baseline" id="lVo-HU-Hsx"/>
                             <constraint firstItem="1385" firstAttribute="trailing" secondItem="1389" secondAttribute="trailing" id="lyU-tb-dJl"/>
                             <constraint firstAttribute="trailing" secondItem="1386" secondAttribute="trailing" constant="16" id="m9u-tL-ee8"/>
+                            <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="2076" secondAttribute="bottom" constant="10" id="Lc8-7m-Qe2"/>
                         </constraints>
                     </box>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="2013">
@@ -1184,11 +1187,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Intérieur ROIs" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="670">
+                                <buttonCell type="radio" title="Dans les ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="670">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Hors ROIs" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="662">
+                                <buttonCell type="radio" title="Hors ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="662">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1259,15 +1262,15 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Tous pixels" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1253">
+                                <buttonCell type="radio" title="Tous les pixels" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="1253">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="ROIs avec le même nom que la ROI sélectionné" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="945">
+                                <buttonCell type="radio" title="ROI avec le même nom que la ROI sélectionnée" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="945">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous ROIs" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="947">
+                                <buttonCell type="radio" title="Toutes les ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="947">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1279,7 +1282,7 @@ Gw
                     </matrix>
                     <button translatesAutoresizingMaskIntoConstraints="NO" id="1137">
                         <rect key="frame" x="77" y="243" width="162" height="18"/>
-                        <buttonCell key="cell" type="check" title="Propagate à la série 4D" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
+                        <buttonCell key="cell" type="check" title="Propager à la série 4D" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2190">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1361,7 +1364,7 @@ Gw
                 </constraints>
             </view>
         </window>
-        <window title="Propagation sélectionnée ROI(s)" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
+        <window title="Propager les ROI sélectionnées" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="721" userLabel="RoiPropagate">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="177" y="459" width="367" height="271"/>
@@ -1460,7 +1463,7 @@ Gw
                     </matrix>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="727">
                         <rect key="frame" x="9" y="237" width="231" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Propager le courant sélectionné ROI(s) à :" id="2195">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Propager la ou les ROI sélectionnées vers :" id="2195">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1488,11 +1491,11 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Dupliquer ROIs (indépendant ROIs)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
+                                <buttonCell type="radio" title="Dupliquer les ROI (ROI indépendantes)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="1" inset="2" id="1116">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Créer des Aliases (modifier un va tout modifier)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1117">
+                                <buttonCell type="radio" title="Créer des alias (modifier un va tout modifier)" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="1117">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -1562,7 +1565,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="767">
                         <rect key="frame" x="295" y="248" width="97" height="32"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="85" id="FFX-aI-Btv"/>
+                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="88" id="FFX-aI-Btv"/>
                         </constraints>
                         <buttonCell key="cell" type="push" title="OK" bezelStyle="rounded" alignment="center" borderStyle="border" tag="1" inset="2" id="2201">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1578,7 +1581,7 @@ DQ
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="768">
                         <rect key="frame" x="295" y="216" width="97" height="32"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="85" id="1Ko-Mz-iKL"/>
+                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="88" id="1Ko-Mz-iKL"/>
                         </constraints>
                         <buttonCell key="cell" type="push" title="Annuler" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2202">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1601,7 +1604,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="774">
                         <rect key="frame" x="24" y="10" width="355" height="13"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Forcer l'affichage de cette fenêtre en sélectionnant une reconstruction 3D + touche de décalage" id="2204">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Forcer l'affichage de cette fenêtre en sélectionnant une reconstruction 3D + touche Maj" id="2204">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1660,7 +1663,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1166">
                         <rect key="frame" x="71" y="128" width="61" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="X-Vecteur:" id="2211">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Vecteur X:" id="2211">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1668,7 +1671,7 @@ Gw
                     </textField>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1167">
                         <rect key="frame" x="71" y="98" width="61" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Y-Vecteur:" id="2212">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Vecteur Y:" id="2212">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1795,7 +1798,7 @@ Gw
                     </button>
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2091">
                         <rect key="frame" x="71" y="68" width="61" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Z-Vecteur:" id="2215">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Vecteur Z:" id="2215">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1811,7 +1814,7 @@ Gw
                     <constraint firstItem="763" firstAttribute="leading" secondItem="1169" secondAttribute="leading" id="6fU-es-ddK"/>
                     <constraint firstItem="763" firstAttribute="trailing" secondItem="782" secondAttribute="trailing" id="72x-tV-9AS"/>
                     <constraint firstItem="768" firstAttribute="leading" secondItem="767" secondAttribute="leading" id="8Gx-3L-fEU"/>
-                    <constraint firstItem="2007" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="760" secondAttribute="leading" constant="10" id="8Ie-jq-whF"/>
+                    <constraint firstItem="2007" firstAttribute="leading" secondItem="760" secondAttribute="leading" constant="20" symbolic="YES" id="8Ie-jq-whF"/>
                     <constraint firstItem="779" firstAttribute="top" secondItem="766" secondAttribute="bottom" constant="24" id="BF1-PD-GGv"/>
                     <constraint firstItem="768" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="778" secondAttribute="trailing" constant="5" id="FlX-r5-r7t"/>
                     <constraint firstItem="782" firstAttribute="top" secondItem="779" secondAttribute="bottom" constant="10" symbolic="YES" id="Gg4-wo-Uc4"/>
@@ -1822,7 +1825,11 @@ Gw
                     <constraint firstItem="2007" firstAttribute="top" secondItem="765" secondAttribute="bottom" constant="34" id="KZF-DR-t4r"/>
                     <constraint firstItem="2091" firstAttribute="top" secondItem="1167" secondAttribute="bottom" constant="13" id="Lz0-CK-6hE"/>
                     <constraint firstItem="778" firstAttribute="leading" secondItem="779" secondAttribute="trailing" constant="7" id="OEr-mn-j2z"/>
-                    <constraint firstItem="777" firstAttribute="leading" secondItem="760" secondAttribute="leading" constant="22" id="PMT-Jy-yTV"/>
+                    <constraint firstItem="777" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="760" secondAttribute="leading" constant="22" id="PMT-Jy-yTV"/>
+                    <constraint firstItem="777" firstAttribute="leading" secondItem="760" secondAttribute="leading" priority="250" constant="22" id="PMu-Jy-yTW"/>
+                    <constraint firstItem="780" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="760" secondAttribute="leading" constant="22" id="PMv-Jy-yTX"/>
+                    <constraint firstItem="765" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="760" secondAttribute="leading" constant="22" id="PMw-Jy-yTY"/>
+                    <constraint firstItem="1167" firstAttribute="trailing" secondItem="1166" secondAttribute="trailing" id="PMx-Jy-yTZ"/>
                     <constraint firstItem="774" firstAttribute="top" secondItem="1192" secondAttribute="bottom" constant="11" id="QUX-Ff-jSH"/>
                     <constraint firstItem="1167" firstAttribute="top" secondItem="1166" secondAttribute="bottom" constant="13" id="RSm-bJ-1ZL"/>
                     <constraint firstItem="1169" firstAttribute="top" secondItem="763" secondAttribute="bottom" constant="14" id="Rsy-Qk-2GI"/>
@@ -1832,7 +1839,7 @@ Gw
                     <constraint firstItem="780" firstAttribute="trailing" secondItem="777" secondAttribute="trailing" id="V9e-1O-TcK"/>
                     <constraint firstItem="782" firstAttribute="leading" secondItem="763" secondAttribute="leading" id="WWr-DH-Y4K"/>
                     <constraint firstItem="768" firstAttribute="top" secondItem="767" secondAttribute="bottom" constant="11" id="Z6u-e2-3m1"/>
-                    <constraint firstItem="1167" firstAttribute="leading" secondItem="2007" secondAttribute="trailing" constant="8" symbolic="YES" id="ZPg-SS-K9B"/>
+                    <constraint firstItem="1167" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="2007" secondAttribute="trailing" constant="8" symbolic="YES" id="ZPg-SS-K9B"/>
                     <constraint firstItem="769" firstAttribute="leading" secondItem="781" secondAttribute="leading" id="b1Y-GJ-8zA"/>
                     <constraint firstItem="2091" firstAttribute="trailing" secondItem="1167" secondAttribute="trailing" id="d5a-6s-Aq3"/>
                     <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="1193" secondAttribute="trailing" constant="10" id="di7-2L-eJy"/>
@@ -1848,7 +1855,7 @@ Gw
                     <constraint firstItem="763" firstAttribute="top" secondItem="782" secondAttribute="bottom" constant="8" id="mXg-fD-MnQ"/>
                     <constraint firstItem="1192" firstAttribute="trailing" secondItem="2091" secondAttribute="trailing" id="mgH-Fa-ZF5"/>
                     <constraint firstItem="1192" firstAttribute="top" secondItem="2091" secondAttribute="bottom" constant="17" id="qHd-PQ-tva"/>
-                    <constraint firstItem="1166" firstAttribute="leading" secondItem="2007" secondAttribute="trailing" constant="8" symbolic="YES" id="qg0-C2-5ip"/>
+                    <constraint firstItem="1166" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="2007" secondAttribute="trailing" constant="8" symbolic="YES" id="qg0-C2-5ip"/>
                     <constraint firstItem="1193" firstAttribute="top" secondItem="1169" secondAttribute="bottom" constant="12" id="rfR-bm-jsc"/>
                     <constraint firstItem="767" firstAttribute="trailing" secondItem="768" secondAttribute="trailing" id="rzh-A4-0fX"/>
                     <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="1169" secondAttribute="trailing" constant="10" id="slq-k7-MOX"/>
@@ -1915,7 +1922,7 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="838"/>
                         </connections>
                     </button>
-                    <button toolTip="Diviser la série de destination par la série traînée, pixel par pixel. Un pixel divisé par zéro vaut 0." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="13" translatesAutoresizingMaskIntoConstraints="NO" id="Dvq-bT-n13">
+                    <button toolTip="Diviser la série de destination par la série glissée, pixel par pixel. Un pixel divisé par zéro vaut 0." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="13" translatesAutoresizingMaskIntoConstraints="NO" id="Dvq-bT-n13">
                         <rect key="frame" x="488" y="192" width="126" height="32"/>
                         <buttonCell key="cell" type="push" title="Division" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="13" inset="2" id="Dvq-cL-n13">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1934,9 +1941,9 @@ DQ
                         </textFieldCell>
                     </textField>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="875">
-                        <rect key="frame" x="63" y="10" width="227" height="25"/>
+                        <rect key="frame" x="63" y="10" width="326" height="25"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="221" id="5cb-EO-g4q"/>
+                            <constraint firstAttribute="width" constant="320" id="5cb-EO-g4q"/>
                         </constraints>
                         <popUpButtonCell key="cell" type="push" title="Sélectionnez la méthode du plug-in" bezelStyle="rounded" alignment="left" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="874" id="2238">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -1958,9 +1965,9 @@ DQ
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="985">
                         <rect key="frame" x="0.0" y="41" width="625" height="5"/>
                     </box>
-                    <button toolTip="Effectuer un enregistrement 3D de la série traînée à la série de destination, selon les points 3D." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
+                    <button toolTip="Effectuer un recalage 3D de la série glissée vers la série de destination, selon les points 3D." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="7" translatesAutoresizingMaskIntoConstraints="NO" id="987">
                         <rect key="frame" x="329" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="Enregistrement" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="7" inset="2" id="2239">
+                        <buttonCell key="cell" type="push" title="Recalage" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="7" inset="2" id="2239">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1973,7 +1980,7 @@ DQ
                     </box>
                     <button verticalHuggingPriority="750" tag="10" translatesAutoresizingMaskIntoConstraints="NO" id="2017">
                         <rect key="frame" x="170" y="47" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="Copier ROIs" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="10" inset="2" id="2241">
+                        <buttonCell key="cell" type="push" title="Copier les ROI" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="10" inset="2" id="2241">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1981,7 +1988,7 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2018"/>
                         </connections>
                     </button>
-                    <button toolTip="Résample (résolution, origine et orientation) la série traînée, selon la série de destination." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
+                    <button toolTip="Rééchantillonner (résolution, origine et orientation) la série glissée, selon la série de destination." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="11" translatesAutoresizingMaskIntoConstraints="NO" id="2099">
                         <rect key="frame" x="11" y="144" width="126" height="32"/>
                         <buttonCell key="cell" type="push" title="Rééchantillonner" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="2242">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -1991,9 +1998,9 @@ DQ
                             <action selector="endBlendingType:" target="-2" id="2102"/>
                         </connections>
                     </button>
-                    <button toolTip="Réorientez (origine et orientation) la série traînée, selon la série de destination." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
+                    <button toolTip="Réorientez (origine et orientation) la série glissée, selon la série de destination." verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="12" translatesAutoresizingMaskIntoConstraints="NO" id="G8w-oS-Z7f">
                         <rect key="frame" x="170" y="144" width="126" height="32"/>
-                        <buttonCell key="cell" type="push" title="Réorienté" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
+                        <buttonCell key="cell" type="push" title="Réorienter" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="11" inset="2" id="qqC-vq-Xbs">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2133,7 +2140,7 @@ Gw
                         <rect key="frame" x="8" y="7" width="438" height="26"/>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="2251">
                             <font key="font" metaFont="system" size="10"/>
-                            <string key="title">Pour supprimer une table d'opacité dans le menu : sélectionnez-la en maintenant la touche de décalage enfoncée.
+                            <string key="title">Pour supprimer une table d'opacité dans le menu : sélectionnez-la en maintenant la touche Maj enfoncée.
 Pour modifier une table d'opacité dans le menu : sélectionnez-la en maintenant la touche alt/option enfoncée.</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2151,7 +2158,7 @@ Pour modifier une table d'opacité dans le menu : sélectionnez-la en maintenant
                     </customView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="903">
                         <rect key="frame" x="260" y="97" width="106" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Fonction actuelle :" id="2254">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Position actuelle :" id="2254">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -2173,7 +2180,7 @@ Pour modifier une table d'opacité dans le menu : sélectionnez-la en maintenant
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="P7Q-MI-XAE"/>
                         </constraints>
-                        <buttonCell key="cell" type="push" title="Mise à jour" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2257">
+                        <buttonCell key="cell" type="push" title="Mettre à jour" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="2257">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -2461,7 +2468,7 @@ Gw
                             <action selector="endSetComments:" target="-2" id="1079"/>
                         </connections>
                     </button>
-                    <button toolTip="retour d'option" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
+                    <button toolTip="option retour" verticalHuggingPriority="750" tag="2" translatesAutoresizingMaskIntoConstraints="NO" id="1957">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="pVr-Zr-hX3"/>
@@ -2489,6 +2496,8 @@ DQ
                     <constraint firstItem="1075" firstAttribute="leading" secondItem="1076" secondAttribute="trailing" constant="12" symbolic="YES" id="cv6-rO-DyQ"/>
                     <constraint firstAttribute="trailing" secondItem="1073" secondAttribute="trailing" constant="20" symbolic="YES" id="gB4-Pn-UMe"/>
                     <constraint firstItem="1957" firstAttribute="leading" secondItem="1075" secondAttribute="trailing" constant="12" symbolic="YES" id="ves-Sc-VbA"/>
+                    <constraint firstItem="1074" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1072" secondAttribute="leading" constant="12" id="Tq2-0a-Cn1"/>
+                    <constraint firstItem="1076" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1072" secondAttribute="leading" constant="12" id="Tq2-0a-Cn2"/>
                 </constraints>
             </view>
         </window>
@@ -2506,7 +2515,7 @@ DQ
                         <rect key="frame" x="529" y="45" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="S8P-ZK-alQ"/>
-                            <constraint firstAttribute="width" constant="85" id="tLJ-G7-Jhd"/>
+                            <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="88" id="tLJ-G7-Jhd"/>
                         </constraints>
                         <buttonCell key="cell" type="push" title="OK" bezelStyle="rounded" alignment="center" scrollable="YES" lineBreakMode="clipping" borderStyle="border" tag="1" inset="2" id="2295">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -2558,7 +2567,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="ROIs &amp; Images clés uniquement" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1260">
+                                <buttonCell type="radio" title="ROI &amp; Images clés uniquement" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1260">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2595,15 +2604,15 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Comme indiqué dans RGB 8 bits avec ROIs" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1158">
+                                <buttonCell type="radio" title="Comme affiché en RGB 8 bits avec les ROI" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1158">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Comme indiqué dans BW 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1159">
+                                <buttonCell type="radio" title="Comme affiché en BW 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1159">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Comme stocké en mémoire dans 16 bits BW" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2440">
+                                <buttonCell type="radio" title="Comme stocké en mémoire en BW 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2440">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -2722,9 +2731,9 @@ Gw
                                     </textFieldCell>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2075">
-                                    <rect key="frame" x="57" y="12" width="77" height="14"/>
+                                    <rect key="frame" x="57" y="12" width="204" height="14"/>
                                     <constraints>
-                                        <constraint firstAttribute="width" constant="73" id="L1i-dg-pC7"/>
+                                        <constraint firstAttribute="width" constant="200" id="L1i-dg-pC7"/>
                                     </constraints>
                                     <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" title="40 images" id="2308">
                                         <font key="font" metaFont="smallSystem"/>
@@ -2759,7 +2768,8 @@ Gw
                             <constraint firstItem="1356" firstAttribute="trailing" secondItem="2074" secondAttribute="trailing" id="h96-Yu-CaD"/>
                             <constraint firstItem="2075" firstAttribute="top" secondItem="1355" secondAttribute="bottom" constant="12" id="ixy-t8-QIU"/>
                             <constraint firstItem="1355" firstAttribute="leading" secondItem="1353" secondAttribute="leading" id="jtB-Vz-3ln"/>
-                            <constraint firstAttribute="height" constant="106" id="koi-kz-Y4E"/>
+                            <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="106" id="koi-kz-Y4E"/>
+                            <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="2074" secondAttribute="bottom" constant="10" id="Qd4-9s-Tb1"/>
                             <constraint firstItem="1351" firstAttribute="trailing" secondItem="1353" secondAttribute="trailing" id="tNb-vZ-jAj"/>
                             <constraint firstItem="2074" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1349" secondAttribute="leading" constant="10" id="vOo-zh-MZN"/>
                             <constraint firstItem="1353" firstAttribute="top" secondItem="1351" secondAttribute="bottom" constant="13" id="xK0-cu-SZl"/>
@@ -2823,6 +2833,7 @@ Gw
                 </subviews>
                 <constraints>
                     <constraint firstItem="2452" firstAttribute="top" secondItem="2459" secondAttribute="bottom" constant="10" id="6oB-Xw-m2A"/>
+                    <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="2452" secondAttribute="bottom" constant="19" id="Rb7-2k-Wn5"/>
                     <constraint firstItem="2010" firstAttribute="top" secondItem="1349" secondAttribute="bottom" constant="8" symbolic="YES" id="7o7-Hh-r6L"/>
                     <constraint firstItem="1156" firstAttribute="leading" secondItem="1157" secondAttribute="leading" constant="-10" id="81A-mi-X1A"/>
                     <constraint firstItem="2010" firstAttribute="leading" secondItem="1468" secondAttribute="leading" id="884-HH-cPh"/>
@@ -2856,15 +2867,15 @@ Gw
         <window title="Fenêtre" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="1261" userLabel="exportJPEG">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-            <rect key="contentRect" x="289" y="718" width="502" height="140"/>
+            <rect key="contentRect" x="289" y="718" width="594" height="140"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
-            <value key="minSize" type="size" width="502" height="140"/>
+            <value key="minSize" type="size" width="594" height="140"/>
             <view key="contentView" id="1262">
-                <rect key="frame" x="0.0" y="0.0" width="502" height="140"/>
+                <rect key="frame" x="0.0" y="0.0" width="594" height="140"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="1273">
-                        <rect key="frame" x="392" y="7" width="97" height="32"/>
+                        <rect key="frame" x="484" y="7" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="4fT-3A-Kwa"/>
                         </constraints>
@@ -2880,7 +2891,7 @@ DQ
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1271">
-                        <rect key="frame" x="295" y="7" width="97" height="32"/>
+                        <rect key="frame" x="387" y="7" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="3uL-CT-bbP"/>
                         </constraints>
@@ -2951,9 +2962,9 @@ Gw
                         </connections>
                     </button>
                     <matrix verticalHuggingPriority="750" allowsEmptySelection="NO" translatesAutoresizingMaskIntoConstraints="NO" id="2404">
-                        <rect key="frame" x="256" y="43" width="232" height="67"/>
+                        <rect key="frame" x="256" y="43" width="324" height="67"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
-                        <size key="cellSize" width="55" height="67"/>
+                        <size key="cellSize" width="78" height="67"/>
                         <size key="intercellSpacing" width="4" height="2"/>
                         <buttonCell key="prototype" type="square" title="Option" bezelStyle="shadowlessSquare" image="Photos" imagePosition="above" alignment="center" borderStyle="border" inset="2" id="2405">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
@@ -2992,7 +3003,7 @@ Gw
                     <constraint firstItem="1266" firstAttribute="top" secondItem="1262" secondAttribute="top" constant="9" id="6W8-rs-mdT"/>
                     <constraint firstItem="1273" firstAttribute="leading" secondItem="1271" secondAttribute="trailing" constant="12" symbolic="YES" id="Ds6-Dx-1e5"/>
                     <constraint firstItem="1266" firstAttribute="leading" secondItem="1262" secondAttribute="leading" constant="19" id="GxR-hh-kbL"/>
-                    <constraint firstAttribute="trailing" secondItem="1272" secondAttribute="trailing" constant="181" id="H9l-vy-ZkO"/>
+                    <constraint firstItem="1272" firstAttribute="leading" secondItem="2404" secondAttribute="leading" constant="1" id="H9l-vy-ZkO"/>
                     <constraint firstItem="2396" firstAttribute="leading" secondItem="1262" secondAttribute="leading" constant="32" id="HEJ-kS-M5K"/>
                     <constraint firstItem="2396" firstAttribute="top" secondItem="1267" secondAttribute="bottom" constant="19" id="Pqg-W7-zjT"/>
                     <constraint firstItem="1273" firstAttribute="baseline" secondItem="1271" secondAttribute="baseline" id="RZ2-bD-KPC"/>
@@ -3075,7 +3086,7 @@ Gw
 
 SUV (g/ml) = valeur du pixel (Bq/ml) * Poids (kg) / Dose (Bq) * 1000 (g/kg)
 
-La dose est corrigée par la demi-vie, par compte rendu au temps d'acquisition et au temps d'injection. dose corrigée = dose * exp (ln(2) / demi-vie)
+La dose est corrigée par la demi-vie, par rapport à l'heure d'acquisition et à l'heure d'injection. dose corrigée = dose * exp (ln(2) / demi-vie)
 
 Selon le constructeur de la modalité PET, le résultat peut varier. Comparez ces valeurs SUV avec les valeurs obtenues directement sur la modalité PET, avant de les utiliser.
 
@@ -3110,7 +3121,7 @@ NE PAS UTILISER CES VALEURS POUR LES DÉCISIONS CLINIQUES !</string>
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Ne rien faire : ne pas convertir des valeurs et n'afficher SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
+                                <buttonCell type="radio" title="Ne rien faire : ne pas convertir les valeurs et ne pas afficher le SUV" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="1449">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -3172,7 +3183,7 @@ NE PAS UTILISER CES VALEURS POUR LES DÉCISIONS CLINIQUES !</string>
         </textField>
         <textField id="1761-label" identifier="label-1761" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="60.0" width="213.5" height="22.0" />
-            <textFieldCell key="cell" id="1761-label-cell" title="Temps d'injection:" alignment="right">
+            <textFieldCell key="cell" id="1761-label-cell" title="Heure d'injection:" alignment="right">
                 <font key="font" metaFont="system" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -3354,15 +3365,15 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Tous ROIs dans cette image" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1454">
+                                <buttonCell type="radio" title="Toutes les ROI dans cette image" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="1454">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous ROIs dans cette série" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1456">
+                                <buttonCell type="radio" title="Toutes les ROI dans cette série" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1456">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous les ROI sélectionnés" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1455">
+                                <buttonCell type="radio" title="Toutes les ROI sélectionnées" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="1455">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -3410,7 +3421,7 @@ Gw
                 <subviews>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1496">
                         <rect key="frame" x="83" y="143" width="173" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Structure de l'élément Rayon :" id="2331">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Rayon de l'élément structurant :" id="2331">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3492,7 +3503,7 @@ Gw
                     </button>
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1508">
                         <rect key="frame" x="18" y="61" width="247" height="18"/>
-                        <buttonCell key="cell" type="check" title="Appliquer à tous les ROI avec le même nom" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2337">
+                        <buttonCell key="cell" type="check" title="Appliquer à toutes les ROI avec le même nom" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="2337">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -3551,12 +3562,12 @@ Gw
                                             <action selector="setPagesToPrint:" target="-2" id="1928"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="2x2 (4 pages)" tag="4" id="2067"/>
-                                    <menuItem title="2x3 (6 pages)" tag="6" id="2068"/>
-                                    <menuItem title="2x4 (8 pages)" tag="8" id="2476"/>
-                                    <menuItem title="3x2 (6 pages)" tag="6" id="2069"/>
+                                    <menuItem title="2x2 (4 par page)" tag="4" id="2067"/>
+                                    <menuItem title="2x3 (6 par page)" tag="6" id="2068"/>
+                                    <menuItem title="2x4 (8 par page)" tag="8" id="2476"/>
+                                    <menuItem title="3x2 (6 par page)" tag="6" id="2069"/>
                                     <menuItem title="3x3 (9 par page)" tag="9" id="2070"/>
-                                    <menuItem title="3x4 (12 pages)" tag="12" id="1852">
+                                    <menuItem title="3x4 (12 par page)" tag="12" id="1852">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="1929"/>
                                         </connections>
@@ -3566,20 +3577,20 @@ Gw
                                             <action selector="setPagesToPrint:" target="-2" id="2478"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="4x3 (12 pages)" tag="12" id="2071"/>
-                                    <menuItem title="4x4 (16 pages)" tag="16" id="2072"/>
+                                    <menuItem title="4x3 (12 par page)" tag="12" id="2071"/>
+                                    <menuItem title="4x4 (16 par page)" tag="16" id="2072"/>
                                     <menuItem title="4x5 (20 par page)" tag="20" id="2073"/>
                                     <menuItem title="4x6 (24 par page)" tag="24" id="1853">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="1930"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="4x7 (28 pages)" tag="28" id="2479">
+                                    <menuItem title="4x7 (28 par page)" tag="28" id="2479">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="2480"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="4x6 (30 pages)" tag="30" id="2481">
+                                    <menuItem title="4x6 (30 par page)" tag="30" id="2481">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="2482"/>
                                         </connections>
@@ -3589,12 +3600,12 @@ Gw
                                             <action selector="setPagesToPrint:" target="-2" id="1931"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="5x6 (30 pages)" tag="30" id="1849">
+                                    <menuItem title="5x6 (30 par page)" tag="30" id="1849">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="1932"/>
                                         </connections>
                                     </menuItem>
-                                    <menuItem title="5x7 (35 pages)" tag="35" id="1855">
+                                    <menuItem title="5x7 (35 par page)" tag="35" id="1855">
                                         <connections>
                                             <action selector="setPagesToPrint:" target="-2" id="1933"/>
                                         </connections>
@@ -3683,7 +3694,7 @@ Gw
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Seules les images ROIs &amp; Key" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1864">
+                                <buttonCell type="radio" title="ROI &amp; Images clés uniquement" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="1864">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -3955,7 +3966,7 @@ Gw
                     <constraint firstItem="1867" firstAttribute="leading" secondItem="1846" secondAttribute="leading" constant="11" id="6Hw-6M-qVn"/>
                     <constraint firstItem="1861" firstAttribute="centerY" secondItem="1862" secondAttribute="centerY" id="9KQ-Dc-AqP"/>
                     <constraint firstItem="1969" firstAttribute="top" secondItem="1868" secondAttribute="bottom" constant="23" id="BYg-sJ-Zhb"/>
-                    <constraint firstItem="1868" firstAttribute="top" secondItem="1862" secondAttribute="bottom" constant="45" id="J08-g0-vPt"/>
+                    <constraint firstItem="1868" firstAttribute="top" secondItem="1862" secondAttribute="bottom" constant="16" id="J08-g0-vPt"/>
                     <constraint firstItem="1856" firstAttribute="trailing" secondItem="1867" secondAttribute="trailing" id="JK1-1a-ku1"/>
                     <constraint firstItem="1882" firstAttribute="leading" secondItem="1881" secondAttribute="leading" id="KcU-rW-gcB"/>
                     <constraint firstItem="1856" firstAttribute="trailing" secondItem="1861" secondAttribute="trailing" id="L2I-8d-hbX"/>
@@ -3985,7 +3996,7 @@ Gw
                     <constraint firstItem="1867" firstAttribute="trailing" secondItem="1914" secondAttribute="trailing" id="rRO-FU-wJF"/>
                     <constraint firstItem="2462" firstAttribute="baseline" secondItem="1847" secondAttribute="baseline" id="s5U-ym-781"/>
                     <constraint firstItem="1882" firstAttribute="trailing" secondItem="1881" secondAttribute="trailing" id="vDI-sN-RIB"/>
-                    <constraint firstItem="1868" firstAttribute="top" secondItem="1882" secondAttribute="bottom" constant="47" id="vUN-xH-jHW"/>
+                    <constraint firstItem="1868" firstAttribute="top" secondItem="1882" secondAttribute="bottom" constant="18" id="vUN-xH-jHW"/>
                     <constraint firstItem="1867" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="1846" secondAttribute="leading" constant="11" id="xnB-OW-00N"/>
                 </constraints>
             </view>
@@ -4051,19 +4062,19 @@ Gw
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Tous les ROI sélectionnés" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="2046">
+                                <buttonCell type="radio" title="Toutes les ROI sélectionnées" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="2046">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous ROIs avec le même nom" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="2047">
+                                <buttonCell type="radio" title="Toutes les ROI avec le même nom" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="2047">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous les ROI de l'image" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2044">
+                                <buttonCell type="radio" title="Toutes les ROI de l'image" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="2044">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Tous les ROI de la série" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2045">
+                                <buttonCell type="radio" title="Toutes les ROI de la série" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="2045">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
@@ -4084,7 +4095,7 @@ Gw
                 </constraints>
             </view>
         </window>
-        <window title="Date et heure de l' injection" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="2499" userLabel="SetDate">
+        <window title="Date et heure de l'injection" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" animationBehavior="default" id="2499" userLabel="SetDate">
             <windowStyleMask key="styleMask" titled="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="131" y="145" width="319" height="336"/>
@@ -4163,7 +4174,7 @@ Gw
                             <subviews>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2520">
                                     <rect key="frame" x="9" y="12" width="255" height="22"/>
-                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Modification du temps d'acquisition et/ou de l'injection Le temps sera MODIFY SUV valeurs !" id="2525">
+                                    <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Modifier l'heure d'acquisition et/ou l'heure d'injection MODIFIERA les valeurs SUV !" id="2525">
                                         <font key="font" metaFont="miniSystemBold"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4242,7 +4253,7 @@ Gw
                             <action selector="endSaveWindowsStateAsDICOMSR:" target="-2" id="gqE-4X-4FA"/>
                         </connections>
                     </button>
-                    <button toolTip="retour d'option" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
+                    <button toolTip="option retour" verticalHuggingPriority="750" tag="1" translatesAutoresizingMaskIntoConstraints="NO" id="jAv-BO-Ihr">
                         <rect key="frame" x="194" y="12" width="97" height="32"/>
                         <constraints>
                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="85" id="59L-Uq-dgI"/>

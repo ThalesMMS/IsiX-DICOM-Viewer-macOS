@@ -40,8 +40,10 @@ def structure(text):
 
 
 xibs = sorted(root.glob('Horos/Resources/*.lproj/PluginManager.xib'))
-if len(xibs) != 10:
-    failures.append(f'expected 10 localized PluginManager.xib, found {len(xibs)}')
+# English and the eight languages that have a copy of the nib; the others read the English nib's texts from their
+# catalog.
+if len(xibs) != 9:
+    failures.append(f'expected 9 copies of PluginManager.xib, found {len(xibs)}')
 shapes = {}
 for xib in xibs:
     name = xib.relative_to(root)

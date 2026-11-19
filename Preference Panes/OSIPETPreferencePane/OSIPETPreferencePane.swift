@@ -92,7 +92,7 @@ public final class OSIPETPreferencePane: NSPreferencePane {
         let defaults = UserDefaults.standard
         defaults.set(DefaultCLUTMenu?.title, forKey: "PET Default CLUT")
         defaults.set(CLUTBlendingMenu?.title, forKey: "PET Blending CLUT")
-        defaults.set(OpacityTableMenu?.title, forKey: "PET Default Opacity Table")
+        defaults.set(OSIPETPreferencePane.opacityTableName(shownBy: OpacityTableMenu), forKey: "PET Default Opacity Table")
         defaults.set(Int(minimumValueText?.intValue ?? 0), forKey: "PETMinimumValue")
     }
 
@@ -158,7 +158,7 @@ public final class OSIPETPreferencePane: NSPreferencePane {
         OSIPETPreferencePane.setTitle(of: CLUTBlendingMenu, defaults.string(forKey: "PET Blending CLUT"))
 
         buildOpacityTableMenu(OpacityTableMenu)
-        OSIPETPreferencePane.setTitle(of: OpacityTableMenu, defaults.string(forKey: "PET Default Opacity Table"))
+        OSIPETPreferencePane.show(opacityTable: defaults.string(forKey: "PET Default Opacity Table"), in: OpacityTableMenu)
     }
 
     @IBAction @objc(setPETCLUTfor3DMIP:)
@@ -173,6 +173,33 @@ public final class OSIPETPreferencePane: NSPreferencePane {
     /// -[[sender selectedCell] tag], 0 for nil.
     private static func selectedTag(of sender: Any?) -> Int {
         return (sender as? NSMatrix)?.selectedCell()?.tag ?? 0
+    }
+
+    /// The name the linear opacity table is stored under, whatever the language.
+    private static let linearTable = "Linear Table"
+
+    /// Shows the opacity table the preference names. The preference held the
+    /// title of the pop-up, and the linear table, the first item, had its
+    /// title from the language of the day: a preference kept then names the
+    /// table in the words of that language, which no item has now, and
+    /// -setTitle: would add an item of that title after the tables and select
+    /// it. Such a name selects the linear table itself, as the viewer reads
+    /// it. Any other name is a stored table's and is shown as it was.
+    private static func show(opacityTable stored: String?, in popup: NSPopUpButton?) {
+        let name = AnyLanguage.tableName(stored: stored)
+        if AnyLanguage.says(name, linearTable) {
+            popup?.selectItem(at: 0)
+        } else {
+            setTitle(of: popup, name)
+        }
+    }
+
+    /// The opacity table the pop-up shows, as the preference names it: the
+    /// linear table, its first item, under the name every language stores,
+    /// and a stored table under its own.
+    private static func opacityTableName(shownBy popup: NSPopUpButton?) -> String? {
+        guard let popup else { return nil }
+        return popup.indexOfSelectedItem == 0 ? linearTable : popup.title
     }
 
     /// -[NSPopUpButton setTitle:] with the stored title, nil included, as it was.

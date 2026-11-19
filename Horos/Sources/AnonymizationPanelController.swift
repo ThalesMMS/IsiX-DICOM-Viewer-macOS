@@ -65,6 +65,12 @@ public class AnonymizationPanelController: NSWindowController {
     /// What -initWithWindowNibName: was given.
     private let panelNibName: String?
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override var windowNibName: NSNib.Name? {
         return panelNibName
     }

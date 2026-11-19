@@ -471,9 +471,9 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="143">
-                        <rect key="frame" x="1" y="4" width="271" height="11"/>
+                        <rect key="frame" x="1" y="4" width="296" height="11"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="267" id="zU7-3S-pkI"/>
+                            <constraint firstAttribute="width" constant="292" id="zU7-3S-pkI"/>
                         </constraints>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Based on DICOM Validator - dciodvfy, by David A. Clunie :" id="144">
                             <font key="font" metaFont="miniSystem"/>
@@ -482,7 +482,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="147">
-                        <rect key="frame" x="277" y="1" width="97" height="17"/>
+                        <rect key="frame" x="302" y="1" width="97" height="17"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="97" id="KmH-FJ-pBn"/>
                         </constraints>

@@ -51,10 +51,11 @@ import IsiXPreferences
 // into a sum (a*b + c), the Swift says so with addingProduct.
 
 /// The text of a length line: "Length: " and the length in the preferred unit,
-/// in ASCII characters, as VTK draws it.
+/// as every other length is written. VTK holds the text and the view draws it
+/// on its own overlay, in any script.
 @MainActor func vrLengthText(_ centimetres: Double) -> String {
-    String(format: NSLocalizedString("Length: %@ ", comment: "ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"),
-           LengthPresentation.asciiString(centimetres: centimetres))
+    String(format: NSLocalizedString("Length: %@ ", comment: "The length of a measurement line of a 3D view, written beside the line"),
+           LengthPresentation.string(centimetres: centimetres))
 }
 
 extension VRView {
@@ -139,7 +140,7 @@ extension VRView {
                                                                                   armAX: patient[0], armAY: patient[1], armAZ: patient[2],
                                                                                   armBX: patient[6], armBY: patient[7], armBZ: patient[8]))
                     if horos_measureAngle.isFinite {
-                        text = String(format: NSLocalizedString("Angle: %2.1f degrees ", comment: "ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"),
+                        text = String(format: NSLocalizedString("Angle: %2.1f degrees ", comment: "The angle of three points of a 3D view, written beside them"),
                                       Double(horos_measureAngle))
                     } else {
                         horos_measureAngle = 0
@@ -363,7 +364,7 @@ extension VRView {
                 let ovalTextHeight: CGFloat = 35
 
                 let localizedText = String(format: NSLocalizedString("Mean: %2.2f SDev: %2.2f\nMin: %2.2f Max: %2.2f",
-                                                                     comment: "ONLY ASCII CHARACTERS ! NO ACCENTS OR HIEROGLYPHS"),
+                                                                     comment: "The statistics of the oval of a 3D view, written beside it"),
                                            Double(rmean), Double(rdev), Double(rmin), Double(rmax))
 
                 let ovalCenter = horos_Oval2DCenter, ovalRadius = horos_Oval2DRadius

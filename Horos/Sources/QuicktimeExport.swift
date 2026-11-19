@@ -124,6 +124,8 @@ public final class QuicktimeExport: NSObject {
         super.init()
 
         Bundle(for: QuicktimeExport.self).loadNibNamed("QuicktimeExport", owner: self, topLevelObjects: &tlos)
+        // The texts of the nib come from the catalog in a language that has no copy of it.
+        WindowNibCatalog.read(tlos.map { Array($0) } ?? [], ofNibNamed: "QuicktimeExport", owner: self)
 
         object = o
         selector = s

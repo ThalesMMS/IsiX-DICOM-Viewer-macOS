@@ -1003,6 +1003,7 @@
         "Modules/IsiXImaging/Sources/ImageAttributeReader.swift",
         "Modules/IsiXImaging/Sources/ImageAttributes.swift",
         "Modules/IsiXImaging/Sources/ImagePlaneGeometry.swift",
+        "Modules/IsiXImaging/Sources/LoadsInProgress.swift",
         "Modules/IsiXImaging/Sources/NonDICOM/ARGBImages.swift",
         "Modules/IsiXImaging/Sources/NonDICOM/AnalyzeImage.swift",
         "Modules/IsiXImaging/Sources/NonDICOM/BioradImage.swift",

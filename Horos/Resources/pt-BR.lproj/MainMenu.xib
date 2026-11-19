@@ -30,7 +30,7 @@
                                     <action selector="showPreferencePanel:" target="694" id="696"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Verifique se há atualizações" id="1327">
+                            <menuItem title="Buscar atualizações" id="1327">
                                 <connections>
                                     <action selector="checkForUpdates:" target="694" id="1328"/>
                                     <binding destination="12279" name="hidden" keyPath="values.MACAPPSTORE" id="14231"/>
@@ -100,7 +100,7 @@
                                     <action selector="createDatabaseFolder:" target="898" id="12987"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Abra a pasta do banco de dados..." tag="2" id="1725">
+                            <menuItem title="Abrir a pasta do banco de dados..." tag="2" id="1725">
                                 <connections>
                                     <action selector="createDatabaseFolder:" target="898" id="12988"/>
                                 </connections>
@@ -118,7 +118,7 @@
                                                 <action selector="addAlbum:" target="898" id="14604"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Adicione um álbum inteligente..." id="14601">
+                                        <menuItem title="Adicionar um álbum inteligente..." id="14601">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="addSmartAlbum:" target="898" id="14605"/>
@@ -167,7 +167,7 @@
                                                 <action selector="generateReport:" target="898" id="12363"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Anexe o laudo existente..." id="horos-attach-report-menu">
+                                        <menuItem title="Anexar laudo existente..." id="horos-attach-report-menu">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="attachExistingReport:" target="898" id="horos-attach-report-action"/>
@@ -292,7 +292,7 @@
                                                 <action selector="sendMail:" target="-1" id="11552"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Exportar para fotos…" id="11550">
+                                        <menuItem title="Exportar para Fotos…" id="11550">
                                             <connections>
                                                 <action selector="export2iPhoto:" target="-1" id="11553"/>
                                             </connections>
@@ -308,7 +308,7 @@
                             <menuItem isSeparatorItem="YES" id="12351">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Queime..." id="1470">
+                            <menuItem title="Gravar..." id="1470">
                                 <connections>
                                     <action selector="burnDICOM:" target="898" id="1471"/>
                                 </connections>
@@ -337,7 +337,7 @@
                                                 <action selector="compressSelectedFiles:" target="898" id="13566"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Descompacte arquivos DICOM selecionados" id="12649">
+                                        <menuItem title="Descompactar arquivos DICOM selecionados" id="12649">
                                             <connections>
                                                 <action selector="decompressSelectedFiles:" target="898" id="12652"/>
                                             </connections>
@@ -484,7 +484,7 @@
                                     <action selector="queryDICOM:" target="898" id="14647"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Consulta automática/recuperação de atualização" tag="1" keyEquivalent="A" id="14648">
+                            <menuItem title="Atualizar consulta/recuperação automática" tag="1" keyEquivalent="A" id="14648">
                                 <connections>
                                     <action selector="autoQueryRefresh:" target="694" id="14649"/>
                                 </connections>
@@ -592,7 +592,7 @@
                                                 <action selector="orderFrontFontPanel:" target="1528" id="1530"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Ousado" tag="2" keyEquivalent="b" id="1501">
+                                        <menuItem title="Negrito" tag="2" keyEquivalent="b" id="1501">
                                             <connections>
                                                 <action selector="addFontTrait:" target="1528" id="1529"/>
                                             </connections>
@@ -638,7 +638,7 @@
                                     <action selector="loadSerie:" target="-1" id="13225"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Série Anterior" tag="-1" keyEquivalent="" id="13178">
+                            <menuItem title="Série anterior" tag="-1" keyEquivalent="" id="13178">
                                 <connections>
                                     <action selector="loadSerie:" target="-1" id="13280"/>
                                 </connections>
@@ -649,7 +649,7 @@
                                     <action selector="loadPatient:" target="-1" id="14618"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Paciente Anterior" tag="-1" keyEquivalent="" id="14616">
+                            <menuItem title="Paciente anterior" tag="-1" keyEquivalent="" id="14616">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>
                                     <action selector="loadPatient:" target="-1" id="14619"/>
@@ -689,22 +689,22 @@
                                         <menuItem isSeparatorItem="YES" id="13321">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="PN -&gt; Vermelho" id="13313">
+                                        <menuItem title="BW -&gt; Vermelho" id="13313">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13319"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="PN -&gt; Verde" tag="1" id="13314">
+                                        <menuItem title="BW -&gt; Verde" tag="1" id="13314">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13318"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="PB -&gt; Azul" tag="2" id="13315">
+                                        <menuItem title="BW -&gt; Azul" tag="2" id="13315">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13317"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="PB -&gt; RGB" tag="3" id="13316">
+                                        <menuItem title="BW -&gt; RGB" tag="3" id="13316">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13320"/>
                                             </connections>
@@ -734,7 +734,7 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Escala" id="14456">
                                     <items>
-                                        <menuItem title="Sem tamanho de redimensionamento (100%)" id="14459">
+                                        <menuItem title="Tamanho original (100%)" id="14459">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="actualSize:" target="-1" id="14461"/>
@@ -759,38 +759,38 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Classificar por" id="14119">
                                     <items>
-                                        <menuItem title="Número da Instância - Crescente" id="14120">
+                                        <menuItem title="Número da instância - crescente" id="14120">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14124"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Número da Instância - Decrescente" tag="1" id="14121">
+                                        <menuItem title="Número da instância - decrescente" tag="1" id="14121">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14125"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="14128"/>
-                                        <menuItem title="Localização da corte - ascendente" tag="2" id="14122">
+                                        <menuItem title="Localização do corte - crescente" tag="2" id="14122">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14126"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Localização da corte - descendente" tag="3" id="14123">
+                                        <menuItem title="Localização do corte - decrescente" tag="3" id="14123">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="14127"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Tempo de Aquisição - Crescente" tag="4" id="acq-sort-4">
+                                        <menuItem title="Hora de aquisição - crescente" tag="4" id="acq-sort-4">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="acq-action-4"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Tempo de aquisição - decrescente" tag="5" id="acq-sort-5">
+                                        <menuItem title="Hora de aquisição - decrescente" tag="5" id="acq-sort-5">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="sortSeriesByValue:" target="-1" id="acq-action-5"/>
@@ -910,7 +910,7 @@
                                     <action selector="displaySUV:" target="-1" id="14846"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Fusível/Desfusível PET/SPECT - CT" keyEquivalent="F" id="13201">
+                            <menuItem title="Fundir/Separar PET/SPECT - CT" keyEquivalent="F" id="13201">
                                 <connections>
                                     <action selector="blendWindows:" target="-1" id="13297"/>
                                 </connections>
@@ -1013,8 +1013,8 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Syp-sp-Sep"/>
-                                        <menuItem title="Série de sincronização (mesmo estudo)" id="13072">
-                                            <menu key="submenu" title="Série de sincronização (mesmo estudo)" id="13073">
+                                        <menuItem title="Sincronizar séries (mesmo estudo)" id="13072">
+                                            <menu key="submenu" title="Sincronizar séries (mesmo estudo)" id="13073">
                                                 <items>
                                                     <menuItem title="Desligado" id="13074">
                                                         <modifierMask key="keyEquivalentModifierMask"/>
@@ -1022,7 +1022,7 @@
                                                             <action selector="syncronize:" target="-1" id="13311"/>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="Posição da corte - Absoluta" tag="3" id="13075">
+                                                    <menuItem title="Posição do corte - Absoluta" tag="3" id="13075">
                                                         <connections>
                                                             <action selector="syncronize:" target="-1" id="13236"/>
                                                         </connections>
@@ -1030,19 +1030,19 @@
                                                     <menuItem isSeparatorItem="YES" id="13076">
                                                         <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                                     </menuItem>
-                                                    <menuItem title="ID da corte - Absoluto" tag="1" id="13077">
+                                                    <menuItem title="ID do corte - Absoluto" tag="1" id="13077">
                                                         <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                                         <connections>
                                                             <action selector="syncronize:" target="-1" id="13291"/>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="ID da corte - proporção absoluta" tag="4" id="14686">
+                                                    <menuItem title="ID do corte - proporção absoluta" tag="4" id="14686">
                                                         <modifierMask key="keyEquivalentModifierMask" option="YES"/>
                                                         <connections>
                                                             <action selector="syncronize:" target="-1" id="14687"/>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="ID da corte – Relativo" tag="2" id="13080">
+                                                    <menuItem title="ID do corte – Relativo" tag="2" id="13080">
                                                         <connections>
                                                             <action selector="syncronize:" target="-1" id="13246"/>
                                                         </connections>
@@ -1059,7 +1059,7 @@
                                                 </items>
                                             </menu>
                                         </menuItem>
-                                        <menuItem title="Série de sincronização (estudos diferentes) na posição atual" id="13157">
+                                        <menuItem title="Sincronizar séries (estudos diferentes) na posição atual" id="13157">
                                             <connections>
                                                 <action selector="SyncSeries:" target="-1" id="13205"/>
                                             </connections>
@@ -1102,7 +1102,7 @@
                                                 <action selector="setROIsImagesKeyImages:" target="-1" id="13655"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Salve como DICOM SC e marque como imagem-chave" keyEquivalent="k" id="14836">
+                                        <menuItem title="Salvar como DICOM SC e marcar como imagem-chave" keyEquivalent="k" id="14836">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="captureAndSetKeyImage:" target="-1" id="14837"/>
@@ -1114,13 +1114,13 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Kim-sq-Sep"/>
-                                        <menuItem title="Encontre a próxima imagem-chave" keyEquivalent="k" id="13558">
+                                        <menuItem title="Encontrar a próxima imagem-chave" keyEquivalent="k" id="13558">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                             <connections>
                                                 <action selector="findNextPreviousKeyImage:" target="-1" id="13561"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Encontre a imagem-chave anterior" tag="1" keyEquivalent="K" id="13559">
+                                        <menuItem title="Encontrar a imagem-chave anterior" tag="1" keyEquivalent="K" id="13559">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                             <connections>
                                                 <action selector="findNextPreviousKeyImage:" target="-1" id="13562"/>
@@ -1145,7 +1145,7 @@
                                                 <action selector="subCtrlNewMask:" target="-1" id="13262"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Afiar" tag="30" keyEquivalent="0" id="13110">
+                                        <menuItem title="Aumentar nitidez" tag="30" keyEquivalent="0" id="13110">
                                             <connections>
                                                 <action selector="subSharpen:" target="-1" id="13244"/>
                                             </connections>
@@ -1153,47 +1153,47 @@
                                         <menuItem isSeparatorItem="YES" id="13111">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel NE" tag="7" keyEquivalent="9" id="13112">
+                                        <menuItem title="Deslocamento de pixel NE" tag="7" keyEquivalent="9" id="13112">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13290"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel N" tag="8" keyEquivalent="8" id="13113">
+                                        <menuItem title="Deslocamento de pixel N" tag="8" keyEquivalent="8" id="13113">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13285"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel para noroeste" tag="9" keyEquivalent="7" id="13114">
+                                        <menuItem title="Deslocamento de pixel NW" tag="9" keyEquivalent="7" id="13114">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13300"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel W" tag="4" keyEquivalent="4" id="13115">
+                                        <menuItem title="Deslocamento de pixel W" tag="4" keyEquivalent="4" id="13115">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13271"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Sem mudança de pixel" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
+                                        <menuItem title="Sem deslocamento de pixel" tag="5" keyEquivalent="5" indentationLevel="1" id="13116">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13310"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel E" tag="6" keyEquivalent="6" id="13117">
+                                        <menuItem title="Deslocamento de pixel E" tag="6" keyEquivalent="6" id="13117">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13303"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel SW" tag="1" keyEquivalent="1" id="13118">
+                                        <menuItem title="Deslocamento de pixel SW" tag="1" keyEquivalent="1" id="13118">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13269"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Mudança de pixel S" tag="2" keyEquivalent="2" id="13119">
+                                        <menuItem title="Deslocamento de pixel S" tag="2" keyEquivalent="2" id="13119">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13295"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Deslocamento de pixels SE" tag="3" keyEquivalent="3" id="13120">
+                                        <menuItem title="Deslocamento de pixel SE" tag="3" keyEquivalent="3" id="13120">
                                             <connections>
                                                 <action selector="subCtrlOffset:" target="-1" id="13301"/>
                                             </connections>
@@ -1201,19 +1201,19 @@
                                         <menuItem isSeparatorItem="YES" id="13121">
                                             <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                         </menuItem>
-                                        <menuItem title="Contraste para baixo" tag="37" keyEquivalent="7" id="13122">
+                                        <menuItem title="Diminuir contraste" tag="37" keyEquivalent="7" id="13122">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13276"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Padrão de contraste" tag="38" keyEquivalent="8" id="13123">
+                                        <menuItem title="Contraste padrão" tag="38" keyEquivalent="8" id="13123">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13305"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Contraste para cima" tag="39" keyEquivalent="9" id="13124">
+                                        <menuItem title="Aumentar contraste" tag="39" keyEquivalent="9" id="13124">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13212"/>
@@ -1225,7 +1225,7 @@
                                                 <action selector="subCtrlSliders:" target="-1" id="13279"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Padrão de brilho" tag="35" keyEquivalent="5" id="13126">
+                                        <menuItem title="Brilho padrão" tag="35" keyEquivalent="5" id="13126">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subCtrlSliders:" target="-1" id="13226"/>
@@ -1237,7 +1237,7 @@
                                                 <action selector="subCtrlSliders:" target="-1" id="13214"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Soma Menos" tag="31" keyEquivalent="1" id="13107">
+                                        <menuItem title="Somar menos" tag="31" keyEquivalent="1" id="13107">
                                             <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                             <connections>
                                                 <action selector="subSumSlider:" target="-1" id="13252"/>
@@ -1299,11 +1299,11 @@
                             <menuItem title="Largura e nível da janela" id="13159" identifier="org.horos.menu.wlww">
                                 <menu key="submenu" title="Largura e nível da janela" id="13160"/>
                             </menuItem>
-                            <menuItem title="Tabela de pesquisa de cores" id="13180" identifier="org.horos.menu.clut">
-                                <menu key="submenu" title="Tabela de pesquisa de cores" id="13750"/>
+                            <menuItem title="Tabela de cores" id="13180" identifier="org.horos.menu.clut">
+                                <menu key="submenu" title="Tabela de cores" id="13750"/>
                             </menuItem>
-                            <menuItem title="Barra da tabela de pesquisa de cores" id="13194">
-                                <menu key="submenu" title="Barra da tabela de pesquisa de cores" id="13195">
+                            <menuItem title="Barra da tabela de cores" id="13194">
+                                <menu key="submenu" title="Barra da tabela de cores" id="13195">
                                     <items>
                                         <menuItem title="Ocultar tudo" id="13199">
                                             <connections>
@@ -1343,13 +1343,13 @@
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                                 <menu key="submenu" id="13998">
                                     <items>
-                                        <menuItem title="Artigo 1" enabled="NO" id="13999">
+                                        <menuItem title="Item 1" enabled="NO" id="13999">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
                                         <menuItem title="Item 2" enabled="NO" id="14000">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
-                                        <menuItem title="Artigo 3" enabled="NO" id="14001">
+                                        <menuItem title="Item 3" enabled="NO" id="14001">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                         </menuItem>
                                     </items>
@@ -1712,7 +1712,7 @@
                             <menuItem isSeparatorItem="YES" id="12964">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Selecione predefinição 3D..." id="12974">
+                            <menuItem title="Selecionar predefinição 3D..." id="12974">
                                 <connections>
                                     <action selector="load3DSettings:" target="-1" id="12975"/>
                                 </connections>
@@ -1738,7 +1738,7 @@
                                     <action selector="roiSaveSelected:" target="-1" id="1441"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Salve todos os ROIs desta série..." id="13658">
+                            <menuItem title="Salvar todos os ROIs desta série..." id="13658">
                                 <connections>
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
@@ -1751,7 +1751,7 @@
                             <menuItem isSeparatorItem="YES" id="12924">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Gerente de ROI..." id="12006">
+                            <menuItem title="Gerenciador de ROI..." id="12006">
                                 <connections>
                                     <action selector="roiGetManager:" target="-1" id="12007"/>
                                 </connections>
@@ -1787,7 +1787,7 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Exibir informações quando o mouse termina" id="14830">
+                                        <menuItem title="Exibir informações ao passar o mouse" id="14830">
                                             <connections>
                                                 <action selector="updateViews:" target="694" id="14832"/>
                                                 <binding destination="12279" name="enabled" keyPath="values.ROITEXTIFSELECTED" id="14834"/>
@@ -1798,7 +1798,7 @@
                                                 </binding>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Somente nome de exibição" id="12467">
+                                        <menuItem title="Exibir somente o nome" id="12467">
                                             <connections>
                                                 <action selector="updateViews:" target="694" id="12472"/>
                                                 <binding destination="12279" name="value" keyPath="values.ROITEXTNAMEONLY" id="12470">
@@ -1860,12 +1860,12 @@
                             <menuItem title="Seleção" id="Rse-gp-Itm">
                                 <menu key="submenu" title="Seleção" id="Rse-gp-Mnu">
                                     <items>
-                                        <menuItem title="Selecione todos os ROIs desta série" tag="1" id="13018">
+                                        <menuItem title="Selecionar todos os ROIs desta série" tag="1" id="13018">
                                             <connections>
                                                 <action selector="roiSelectDeselectAll:" target="-1" id="13022"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Desmarque todos os ROIs desta série" id="13020">
+                                        <menuItem title="Desmarcar todos os ROIs desta série" id="13020">
                                             <connections>
                                                 <action selector="roiSelectDeselectAll:" target="-1" id="13023"/>
                                             </connections>
@@ -1909,7 +1909,7 @@
                                                 <action selector="makeSelectedROIsUnselectable:" target="-1" id="13747"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Torne todos os ROIs selecionáveis" id="13746">
+                                        <menuItem title="Tornar todos os ROIs selecionáveis" id="13746">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
                                                 <action selector="makeAllROIsSelectable:" target="-1" id="13748"/>
@@ -1999,7 +1999,7 @@
                                                 <action selector="roiPropagateSetup:" target="-1" id="1437"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Propague o ROI selecionado para a laje espessa atual" keyEquivalent="s" id="1644">
+                                        <menuItem title="Propagar o ROI selecionado para o slab espesso atual" keyEquivalent="s" id="1644">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                             <connections>
                                                 <action selector="roiPropagateSlab:" target="-1" id="1648"/>
@@ -2024,7 +2024,7 @@
                             <menuItem isSeparatorItem="YES" id="13664">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Defina os valores de pixel como..." id="11232">
+                            <menuItem title="Definir os valores de pixel como..." id="11232">
                                 <connections>
                                     <action selector="roiSetPixelsSetup:" target="-1" id="11233"/>
                                 </connections>
@@ -2052,7 +2052,7 @@
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12902"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Fechando" tag="2" id="12403">
+                                        <menuItem title="Fechamento" tag="2" id="12403">
                                             <connections>
                                                 <action selector="morphoSelectedBrushROI:" target="-1" id="12903"/>
                                             </connections>
@@ -2202,7 +2202,7 @@ CA
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="14129"/>
-                            <menuItem title="Traga tudo para a frente" id="5">
+                            <menuItem title="Trazer tudo para a frente" id="5">
                                 <connections>
                                     <action selector="arrangeInFront:" target="-1" id="39"/>
                                 </connections>
@@ -2422,19 +2422,19 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Pequeno Endian em escala de cinza não assinado de 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
+                            <buttonCell type="radio" title="Escala de cinza de 16 bits sem sinal, little endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Pequeno Endian assinado em escala de cinza de 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="Escala de cinza de 16 bits com sinal, little endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Big endian em escala de cinza não assinado de 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
+                            <buttonCell type="radio" title="Escala de cinza de 16 bits sem sinal, big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Big endian em escala de cinza assinado de 16 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
+                            <buttonCell type="radio" title="Escala de cinza de 16 bits com sinal, big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2487,7 +2487,7 @@ Gw
         </textField>
         <textField id="11392-label" identifier="label-11392" verticalHuggingPriority="750">
             <rect key="frame" x="0" y="0.0" width="104.5" height="19.0" />
-            <textFieldCell key="cell" id="11392-label-cell" title="Espessura da corte:" alignment="right">
+            <textFieldCell key="cell" id="11392-label-cell" title="Espessura do corte:" alignment="right">
                 <font key="font" metaFont="smallSystem" />
                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog" />
             </textFieldCell>
@@ -2667,7 +2667,7 @@ Gw
             </subviews>
             <point key="canvasLocation" x="512" y="693"/>
         </customView>
-        <menu title="Cardápio" id="11583" userLabel="searchMenu">
+        <menu title="Menu" id="11583" userLabel="searchMenu">
             <items>
                 <menuItem title="Todos os campos" state="on" tag="7" id="12522">
                     <connections>
@@ -2935,7 +2935,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13833">
                     <rect key="frame" x="131" y="39" width="277" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Salve como arquivo ZIP com senha (opcional):" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13834">
+                    <buttonCell key="cell" type="check" title="Salvar como ZIP com senha (opcional):" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13834">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -3014,15 +3014,15 @@ Gw
                     </buttonCell>
                     <cells>
                         <column>
-                            <buttonCell type="radio" title="Não modifique os arquivos" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12660">
+                            <buttonCell type="radio" title="Não modificar os arquivos" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="12660">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Compacte todos os arquivos DICOM em JPEG" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
+                            <buttonCell type="radio" title="Compactar os arquivos em JPEG" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="12658">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Descompacte todos os arquivos DICOM" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="12659">
+                            <buttonCell type="radio" title="Descompactar os arquivos" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="12659">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -3052,7 +3052,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="14089">
                     <rect key="frame" x="131" y="175" width="253" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Inclui ROIs, comentários, laudos, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="14090">
+                    <buttonCell key="cell" type="check" title="Incluir ROIs, comentários, laudos, ..." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="14090">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -3281,7 +3281,7 @@ Gw
                                 </buttonCell>
                             </column>
                             <column>
-                                <buttonCell type="radio" title="Data Ascendente" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="14486">
+                                <buttonCell type="radio" title="Data crescente" imagePosition="left" alignment="left" controlSize="small" tag="2" inset="2" id="14486">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -3309,7 +3309,7 @@ Gw
                 <button id="12676">
                     <rect key="frame" x="106" y="10" width="144" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                    <buttonCell key="cell" type="check" title="Crie páginas HTML" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13424">
+                    <buttonCell key="cell" type="check" title="Criar páginas HTML" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="13424">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
@@ -3497,7 +3497,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="5" id="12950">
                         <rect key="frame" x="30" y="3" width="163" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Abra todas as séries 4D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="5" inset="2" id="13430">
+                        <buttonCell key="cell" type="push" title="Abrir todas as séries 4D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="5" inset="2" id="13430">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3508,7 +3508,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="12951">
                         <rect key="frame" x="30" y="161" width="163" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Abra todas as séries 3D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="13431">
+                        <buttonCell key="cell" type="push" title="Abrir todas as séries 3D" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="13431">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3530,7 +3530,7 @@ Gw
                     <button verticalHuggingPriority="750" tag="4" id="14083">
                         <rect key="frame" x="193" y="3" width="241" height="28"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="push" title="Reindexar em 4D em DB" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
+                        <buttonCell key="cell" type="push" title="Reindexar em 4D no banco de dados" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" tag="4" inset="2" id="14084">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -3913,7 +3913,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="13989">
                         <rect key="frame" x="24" y="125" width="421" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Adicione este texto no email, sobre estes estudos/estudos:" id="13990">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Adicionar este texto ao e-mail, sobre este(s) estudo(s):" id="13990">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -4337,7 +4337,7 @@ Gw
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">O índice SQL será excluído. IsiX DICOM Viewer irá então importar todos os arquivos disponíveis na pasta DATABASE. Todos os arquivos 'vinculados', que não estavam na pasta DATABASE, NÃO serão reimportados.</string>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Reimporte arquivos DICOM e limpe" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
+                                <buttonCell type="radio" title="Reimportar arquivos DICOM e limpar" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                     <string key="toolTip">IsiX DICOM Viewer irá reimportar todos os arquivos disponíveis na pasta DATABASE. O IsiX DICOM Viewer irá então verificar se todas as imagens dos estudos estão disponíveis. Caso contrário, o IsiX DICOM Viewer removerá esses estudos sem arquivos DICOM associados.</string>
@@ -4497,7 +4497,7 @@ Gw
                                         </view>
                                         <font key="titleFont" size="12" name="LucidaGrande"/>
                                     </box>
-                                    <box borderType="none" title="Tópicos" titlePosition="noTitle" id="14167">
+                                    <box borderType="none" title="Tarefas" titlePosition="noTitle" id="14167">
                                         <rect key="frame" x="-3" y="567" width="6" height="108"/>
                                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                         <view key="contentView" id="4XI-MM-5AN">
@@ -4740,7 +4740,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="date" editable="NO" width="130" minWidth="130" maxWidth="180" id="960">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Data de aquisição">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Adquirido em">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -4767,7 +4767,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noFiles"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="noSeries" editable="NO" width="70" minWidth="70" maxWidth="70" id="14758">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="#série">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# séries">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4780,7 +4780,7 @@ Gw
                                                                     <sortDescriptor key="sortDescriptorPrototype" selector="compare:" sortKey="noSeries"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="dateAdded" editable="NO" width="132" minWidth="130" maxWidth="180" id="1291">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Data adicionada">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Data de adição">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4808,7 +4808,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="referringPhysician" editable="NO" width="120" minWidth="40" maxWidth="400" id="11708">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Médico de referência">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Médico solicitante">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4981,7 +4981,7 @@ Gw
                                                             <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                             <tableColumns>
                                                                 <tableColumn identifier="Cell" editable="NO" width="202" minWidth="48" maxWidth="4000" id="14725">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="História">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Histórico">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -5215,8 +5215,8 @@ Gw
                                         </connections>
                                     </button>
                                     <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="14357">
-                                        <rect key="frame" x="27" y="3" width="406" height="14"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES"/>
+                                        <rect key="frame" x="27" y="3" width="400" height="14"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
                                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Informações do banco de dados" id="14358">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" red="0.20000000300000001" green="0.20000000300000001" blue="0.20000000300000001" alpha="1" colorSpace="calibratedRGB"/>

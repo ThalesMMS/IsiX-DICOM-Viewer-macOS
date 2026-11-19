@@ -357,7 +357,9 @@ def build(folder, send_source, driver, name, sanitize=False, activity_text=None)
     (work / 'bridging.h').write_text('#import <Cocoa/Cocoa.h>\n#import "HorosObjCException.h"\n')
     sources = [work / 'main.swift', work / 'SendController.swift', work / 'Doubles.swift',
                ROOT / 'Horos/Sources/MainActorCallbacks.swift', ROOT / 'Nitrogen/Sources/NSWindow+N2.swift',
-               ROOT / 'Horos/Sources/MutableArrayCategory.swift']
+               ROOT / 'Horos/Sources/MutableArrayCategory.swift',
+               # The sheet loads its nib through these.
+               ROOT / 'Horos/Sources/WindowNibCatalog.swift', ROOT / 'Preference Panes/PaneCatalogTranslation.swift']
     if queue:
         activity = activity_text if activity_text is not None else \
             (ROOT / 'Horos/Sources/ActivityThread.swift').read_text(encoding='utf-8')

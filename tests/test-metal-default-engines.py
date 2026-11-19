@@ -107,9 +107,7 @@ for path, marker in [
         ('Preference Panes/OSI3DPreferencePane/Base.lproj/OSI3DPreferencePanePref.xib', 'values.HorosMPRMetal'),
         ('Preference Panes/OSI3DPreferencePane/ja-JP.lproj/OSI3DPreferencePanePref.xib', 'values.HorosMPRMetal'),
         ('Horos/Resources/en.lproj/VR.xib', 'selection.engine'),
-        ('Horos/Resources/ja-JP.lproj/VR.xib', 'selection.engine'),
-        ('Horos/Resources/en.lproj/Endoscopy.xib', 'self.engine'),
-        ('Horos/Resources/ja-JP.lproj/Endoscopy.xib', 'self.engine')]:
+        ('Horos/Resources/en.lproj/Endoscopy.xib', 'self.engine')]:
     if marker in read(path):
         failures.append('%s still offers %s' % (path, marker))
     ElementTree.fromstring(read(path).encode('latin1'))

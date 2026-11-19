@@ -401,6 +401,9 @@ final class SRController: Window3DController, NSToolbarDelegate, NSToolbarItemVa
     override func windowWillClose(_ notification: Notification) {
         horos_windowWillClose = true
         window?.acceptsMouseMovedEvents = false
+        // The Point Info panel leaves the screen with its window: left open,
+        // it outlived this controller and its view.
+        CompanionPanels.takeOffScreen(srView?.point3DInfoPanel)
         NotificationCenter.default.post(name: .OsirixWindow3dClose, object: self, userInfo: nil)
         window?.delegate = nil
         // [self autorelease]: the reference the code that made it kept.

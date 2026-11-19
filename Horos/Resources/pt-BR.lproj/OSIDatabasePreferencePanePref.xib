@@ -46,7 +46,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="1032">
                                     <rect key="frame" x="13" y="8" width="837" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Exclua automaticamente TODO o banco de dados padrão, a cada inicialização: todos os estudos serão excluídos." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1033">
+                                    <buttonCell key="cell" type="check" title="Excluir automaticamente TODO o banco de dados padrão, a cada inicialização: todos os estudos serão excluídos." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1033">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -69,7 +69,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="104">
                                     <rect key="frame" x="12" y="72" width="275" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Copie os arquivos para a pasta IsiX Data se:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
+                                    <buttonCell key="cell" type="check" title="Copiar os arquivos para a pasta IsiX Data se:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="755">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -97,7 +97,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Pergunte ao usuário" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="898">
+                                            <buttonCell type="radio" title="Perguntar ao usuário" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="898">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -146,7 +146,7 @@
                                 <button verticalHuggingPriority="750" id="348">
                                     <rect key="frame" x="405" y="129" width="90" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Selecione" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="756">
+                                    <buttonCell key="cell" type="push" title="Selecionar" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="756">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -157,7 +157,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="626">
                                     <rect key="frame" x="12" y="108" width="838" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Importe apenas o formato de arquivo DICOM (ignore JPEG, TIFF, LSM, Analisar...)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="757">
+                                    <buttonCell key="cell" type="check" title="Importar apenas o formato de arquivo DICOM (ignorar JPEG, TIFF, LSM, Analyze...)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="757">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -168,7 +168,7 @@
                                 <button verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" id="829">
                                     <rect key="frame" x="12" y="90" width="838" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Valide arquivos antes de importar arquivos de CD/DVD ou arquivos externos (teste de falha)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
+                                    <buttonCell key="cell" type="check" title="Validar arquivos antes de importar arquivos de CD/DVD ou arquivos externos (teste de falha)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -187,7 +187,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="veZ-gu-ICP">
                                     <rect key="frame" x="12" y="10" width="838" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use a estrutura DICOMDIR ao exportar para o sistema de arquivos" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="vWP-sg-QlC">
+                                    <buttonCell key="cell" type="check" title="Usar a estrutura DICOMDIR ao exportar para o sistema de arquivos" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="vWP-sg-QlC">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -209,7 +209,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="267">
                                     <rect key="frame" x="13" y="158" width="275" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Exclua estudos nestas condições:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="768">
+                                    <buttonCell key="cell" type="check" title="Excluir estudos nestas condições:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="768">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -383,7 +383,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="506">
                                     <rect key="frame" x="13" y="22" width="837" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Se os arquivos de imagem forem arquivos vinculados (não armazenados na pasta Banco de dados), exclua também o arquivo original" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="775">
+                                    <buttonCell key="cell" type="check" title="Se os arquivos de imagem forem arquivos vinculados (não armazenados na pasta Banco de dados), excluir também o arquivo original" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="775">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -407,7 +407,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" id="776">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <string key="title">Se todas as condições verificadas forem verdadeiras.
+                                        <string key="title">Se todas as condições marcadas forem verdadeiras.
 Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -429,11 +429,11 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Menos adicionado recentemente" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="909">
+                                            <buttonCell type="radio" title="Adicionado menos recentemente" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" tag="2" inset="2" id="909">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Menos aberto recentemente" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="910">
+                                            <buttonCell type="radio" title="Aberto menos recentemente" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="910">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -470,7 +470,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="miniSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Tempo de aquisição da série" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="511">
+                                            <buttonCell type="radio" title="Hora de aquisição da série" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="511">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="miniSystem"/>
                                             </buttonCell>
@@ -515,7 +515,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="miniSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Data Ascendente" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="883">
+                                            <buttonCell type="radio" title="Data crescente" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="883">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="miniSystem"/>
                                             </buttonCell>
@@ -635,7 +635,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                             <items>
                                                 <menuItem title="Campos DICOM" state="on" hidden="YES" id="803"/>
                                                 <menuItem title="Item 2" id="804"/>
-                                                <menuItem title="Artigo 3" id="805"/>
+                                                <menuItem title="Item 3" id="805"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -739,7 +739,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="371">
                                     <rect key="frame" x="9" y="143" width="190" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="RM multieco dividida" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="782">
+                                    <buttonCell key="cell" type="check" title="Dividir RM multieco" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="782">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -769,10 +769,10 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                         <binding destination="-2" name="value" keyPath="useSeriesDescription" id="528"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Usando o campo 0018.0022 (ScanOptions)" horizontalCompressionResistancePriority="1000" id="547">
+                                <button toolTip="Usando o campo 0018,0022 (ScanOptions)" horizontalCompressionResistancePriority="1000" id="547">
                                     <rect key="frame" x="9" y="126" width="190" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="TC cardíaca 4D dividida" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
+                                    <buttonCell key="cell" type="check" title="Dividir TC cardíaca 4D" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -812,7 +812,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="796">
                                     <rect key="frame" x="205" y="127" width="205" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Para os EUA: uma série por arquivo" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="797">
+                                    <buttonCell key="cell" type="check" title="Para US: uma série por arquivo" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="797">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -823,7 +823,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="813">
                                     <rect key="frame" x="9" y="86" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Reúna imagens do localizador com a descrição da série:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="814">
+                                    <buttonCell key="cell" type="check" title="Reunir imagens do localizador com a descrição da série:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="814">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -848,9 +848,9 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="Outras visualizações" id="870">
                                             <items>
-                                                <menuItem title="Artigo 1" id="871"/>
+                                                <menuItem title="Item 1" id="871"/>
                                                 <menuItem title="Item 2" id="872"/>
-                                                <menuItem title="Artigo 3" id="873"/>
+                                                <menuItem title="Item 3" id="873"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -887,9 +887,9 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="Outras visualizações" id="926">
                                             <items>
-                                                <menuItem title="Artigo 1" id="927"/>
+                                                <menuItem title="Item 1" id="927"/>
                                                 <menuItem title="Item 2" id="928"/>
-                                                <menuItem title="Artigo 3" id="929"/>
+                                                <menuItem title="Item 3" id="929"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -918,7 +918,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                             <items>
                                                 <menuItem title="Pages (.pages)" tag="2" id="537"/>
                                                 <menuItem title="LibreOffice (.odt)" tag="5" id="828"/>
-                                                <menuItem title="Edição de texto (.rtf)" tag="1" id="538"/>
+                                                <menuItem title="TextEdit (.rtf)" tag="1" id="538"/>
                                                 <menuItem title="Microsoft Word (.doc)" id="539"/>
                                                 <menuItem isSeparatorItem="YES" id="542">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -934,7 +934,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="991" id="545">
                                     <rect key="frame" x="10" y="34" width="216" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Crie laudos usando:" id="787">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Criar laudos usando:" id="787">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -943,7 +943,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <button horizontalCompressionResistancePriority="991" id="919">
                                     <rect key="frame" x="15" y="9" width="835" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Crie automaticamente um arquivo DICOM PDF do laudo, quando o status for alterado para &quot;validado&quot;" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="920">
+                                    <buttonCell key="cell" type="check" title="Criar automaticamente um arquivo DICOM PDF do laudo, quando o status for alterado para &quot;validado&quot;" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="920">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1038,7 +1038,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                         <action selector="resetDateOfBirth:" target="-2" id="625"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Ao filtrar o banco de dados, inclua outros estudos pertencentes a pacientes correspondentes." horizontalCompressionResistancePriority="1000" id="630">
+                                <button toolTip="Ao filtrar o banco de dados, incluir outros estudos pertencentes a pacientes correspondentes." horizontalCompressionResistancePriority="1000" id="630">
                                     <rect key="frame" x="8" y="64" width="457" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Incluir outros estudos dos pacientes nos resultados" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="767">
@@ -1052,7 +1052,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="945">
                                     <rect key="frame" x="8" y="44" width="457" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Exiba os nomes e descrições dos pacientes com palavras em maiúsculas" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="946">
+                                    <buttonCell key="cell" type="check" title="Exibir os nomes e descrições dos pacientes com palavras em maiúsculas" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="946">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -1172,7 +1172,7 @@ Se um estudo estiver em um álbum, ele NÃO será excluído.</string>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="978" id="981">
                                     <rect key="frame" x="14" y="162" width="355" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Use os seguintes campos para gerar o UID do paciente:" id="982">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Usar os seguintes campos para gerar o UID do paciente:" id="982">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

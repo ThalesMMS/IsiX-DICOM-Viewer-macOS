@@ -63,6 +63,12 @@ public final class ROIVolumeManagerController: NSWindowController, NSTableViewDa
     @IBOutlet private var roiVolumesController: NSArrayController?
     @IBOutlet private var controllerAlias: NSObjectController?
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// -initWithWindowNibName:@"ROIVolumeManager", through the Objective-C
     /// initializer.
     @objc(initWithViewer:)

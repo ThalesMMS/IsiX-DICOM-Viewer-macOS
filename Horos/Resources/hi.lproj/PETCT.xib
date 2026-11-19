@@ -271,18 +271,18 @@
             </constraints>
         </customView>
         <customView id="67" userLabel="Blending">
-            <rect key="frame" x="0.0" y="0.0" width="147" height="35"/>
+            <rect key="frame" x="0.0" y="0.0" width="171" height="35"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="69">
-                    <rect key="frame" x="0.0" y="0.0" width="147" height="35"/>
+                    <rect key="frame" x="0.0" y="0.0" width="171" height="35"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
                         <popUpButton verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="71">
-                            <rect key="frame" x="44" y="17" width="98" height="16"/>
+                            <rect key="frame" x="44" y="17" width="122" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="98" id="TVo-5v-TIb"/>
+                                <constraint firstAttribute="width" constant="122" id="TVo-5v-TIb"/>
                             </constraints>
                             <popUpButtonCell key="cell" type="push" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" id="237">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -294,7 +294,7 @@
                                                 <action selector="blendingMode:" target="-1" id="300"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="उच्च कम उच्च" tag="1" id="75">
+                                        <menuItem title="उच्च-निम्न-उच्च" tag="1" id="75">
                                             <connections>
                                                 <action selector="blendingMode:" target="-1" id="301"/>
                                             </connections>
@@ -304,12 +304,12 @@
                                                 <action selector="blendingMode:" target="-1" id="302"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="लकड़ी का लट्ठा" tag="3" id="77">
+                                        <menuItem title="लघुगणकीय" tag="3" id="77">
                                             <connections>
                                                 <action selector="blendingMode:" target="-1" id="303"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="उलटा लॉग" tag="4" id="171">
+                                        <menuItem title="व्युत्क्रम लघुगणकीय" tag="4" id="171">
                                             <connections>
                                                 <action selector="blendingMode:" target="-1" id="304"/>
                                             </connections>
@@ -333,7 +333,7 @@
                             </textFieldCell>
                         </textField>
                         <slider customClass="HorosCellSlider" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="70">
-                            <rect key="frame" x="4" y="0.0" width="104" height="15"/>
+                            <rect key="frame" x="4" y="0.0" width="128" height="15"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <sliderCell key="cell" customClass="HorosCellSliderCell" controlSize="small" continuous="YES" alignment="left" minValue="-256" maxValue="256" doubleValue="1.421085e-14" tickMarkPosition="below" allowsTickMarkValuesOnly="YES" sliderType="linear" id="236">
                                 <font key="font" size="12" name="Helvetica"/>
@@ -343,7 +343,7 @@
                             </connections>
                         </slider>
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="79">
-                            <rect key="frame" x="109" y="2" width="34" height="13"/>
+                            <rect key="frame" x="133" y="2" width="34" height="13"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
                                 <constraint firstAttribute="width" constant="30" id="Y7H-f6-2QV"/>
@@ -785,22 +785,23 @@ Gw
                     <constraint firstItem="134" firstAttribute="baseline" secondItem="132" secondAttribute="baseline" id="xcg-PR-CXE"/>
                     <constraint firstItem="174" firstAttribute="top" secondItem="280" secondAttribute="bottom" constant="12" id="xdD-g3-Mxo"/>
                     <constraint firstItem="133" firstAttribute="baseline" secondItem="135" secondAttribute="baseline" id="xzS-un-uRE"/>
+                    <constraint firstItem="135" firstAttribute="top" relation="greaterThanOrEqual" secondItem="125" secondAttribute="top" constant="12" id="Hp6-3x-Zc7"/>
                 </constraints>
             </view>
         </window>
         <customView id="141" userLabel="WL/WW">
-            <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
+            <rect key="frame" x="0.0" y="0.0" width="182" height="48"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <customView translatesAutoresizingMaskIntoConstraints="NO" id="142">
-                    <rect key="frame" x="0.0" y="0.0" width="165" height="48"/>
+                    <rect key="frame" x="0.0" y="0.0" width="182" height="48"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <subviews>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="156">
-                            <rect key="frame" x="66" y="0.0" width="99" height="16"/>
+                            <rect key="frame" x="66" y="0.0" width="116" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="99" id="EPN-LR-vcW"/>
+                                <constraint firstAttribute="width" constant="116" id="EPN-LR-vcW"/>
                             </constraints>
                             <popUpButtonCell key="cell" type="push" title="अपारदर्शिता" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="158" id="263">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -835,17 +836,17 @@ Gw
                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="155">
                             <rect key="frame" x="22" y="34" width="42" height="11"/>
                             <autoresizingMask key="autoresizingMask"/>
-                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="डब्ल्यूएल/डब्ल्यूडब्ल्यू:" id="262">
+                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="WL/WW:" id="262">
                                 <font key="font" metaFont="miniSystem"/>
                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                             </textFieldCell>
                         </textField>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="144">
-                            <rect key="frame" x="66" y="16" width="99" height="16"/>
+                            <rect key="frame" x="66" y="16" width="116" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="99" id="Bgd-8b-fUV"/>
+                                <constraint firstAttribute="width" constant="116" id="Bgd-8b-fUV"/>
                             </constraints>
                             <popUpButtonCell key="cell" type="push" title="CLUT" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="146" id="259">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -860,10 +861,10 @@ Gw
                             </popUpButtonCell>
                         </popUpButton>
                         <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="150">
-                            <rect key="frame" x="66" y="32" width="99" height="16"/>
+                            <rect key="frame" x="66" y="32" width="116" height="16"/>
                             <autoresizingMask key="autoresizingMask"/>
                             <constraints>
-                                <constraint firstAttribute="width" constant="99" id="pos-dY-e3t"/>
+                                <constraint firstAttribute="width" constant="116" id="pos-dY-e3t"/>
                             </constraints>
                             <popUpButtonCell key="cell" type="push" title="WL/WW" bezelStyle="rounded" alignment="left" controlSize="mini" lineBreakMode="clipping" borderStyle="borderAndBezel" inset="2" pullsDown="YES" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="153" id="261">
                                 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -900,7 +901,7 @@ Gw
                 </customView>
             </subviews>
             <constraints>
-                <constraint firstAttribute="width" constant="165" id="Wlw-Wd-165"/>
+                <constraint firstAttribute="width" constant="182" id="Wlw-Wd-165"/>
                 <constraint firstAttribute="height" constant="48" id="Wlw-Ht-048"/>
                 <constraint firstAttribute="trailing" secondItem="142" secondAttribute="trailing" id="I0E-II-Jod"/>
                 <constraint firstItem="142" firstAttribute="leading" secondItem="141" secondAttribute="leading" id="gPr-Ye-4dy"/>
@@ -909,7 +910,7 @@ Gw
             </constraints>
         </customView>
         <customView id="219" userLabel="Movie">
-            <rect key="frame" x="0.0" y="0.0" width="175" height="32"/>
+            <rect key="frame" x="0.0" y="0.0" width="186" height="32"/>
             <autoresizingMask key="autoresizingMask"/>
             <subviews>
                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="225">
@@ -936,7 +937,7 @@ Gw
                     <constraints>
                         <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="30" id="uJ7-gX-Iv6"/>
                     </constraints>
-                    <buttonCell key="cell" type="squareTextured" title="खेल" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" inset="2" id="267">
+                    <buttonCell key="cell" type="squareTextured" title="चलाएँ" bezelStyle="texturedSquare" alignment="center" controlSize="small" borderStyle="border" inset="2" id="267">
                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -952,9 +953,9 @@ Gw
                     <rect key="frame" x="133" y="20" width="39" height="11"/>
                     <autoresizingMask key="autoresizingMask"/>
                     <constraints>
-                        <constraint firstAttribute="width" constant="35" id="dkH-s3-8xQ"/>
+                        <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="35" id="dkH-s3-8xQ"/>
                     </constraints>
-                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 आईएम/एस" id="265">
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="10 im/s" id="265">
                         <font key="font" metaFont="miniSystem"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -976,7 +977,8 @@ Gw
                 <constraint firstItem="223" firstAttribute="leading" secondItem="222" secondAttribute="trailing" constant="6" id="Dva-Wf-IKF"/>
                 <constraint firstAttribute="trailing" secondItem="223" secondAttribute="trailing" constant="6" id="Gvo-Fk-pmJ"/>
                 <constraint firstItem="220" firstAttribute="leading" secondItem="224" secondAttribute="trailing" constant="7" id="JI5-Pc-QQB"/>
-                <constraint firstItem="224" firstAttribute="leading" secondItem="219" secondAttribute="leading" constant="9" id="Lsd-h9-X7W"/>
+                <constraint firstItem="224" firstAttribute="leading" secondItem="219" secondAttribute="leading" priority="750" constant="9" id="Lsd-h9-X7W"/>
+                <constraint firstItem="225" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="219" secondAttribute="leading" constant="9" id="Tq2-0a-Cn6"/>
                 <constraint firstItem="220" firstAttribute="leading" secondItem="222" secondAttribute="leading" id="No4-FV-f7g"/>
                 <constraint firstItem="222" firstAttribute="centerY" secondItem="225" secondAttribute="centerY" id="Nwi-Pa-GpW"/>
                 <constraint firstItem="220" firstAttribute="top" secondItem="221" secondAttribute="top" id="Rbh-Lk-MGL"/>
@@ -986,6 +988,8 @@ Gw
                 <constraint firstItem="224" firstAttribute="baseline" secondItem="220" secondAttribute="baseline" id="d5O-Oy-NqV"/>
                 <constraint firstItem="223" firstAttribute="top" secondItem="225" secondAttribute="top" id="khx-RY-igf"/>
                 <constraint firstItem="224" firstAttribute="trailing" secondItem="225" secondAttribute="trailing" id="rDe-wq-RHP"/>
+                <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="221" secondAttribute="trailing" constant="2" id="rDf-wq-RHQ"/>
+                <constraint firstItem="222" firstAttribute="width" relation="greaterThanOrEqual" constant="56" id="rDg-wq-RHR"/>
             </constraints>
         </customView>
         <userDefaultsController representsSharedInstance="YES" id="284"/>

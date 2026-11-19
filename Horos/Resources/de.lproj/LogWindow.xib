@@ -392,7 +392,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="originName" editable="NO" width="72" minWidth="40" maxWidth="300" id="21">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="To">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="An">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -448,7 +448,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="24">
+                                                            <tableColumn identifier="numberSent" editable="NO" width="80" minWidth="80" maxWidth="100" id="24">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Gesendet">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -464,7 +464,7 @@
                                                                     <binding destination="45" name="value" keyPath="arrangedObjects.numberSent" id="64"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberError" editable="NO" width="50" minWidth="50" maxWidth="100" id="25">
+                                                            <tableColumn identifier="numberError" editable="NO" width="80" minWidth="80" maxWidth="100" id="25">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Fehler">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -480,7 +480,7 @@
                                                                     <binding destination="45" name="value" keyPath="arrangedObjects.numberError" id="65"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="26">
+                                                            <tableColumn identifier="numberImages" editable="NO" width="80" minWidth="80" maxWidth="100" id="26">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Total">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -575,7 +575,7 @@
                                                 </binding>
                                                 <binding destination="45" name="predicate2" keyPath="filterPredicate" previousBinding="1823" id="1824">
                                                     <dictionary key="options">
-                                                        <string key="NSDisplayName">To</string>
+                                                        <string key="NSDisplayName">An</string>
                                                         <string key="NSPredicateFormat">destinationName contains[c] $value</string>
                                                     </dictionary>
                                                 </binding>
@@ -692,7 +692,7 @@
                                                                 </connections>
                                                             </tableColumn>
                                                             <tableColumn identifier="originName" editable="NO" width="71" minWidth="40" maxWidth="300" id="229">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="To">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="An">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -751,7 +751,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberSent" editable="NO" width="50" minWidth="50" maxWidth="100" id="87">
+                                                            <tableColumn identifier="numberSent" editable="NO" width="80" minWidth="80" maxWidth="100" id="87">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Gesendet">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -772,7 +772,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="numberImages" editable="NO" width="50" minWidth="50" maxWidth="100" id="240">
+                                                            <tableColumn identifier="numberImages" editable="NO" width="80" minWidth="80" maxWidth="100" id="240">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Total">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -873,7 +873,7 @@
                                                 </binding>
                                                 <binding destination="46" name="predicate2" keyPath="filterPredicate" previousBinding="1859" id="1860">
                                                     <dictionary key="options">
-                                                        <string key="NSDisplayName">To</string>
+                                                        <string key="NSDisplayName">An</string>
                                                         <string key="NSPredicateFormat">originName contains[c] $value</string>
                                                     </dictionary>
                                                 </binding>

@@ -1,7 +1,7 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiX-DICOM-Viewer-6.0.5-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiX-DICOM-Viewer-6.0.5-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiX-DICOM-Viewer-6.0.6-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiX-DICOM-Viewer-6.0.6-Intel-Macs.zip)
 [![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
 <p align="center"><b>macOS</b></p>
@@ -28,7 +28,7 @@
   <sub>This repository holds the macOS version.</sub>
 </p>
 
-**6.0.5 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.5) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.5/IsiXPluginKit-SDK-6.0.5.zip).
+**6.0.6 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.6) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiXPluginKit-SDK-6.0.6.zip).
 This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
@@ -594,11 +594,15 @@ isolated database in `local-validation/runtime-private`. It also isolates
 plugins and web-portal accounts. The installed application and its database
 are not used for this development launch.
 
-For an optimized development build:
+To build and launch the isolated development app in Release configuration:
 
 ```sh
-HOROS_DEV_CONFIGURATION=Release script/build_and_run.sh --verify
+script/build_and_run.sh --release
 ```
+
+Add `--verify` after `--release` to check that the app process started. If the
+system selects Command Line Tools, the script uses `/Applications/Xcode.app`
+when available. Set `DEVELOPER_DIR` to use a specific Xcode installation.
 
 The script also accepts `--debug` for LLDB, `--logs` for unified logging, and
 `--diagnostics` for the Main Thread Checker.

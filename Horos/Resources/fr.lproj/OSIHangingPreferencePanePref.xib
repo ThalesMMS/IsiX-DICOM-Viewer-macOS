@@ -259,7 +259,7 @@
                     </textField>
                     <textField horizontalHuggingPriority="125" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="5qP-63-Wyl">
                         <rect key="frame" x="18" y="202" width="129" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Windows :" id="T9W-wp-PJS">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Fenêtres :" id="T9W-wp-PJS">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -311,14 +311,14 @@
                     </button>
                     <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="380">
                         <rect key="frame" x="151" y="129" width="259" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="Afficher la dernière examen, si possible" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="383" id="381">
+                        <popUpButtonCell key="cell" type="push" title="Afficher le dernier examen, si possible" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="383" id="381">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Autres vues" id="382">
                                 <items>
-                                    <menuItem title="Afficher la dernière examen, si possible" state="on" tag="1" id="383"/>
-                                    <menuItem title="Afficher les deux dernières examens, si possible" tag="2" id="384"/>
-                                    <menuItem title="Afficher les trois dernières examens, si possible" tag="3" id="385"/>
+                                    <menuItem title="Afficher le dernier examen, si possible" state="on" tag="1" id="383"/>
+                                    <menuItem title="Afficher les deux derniers examens, si possible" tag="2" id="384"/>
+                                    <menuItem title="Afficher les trois derniers examens, si possible" tag="3" id="385"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -329,15 +329,15 @@
                     </popUpButton>
                     <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="BMb-oH-JR6">
                         <rect key="frame" x="151" y="100" width="259" height="26"/>
-                        <popUpButtonCell key="cell" type="push" title="Afficher 1 série par examen précédente" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
+                        <popUpButtonCell key="cell" type="push" title="Afficher 1 série par examen précédent" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" tag="1" imageScaling="proportionallyDown" inset="2" selectedItem="ew2-hP-L3n" id="Skm-0N-d3N">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="menu"/>
                             <menu key="menu" title="Autres vues" id="Rgq-3j-bmV">
                                 <items>
-                                    <menuItem title="Afficher 1 série par examen précédente" state="on" tag="1" id="ew2-hP-L3n"/>
-                                    <menuItem title="Afficher 2 séries par examen précédente" tag="2" id="8RF-iU-gXo"/>
-                                    <menuItem title="Afficher 3 séries par examen précédente" tag="3" id="vJg-Hv-ZyY"/>
-                                    <menuItem title="Afficher 4 séries par examen précédente" tag="4" id="4wi-zY-TKa"/>
+                                    <menuItem title="Afficher 1 série par examen précédent" state="on" tag="1" id="ew2-hP-L3n"/>
+                                    <menuItem title="Afficher 2 séries par examen précédent" tag="2" id="8RF-iU-gXo"/>
+                                    <menuItem title="Afficher 3 séries par examen précédent" tag="3" id="vJg-Hv-ZyY"/>
+                                    <menuItem title="Afficher 4 séries par examen précédent" tag="4" id="4wi-zY-TKa"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -536,7 +536,7 @@ Gw
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="406">
                         <rect key="frame" x="6" y="11" width="322" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche de décalage enfoncée." id="425">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche Maj enfoncée." id="425">
                             <font key="font" metaFont="label"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

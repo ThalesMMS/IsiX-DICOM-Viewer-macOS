@@ -60,8 +60,10 @@ public struct SeriesMenuModel: Sendable, Equatable {
     /// The background of a series' title.
     public enum Highlight: Sendable, Equatable {
         case none
-        /// One of the viewer's time points shows it.
-        case shown
+        /// One of the viewer's time points shows it: in the colour of the
+        /// study the viewer's window stands for among the patient's open
+        /// studies, the colour of its frame and of its fill in the series list.
+        case shown(SeriesIdentity.Study)
         /// The viewer fuses it.
         case fused
         /// Another window shows it: that window's colour, half transparent.
@@ -117,9 +119,14 @@ public struct SeriesMenuModel: Sendable, Equatable {
 
     /// The studies the menu lists, most recent first.
     public var studies: [Study]
+    /// Which of the patient's open studies the viewer's window shows, as the
+    /// frame of its active view has it: the current one, or a previous one.
+    /// The series the viewer shows are highlighted in that study's colour.
+    public var windowStudy: SeriesIdentity.Study
 
-    public init(studies: [Study]) {
+    public init(studies: [Study], windowStudy: SeriesIdentity.Study = .current) {
         self.studies = studies
+        self.windowStudy = windowStudy
     }
 
     /// The items in the order of the menu: each study, its series, then a
@@ -146,18 +153,25 @@ public struct SeriesMenuModel: Sendable, Equatable {
         }
     }
 
-    /// The background of a series' title: shown, else fused, else the colour
-    /// of the study of the window that shows it.
+    /// The background of a series' title: shown, in the colour of the study
+    /// of the viewer's window; else fused; else the colour of the study of
+    /// the window that shows it.
     public func highlight(of series: Series) -> Highlight {
-        if series.isShown { return .shown }
+        if series.isShown { return .shown(windowStudy) }
         if series.isFused { return .fused }
         if series.hasWindowColour { return .windowColour }
         return .none
     }
 
-    /// The title of a series' item: its name and its number of images.
-    public static func title(of series: Series) -> String {
-        let count = NumberFormatter.localizedString(from: NSNumber(value: series.imageCount), number: .decimal)
-        return series.name + " / " + count + " " + (series.imageCount == 1 ? "image" : "images")
+    /// The title of a series' item: its name and its number of images, which
+    /// `images` writes in the language of the menu ("120 images").
+    public static func title(of series: Series, images: (Int) -> String = englishImages) -> String {
+        series.name + " / " + images(series.imageCount)
+    }
+
+    /// A number of images as English writes it: "1 image", "1,200 images".
+    public static func englishImages(_ count: Int) -> String {
+        let number = NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal)
+        return number + " " + (count == 1 ? "image" : "images")
     }
 }

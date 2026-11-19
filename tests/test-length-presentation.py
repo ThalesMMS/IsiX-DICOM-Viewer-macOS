@@ -6,7 +6,8 @@ LengthPresentation.swift is compiled as it is and asked:
 - the three units: Automatic (µm below 0.01 cm, mm below 1 cm, cm from 1 cm),
   mm and cm, with 0 to 3 decimal places and values outside clamped;
 - the limits of 0.01 cm and 1 cm, and rounding that does not move the unit;
-- µm keep at most one decimal, and an ASCII-only renderer gets mm instead;
+- µm keep at most one decimal, and a caller that asks for no micro sign gets
+  mm instead;
 - a length in pixels, on an image without calibration;
 - the preferences, read from the argument domain: none set is Automatic with
   three places, today's text.
@@ -61,7 +62,7 @@ if '"Length3DMM": NSNumber(value: self.distanceMM)' not in roi:
 # (VRView.swift).
 from sources import class_sources  # noqa: E402
 vr = class_sources('VRView')
-for needle in ('LengthPresentation.asciiString(centimetres: centimetres)',
+for needle in ('LengthPresentation.string(centimetres: centimetres))\n}',
                'let localizedText = vrLengthText(length / (10.0 * Double(horos_factor)))',
                'NSLocalizedString("   Measurement: %@ ", comment: ""),\n                            LengthPresentation.string(centimetres: Double(horos_measureLength))',
                'name: Notification.Name(LengthPresentation.changedNotification)',
@@ -191,7 +192,7 @@ check(f(0.1, .automatic, 3), "0.100 mm", "0.01 cm")
 check(f(0.0999, .automatic, 3), "99.9 \u{00B5}m", "just below 0.01 cm")
 check(f(0.05, .automatic, 0), "50 \u{00B5}m", "µm with no place")
 check(f(0.05, .automatic, 2), "50.0 \u{00B5}m", "µm keep one place")
-check(f(0.05, .automatic, 3, micrometres: false), "0.050 mm", "no µm for an ASCII renderer")
+check(f(0.05, .automatic, 3, micrometres: false), "0.050 mm", "no µm when the caller asks for none")
 check(f(0.05, .millimetres, 3), "0.050 mm", "below 0.01 cm in mm")
 check(f(0.05, .centimetres, 3), "0.005 cm", "below 0.01 cm in cm")
 
@@ -218,7 +219,7 @@ check(L.string(pixels: 1.5), "1.500 pix", "no preference, pixels")
 preferences([L.unitKey: 1, L.decimalsKey: 1])
 check(L.string(centimetres: 2), "20.0 mm", "mm with one place")
 check(L.string(millimetres: 20), "20.0 mm", "mm with one place, from millimetres")
-check(L.asciiString(centimetres: 2), "20.0 mm", "mm with one place, ASCII")
+check(L.asciiString(centimetres: 2), "20.0 mm", "mm with one place, without the micro sign")
 check(L.string(pixels: 1.55), "1.6 pix", "pixels with one place")
 preferences([L.unitKey: 2, L.decimalsKey: 0])
 check(L.string(millimetres: 4), "0 cm", "cm with no place")

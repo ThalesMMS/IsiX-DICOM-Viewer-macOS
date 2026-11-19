@@ -166,7 +166,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Hoje PM" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="11" inset="2" id="603">
+                                            <buttonCell type="radio" title="Hoje à tarde" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="11" inset="2" id="603">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -212,7 +212,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Hoje PM" imagePosition="left" alignment="left" controlSize="small" enabled="NO" tag="-4" transparent="YES" inset="2" id="598">
+                                            <buttonCell type="radio" title="Hoje à tarde" imagePosition="left" alignment="left" controlSize="small" enabled="NO" tag="-4" transparent="YES" inset="2" id="598">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -230,7 +230,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Última 1 hora" imagePosition="left" alignment="left" controlSize="small" tag="101" inset="2" id="592">
+                                            <buttonCell type="radio" title="Última hora" imagePosition="left" alignment="left" controlSize="small" tag="101" inset="2" id="592">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -333,7 +333,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="674">
                         <rect key="frame" x="18" y="339" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Se um estudo distante tiver mais imagens que um estudo local, exiba o estudo distante" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
+                        <buttonCell key="cell" type="check" title="Se um estudo distante tiver mais imagens que um estudo local, exibir o estudo distante" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -355,7 +355,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="734">
                         <rect key="frame" x="18" y="299" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Use o PACS On Demand ao usar os campos de pesquisa da barra de ferramentas" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
+                        <buttonCell key="cell" type="check" title="Usar o PACS On Demand ao usar os campos de pesquisa da barra de ferramentas" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -426,7 +426,7 @@ Gw
                                             </connections>
                                         </tableColumn>
                                         <tableColumn identifier="AETitle" editable="NO" width="140" minWidth="140" maxWidth="140" id="489">
-                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETítulo">
+                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                 <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -666,7 +666,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Ative o PACS On Demand para as seguintes funções do servidor Web" borderType="line" id="724">
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Ativar o PACS On Demand para as seguintes funções do servidor Web" borderType="line" id="724">
                         <rect key="frame" x="17" y="16" width="691" height="94"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="cnL-LT-VCm">

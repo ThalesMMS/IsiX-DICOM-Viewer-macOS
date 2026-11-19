@@ -39,9 +39,6 @@ for key, original in en.items():
     assert hi[key] != original or residual.is_residual(key, original), f'Untranslated Hindi key: {key!r}'
     assert all(original.count(c) == hi[key].count(c) for c in '\r\n\t'), f'Changed control escapes: {key!r}'
 
-for key in residual.english_comments():
-    assert hi[key].isascii(), f'Legacy ASCII rendering: {key!r}'
-
 visible = {'title', 'label', 'toolTip', 'placeholderString', 'alternateTitle', 'stringValue'}
 textkeys = visible | {'NSDisplayName', 'NSNullPlaceholder', 'NSNoSelectionPlaceholder', 'NSDisplayPattern'}
 
@@ -82,4 +79,4 @@ if len(sys.argv) > 1:
     built = Path(sys.argv[1]) / 'Contents/Resources/hi.lproj'
     assert (built / 'MainMenu.nib').exists()
     assert strings(built / 'Localizable.strings') == hi
-print(f'PASS: {len(hi)} Hindi keys; formats, ASCII overlays, and {len(sources)} current XIBs with preserved structure')
+print(f'PASS: {len(hi)} Hindi keys; formats, and {len(sources)} current XIBs with preserved structure')

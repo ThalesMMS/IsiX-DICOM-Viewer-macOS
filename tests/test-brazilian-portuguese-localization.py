@@ -48,7 +48,7 @@ ui_same = {
     'TRUEPREDICATE', 'Oval ', 'Oval', '%{value1}@ im/s', 'DICOMCD',
     'asdasdasdqq', 'Item 2', 'Spline', 'ROI 1', 'SQL', 'CLUT:', 'Pos:',
     'Volume', 'Volume (cm3)', 'volume', 'Plug-in:', 'mmm', 'Delaunay',
-    'BILINEAR', 'RGB ->BW', 'URL:', 'Soundex', 'DICOMDIR:', 'asdasd',
+    'BILINEAR', 'RGB ->BW', 'BW -> RGB', 'URL:', 'Soundex', 'DICOMDIR:', 'asdasd',
     'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS', 'UTF8 (Unicode): ISO_IR 192',
     'https://www.dicom.dcm/dicomNodes.plist',
     'https://www.dicom.dcm/OsiriXDB.plist', 'TLS', 'wado', 'HTTPS',
@@ -57,6 +57,15 @@ ui_same = {
     'https://www.preferences-server.com/preferences.plist', 'Mail.app',
     '<<do not localize window title>>', 'px:\t\tx:0 y:0 z:0',
     'mm:\t\tx:0 y:0 z:0',
+    # Words Brazilian Portuguese writes as English does, the keys of the keyboard,
+    # and the design-time items of a menu.
+    'Menu', 'Host', 'Host:', 'Linear', 'Slab:', '%d pixels', 'option return',
+    'Item', 'Item 1', 'Item 3', 'Volume: XXX cm3\nA\nB\nC\nD',
+    # The names of an attribute, of an algorithm, of a file format, of a film
+    # destination of a DICOM print and of two applications.
+    'AETitle', 'Power Crust', 'Papyrus', 'Magazine', 'Mail', 'TextEdit (.rtf)',
+    # The predefined values of a surface carry the names of window level presets, which are stored.
+    'CT - Bone', 'CT - Metal', 'CT - Skin',
 }
 for key, translated in pt.items():
     original = en.get(key, key)
@@ -68,8 +77,11 @@ for key, translated in pt.items():
     assert Counter(c for c in original if c in '\n\r\t') == Counter(c for c in translated if c in '\n\r\t'), f'Escapes: {key!r}'
     if translated == original:
         assert residual.is_residual(key, original) or key in ui_same, f'Untranslated: {key!r}'
-for key in residual.english_comments():
-    assert pt[key].isascii(), f'ASCII overlay: {key!r}'
+# The two ends of a range are labelled in one language: a word of two letters passes for a token above, and a
+# label read "to" beside a translated "from".
+range_ends = [key for key in ('From:', 'To:', 'From', 'To', 'from:', 'to:', 'to') if key in pt]
+assert len({pt[key] == key for key in range_ends}) <= 1, \
+    f'A range has its ends in two languages: {[pt[key] for key in range_ends]}'
 
 visible = {'title', 'label', 'toolTip', 'placeholderString', 'alternateTitle', 'stringValue'}
 text_keys = visible | {'NSDisplayName', 'NSDisplayPattern', 'NSNullPlaceholder', 'NSNoSelectionPlaceholder'}
@@ -114,4 +126,4 @@ if len(sys.argv) > 1:
     assert load_catalog(resources / 'pt-BR.lproj/Localizable.strings') == pt
     for source in sources:
         assert (resources / 'pt-BR.lproj' / (source.stem + '.nib')).exists(), source.stem
-print(f'PASS: {len(pt)} entries, formats, escapes, ASCII, source/menu coverage, and {len(sources)} current XIBs with preserved connections; app QA and compiled host-bundle lookup still require integration.')
+print(f'PASS: {len(pt)} entries, formats, escapes, source/menu coverage, and {len(sources)} current XIBs with preserved connections; app QA and compiled host-bundle lookup still require integration.')

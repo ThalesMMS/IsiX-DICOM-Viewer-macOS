@@ -196,13 +196,13 @@
                                 <popUpButton verticalHuggingPriority="750" id="137">
                                     <rect key="frame" x="15" y="98" width="128" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Revista" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
+                                    <popUpButtonCell key="cell" type="push" title="Magazine" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" baseWritingDirection="leftToRight" tag="1" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="139" id="383">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="138">
                                             <items>
                                                 <menuItem title="Processador" id="140"/>
-                                                <menuItem title="Revista" state="on" tag="1" id="139"/>
+                                                <menuItem title="Magazine" state="on" tag="1" id="139"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -333,7 +333,7 @@
                                         <menu key="menu" title="Outras visualizações" id="205">
                                             <items>
                                                 <menuItem title="ALTO" id="207"/>
-                                                <menuItem title="MÉDICO" tag="1" id="208"/>
+                                                <menuItem title="MÉDIO" tag="1" id="208"/>
                                                 <menuItem title="BAIXO" state="on" tag="2" id="206"/>
                                             </items>
                                         </menu>
@@ -462,7 +462,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="159" minWidth="10" maxWidth="1000" id="265">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Anfitrião">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Host">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -506,7 +506,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn width="190.60888671875" minWidth="45.108890533447266" maxWidth="1000" id="268">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETítulo">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="AETitle">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>

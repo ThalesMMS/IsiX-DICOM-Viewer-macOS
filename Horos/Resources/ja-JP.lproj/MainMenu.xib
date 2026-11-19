@@ -2173,7 +2173,7 @@ CA
                                                 <action selector="resizeWindow:" target="-1" id="12260"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="iPod Video" tag="5" id="12254">
+                                        <menuItem title="iPod ビデオ" tag="5" id="12254">
                                             <connections>
                                                 <action selector="resizeWindow:" target="-1" id="12262"/>
                                             </connections>
@@ -2635,7 +2635,7 @@ Gw
                     <connections>
                         <binding destination="898" name="value" keyPath="searchString" id="12308">
                             <dictionary key="options">
-                                <string key="NSNoSelectionPlaceholder">Search</string>
+                                <string key="NSNoSelectionPlaceholder">検索</string>
                             </dictionary>
                         </binding>
                         <outlet property="searchMenuTemplate" destination="11583" id="11586"/>
@@ -3184,7 +3184,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" allowsCharacterPickerTouchBarItem="YES" id="14476">
                         <rect key="frame" x="31" y="215" width="42" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="差出人:" id="14497">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="自:" id="14497">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3237,7 +3237,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="14481">
                         <rect key="frame" x="48" y="193" width="25" height="14"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="right" title="To:" id="14492">
+                        <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="right" title="至:" id="14492">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -3734,7 +3734,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13874">
                                     <rect key="frame" x="14" y="176" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# out of #" id="13875">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# / #" id="13875">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3742,12 +3742,12 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="displayPatternValue2" keyPath="arrangedObjects.@count" previousBinding="13876" id="13877">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ / %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="displayPatternValue1" keyPath="selection.@count" id="13876">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ / %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                     </connections>
@@ -3816,7 +3816,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn editable="NO" width="384" minWidth="50" maxWidth="500" id="13886">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="住所">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="アドレス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -3859,31 +3859,31 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="predicate" keyPath="filterPredicate" id="13897">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">All</string>
+                                                <string key="NSDisplayName">すべて</string>
                                                 <string key="NSPredicateFormat">(phone contains[c] $value) or (address contains[c] $value) or (email contains[c] $value) or (name contains[c] $value)</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate2" keyPath="filterPredicate" previousBinding="13897" id="13898">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Phone</string>
+                                                <string key="NSDisplayName">電話</string>
                                                 <string key="NSPredicateFormat">phone contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate3" keyPath="filterPredicate" previousBinding="13898" id="13899">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Address</string>
+                                                <string key="NSDisplayName">アドレス</string>
                                                 <string key="NSPredicateFormat">address contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate4" keyPath="filterPredicate" previousBinding="13899" id="13900">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Email</string>
+                                                <string key="NSDisplayName">メール</string>
                                                 <string key="NSPredicateFormat">email contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate5" keyPath="filterPredicate" previousBinding="13900" id="13901">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Name</string>
+                                                <string key="NSDisplayName">名前</string>
                                                 <string key="NSPredicateFormat">name contains[c] $value</string>
                                             </dictionary>
                                         </binding>
@@ -3970,7 +3970,7 @@ Gw
                         <connections>
                             <binding destination="12279" name="displayPatternValue1" keyPath="values.temporaryUserDuration" id="13983">
                                 <dictionary key="options">
-                                    <string key="NSDisplayPattern">This user account will be automatically deleted after: %{value1}@ days</string>
+                                    <string key="NSDisplayPattern">このユーザアカウントは %{value1}@ 日後に自動的に削除されます</string>
                                 </dictionary>
                             </binding>
                         </connections>
@@ -4025,7 +4025,7 @@ Gw
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" setsMaxLayoutWidthAtFirstLayout="YES" allowsCharacterPickerTouchBarItem="YES" id="13939">
                                     <rect key="frame" x="17" y="224" width="140" height="11"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# out of #" id="13955">
+                                    <textFieldCell key="cell" controlSize="mini" alignment="left" title="# / #" id="13955">
                                         <font key="font" metaFont="miniSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -4033,12 +4033,12 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="displayPatternValue2" keyPath="arrangedObjects.@count" previousBinding="13965" id="13966">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ / %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="displayPatternValue1" keyPath="selection.@count" id="13965">
                                             <dictionary key="options">
-                                                <string key="NSDisplayPattern">%{value1}@ out of %{value2}@</string>
+                                                <string key="NSDisplayPattern">%{value1}@ / %{value2}@</string>
                                             </dictionary>
                                         </binding>
                                     </connections>
@@ -4107,7 +4107,7 @@ Gw
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn editable="NO" width="384" minWidth="50" maxWidth="500" id="13948">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="住所">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="アドレス">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -4150,31 +4150,31 @@ Gw
                                     <connections>
                                         <binding destination="13871" name="predicate" keyPath="filterPredicate" id="13968">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">All</string>
+                                                <string key="NSDisplayName">すべて</string>
                                                 <string key="NSPredicateFormat">(phone contains[c] $value) or (address contains[c] $value) or (email contains[c] $value) or (name contains[c] $value)</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate2" keyPath="filterPredicate" previousBinding="13968" id="13969">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Phone</string>
+                                                <string key="NSDisplayName">電話</string>
                                                 <string key="NSPredicateFormat">phone contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate3" keyPath="filterPredicate" previousBinding="13969" id="13970">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Address</string>
+                                                <string key="NSDisplayName">アドレス</string>
                                                 <string key="NSPredicateFormat">address contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate4" keyPath="filterPredicate" previousBinding="13970" id="13971">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Email</string>
+                                                <string key="NSDisplayName">メール</string>
                                                 <string key="NSPredicateFormat">email contains[c] $value</string>
                                             </dictionary>
                                         </binding>
                                         <binding destination="13871" name="predicate5" keyPath="filterPredicate" previousBinding="13971" id="13972">
                                             <dictionary key="options">
-                                                <string key="NSDisplayName">Name</string>
+                                                <string key="NSDisplayName">名前</string>
                                                 <string key="NSPredicateFormat">name contains[c] $value</string>
                                             </dictionary>
                                         </binding>
@@ -4267,7 +4267,7 @@ Gw
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" id="14378">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">This function will re-import all DICOM files in the database, removing unavailable items and optimizing the SQL index file located in the IsiX Data folder.</string>
+                            <string key="title">この機能は、データベース内のすべての DICOM ファイルを再インポートし、利用できない項目を削除して、IsiX Data フォルダにある SQL インデックスファイルを最適化します。</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -4335,12 +4335,12 @@ Gw
                                 <buttonCell type="radio" title="完全な再構築" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">The SQL index will be deleted. IsiX DICOM Viewer will then import all files available in the DATABASE folder. All 'linked' files, that were not in the DATABASE folder, will NOT be re-imported.</string>
+                                    <string key="toolTip">SQL インデックスは削除されます。その後、IsiX DICOM Viewer は DATABASE フォルダにあるすべてのファイルをインポートします。DATABASE フォルダになかった「リンクされた」ファイルは再インポートされません。</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="DICOM ファイルを再インポートして整理" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">IsiX DICOM Viewer will re-import all files available in the DATABASE folder. IsiX DICOM Viewer will then check if all images of the studies are available. If not, IsiX DICOM Viewer will remove those studies without associated DICOM files.</string>
+                                    <string key="toolTip">IsiX DICOM Viewer は DATABASE フォルダにあるすべてのファイルを再インポートします。その後、検査のすべての画像が利用できるかを確認し、利用できない場合は、関連する DICOM ファイルのない検査を削除します。</string>
                                 </buttonCell>
                             </column>
                         </cells>
@@ -4754,7 +4754,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="noFiles" editable="NO" width="58" minWidth="58" maxWidth="58" id="967">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="# im">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="画像数">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -5215,8 +5215,8 @@ Gw
                                         </connections>
                                     </button>
                                     <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="14357">
-                                        <rect key="frame" x="27" y="3" width="406" height="14"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES"/>
+                                        <rect key="frame" x="27" y="3" width="400" height="14"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
                                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="データベース情報" id="14358">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" red="0.20000000300000001" green="0.20000000300000001" blue="0.20000000300000001" alpha="1" colorSpace="calibratedRGB"/>

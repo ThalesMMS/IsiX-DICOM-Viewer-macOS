@@ -25,14 +25,14 @@ def translate(match):
     translated=catalog.get(value,value)
     return match[1]+'"'+escape(translated,{'"':'&quot;', '\n':'&#10;', '\r':'&#13;', '\t':'&#9;'})+'"'
 text=re.sub(r'(\b(?:title|label|toolTip|placeholderString|alternateTitle|stringValue)=)"([^"]*)"',translate,text)
-if args.language not in ('it-IT', 'es', 'ja-JP'):
-    # Binding placeholders and display patterns are visible UI text too. Keep
-    # predicate expressions, value transformers and shortcut strings untouched.
-    def translate_string(match):
-        value = html.unescape(match[2])
-        return match[1] + escape(catalog.get(value, value)) + match[3]
-    text = re.sub(r'(<string key="(?:title|label|toolTip|placeholderString|alternateTitle|stringValue|NSDisplayName|NSDisplayPattern|NSNullPlaceholder|NSNoSelectionPlaceholder)">)(.*?)(</string>)',
-                  translate_string, text, flags=re.S)
+# Binding placeholders and display patterns are visible UI text too, and so are the
+# titles and tooltips too long for an attribute. Keep predicate expressions, value
+# transformers and shortcut strings untouched.
+def translate_string(match):
+    value = html.unescape(match[2])
+    return match[1] + escape(catalog.get(value, value)) + match[3]
+text = re.sub(r'(<string key="(?:title|label|toolTip|placeholderString|alternateTitle|stringValue|NSDisplayName|NSDisplayPattern|NSNullPlaceholder|NSNoSelectionPlaceholder)">)(.*?)(</string>)',
+              translate_string, text, flags=re.S)
 
 def structure(node):
     # XIB serializers may change indentation or empty-element spelling without

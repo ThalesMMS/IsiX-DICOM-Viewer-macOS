@@ -54,6 +54,12 @@ public final class AnonymizationTemplateNamePanelController: NSWindowController 
     /// Atomic and retained in the former header; used on the main thread.
     @objc public var replaceValues: [Any]!
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override var windowNibName: NSNib.Name? {
         return "AnonymizationTemplateNamePanel"
     }

@@ -211,6 +211,12 @@ public final class ThreeDPositionController: NSWindowController {
         move.withUnsafeMutableBufferPointer { self.movePositionPosition($0.baseAddress) }
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override func awakeFromNib() {
         MainActor.assumeIsolated {
             self.window?.acceptsMouseMovedEvents = true

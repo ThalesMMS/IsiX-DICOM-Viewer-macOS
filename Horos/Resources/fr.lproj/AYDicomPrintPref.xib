@@ -43,25 +43,25 @@
                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="748" id="100">
                                     <rect key="frame" x="10" y="141" width="132" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="Norme 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
+                                    <popUpButtonCell key="cell" type="push" title="Standard 2,1" bezelStyle="rounded" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" borderStyle="borderAndBezel" tag="2" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="351" id="370">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Autres vues" id="101">
                                             <items>
-                                                <menuItem title="Norme 1,1" id="112"/>
-                                                <menuItem title="Norme 1,2" tag="1" id="107"/>
-                                                <menuItem title="Norme 2,1" state="on" tag="2" id="351"/>
-                                                <menuItem title="Norme 2,2" tag="3" id="109"/>
-                                                <menuItem title="Norme 2,3" tag="4" id="105"/>
-                                                <menuItem title="Norme 2,4" tag="5" id="102"/>
-                                                <menuItem title="Norme 3,3" tag="6" id="104"/>
-                                                <menuItem title="Norme 3,4" tag="7" id="113"/>
-                                                <menuItem title="Norme 3,5" tag="8" id="111"/>
-                                                <menuItem title="Norme 4,4" tag="9" id="114"/>
-                                                <menuItem title="Norme 4,5" tag="10" id="115"/>
-                                                <menuItem title="Norme 4,6" tag="11" id="103"/>
-                                                <menuItem title="Norme 5,6" tag="12" id="110"/>
-                                                <menuItem title="Norme 5,7" tag="13" id="106"/>
+                                                <menuItem title="Standard 1,1" id="112"/>
+                                                <menuItem title="Standard 1,2" tag="1" id="107"/>
+                                                <menuItem title="Standard 2,1" state="on" tag="2" id="351"/>
+                                                <menuItem title="Standard 2,2" tag="3" id="109"/>
+                                                <menuItem title="Standard 2,3" tag="4" id="105"/>
+                                                <menuItem title="Standard 2,4" tag="5" id="102"/>
+                                                <menuItem title="Standard 3,3" tag="6" id="104"/>
+                                                <menuItem title="Standard 3,4" tag="7" id="113"/>
+                                                <menuItem title="Standard 3,5" tag="8" id="111"/>
+                                                <menuItem title="Standard 4,4" tag="9" id="114"/>
+                                                <menuItem title="Standard 4,5" tag="10" id="115"/>
+                                                <menuItem title="Standard 4,6" tag="11" id="103"/>
+                                                <menuItem title="Standard 5,6" tag="12" id="110"/>
+                                                <menuItem title="Standard 5,7" tag="13" id="106"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -100,7 +100,7 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Autres vues" id="340">
                                             <items>
-                                                <menuItem title="NIVEAU" id="342"/>
+                                                <menuItem title="NOIR" id="342"/>
                                                 <menuItem title="BLANC" state="on" tag="1" id="341"/>
                                             </items>
                                         </menu>
@@ -117,7 +117,7 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Autres vues" id="344">
                                             <items>
-                                                <menuItem title="NIVEAU" id="345"/>
+                                                <menuItem title="NOIR" id="345"/>
                                                 <menuItem title="BLANC" state="on" tag="1" id="346"/>
                                             </items>
                                         </menu>
@@ -317,7 +317,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="Emploi:" id="193">
+                    <box horizontalCompressionResistancePriority="1000" title="Tâche:" id="193">
                         <rect key="frame" x="494" y="12" width="146" height="207"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="21w-IX-rlw">

@@ -257,7 +257,8 @@ for path in sorted((ROOT / 'Horos/Resources').glob('*.lproj/XMLViewer.xib')):
     check(rect(search)[3] <= CONTROL_HEIGHT and field is not None and rect(search)[3] == rect(field)[3] and rect(field)[1] == 0,
           f'{language}: the search view is {rect(search)[3]:g} points high, its field {rect(field)[3]:g} at {rect(field)[1]:g}')
     geometries[language] = (rect(search), rect(field))
-check(len(geometries) >= 10, f'only {len(geometries)} XMLViewer.xib found')
+# English and the eight languages that have a copy of the nib; the others read the English one with their catalog.
+check(len(geometries) >= 9, f'only {len(geometries)} XMLViewer.xib found')
 check(len(set(geometries.values())) == 1, 'the languages do not share one geometry')
 
 keys = ['Edit', 'Add', 'Apply', 'Level', 'Image', 'Series', 'Study', 'Patient', 'DICOM Editing', 'Activate the edition', 'Add a new group/element',

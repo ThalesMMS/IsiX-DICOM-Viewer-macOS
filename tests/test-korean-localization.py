@@ -77,9 +77,6 @@ for key, translated in ko.items():
     assert re.search('[가-힣]', translated) or residual.is_residual(key, original) or key in TECHNICAL_UI, f'Untranslated text: {key!r}'
     for url in re.findall(r'https?://[^\s<>\"\']+', original):
         assert url.rstrip('.,;') in translated, f'Changed URL identifier: {key!r}'
-for key in load_tool('host-localization-residual').english_comments():
-    assert ko[key].isascii(), f'Non-ASCII legacy overlay: {key!r}'
-
 sources = list((ROOT / 'Horos/Resources/en.lproj').glob('*.xib'))
 sources += list((ROOT / 'Preference Panes').glob('*/Base.lproj/*.xib'))
 for source in sources:
@@ -105,4 +102,4 @@ if len(sys.argv) > 1:
     assert catalog(resources / 'ko.lproj/Localizable.strings') == ko
     for source in (ROOT / 'Horos/Resources/en.lproj').glob('*.xib'):
         assert (resources / 'ko.lproj' / source.with_suffix('.nib').name).exists(), source.name
-print(f'PASS: {len(ko)} Korean entries; formats, escapes, composed Hangul, ASCII overlays; {len(sources)} current XIB structures and translations')
+print(f'PASS: {len(ko)} Korean entries; formats, escapes, composed Hangul; {len(sources)} current XIB structures and translations')

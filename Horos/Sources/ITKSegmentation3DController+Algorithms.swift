@@ -124,10 +124,17 @@ extension ITKSegmentation3DController {
     /// Makes the form `n` fields high, and, in a window laid out without
     /// constraints (the nibs before auto layout), the boxes, the button and
     /// the window around it.
+    ///
+    /// A nib that gives the form a height of its own keeps the form under
+    /// its constraints, and that height follows the fields. Placed by its
+    /// frame there, the form would contradict the constraint that sets its
+    /// leading edge, which AppKit then breaks and reports each time the
+    /// window opens.
     @objc(setNumberOfParameters:)
     func setNumberOfParameters(_ n: Int32) {
         guard let params else { return }
-        params.translatesAutoresizingMaskIntoConstraints = true
+        let height = params.heightConstraint
+        if height == nil { params.translatesAutoresizingMaskIntoConstraints = true }
 
         let frameBefore = params.frame
         // change the number of field in the matrix
@@ -136,6 +143,10 @@ extension ITKSegmentation3DController {
         }
         while params.numberOfRows != Int(n) {
             params.addRow()
+        }
+        if let height {
+            height.constant = params.heightOfRows
+            return
         }
         // adjust the size of the matrix
         params.sizeToCells()

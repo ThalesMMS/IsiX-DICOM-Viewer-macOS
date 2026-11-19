@@ -46,7 +46,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="1032">
                                     <rect key="frame" x="13" y="8" width="837" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Supprimer automatiquement la base de données par défaut ENTIRE, à chaque démarrage : tous les examens seront supprimées." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1033">
+                                    <buttonCell key="cell" type="check" title="Supprimer automatiquement TOUTE la base de données par défaut, à chaque démarrage : tous les examens seront supprimés." bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="1033">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -129,7 +129,7 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Par défaut" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="L'emplacement par défaut est votre dossier Documents d'origine." inset="2" id="99">
+                                            <buttonCell type="radio" title="Par défaut" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" state="on" toolTip="L'emplacement par défaut est votre dossier Documents personnel." inset="2" id="99">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -168,7 +168,7 @@
                                 <button verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" id="829">
                                     <rect key="frame" x="12" y="90" width="838" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Valider les fichiers avant d'importer des fichiers à partir de CD/DVD ou de fichiers externes (essai d'écrasement)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
+                                    <buttonCell key="cell" type="check" title="Valider les fichiers avant d'importer des fichiers à partir de CD/DVD ou de fichiers externes (test de plantage)" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="830">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -223,7 +223,7 @@
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     <size key="cellSize" width="250" height="18"/>
                                     <size key="intercellSpacing" width="4" height="4"/>
-                                    <buttonCell key="prototype" type="check" title="Plus âgé que :" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="791">
+                                    <buttonCell key="prototype" type="check" title="Plus ancien que :" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="791">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -407,8 +407,8 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" id="776">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <string key="title">Si toutes les conditions vérifiées sont vraies.
-Si un examen est dans un album, elle ne sera PAS supprimée.</string>
+                                        <string key="title">Si toutes les conditions cochées sont vraies.
+Si un examen est dans un album, il ne sera PAS supprimé.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     </textFieldCell>
@@ -680,17 +680,17 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <popUpButton verticalHuggingPriority="750" id="933">
                                     <rect key="frame" x="19" y="74" width="147" height="22"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <popUpButtonCell key="cell" type="push" title="DICOM Champ 1 :" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="936" id="934">
+                                    <popUpButtonCell key="cell" type="push" title="Champ DICOM 1 :" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="936" id="934">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="Autres vues" id="935">
                                             <items>
-                                                <menuItem title="DICOM Champ 1 :" state="on" id="936">
+                                                <menuItem title="Champ DICOM 1 :" state="on" id="936">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
-                                                <menuItem title="DICOM Champ 2 :" id="937"/>
-                                                <menuItem title="DICOM Champ 3 :" id="938"/>
-                                                <menuItem title="DICOM Champ 4 :" id="939"/>
+                                                <menuItem title="Champ DICOM 2 :" id="937"/>
+                                                <menuItem title="Champ DICOM 3 :" id="938"/>
+                                                <menuItem title="Champ DICOM 4 :" id="939"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -729,7 +729,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                         </view>
                         <font key="titleFont" metaFont="system"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="Série Parsing" id="369">
+                    <box horizontalCompressionResistancePriority="1000" title="Analyse des séries" id="369">
                         <rect key="frame" x="288" y="362" width="419" height="189"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="eoo-Ob-OF3">
@@ -739,7 +739,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="371">
                                     <rect key="frame" x="9" y="143" width="190" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Séparer plusieurs echos MR" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="782">
+                                    <buttonCell key="cell" type="check" title="Séparer le MR multi-écho" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="782">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -761,7 +761,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="525">
                                     <rect key="frame" x="205" y="144" width="205" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Description de la série d'utilisation" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="784">
+                                    <buttonCell key="cell" type="check" title="Utiliser la description de la série" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="784">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -769,10 +769,10 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                         <binding destination="-2" name="value" keyPath="useSeriesDescription" id="528"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Utilisation du champ 0018 0022 (ScanOptions)" horizontalCompressionResistancePriority="1000" id="547">
+                                <button toolTip="Utilisation du champ 0018,0022 (ScanOptions)" horizontalCompressionResistancePriority="1000" id="547">
                                     <rect key="frame" x="9" y="126" width="190" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Séparer le cardiaque 4D CT" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
+                                    <buttonCell key="cell" type="check" title="Séparer le CT cardiaque 4D" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="785">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -823,7 +823,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <button horizontalCompressionResistancePriority="1000" id="813">
                                     <rect key="frame" x="9" y="86" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Recueillir des images de localisation avec la série Description:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="814">
+                                    <buttonCell key="cell" type="check" title="Recueillir des images de localisation avec la description de série:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="814">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -918,7 +918,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                             <items>
                                                 <menuItem title="Pages (.pages)" tag="2" id="537"/>
                                                 <menuItem title="LibreOffice (.odt)" tag="5" id="828"/>
-                                                <menuItem title="Édition texte (.rtf)" tag="1" id="538"/>
+                                                <menuItem title="TextEdit (.rtf)" tag="1" id="538"/>
                                                 <menuItem title="Microsoft Word (.doc)" id="539"/>
                                                 <menuItem isSeparatorItem="YES" id="542">
                                                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
@@ -977,7 +977,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="613">
                                     <rect key="frame" x="4" y="163" width="143" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Date et heure Format :" id="761">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Format de date et heure :" id="761">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1009,7 +1009,7 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="621">
                                     <rect key="frame" x="4" y="137" width="143" height="14"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Date seulement Format :" id="764">
+                                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Format de date seule :" id="764">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1038,10 +1038,10 @@ Si un examen est dans un album, elle ne sera PAS supprimée.</string>
                                         <action selector="resetDateOfBirth:" target="-2" id="625"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Lors du filtrage de la base de données, inclure d'autres examens appartenant à des patients appariés." horizontalCompressionResistancePriority="1000" id="630">
+                                <button toolTip="Lors du filtrage de la base de données, inclure d'autres examens appartenant aux patients correspondants." horizontalCompressionResistancePriority="1000" id="630">
                                     <rect key="frame" x="8" y="64" width="457" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Inclure les patients dans les résultats d'autres examens" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="767">
+                                    <buttonCell key="cell" type="check" title="Inclure les autres examens des patients dans les résultats" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="767">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

@@ -21,7 +21,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="Gestionnaire de greffons" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" restorable="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" id="5" userLabel="Window">
+        <window title="Gestionnaire d’extensions" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" restorable="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="" animationBehavior="default" id="5" userLabel="Window">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
             <rect key="contentRect" x="242" y="378" width="923" height="720"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -36,7 +36,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <font key="font" metaFont="system"/>
                         <tabViewItems>
-                            <tabViewItem label="Greffons installés" identifier="1" id="14">
+                            <tabViewItem label="Extensions installées" identifier="1" id="14">
                                 <view key="view" id="15">
                                     <rect key="frame" x="10" y="33" width="877" height="658"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -67,8 +67,8 @@
                                                                     <binding destination="26" name="value" keyPath="arrangedObjects.typeIcon" id="Ceh-QB-oo3"/>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn identifier="" editable="NO" width="120" minWidth="120" maxWidth="120" id="OCE-FJ-HJu">
-                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="État de charge">
+                                                            <tableColumn identifier="" editable="NO" width="126" minWidth="126" maxWidth="126" id="OCE-FJ-HJu">
+                                                                <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Chargement">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
@@ -86,7 +86,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn editable="NO" width="360" minWidth="360" maxWidth="360" id="19">
+                                                            <tableColumn editable="NO" width="344" minWidth="344" maxWidth="344" id="19">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Nom">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -150,7 +150,7 @@
                                                                     </binding>
                                                                 </connections>
                                                             </tableColumn>
-                                                            <tableColumn width="60" minWidth="60" maxWidth="60" id="18">
+                                                            <tableColumn width="70" minWidth="70" maxWidth="70" id="18">
                                                                 <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="center" title="Activer">
                                                                     <font key="font" metaFont="smallSystem"/>
                                                                     <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -192,7 +192,7 @@
                                         <button verticalHuggingPriority="750" id="dNG-hG-PSZ">
                                             <rect key="frame" x="667" y="10" width="199" height="32"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
-                                            <buttonCell key="cell" type="push" title="Désinstaller l’extension sélectionné" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="e71-Z0-1iS">
+                                            <buttonCell key="cell" type="push" title="Désinstaller l’extension" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="e71-Z0-1iS">
                                                 <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -201,9 +201,9 @@
                                             </connections>
                                         </button>
                                         <textField hidden="YES" horizontalHuggingPriority="251" verticalHuggingPriority="750" id="8vS-5X-10a">
-                                            <rect key="frame" x="9" y="53" width="319" height="21"/>
+                                            <rect key="frame" x="9" y="53" width="430" height="21"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Les greffons ne sont pas chargés en mode protégé" id="6iv-KU-g57">
+                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Les extensions ne sont pas chargées en mode protégé" id="6iv-KU-g57">
                                                 <font key="font" metaFont="system" size="17"/>
                                                 <color key="textColor" red="1" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

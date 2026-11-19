@@ -123,7 +123,7 @@ Gw
                     </button>
                     <button verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="130">
                         <rect key="frame" x="129" y="14" width="48" height="28"/>
-                        <buttonCell key="cell" type="push" title="Essai" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="131">
+                        <buttonCell key="cell" type="push" title="Tester" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="131">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <string key="keyEquivalent" base64-UTF8="YES">

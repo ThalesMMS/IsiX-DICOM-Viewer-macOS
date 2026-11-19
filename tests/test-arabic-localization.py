@@ -18,7 +18,9 @@ spec.loader.exec_module(residual)
 
 # Renderer samples, format names, URLs and stored identifiers remain literal.
 TECHNICAL_UI = {'wado', 'HTTPS', 
-    'Angle: %2.1f degrees ',
+    'CLUT:',
+    '10 im/s', '10 im/s\n', '60 im/s', '%{value1}@ im/s',  # the cine rate, as it is written in every language
+    'WL/WW:',
     'DICOM 1',
     'DICOMDIR:',
     'LibreOffice (.odt)',
@@ -60,8 +62,11 @@ for key, value in arabic.items():
     assert all(source.count(c) == value.count(c) for c in '\n\r\t'), f'Changed whitespace escape: {key}'
     assert not re.search(r'ZXQ\d+QXZ', value), key
     assert value != source or key in TECHNICAL_UI or residual.is_residual(key, source), f'Untranslated: {key}'
-for key in residual.english_comments() + ['Angle: %2.1f degrees ']:
-    assert arabic[key].isascii(), f'Legacy ASCII overlay: {key}'
+# The two ends of a range are labelled in one language: a word of two letters passes for a token above, and a
+# label or a header read "to" beside a translated "from".
+range_ends = [key for key in ('From:', 'To:', 'From', 'To', 'from:', 'to:', 'to') if key in arabic]
+assert len({arabic[key] == key for key in range_ends}) <= 1, \
+    f'A range has its ends in two languages: {[arabic[key] for key in range_ends]}'
 
 visible = {'title', 'label', 'toolTip', 'placeholderString', 'alternateTitle', 'stringValue'}
 textkeys = {'title', 'toolTip', 'NSDisplayName', 'NSNullPlaceholder', 'NSNoSelectionPlaceholder', 'NSDisplayPattern', 'content'}
@@ -99,4 +104,4 @@ assert arabic['Database'] == 'قاعدة البيانات'
 for collector in ('collect-localized-strings.py', 'collect-menu-strings.py'):
     subprocess.run([sys.executable, str(root / 'tools' / collector), '--check', '--language', 'ar'], check=True)
 
-print(f'PASS: {len(arabic)} Arabic entries; formats, residuals, ASCII overlays; {len(sources)} XIBs preserve wiring and geometry. RTL rendering and fluent review require app validation.')
+print(f'PASS: {len(arabic)} Arabic entries; formats, residuals; {len(sources)} XIBs preserve wiring and geometry. RTL rendering and fluent review require app validation.')

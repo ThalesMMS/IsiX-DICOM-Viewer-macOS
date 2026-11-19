@@ -39,7 +39,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="831" height="975"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
-                    <box title="DICOM Nodes pour DICOM Query/Retrieve et DICOM Envoyer" id="112">
+                    <box title="Nœuds DICOM pour requête/récupération et envoi DICOM" id="112">
                         <rect key="frame" x="17" y="633" width="797" height="334"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="MJs-vY-QQ0">
@@ -293,7 +293,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Transfer Syntax" width="183.953125" minWidth="87.552726745605469" maxWidth="300" id="209">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Envoyer Syntaxe de transfert">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Syntaxe de transfert d'envoi">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -505,7 +505,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Noeuds DICOMweb pour DICOM Query/Retrieve et DICOM Envoyer" id="W99-box-799">
+                    <box title="Nœuds DICOMweb pour requête/récupération et envoi DICOM" id="W99-box-799">
                         <rect key="frame" x="17" y="429" width="797" height="200"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="W99-bxv-799">
@@ -540,7 +540,7 @@
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="WADOPath" width="93" minWidth="30" maxWidth="1000" id="W99-c2-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Voie WADO">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Chemin WADO">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -553,7 +553,7 @@
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="QIDOPath" width="87" minWidth="30" maxWidth="1000" id="W99-c3-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Voie QIDO">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Chemin QIDO">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -590,7 +590,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="RetrieveSyntax" width="138" minWidth="60" maxWidth="300" id="W99-c6-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Récupérer Syntaxe">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Syntaxe de récup.">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -607,7 +607,7 @@
                                                         <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                     </tableColumn>
                                                     <tableColumn identifier="Auth" width="95" minWidth="30" maxWidth="1000" id="W99-c7-col" headerToolTip="Cliquez pour définir l'authentification">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Resp.:">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Auth.">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -631,7 +631,7 @@
                                                         </buttonCell>
                                                     </tableColumn>
                                                     <tableColumn identifier="SendSyntax" width="105" minWidth="60" maxWidth="300" id="W99-c9-col">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Envoyer Syntaxe">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Syntaxe d'envoi">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -672,7 +672,7 @@
                                 <textField verticalHuggingPriority="750" id="W99-not-799">
                                     <rect key="frame" x="12" y="4" width="490" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="Cliquez sur la cellule Auth d'un nœud pour définir ses identifiants. Les secrets sont conservés dans le porte-clés." id="W99-ntc-799">
+                                    <textFieldCell key="cell" controlSize="small" lineBreakMode="wordWrapping" sendsActionOnEndEditing="YES" title="Cliquez sur la cellule Auth d'un nœud pour définir ses identifiants. Les secrets sont conservés dans le trousseau." id="W99-ntc-799">
                                         <font key="font" metaFont="smallSystem"/>
                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -685,7 +685,7 @@
                                 <button verticalHuggingPriority="750" id="W99-tst-btn">
                                     <rect key="frame" x="528" y="4" width="66" height="28"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="push" title="Essai" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
+                                    <buttonCell key="cell" type="push" title="Tester" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="W99-tst-cel">
                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -720,7 +720,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box verticalHuggingPriority="249" title="Réseau - IsiX DICOM Viewer Bases de données avec adresses fixes (tcp/ip port 8780):" id="175">
+                    <box verticalHuggingPriority="249" title="Réseau - Bases de données IsiX DICOM Viewer avec adresses fixes (port tcp/ip 8780):" id="175">
                         <rect key="frame" x="17" y="197" width="797" height="228"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="lzr-xt-m2i">
@@ -775,7 +775,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Description" width="538" minWidth="4" maxWidth="1000" id="198">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Désignation des marchandises">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Description">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -898,7 +898,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Local - IsiX DICOM Viewer Fichiers de bases de données / dossier :" id="252">
+                    <box title="Local - Fichiers / dossier des bases de données IsiX DICOM Viewer :" id="252">
                         <rect key="frame" x="17" y="16" width="797" height="177"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="mjQ-dI-b1Y">
@@ -931,7 +931,7 @@
                                                 <color key="gridColor" name="gridColor" catalog="System" colorSpace="catalog"/>
                                                 <tableColumns>
                                                     <tableColumn identifier="Path" width="520" minWidth="40" maxWidth="1000" id="258">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Voie locale">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Chemin local">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -948,7 +948,7 @@
                                                         </connections>
                                                     </tableColumn>
                                                     <tableColumn identifier="Description" width="252.0908203125" minWidth="65.0908203125" maxWidth="1000" id="257">
-                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Désignation des marchandises">
+                                                        <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Description">
                                                             <font key="font" metaFont="smallSystem"/>
                                                             <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1487,7 +1487,7 @@ Gw
                                 <button id="788">
                                     <rect key="frame" x="6" y="12" width="132" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Fichier DH Paramètre" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
+                                    <buttonCell key="cell" type="check" title="Fichier param. DH" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="789">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

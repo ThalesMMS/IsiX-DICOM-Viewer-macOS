@@ -222,7 +222,9 @@ app = class_text('AppController')
 # ApplicationLifecycle's.
 geturl = block(app, '    func open(link: String?) {', 'if let methodName')
 check(re.search(r'RISRequestAlert\.notCarriedOut\(request\)', geturl), 'URL support off: the request is named')
-check(re.search(r'controller\.terminate\(controller\)\s*\}\s*return\s*\}', geturl),
+# The application restarts, or stays to say that it has to be restarted; then
+# the link is dropped.
+check(re.search(r'if case \.notScheduled\(let reason\) = controller\.lifecycle\.restart\(controller\) \{[^{}]*\}\s*\}\s*return\s*\}', geturl),
       'URL support off: nothing is called afterwards')
 request = block(app, 'struct LinkRequest: Sendable {', '@MainActor final class ExternalRequestHandler')
 check('_ = try? server?.methodCall' not in request and 'answered error' in request, 'the code is logged')

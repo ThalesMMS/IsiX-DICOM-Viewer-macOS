@@ -10,7 +10,10 @@ installed application is modified.
 A published release is signed with a Developer ID and notarized, which no
 fixture made here can be. That part reads an installed release, by default
 /Applications/IsiX DICOM Viewer.app or the bundle named in HOROS_TEST_RELEASE_APP; without
-one the other parts still run and the test exits with status 2.
+one the other parts still run and the test exits with status 2. A copy there
+that no Developer ID signed, such as the one a store installs, is not a
+published release either and counts as none. A copy that a Developer ID signed
+is read, and fails the test when its signature is broken or it is not notarized.
 """
 from pathlib import Path
 import hashlib
@@ -271,6 +274,21 @@ def bundle(folder, minimum='11.0', name='IsiX DICOM Viewer.app'):
     return app
 
 
+def signer(app):
+    """The identifier and the name of the signing certificate of a bundle.
+
+    They are read from the signature as it is, without validating it, so that a
+    copy whose signature no longer holds still tells who signed it. The name is
+    None for an unsigned or ad hoc bundle.
+    """
+    described = subprocess.run(['/usr/bin/codesign', '--display', '--verbose=2', str(app)],
+                               capture_output=True, text=True).stderr.splitlines()
+
+    def first(key):
+        return next((line[len(key):] for line in described if line.startswith(key)), None)
+    return first('Identifier='), first('Authority=')
+
+
 with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
     folder = Path(folder).resolve()
     (folder / 'fixture.c').write_text('int main(void) { return 0; }\n')
@@ -304,12 +322,23 @@ with tempfile.TemporaryDirectory(prefix='horos-update-install-') as folder:
                     '-o', str(folder / 'driver')], check=True)
     release = Path(os.environ.get('HOROS_TEST_RELEASE_APP', '/Applications/IsiX DICOM Viewer.app'))
     arguments = [str(folder / 'driver'), str(folder), digest]
+    # Only the first certificate of the signature decides whether the copy is
+    # read: one that a Developer ID signed goes to the driver, which requires a
+    # valid signature and notarization of it. Any other copy was never a
+    # published release, so nothing about it can fail.
+    found = None
     if release.is_dir():
-        arguments.append(str(release))
+        identifier, authority = signer(release)
+        if authority is not None and authority.startswith('Developer ID Application:'):
+            arguments.append(str(release))
+        elif authority is not None:
+            found = ': found %s signed by %s' % (identifier, authority)
+        else:
+            found = ': found a copy that no certificate signed'
     subprocess.run(arguments, check=True, timeout=180)
-    if not release.is_dir():
+    if len(arguments) == 3:
         # On the error output, after what the administrator script wrote there
         # when its move was meant to fail: the run reports its last line.
-        print('skipped: no installed Developer ID release at %s (set HOROS_TEST_RELEASE_APP)' % release,
-              file=sys.stderr)
+        print('skipped: no installed Developer ID release at %s%s (set HOROS_TEST_RELEASE_APP)'
+              % (release, found or ''), file=sys.stderr)
         sys.exit(2)

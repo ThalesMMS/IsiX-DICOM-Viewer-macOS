@@ -148,6 +148,12 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
         return controller3D
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// -initWithWindowNibName:@"FlyThru", through the Objective-C initializer.
     @objc(initWithFlyThruAdapter:)
     public convenience init(flyThruAdapter aFlyThruAdapter: FlyThruAdapter?) {
@@ -338,7 +344,7 @@ public final class FlyThruController: NSWindowController, NSWindowDelegate {
             movieTimer?.invalidate()
             movieTimer = nil
 
-            playButton?.title = "Play"
+            playButton?.title = NSLocalizedString("Play", comment: "")
 
             ftAdapter?.setCurrentViewToCamera(flyThru?.pathCameras?.object(at: Int(curMovieIndex)) as? Camera)
 

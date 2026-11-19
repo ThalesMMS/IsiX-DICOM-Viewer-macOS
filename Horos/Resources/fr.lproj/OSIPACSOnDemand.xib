@@ -178,7 +178,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Jour avant hier" imagePosition="left" alignment="left" controlSize="small" lineBreakMode="truncatingMiddle" tag="9" inset="2" id="597">
+                                            <buttonCell type="radio" title="Avant-hier" imagePosition="left" alignment="left" controlSize="small" lineBreakMode="truncatingMiddle" tag="9" inset="2" id="597">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -200,7 +200,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="On:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="6" transparent="YES" inset="2" id="604">
+                                            <buttonCell type="radio" title="Le:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="6" transparent="YES" inset="2" id="604">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -226,11 +226,11 @@
                                             </buttonCell>
                                         </column>
                                         <column>
-                                            <buttonCell type="radio" title="Dernière 30 min" imagePosition="left" alignment="left" controlSize="small" tag="230" inset="2" id="595">
+                                            <buttonCell type="radio" title="Dernières 30 min" imagePosition="left" alignment="left" controlSize="small" tag="230" inset="2" id="595">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Dernière 1 heure" imagePosition="left" alignment="left" controlSize="small" tag="101" inset="2" id="592">
+                                            <buttonCell type="radio" title="Dernière heure" imagePosition="left" alignment="left" controlSize="small" tag="101" inset="2" id="592">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -333,7 +333,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="674">
                         <rect key="frame" x="18" y="339" width="699" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Si un examen lointaine a plus d'images qu'un examen locale, affichez l'examen lointaine" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
+                        <buttonCell key="cell" type="check" title="Si un examen distant a plus d'images qu'un examen local, affichez l'examen distant" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="675">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -355,7 +355,7 @@ Gw
                     <button horizontalCompressionResistancePriority="1000" id="734">
                         <rect key="frame" x="18" y="299" width="600" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Utiliser PACS Sur demande, lorsque vous utilisez les champs de recherche de la barre d'outils" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
+                        <buttonCell key="cell" type="check" title="Utiliser PACS On-Demand, lorsque vous utilisez les champs de recherche de la barre d'outils" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="735">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -366,7 +366,7 @@ Gw
                     <button id="399">
                         <rect key="frame" x="8" y="514" width="245" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Activer PACS Sur demande" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
+                        <buttonCell key="cell" type="check" title="Activer PACS On-Demand" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -496,7 +496,7 @@ Gw
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="495">
                         <rect key="frame" x="18" y="363" width="340" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Consultez Préférences de localisation pour modifier ces nœuds DICOM" id="496">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Consultez les préférences Emplacements pour modifier ces nœuds DICOM" id="496">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -505,7 +505,7 @@ Gw
                     <textField horizontalHuggingPriority="1000" verticalHuggingPriority="750" id="684">
                         <rect key="frame" x="22" y="493" width="441" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Nœuds DICOM pour PACS Sur demande appariement et récupération:" id="685">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Nœuds DICOM pour appariement et récupération PACS On-Demand:" id="685">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -666,7 +666,7 @@ Gw
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Activer PACS Sur demande pour les fonctions suivantes du serveur Web" borderType="line" id="724">
+                    <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" title="Activer PACS On-Demand pour les fonctions suivantes du serveur Web" borderType="line" id="724">
                         <rect key="frame" x="17" y="16" width="691" height="94"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="cnL-LT-VCm">
@@ -676,7 +676,7 @@ Gw
                                 <button horizontalCompressionResistancePriority="1000" id="714">
                                     <rect key="frame" x="17" y="52" width="400" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Examens comparatives, présentées au niveau de l'examen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="715">
+                                    <buttonCell key="cell" type="check" title="Examens comparatifs, présentés au niveau de l'examen" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="715">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>

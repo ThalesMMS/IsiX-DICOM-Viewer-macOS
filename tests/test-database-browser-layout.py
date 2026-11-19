@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""Exercise the shipped database nibs in AppKit, including real toolbar sizing."""
+"""Exercise the shipped database nibs in AppKit, including real toolbar sizing.
+
+The views of the three controls of the database window's toolbar - the time
+interval, the modality filter and the search field - are taken from the main
+nib of each language, laid out by DatabaseBrowserLayout and put in a toolbar:
+
+- each filter is as wide as the widest of its items needs and no wider, unless
+  the least width is: its cell, in the toolbar, gives every item it shows a
+  rect that holds the whole title, and at the least width, the one every
+  filter had, the widest item of a filter that grew is cut;
+- the search field has the greatest width of its range while the toolbar has
+  room, and is at the least one at the narrowest window that still shows every
+  item: it gives what it can before an item goes to the overflow menu, and the
+  filters keep their widths.
+"""
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
 from copy import deepcopy
 from pathlib import Path
@@ -16,15 +30,18 @@ import AppKit
 
 @MainActor final class Host: NSObject, NSToolbarDelegate, NSTableViewDataSource {
     var items: [NSToolbarItem] = []
+    // Items with an image and a label, added beside the controls so that the toolbar has something to move to
+    // its overflow menu.
+    var fillers: [NSToolbarItem] = []
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         items.map(\.itemIdentifier)
     }
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        toolbarDefaultItemIdentifiers(toolbar)
+        toolbarDefaultItemIdentifiers(toolbar) + fillers.map(\.itemIdentifier)
     }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar: Bool) -> NSToolbarItem? {
-        items.first { $0.itemIdentifier == id }
+        (items + fillers).first { $0.itemIdentifier == id }
     }
     func numberOfRows(in tableView: NSTableView) -> Int { 20 }
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
@@ -50,6 +67,8 @@ import AppKit
 @main @MainActor struct Test {
     static func main() {
         _ = NSApplication.shared
+        // What a nib passed stays said when a later one fails.
+        setvbuf(stdout, nil, _IONBF, 0)
         let host = Host()
         for path in CommandLine.arguments.dropFirst() {
             var objects: NSArray?
@@ -74,7 +93,8 @@ import AppKit
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 700),
                                   styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
-            let toolbar = NSToolbar(identifier: .init("DatabaseLayoutTest"))
+            // Toolbars of one identifier share their items, and this one is given more further down: each nib has its own.
+            let toolbar = NSToolbar(identifier: .init("DatabaseLayoutTest-\(url.deletingPathExtension().lastPathComponent)"))
             host.items = (filters + [searchView]).enumerated().map { index, view in
                 let item = NSToolbarItem(itemIdentifier: .init("control\(index)"))
                 item.label = "Filter \(index)"
@@ -143,8 +163,75 @@ import AppKit
                     }
                 }
             }
+            let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+            toolbar.displayMode = .iconAndLabel
+            results.isHidden = true
+            settle(window)
+            // Each filter shows whichever of its items is chosen whole, and is no wider than the widest asks.
+            var filterWidths: [CGFloat] = []
+            for view in filters {
+                let popup = descendants(NSPopUpButton.self, in: view).first!
+                let cell = popup.cell as! NSPopUpButtonCell
+                var widest: CGFloat = 0
+                var widestItem: NSMenuItem?
+                for item in popup.itemArray where !item.isSeparatorItem && !item.isHidden && !item.title.isEmpty {
+                    popup.select(item)
+                    let text = cell.attributedTitle.size().width
+                    precondition(cell.titleRect(forBounds: popup.bounds).width >= text.rounded(.up) - 0.5,
+                                 "\(name): \"\(item.title)\" is cut in a filter of \(popup.frame.width) points")
+                    if text > widest { (widest, widestItem) = (text, item) }
+                }
+                // The measure itself: a filter that grew by more than the few points a toolbar may spare cuts its
+                // widest item at the least width, the one every filter had.
+                let frame = popup.frame
+                popup.select(widestItem)
+                popup.setFrameSize(NSSize(width: DatabaseBrowserLayout.filterMinimumWidth, height: frame.height))
+                let cutAtLeastWidth = cell.titleRect(forBounds: popup.bounds).width < widest.rounded(.up) - 0.5
+                popup.frame = frame
+                precondition(frame.width < DatabaseBrowserLayout.filterMinimumWidth + 6 || cutAtLeastWidth,
+                             "\(name): \"\(widestItem?.title ?? "")\" is whole at the least width, in a filter of \(frame.width) points")
+                popup.selectItem(at: 0)
+                precondition(popup.frame.width == DatabaseBrowserLayout.filterWidth(itemWidths: [widest]),
+                             "\(name): a filter of \(popup.frame.width) points for an item of \(widest)")
+                filterWidths.append(popup.frame.width)
+            }
+            // The search field: the greatest width of its range while the toolbar has room, the least one at the
+            // narrowest window that still shows every item.
+            host.fillers = (0..<8).map { index in
+                let item = NSToolbarItem(itemIdentifier: .init("filler\(index)"))
+                item.label = "Item \(index)"
+                item.image = NSImage(named: NSImage.actionTemplateName)
+                return item
+            }
+            for (index, filler) in host.fillers.enumerated() {
+                toolbar.insertItem(withItemIdentifier: filler.itemIdentifier, at: index)
+            }
+            func showsEveryItem(at width: CGFloat) -> Bool {
+                window.setContentSize(NSSize(width: width, height: 700))
+                settle(window)
+                return toolbar.visibleItems?.count == toolbar.items.count
+            }
+            let range = DatabaseBrowserLayout.searchFieldWidths
+            var cut: CGFloat = 300, whole: CGFloat = 2000
+            precondition(toolbar.items.count == host.items.count + host.fillers.count)
+            precondition(showsEveryItem(at: whole), "\(name): a window of \(whole) points does not show every item")
+            precondition(search.frame.width == range.upperBound,
+                         "\(name): the search field has \(search.frame.width) points in a toolbar with room")
+            precondition(!showsEveryItem(at: cut), "\(name): a window of \(cut) points shows every item")
+            while whole - cut > 4 {
+                let middle = ((cut + whole) / 2).rounded()
+                if showsEveryItem(at: middle) { whole = middle } else { cut = middle }
+            }
+            precondition(showsEveryItem(at: whole))
+            precondition(search.frame.width == range.lowerBound,
+                         "\(name): the search field has \(search.frame.width) points at \(whole), the narrowest window with every item")
+            precondition(filters.map { descendants(NSPopUpButton.self, in: $0).first!.frame.width } == filterWidths,
+                         "\(name): a filter gave width to the toolbar")
+            host.fillers = []
             window.close()
-            print("PASS: \(URL(fileURLWithPath: path).lastPathComponent): sidebar recovery, resize, headers, toolbar controls and result button")
+            print("PASS: \(URL(fileURLWithPath: path).lastPathComponent): sidebar recovery, resize, headers, toolbar controls and result button; "
+                  + "filters of \(filterWidths.map { Int($0) }) points hold their items, search field \(Int(range.upperBound)) to \(Int(range.lowerBound)) "
+                  + "before an item overflows (at \(Int(whole)) points)")
         }
     }
 }
@@ -159,7 +246,7 @@ with tempfile.TemporaryDirectory(prefix='horos-database-browser-') as folder:
         'CFBundlePackageType': 'BNDL',
     }))
     nibs = []
-    for locale in ('en', 'ja-JP', 'it-IT', 'es'):
+    for locale in ('en', 'ja-JP', 'it-IT', 'es', 'ru', 'de', 'fr', 'pt-BR'):
         source = ET.parse(root / f'Horos/Resources/{locale}.lproj/MainMenu.xib').getroot()
         document = ET.Element('document', source.attrib)
         for dependency in source.findall('dependencies'):

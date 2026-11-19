@@ -766,7 +766,7 @@ DQ
                             </binding>
                             <binding destination="483" name="predicate6" keyPath="filterPredicate" previousBinding="575" id="576">
                                 <dictionary key="options">
-                                    <string key="NSDisplayName">Examen Prédicat</string>
+                                    <string key="NSDisplayName">Prédicat d'examen</string>
                                     <string key="NSPredicateFormat">studyPredicate contains[c] $value</string>
                                 </dictionary>
                             </binding>
@@ -929,7 +929,7 @@ DQ
                     <button tag="-1" id="609">
                         <rect key="frame" x="174" y="98" width="310" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Notifications automatiques Courriels" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="610">
+                        <buttonCell key="cell" type="check" title="Courriels de notification automatiques" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="610">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -959,7 +959,7 @@ DQ
                     <button tag="-1" id="612">
                         <rect key="frame" x="174" y="174" width="257" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="check" title="Autorisé à télécharger des fichiers DICOM" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="613">
+                        <buttonCell key="cell" type="check" title="Autorisé à envoyer des fichiers DICOM" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" inset="2" id="613">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>
@@ -1097,7 +1097,7 @@ DQ
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="983" id="764">
                         <rect key="frame" x="196" y="372" width="219" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" alignment="right" title="Cas d'examen UID et UID patients" id="765">
+                        <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" alignment="right" title="UID d'instance d'examen et UID patients" id="765">
                             <font key="font" metaFont="miniSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1106,7 +1106,7 @@ DQ
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" id="510">
                         <rect key="frame" x="421" y="413" width="299" height="100"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="Un filtre vide permet à l'utilisateur de voir TOUTES les examens" drawsBackground="YES" id="511">
+                        <textFieldCell key="cell" controlSize="small" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="Un filtre vide permet à l'utilisateur de voir TOUS les examens" drawsBackground="YES" id="511">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1175,7 +1175,7 @@ DQ
                     <button horizontalHuggingPriority="249" verticalHuggingPriority="750" tag="2" id="738">
                         <rect key="frame" x="375" y="439" width="46" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <buttonCell key="cell" type="roundRect" title="Essai" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="739">
+                        <buttonCell key="cell" type="roundRect" title="Tester" bezelStyle="roundedRect" alignment="center" controlSize="mini" borderStyle="border" inset="2" id="739">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="miniSystem"/>
                         </buttonCell>

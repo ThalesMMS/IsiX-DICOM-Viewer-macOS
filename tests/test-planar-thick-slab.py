@@ -22,8 +22,11 @@ slab, not to the current slice.
 Also checked in the sources: the bridge refuses only the volume-rendering slab
 (modes 4 and 5); a colour slab is drawn from the host's bytes, which
 `compute8bitRepresentation` reduces through `computeThickSlabRGB` before the
-window, so the bridge copies no float slices for it; it asks the Swift rule, skips a slice without
-pixels as the host does, and keys its copy of the other slices by the volume's
+window, so the bridge reduces no float slices for it; for a scalar slab it asks
+the Swift rule, skips a slice without pixels as the host does, reduces the
+slices where they are with the reduction `computeThickSlab` itself uses
+(`ThickSlabReduction`) rather than copying them for the renderer, and keys the
+reduction it keeps between draws by the mode, the slices and the volume's
 generation; the MPR kernel's mean multiplies by the reciprocal, and the planar
 engine asks for safe math.
 
@@ -68,8 +71,22 @@ else:
     if 'isRGB' in refusal:
         failures.append('the snapshot still refuses a colour slab, which the host\'s bytes carry')
 if 'scalarSlab = !colour && !eightBit && stackMode >= 1 && stackMode <= 3 && stack > 1 && seriesCount > 1' not in presentation \
-        or 'if source.scalarSlab {' not in snapshot:
-    failures.append('the bridge copies float slices for a colour slab, which is already in the host\'s bytes')
+        or 'if source.scalarSlab && hostBytes == nil {' not in snapshot:
+    failures.append('the bridge reduces float slices for a slab that is already in the host\'s bytes')
+# The bridge reduces the slab where its slices are, by the host's own reduction: it used to copy every
+# other slice into one buffer for the renderer, which copied it again, at each change of thickness or image.
+reduction = read('Modules/IsiXImaging/Sources/Display/ThickSlabReduction.swift')
+made = reduction[reduction.index('public static func slab(of current'):]
+made = made[:made.index('\n    }\n')]
+if 'reduced = ThickSlabReduction.slab(of: pixels, count: width * height, slices: slices, mode: Int(pix.stackMode)' not in snapshot \
+        or 'snapshot["pixels"] = reduced' not in snapshot \
+        or 'fold(into: result, count: count, slices: slices, mode: mode, workers: workers)' not in made \
+        or 'if mode == mean { divide(result, count: count, by: Float(slices.count + 1)) }' not in made:
+    failures.append('the bridge does not reduce the slab by the reduction of computeThickSlab')
+if 'slabSlices' in snapshot or 'others.append(' in snapshot:
+    failures.append('the bridge copies the other slices of a scalar slab')
+if 'memcmp(kept.bytes, pixels, count) == 0' not in snapshot or '(state.slabData, state.slabCurrent) = (nil, nil)' not in read('Horos/Sources/DCMView+PlanarHost.swift'):
+    failures.append('a slab kept between draws does not follow the image shown when it is edited in place')
 if 'hostBytes = !volumeSlab && (colour || subtracted || shutter || eightBit)' not in presentation \
         or '} else if source.hostBytes {' not in snapshot \
         or 'packed ? pix.lut12baseAddr.map { UnsafeRawPointer($0) } : pix.baseAddr.map { UnsafeRawPointer($0) }' not in snapshot:
@@ -97,7 +114,7 @@ if 'PlanarThickSlab.sliceIndices(position: pix.pixPos' not in snapshot:
 if 'guard let slice = series[index.intValue] as? DCMPix, let samples = slice.fImage else { continue }' not in snapshot:
     failures.append('the bridge does not skip a slice without pixels, as computeMax does')
 if 'identity.generation' not in snapshot or 'state.slabKey == key' not in snapshot:
-    failures.append('the copy of the other slices is not keyed by the volume generation')
+    failures.append('the slab kept between draws is not keyed by the volume generation')
 if 'accumulated * (1.0f / float(counted))' not in reslicer:
     failures.append('the MPR kernel does not multiply the mean by the reciprocal, as the host does')
 if 'safeMath' not in cache or 'mathMode = .safe' not in cache:

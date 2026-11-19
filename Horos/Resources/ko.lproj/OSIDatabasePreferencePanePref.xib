@@ -237,7 +237,7 @@
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
-                                            <buttonCell type="check" title="'메모' 필드가 다음과 같은 경우에만:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="497">
+                                            <buttonCell type="check" title="'댓글' 필드가 다음과 같은 경우에만:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="497">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="smallSystem"/>
                                             </buttonCell>
@@ -706,7 +706,7 @@
                                         <font key="font" metaFont="smallSystem"/>
                                         <menu key="menu" title="기타보기" id="1004">
                                             <items>
-                                                <menuItem title="메모" tag="1" id="1008">
+                                                <menuItem title="댓글" tag="1" id="1008">
                                                     <modifierMask key="keyEquivalentModifierMask"/>
                                                 </menuItem>
                                                 <menuItem title="댓글 2" tag="2" id="1007">

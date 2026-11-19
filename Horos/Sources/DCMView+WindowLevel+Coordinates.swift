@@ -140,19 +140,19 @@ private let annotationPhrases: AnnotationPhrases = {
     var phrases = AnnotationPhrases()
     phrases.imageSize = NSLocalizedString("Image size: %ld x %ld", comment: "")
     phrases.viewSize = NSLocalizedString("View size: %ld x %ld", comment: "")
-    phrases.mouseColour = NSLocalizedString("X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.")
-    phrases.mouseGrey = NSLocalizedString("X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.")
-    phrases.fusedColour = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "No special characters for this string, only ASCII characters.")
-    phrases.fusedGrey = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: %2.2f %@", comment: "No special characters for this string, only ASCII characters.")
-    phrases.suv = NSLocalizedString("SUV: %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.")
-    phrases.fusedSUV = NSLocalizedString("SUV (fused image): %.2f", comment: "SUV: Standard Uptake Value - No special characters for this string, only ASCII characters.")
-    phrases.zoom = NSLocalizedString("Zoom: %0.0f%%", comment: "No special characters for this string, only ASCII characters.")
-    phrases.angle = NSLocalizedString(" Angle: %0.0f", comment: "No special characters for this string, only ASCII characters.")
-    phrases.imageRange = NSLocalizedString("Im: %ld-%ld/%ld %@", comment: "No special characters for this string, only ASCII characters.")
-    phrases.image = NSLocalizedString("Im: %ld/%ld %@", comment: "No special characters for this string, only ASCII characters.")
+    phrases.mouseColour = NSLocalizedString("X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "Written over the image.")
+    phrases.mouseGrey = NSLocalizedString("X: %d px Y: %d px Value: %2.2f %@", comment: "Written over the image.")
+    phrases.fusedColour = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: R:%ld G:%ld B:%ld", comment: "Written over the image.")
+    phrases.fusedGrey = NSLocalizedString("Fused Image : X: %d px Y: %d px Value: %2.2f %@", comment: "Written over the image.")
+    phrases.suv = NSLocalizedString("SUV: %.2f", comment: "SUV: Standard Uptake Value. Written over the image.")
+    phrases.fusedSUV = NSLocalizedString("SUV (fused image): %.2f", comment: "SUV: Standard Uptake Value. Written over the image.")
+    phrases.zoom = NSLocalizedString("Zoom: %0.0f%%", comment: "Written over the image.")
+    phrases.angle = NSLocalizedString(" Angle: %0.0f", comment: "Written over the image.")
+    phrases.imageRange = NSLocalizedString("Im: %ld-%ld/%ld %@", comment: "Written over the image.")
+    phrases.image = NSLocalizedString("Im: %ld/%ld %@", comment: "Written over the image.")
     phrases.windowLevelDecimals = NSLocalizedString("WL: %0.4f WW: %0.4f", comment: "WW: window width, WL: window level")
     phrases.windowLevel = NSLocalizedString("WL: %d WW: %d", comment: "WW: window width, WL: window level")
-    phrases.windowPercent = NSLocalizedString("From: %d %% (%0.2f) to: %d %% (%0.2f)", comment: "No special characters for this string, only ASCII characters.")
+    phrases.windowPercent = NSLocalizedString("From: %d %% (%0.2f) to: %d %% (%0.2f)", comment: "Written over the image.")
     phrases.thicknessMicronsLocationMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f %cm", comment: "")
     phrases.thicknessMicrons = NSLocalizedString("Thickness: %0.2f %cm Location: %0.2f mm", comment: "")
     phrases.thickness = NSLocalizedString("Thickness: %0.2f mm Location: %0.2f mm", comment: "")
@@ -163,6 +163,70 @@ private let annotationPhrases: AnnotationPhrases = {
                                          inferior: NSLocalizedString("I", comment: "I: Inferior"), superior: NSLocalizedString("S", comment: "S: Superior"))
     return phrases
 }()
+
+/// The lines of the annotations of one frame of a view: the fields of each position as the image's dictionary
+/// gives them, then the commands the layout makes of them, each group those of a position, with the signature
+/// of the full text as the lowest right line, and at last the side lines a row has no room for cut to their
+/// room (AnnotationRowFit): a left and a right line of one row are not drawn one over the other, and neither
+/// runs through the orientation letters and the notices of the frame. A view wide enough for the widest
+/// characters measures nothing; otherwise the widths and the cuts are those of the table of the annotations'
+/// font (AnnotationTextMeasure), so a frame measures only the lines it has not seen.
+@MainActor
+struct AnnotationFrameLines {
+    typealias Command = AnnotationOverlayLayout.Command
+    private(set) var positions: [String] = []
+    private(set) var fields: [String: [[String]]] = [:]
+    /// The commands of each position, in the order of `positions`, and the raster after its last line.
+    private(set) var groups: [[Command]] = []
+    private(set) var ends: [Int] = []
+    private var signed = false
+
+    /// The positions among `keys`, the keys of the image's annotations in their order, whose value (`lines`)
+    /// is a list of lines of texts; `refused` is told the others.
+    init(positions keys: [Any], lines: (String) -> Any?, refused: (Any?) -> Void) {
+        for case let position as String in keys {
+            let lines = lines(position)
+            guard let lines = lines as? [[String]] else {
+                refused(lines)
+                continue
+            }
+            positions.append(position)
+            fields[position] = lines
+        }
+    }
+
+    mutating func lay(out layout: AnnotationOverlayLayout, fullText: Bool, phrases: AnnotationPhrases, values: some AnnotationValueSource,
+                      signed: Bool) {
+        for position in positions {
+            let drawn = layout.commands(for: position, lines: fields[position] ?? [], fullText: fullText,
+                                        patientNamePrefix: DCMPixAnnotationPatientNamePrefix, phrases: phrases, values: values)
+            groups.append(drawn.commands)
+            ends.append(drawn.endY)
+        }
+        self.signed = signed
+        if signed {
+            let signature = layout.signature
+            groups.append([.text("Made In IsiX DICOM Viewer", x: signature.x, y: signature.y, alignment: .right)])
+        }
+    }
+
+    /// Whether a position asks for the orientation letters among its lines.
+    var asksForOrientation: Bool { groups.contains { $0.contains(.orientation) } }
+
+    /// The signature as it is drawn; nil without one, or when its row has no room for it.
+    var signature: Command? { signed ? groups.last?.first : nil }
+
+    /// Cuts the side lines to the room of their rows, around `fixed`, the letters and the notices of the frame.
+    mutating func fit(around fixed: [Command], layout: AnnotationOverlayLayout, font: NSFont?, scale: Float) {
+        guard let font else { return }
+        let measure = AnnotationTextMeasure.table(font: font, scale: CGFloat(scale))
+        groups = AnnotationRowFit.fit(groups, fixed: fixed,
+                                      bounds: Double(layout.start(of: "MiddleLeft").x)...Double(layout.start(of: "MiddleRight").x),
+                                      lineHeight: layout.lineHeight, gap: layout.characterWidth, widestCharacter: measure.widestCharacter,
+                                      width: { measure.width(of: $0) },
+                                      cut: { measure.cut($0, to: $1, by: AnnotationRowFit.cut) })
+    }
+}
 
 /// What the annotations of a view read from it, field by field, when a field
 /// shown at `level` asks: the mouse value, the window, the image's place in
@@ -533,7 +597,7 @@ extension DCMView {
                            : xFlipped ? NSLocalizedString("Horizontally Flipped", comment: "") : NSLocalizedString("Vertically Flipped", comment: ""))
         }
         if self.is2DViewer() && (self.curDCM?.voilutApplied ?? false) {
-            notices.append("VOI LUT Applied")
+            notices.append(NSLocalizedString("VOI LUT Applied", comment: "Written over the image, under the top orientation letter"))
         }
         // An empty frame is otherwise indistinguishable from a dark one, and the
         // only thing that said which it was went to the console.
@@ -565,6 +629,7 @@ extension DCMView {
                                               top: letters.text(column, inverted: true), bottom: letters.text(column, inverted: false),
                                               notices: notices)
         }
+        self.frameOrientationCommands = commands
         for command in commands {
             self.drawAnnotation(command)
         }
@@ -642,6 +707,7 @@ extension DCMView {
         roiLineWidth(Float(1.0 * (self.window?.backingScaleFactor ?? 0)))
 
         let stringSize = self.horos_stringSize
+        self.frameOrientationCommands = []
 
         if annotations == 4 {
             NotificationCenter.default.post(name: .OsirixDrawTextInfo, object: self)
@@ -677,20 +743,11 @@ extension DCMView {
 
             // The fields of each position, in the dictionary's order.
             let annotationsDictionary = self.curDCM?.annotationsDictionary
-            var positions: [String] = []
-            var fields: [String: [[String]]] = [:]
-            for case let position as String in annotationsDictionary?.allKeys ?? [] {
-                let lines = annotationsDictionary?.object(forKey: position)
-                guard let lines = lines as? [[String]] else {
-                    self.reportAnnotationsError(lines)
-                    continue
-                }
-                positions.append(position)
-                fields[position] = lines
-            }
+            var lines = AnnotationFrameLines(positions: annotationsDictionary?.allKeys ?? [], lines: { annotationsDictionary?.object(forKey: $0) },
+                                             refused: { self.reportAnnotationsError($0) })
 
             var orientationDrawn = false
-            if AnnotationLevel.shows(.orientation, level: annotations) && AnnotationOverlayLayout.asksForOrientation(fields) {
+            if AnnotationLevel.shows(.orientation, level: annotations) && AnnotationOverlayLayout.asksForOrientation(lines.fields) {
                 self.drawOrientation(size)
                 orientationDrawn = true
                 layout = layout.withOrientationDrawn()
@@ -700,10 +757,12 @@ extension DCMView {
             var lowerLeftTop = Int(layout.start(of: "LowerLeft").y)
             var lowerCorners = LowerCornerText()
             let values = ViewAnnotationValues(view: self, level: annotations)
-            for position in positions {
-                let drawn = layout.commands(for: position, lines: fields[position] ?? [], fullText: fullText,
-                                            patientNamePrefix: DCMPixAnnotationPatientNamePrefix, phrases: annotationPhrases, values: values)
-                for command in drawn.commands {
+            lines.lay(out: layout, fullText: fullText, phrases: annotationPhrases, values: values,
+                      signed: fullText && AnnotationLevel.showsText(level: annotations))
+            if !orientationDrawn && lines.asksForOrientation { self.drawOrientation(size); orientationDrawn = true }
+            lines.fit(around: self.frameOrientationCommands, layout: layout, font: self.horos_fontGL, scale: sf)
+            for (index, position) in lines.positions.enumerated() {
+                for command in lines.groups[index] {
                     switch command {
                     case .text:
                         self.drawAnnotation(command)
@@ -716,8 +775,8 @@ extension DCMView {
                         orientationDrawn = true
                     }
                 }
-                if position == "LowerLeft" { lowerLeftTop = drawn.endY }
-                lowerCorners.note(position: position, commands: drawn.commands, endY: drawn.endY, characterWidth: Double(stringSize.width))
+                if position == "LowerLeft" { lowerLeftTop = lines.ends[index] }
+                lowerCorners.note(position: position, commands: lines.groups[index], endY: lines.ends[index], characterWidth: Double(stringSize.width))
             }
 
             // A 3D view of a series corrected for gantry tilt: above the lower left lines.
@@ -742,9 +801,8 @@ extension DCMView {
                 self.horosDraw(label, bounds: NSMakeRect(x, CGFloat(top), labelSize.width, labelSize.height))
             }
 
-            if fullText && AnnotationLevel.showsText(level: annotations) {
-                let signature = layout.signature
-                self.drawNSStringGL("Made In IsiX DICOM Viewer", DCMViewMainFont, signature.x, signature.y, rightAlignment: true, useStringTexture: true)
+            if case let .text(text, x, y, _)? = lines.signature {
+                self.drawNSStringGL(text, DCMViewMainFont, x, y, rightAlignment: true, useStringTexture: true)
             }
         }
     }

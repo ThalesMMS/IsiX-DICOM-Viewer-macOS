@@ -251,37 +251,37 @@ extension DCMView {
             snapshot["transferInverted"] = pix.displayInverted
         }
         // A colour slab is already in the host's bytes; only a scalar one is
-        // reduced here: with the slices computeThickSlab reduces with this
-        // one, in its order. A slice with no pixels is skipped there and here.
-        var slab: Data?, slabKey: String?
-        if source.scalarSlab {
-            var slices: [DCMPix] = []
-            var key = String(format: "%ld/%ld/%ld/%ld", session?.sessionID ?? 0, session?.identity.generation ?? 0, width, height)
+        // reduced here, where its slices are and in computeThickSlab's order,
+        // by its own reduction: copying them for the renderer moved the whole
+        // slab twice at each change. A slice with no pixels is skipped.
+        var reduced: NSData?, slabKey: String?
+        if source.scalarSlab && hostBytes == nil {
+            var slices: [UnsafePointer<Float>] = []
+            var key = String(format: "%ld/%ld/%ld/%ld/%ld", session?.sessionID ?? 0, session?.identity.generation ?? 0, width, height,
+                             Int(pix.stackMode)) + Self.address(pix, pixels)
             for index in PlanarThickSlab.sliceIndices(position: pix.pixPos, stack: Int(pix.stack),
                                                       direction: Int(pix.stackDirection), count: series.count) {
                 guard let slice = series[index.intValue] as? DCMPix, let samples = slice.fImage else { continue }
                 if slice.pwidth != width || slice.pheight != height { return refused }
-                slices.append(slice)
+                slices.append(UnsafePointer(samples))
                 key += Self.address(slice, samples)
             }
             if !slices.isEmpty {
-                // Every redraw builds a snapshot; the other slices are copied
-                // only when they, or the volume's generation, change. The same
-                // bytes on every draw compare equal without reading them.
+                // Reduced again only when the mode, the slices or the volume's
+                // generation change, or the image shown was edited in place.
                 slabKey = key
-                slab = state.slabKey == key ? state.slabData : nil
-                if slab == nil {
-                    var others = Data(capacity: slices.count * count)
-                    for slice in slices { others.append(UnsafeRawPointer(slice.fImage).assumingMemoryBound(to: UInt8.self), count: count) }
-                    slab = others
+                if state.slabKey == key, let kept = state.slabCurrent, kept.length == count, memcmp(kept.bytes, pixels, count) == 0 {
+                    reduced = state.slabData
+                } else {
+                    reduced = ThickSlabReduction.slab(of: pixels, count: width * height, slices: slices, mode: Int(pix.stackMode),
+                                                      workers: Int(DCMPix.maxProcessors()))
+                    state.slabCurrent = NSData(bytes: pixels, length: count)
                 }
-                snapshot["slabMode"] = pix.stackMode
-                snapshot["slabSlices"] = slab
-                snapshot["slabCount"] = slices.count + 1
+                snapshot["pixels"] = reduced
             }
         }
-        state.slabKey = slabKey
-        state.slabData = slab
+        (state.slabKey, state.slabData) = (slabKey, reduced)
+        if slabKey == nil { state.slabCurrent = nil }
         let hasFusedSeries = !fused && view.blending != nil
         if PlanarPresentation.whitensImageUnderFusion(hasFusedSeries: hasFusedSeries, locationsInSync: locationsInSync,
                                                       whiteBackground: view.whiteBackground) {

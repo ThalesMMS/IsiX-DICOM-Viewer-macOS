@@ -495,9 +495,47 @@ extension QueryController {
         NotificationCenter.default.addObserver(self, selector: #selector(saveTableColumns), name: NSOutlineView.columnDidResizeNotification, object: outlineView)
     }
 
+    /// The headers of the results once the texts of the nib were read from
+    /// the catalog. The header menu and the columns it keeps out of the table
+    /// were made as the nib awoke, before that: the columns out of the table
+    /// read their headers here, and each item of the menu takes the header of
+    /// its column. A list that has no saved layout then gives each column the
+    /// room its header needs, taken from the columns that have room to spare:
+    /// the widths of the nib are those of the English headers, and cut longer
+    /// ones. Saved widths are the user's: they were saved under the headers
+    /// of the language of that day, or before any header was fitted, so a
+    /// column that cuts its header is widened until the header fits, and no
+    /// other column changes.
+    func resultColumnsDidReadCatalog() {
+        guard let outlineView else { return }
+        let readsCatalog = windowNibName.map { WindowNibCatalog.reads(nibNamed: $0, owner: self) } ?? false
+        for item in outlineView.headerView?.menu?.items ?? [] {
+            guard let column = item.representedObject as? NSTableColumn else { continue }
+            if readsCatalog, !outlineView.tableColumns.contains(column), !column.title.isEmpty {
+                column.title = CatalogTranslation.mainCatalog(column.title)
+            }
+            item.title = column.title
+        }
+        guard preferences.array(forKey: autoQueryValue ? "NewQueryControllerTableColumnsAutoQR" : "NewQueryControllerTableColumns") == nil else {
+            fittingResultColumns = true
+            PaneFit.widenColumnsToHeaders(of: outlineView)
+            fittingResultColumns = false
+            return
+        }
+        // The column of the names draws the sort indicator beside its header while the list is sorted by it, as
+        // it is at first: its header needs more than its text, and the column gives no room to the others.
+        let names = outlineView.outlineTableColumn
+        let minimum = names?.minWidth ?? 0
+        if let names { names.minWidth = max(minimum, min(names.width, names.maxWidth)) }
+        fittingResultColumns = true
+        PaneFit.fitColumns(of: outlineView)
+        fittingResultColumns = false
+        names?.minWidth = minimum
+    }
+
     @objc(saveTableColumns)
     func saveTableColumns() {
-        guard let outlineView else { return }
+        guard let outlineView, !fittingResultColumns else { return }
         let cols = outlineView.tableColumns.map { column -> NSDictionary in
             ["identifier": column.identifier.rawValue, "width": NSNumber(value: Float(column.width))]
         }
@@ -518,6 +556,8 @@ extension QueryController {
                 outlineView.removeTableColumn(column)
             } else {
                 outlineView.addTableColumn(column)
+                // A column that comes back has the width it left with, or the nib's, which may cut its header.
+                PaneFit.widenColumnsToHeaders(of: outlineView)
             }
         }
 

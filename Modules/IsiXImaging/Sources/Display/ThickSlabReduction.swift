@@ -80,6 +80,20 @@ public enum ThickSlabReduction {
         vDSP_vsmul(result, 1, &inverse, result, 1, vDSP_Length(count))
     }
 
+    /// The slab of `current` (`count` floats) and `slices`, as a new buffer:
+    /// what -[DCMPix computeThickSlab] makes of them, by `fold` and, for the
+    /// mean, `divide`. The slices are read where they are: nothing but the
+    /// result is allocated, whatever the thickness of the slab.
+    public static func slab(of current: UnsafePointer<Float>, count: Int, slices: [UnsafePointer<Float>], mode: Int,
+                            workers: Int) -> NSData {
+        let bytes = count * MemoryLayout<Float>.size
+        let reduced = NSMutableData(bytes: current, length: bytes)
+        let result = reduced.mutableBytes.assumingMemoryBound(to: Float.self)
+        fold(into: result, count: count, slices: slices, mode: mode, workers: workers)
+        if mode == mean { divide(result, count: count, by: Float(slices.count + 1)) }
+        return reduced
+    }
+
     /// Each byte of `r` the larger (`keepLarger`) or the smaller of the bytes
     /// of `a` and `b`: `pixels` pixels of four bytes. `r` may be `a`.
     public static func foldBytes(_ a: UnsafeRawPointer, _ b: UnsafeRawPointer, into r: UnsafeMutableRawPointer, pixels: Int,

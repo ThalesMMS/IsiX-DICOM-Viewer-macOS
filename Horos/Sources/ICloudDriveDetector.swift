@@ -189,6 +189,12 @@ public final class ICloudDriveDetector: NSWindowController {
      * Instance methods
      ------------------------------------------------------*/
 
+    /// The texts of the warning come from the catalog in a language that has
+    /// no copy of its nib.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override func windowDidLoad() {
         super.windowDidLoad()
         // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
@@ -223,15 +229,55 @@ public final class ICloudDriveDetector: NSWindowController {
         self.window?.close()
     }
 
-    /// Relaunches Horos with this process's pid as its argument, and quits.
-    private func relaunch() {
-        let processIdentifier = ProcessInfo.processInfo.processIdentifier
-        let myPath = String(format: "%s", (Bundle.main.executablePath! as NSString).fileSystemRepresentation)
-        _ = Process.launchedProcess(launchPath: myPath, arguments: [String(format: "%d", processIdentifier)])
+    /// Quits, with the application opening again once this process has ended.
+    ///
+    /// The database window agreed before anything was moved: the restart goes
+    /// on to the rest of quitting, with its stops, and no second question. The
+    /// copy that opens waits for this one to end, so that two copies never
+    /// hold the database and the ports at once.
+    ///
+    /// `databaseMoved` says the folder is in its new place, which is now the
+    /// stored location: a location the launch was given as an argument names
+    /// the folder that is gone, and is not given to the copy that opens.
+    private func relaunch(databaseMoved: Bool) {
+        guard let lifecycle = processGraph.appController?.lifecycle else { return }
+        let location = DatabasePreferences.location, defaultLocation = DatabasePreferences.defaultLocation
+        let stale: Set<String> = databaseMoved
+            ? [location.mode.name, location.folder.name, defaultLocation.mode.name, defaultLocation.folder.name] : []
+        if case .notScheduled(let reason) = lifecycle.restartAlreadyAgreed(self, droppingArgumentsFor: stale) {
+            // The application cannot stay on a database that was moved, or
+            // that could not be: it says that it has to be opened again, and quits.
+            NSLog("ICloudDriveDetector - the application could not be scheduled to reopen: %@", reason as NSString)
+            HorosAlertPanel.runInformational(title: NSLocalizedString("Restart", comment: ""),
+                                             message: NSLocalizedString("Restart IsiX DICOM Viewer to apply this change.", comment: ""),
+                                             defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            lifecycle.finishTermination(self)
+        }
+    }
 
-        // The database window agreed before anything was moved: the rest of
-        // quitting, with its stops, and no second question.
-        processGraph.appController?.lifecycle.finishTermination(self)
+    /// The question put before the database is moved, as a sheet of the warning.
+    ///
+    /// No key answers Continue. The move takes the database out of its folder
+    /// and restarts the application, and the warning comes up by itself, over
+    /// whatever was being typed in another window: only a click on Continue
+    /// starts the move. Escape answers Cancel, and Return answers nothing, as
+    /// in an alert whose first button destroys something.
+    private func moveConfirmation(from databasePath: String, to nosyncPath: String) -> NSAlert {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("Stop synchronizing the IsiX DICOM Viewer database with iCloud Drive?",
+                                              comment: "iCloud Drive warning: the confirmation of the move")
+        alert.informativeText = String(
+            format: NSLocalizedString("The database and its image files will be moved from “%@” to “%@”. IsiX DICOM Viewer restarts when the move is finished.",
+                                      comment: "iCloud Drive warning: where the database is, then where it goes"),
+            databasePath, nosyncPath)
+        let proceed = alert.addButton(withTitle: NSLocalizedString("Continue", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        // The first button of an alert answers Return unless its key is taken
+        // away. Cancel cannot take Return as well: a window's default button
+        // answers Return alone, and it would stop answering Escape.
+        proceed.keyEquivalent = ""
+        return alert
     }
 
     @IBAction @objc(dontSync:)
@@ -250,13 +296,7 @@ public final class ICloudDriveDetector: NSWindowController {
             nosyncPath = "\(databasePath)_\(timestamp).nosync"
         }
 
-        //ALERT user about the operation - Missing localization
-        let alert = NSAlert()
-        alert.messageText = "Please, confirm you want to stop using iCloud Drive for your IsiX DICOM Viewer database."
-        alert.informativeText = "Your IsiX DICOM Viewer database and image files will be moved from \"\(databasePath)\" to \"\(nosyncPath)\". IsiX DICOM Viewer will be restarted after this operation is concluded."
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Cancel")
-        alert.alertStyle = .warning
+        let alert = moveConfirmation(from: databasePath, to: nosyncPath)
 
         alert.beginSheetModal(for: self.window!) { returnCode in
             if returnCode == .alertSecondButtonReturn {
@@ -292,7 +332,7 @@ public final class ICloudDriveDetector: NSWindowController {
                     self.window?.orderOut(self)
                     NSApp.stopModal()
 
-                    self.relaunch()
+                    self.relaunch(databaseMoved: false)
 
                     return
                 }
@@ -315,7 +355,7 @@ public final class ICloudDriveDetector: NSWindowController {
                     self.window?.orderOut(self)
                     NSApp.stopModal()
 
-                    self.relaunch()
+                    self.relaunch(databaseMoved: false)
 
                     return
                 }
@@ -362,7 +402,7 @@ public final class ICloudDriveDetector: NSWindowController {
                 self.window?.orderOut(self)
                 NSApp.stopModal()
 
-                self.relaunch()
+                self.relaunch(databaseMoved: true)
             }
         }
     }

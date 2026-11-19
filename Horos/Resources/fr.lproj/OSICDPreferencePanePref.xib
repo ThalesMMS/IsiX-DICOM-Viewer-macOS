@@ -34,7 +34,7 @@
                                 <button toolTip="Une fois qu'un disque inséré est indexé avec succès, il est automatiquement sélectionné" horizontalCompressionResistancePriority="1000" id="196">
                                     <rect key="frame" x="327" y="161" width="300" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Éjecter le disque lors de la copie" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
+                                    <buttonCell key="cell" type="check" title="Éjecter le disque après la copie" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="197">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -149,7 +149,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                         <font key="titleFont" metaFont="system"/>
                     </box>
-                    <box verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="Rédaction de CD/DVD" id="132">
+                    <box verticalHuggingPriority="249" horizontalCompressionResistancePriority="1000" title="Gravure de CD/DVD" id="132">
                         <rect key="frame" x="17" y="16" width="640" height="80"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="9xj-yw-ZnU">

@@ -69,7 +69,7 @@ for match in re.finditer(r'set\(0,\s*forKey:\s*"UseDelaunayFor3DRoi"\)', view):
     if 'shouldRewritePreference(afterFailure:' not in window:
         failures.append('a catch still rewrites UseDelaunayFor3DRoi to Iso without asking Swift')
 
-for locale in ('en', 'ja-JP'):
+for locale in ('en',):
     xib = (root / f'Horos/Resources/{locale}.lproj/ROIVolume.xib').read_text(encoding='utf-8')
     if 'name="selectedTag" keyPath="values.UseDelaunayFor3DRoi"' not in xib:
         failures.append(f'{locale} ROIVolume.xib radio does not bind selectedTag to UseDelaunayFor3DRoi')

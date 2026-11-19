@@ -50,7 +50,7 @@ import AppKit
 with tempfile.TemporaryDirectory(prefix='horos-movie-accessory-') as folder:
  p=Path(folder);(p/'test.swift').write_text(code)
  nibs=[]
- for loc in ['en','ja-JP']:
+ for loc in ['en']:
   rel=f'Horos/Resources/{loc}.lproj/QuicktimeExport.xib'
   source=subprocess.check_output(['git','show',sys.argv[1]+':'+rel]) if len(sys.argv)>1 else (root/rel).read_bytes()
   xib=p/f'{loc}.xib';xib.write_bytes(source);nib=p/f'{loc}.nib';nibs.append(str(nib))

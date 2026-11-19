@@ -19,7 +19,11 @@ gives both the same synthetic inputs:
   font, same-patient background, recency and report icons, grey "unknown";
 * the tool tip of the recency icon, the rows that expand and their children;
 * the header's menu of columns: its order, its checks, the preference it
-  saves and the columns -refreshColumns shows and hides;
+  saves and the columns -refreshColumns shows and hides. The Objective-C kept
+  the state of each column under the title of its header, which is the
+  language's; the module keeps it under the identifier of the column and still
+  reads a preference kept by title. What it saves is compared as it says of
+  each title, and what it shows and hides for a preference kept by title;
 * a patient's history: when the selection asks for another one, the row of a
   study in it, new studies joining it, the refresh of the history and of a
   smart album's distant studies;
@@ -50,6 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BC = 'Horos/Sources/BrowserController.m'
 MARK = '- (id)intOutlineView:(NSOutlineView *)outlineView objectValueForTableColumn:(NSTableColumn *)tableColumn byItem:(id)item'
 RULES = ROOT / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift'
+TITLES = ROOT / 'Modules/IsiXDatabase/Sources/StudyListColumnTitles.swift'
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--reference')
@@ -1558,27 +1563,45 @@ func columnsMenuAction(_ sender: NSMenuItem) {
         rec("defaults HIDEPATIENTNAME bool \(sender.state.rawValue == 0 ? 1 : 0)")
     } else {
         let items = columnsMenu?.items ?? []
-        let saved = StudyListColumns.saved(titles: items.map(\.title), states: items.map { $0.state.rawValue })
-        rec("defaults COLUMNSDATABASE \(plain(saved))")
+        let saved = StudyListColumns.saved(identifiers: items.map { $0.representedObject as? String ?? "" },
+                                           states: items.map { $0.state.rawValue })
+        // The Objective-C kept the state of each item under its title, the
+        // module keeps it under the identifier of its column. What is saved
+        // is recorded as it says of each title, to be compared: the state of
+        // the item of that title, the later one's when two have the same, and
+        // nothing for an item without a title.
+        var byTitle: [String: Int32] = [:]
+        for item in items where (item.title as NSString).length > 0 {
+            byTitle[item.title] = saved[item.representedObject as? String ?? ""]
+        }
+        rec("defaults COLUMNSDATABASE \(plain(byTitle))")
         refreshColumns()
     }
 }
 
-// As StudyListColumnController.refresh() does it.
+// As StudyListColumnController.refresh() does it, for a preference that names
+// the columns by the titles of their headers, as the Objective-C saved it:
+// read so, it shows and hides what the Objective-C did. Storing it again by
+// identifier is the module's own and is not recorded.
 func refreshColumns() {
     let saved = testObject("COLUMNSDATABASE")
     guard StudyListColumns.savedIsReadable(saved) else { return }
-    for case let (title as String, state) in saved as? NSDictionary ?? [:] {
-        guard let outline = databaseOutline else { continue }
-        let titles = outline.tableColumns.map { $0.headerCell.title }
-        guard let index = StudyListColumns.column(titled: title, in: titles) else { continue }
-        let identifier = outline.tableColumns[index].identifier
-        let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier.rawValue), saved: state,
-                                             isSelectedColumn: { outline.column(withIdentifier: identifier.rawValue) == outline.selectedColumn })
-        if let change {
-            if change.selectFirstColumn { outline.selectColumnIndexes(IndexSet(integer: 0)) }
-            outline.setColumnWithIdentifier(identifier.rawValue, visible: change.visible)
-            if change.scrollToColumn { outline.scrollColumnToVisible(outline.column(withIdentifier: identifier.rawValue)) }
+    var entries: [(key: String, state: Any)] = []
+    for case let (key as String, state) in saved as? NSDictionary ?? [:] {
+        entries.append((key, state))
+    }
+    if let outline = databaseOutline {
+        let columns = outline.tableColumns
+        let reading = StudyListColumns.read(entries, identifiers: columns.map(\.identifier.rawValue),
+                                            titles: columns.map { $0.headerCell.title })
+        for (identifier, state) in reading.states {
+            let change = StudyListColumns.change(visible: outline.isColumnWithIdentifierVisible(identifier), saved: state,
+                                                 isSelectedColumn: { outline.column(withIdentifier: identifier) == outline.selectedColumn })
+            if let change {
+                if change.selectFirstColumn { outline.selectColumnIndexes(IndexSet(integer: 0)) }
+                outline.setColumnWithIdentifier(identifier, visible: change.visible)
+                if change.scrollToColumn { outline.scrollColumnToVisible(outline.column(withIdentifier: identifier)) }
+            }
         }
     }
     buildColumnsMenu()
@@ -2381,8 +2404,10 @@ def build_cases(rng):
             c['row'] = spec
         tree.append(c)
 
+    # No title is the identifier of another column: a key of the preference is
+    # taken as an identifier before it is taken as a title.
     titles = ['Patient name', 'Date', 'Modality', 'Comment', '', 'date', 'Ã‰tat', 'Date', 'Accession']
-    ids = ['name', 'date', 'modality', 'comment', 'empty', 'date2', 'state', 'dup', 'accessionNumber']
+    ids = ['name', 'acquired', 'modality', 'comment', 'empty', 'date2', 'state', 'dup', 'accessionNumber']
     columns = []
     for n in range(30):
         chosen = rng.sample(range(len(ids)), rng.randint(2, len(ids)))
@@ -2594,7 +2619,7 @@ with tempfile.TemporaryDirectory(prefix='horos-outline-') as tmp:
     if built.returncode:
         sys.exit('FAIL: the Objective-C reference does not compile:\n' + built.stderr[-3000:])
     (tmp / 'main.swift').write_text(SWIFT)
-    built = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-o', str(tmp / 'current'), str(RULES), str(tmp / 'main.swift')],
+    built = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-o', str(tmp / 'current'), str(RULES), str(TITLES), str(tmp / 'main.swift')],
                            capture_output=True, text=True, timeout=300)
     if built.returncode:
         sys.exit('FAIL: the module does not compile:\n' + built.stderr[-3000:])

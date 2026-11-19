@@ -24,10 +24,10 @@ import QuartzCore
     /// The MPR engine's notice: its plane came from the original renderer.
     var engineNotice: String?
     var trace: PlanarPerformanceTrace?
-    /// The thick slab's other slices, recognised by the address of each
-    /// image and of its pixels.
+    /// The thick slab reduced for the last draw, recognised by the address of
+    /// each image and of its pixels, and the samples shown it was made with.
     var slabKey: String?
-    var slabData: Data?
+    var slabData: NSData?, slabCurrent: NSData?
     /// One immutable copy of the image's samples, bounded by the plane shown.
     var scalarSnapshot: NSData?
 }
@@ -126,7 +126,7 @@ extension DCMView {
         let state = planarHostState
         state.scalarSnapshot = nil
         state.slabKey = nil
-        state.slabData = nil
+        (state.slabData, state.slabCurrent) = (nil, nil)
     }
 
     // MARK: - Drawing

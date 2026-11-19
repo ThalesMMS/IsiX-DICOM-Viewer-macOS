@@ -51,7 +51,7 @@ def check(condition, what):
 
 # What the sheet can give.
 nibs = sorted(ROOT.glob('Horos/Resources/*.lproj/SR.xib'))
-check(len(nibs) == 10, 'ten localized SR.xib (%d)' % len(nibs))
+check(len(nibs) == 9, 'nine copies of SR.xib (%d)' % len(nibs))
 for nib in nibs:
     tree = ElementTree.parse(nib)
     parents = {child: parent for parent in tree.iter() for child in parent}

@@ -150,7 +150,12 @@ check(DIRECT.search('NSApp.terminate(nil)') and DIRECT.search('NSApplication.sha
       and DIRECT.search('[NSApp terminate: self]') and DIRECT.search('[[NSApplication sharedApplication] terminate:nil]')
       and not DIRECT.search('controller.terminate(controller)') and not DIRECT.search('#selector(NSApplication.terminate(_:))'),
       'the search for direct terminations no longer finds them')
-check('processGraph.appController?.lifecycle.finishTermination(self)' in body(source_text('ICloudDriveDetector'), 'private func relaunch()'),
+# The restart of the lifecycle ends in the rest of quitting; agreed to beforehand, it does not ask.
+check('lifecycle.restartAlreadyAgreed(self, droppingArgumentsFor: stale)'
+      in body(source_text('ICloudDriveDetector'), 'private func relaunch(databaseMoved: Bool)')
+      and 'restart(sender, agree: { true }, droppingArgumentsFor: stale)'
+      in body(lifecycle, 'func restartAlreadyAgreed(_ sender: Any?, droppingArgumentsFor stale: Set<String>)')
+      and 'quit: { self.finishTermination(sender) }' in body(lifecycle, 'private func restart(_ sender: Any?, agree:'),
       'the relaunch after the database window agreed does not go on to the rest of quitting')
 
 project = (root / 'Horos.xcodeproj/project.pbxproj').read_text(encoding='latin1')

@@ -195,6 +195,9 @@ public final class AnonymizationViewController: NSViewController {
     public init(tags shownDcmTags: [Any]!, values: [Any]!) {
         super.init(nibName: "AnonymizationView", bundle: nil)
         _ = view // load
+        // The texts of the nib come from the catalog in a language that has no copy of it, before the
+        // pop-up of templates takes the names the user gave them.
+        WindowNibCatalog.read([view], ofNibNamed: "AnonymizationView", owner: self)
         AnonymizationFieldsScroll.install(in: annotationsBox, document: tagsView)
         saveTemplateButton.keyEquivalent = "s"
         saveTemplateButton.keyEquivalentModifierMask = .command

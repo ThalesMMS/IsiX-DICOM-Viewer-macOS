@@ -31,10 +31,10 @@
                             <rect key="frame" x="2" y="0.0" width="684" height="69"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Conecte-se ao IsiX DICOM Viewer e verifique a versão mais recente." id="535">
+                                <button toolTip="Conectar-se ao IsiX DICOM Viewer e verificar a versão mais recente." id="535">
                                     <rect key="frame" x="15" y="43" width="395" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Sincronize as preferências na inicialização com este URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
+                                    <buttonCell key="cell" type="check" title="Sincronizar as preferências na inicialização com este URL:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="536">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -73,17 +73,17 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box horizontalCompressionResistancePriority="1000" title="Verifique a versão" id="129">
+                    <box horizontalCompressionResistancePriority="1000" title="Verificar a versão" id="129">
                         <rect key="frame" x="17" y="164" width="688" height="54"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="JLD-he-7q7">
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Conecte-se ao IsiX DICOM Viewer e verifique a versão mais recente." horizontalCompressionResistancePriority="1000" id="101">
+                                <button toolTip="Conectar-se ao IsiX DICOM Viewer e verificar a versão mais recente." horizontalCompressionResistancePriority="1000" id="101">
                                     <rect key="frame" x="15" y="11" width="650" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Verifique automaticamente se há atualizações do aplicativo IsiX DICOM Viewer na inicialização" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
+                                    <buttonCell key="cell" type="check" title="Verificar automaticamente se há atualizações do aplicativo IsiX DICOM Viewer na inicialização" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="178">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -149,7 +149,7 @@
                             <rect key="frame" x="2" y="2" width="684" height="37"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
-                                <button toolTip="Conecte-se ao IsiX DICOM Viewer e verifique a versão mais recente." id="171">
+                                <button toolTip="Conectar-se ao IsiX DICOM Viewer e verificar a versão mais recente." id="171">
                                     <rect key="frame" x="15" y="11" width="405" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Permitir edição DICOM. Consulte Janela Metadados." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="184">
@@ -416,7 +416,7 @@ Gw
                     <textField verticalHuggingPriority="750" id="318">
                         <rect key="frame" x="481" y="398" width="67" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Mais:" id="319">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Senão:" id="319">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>

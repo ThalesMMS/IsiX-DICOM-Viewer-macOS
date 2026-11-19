@@ -199,7 +199,7 @@ for name, signature in [('e-mail', 'func sendMail('), ('JPEG', 'func exportJPEG(
     check('selectedViewOnlyMPRView(false)' in body and 'selectedView()' not in body,
           'the %s export does not take the view the user selected' % name)
 
-for xib in ['Horos/Resources/en.lproj/CPR.xib', 'Horos/Resources/ja-JP.lproj/CPR.xib']:
+for xib in ['Horos/Resources/en.lproj/CPR.xib']:
     text = read(xib)
     check(bool(text) and 'shadingsPresetsController' not in text,
           '%s connects shadingsPresetsController, which CPRController does not have' % xib)

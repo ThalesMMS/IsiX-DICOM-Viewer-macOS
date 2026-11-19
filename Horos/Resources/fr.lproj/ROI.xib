@@ -170,7 +170,7 @@
                     </button>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="761">
                         <rect key="frame" x="45" y="6" width="103" height="28"/>
-                        <buttonCell key="cell" type="push" title="Lot X-Y" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="789">
+                        <buttonCell key="cell" type="push" title="Tracé X-Y" bezelStyle="rounded" alignment="center" controlSize="small" enabled="NO" borderStyle="border" inset="2" id="789">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                         </buttonCell>

@@ -353,16 +353,24 @@ final class HorosApplicationInstaller: NSObject {
         } ? device : nil
     }
 
-    static func relaunchScript(_ destination: URL, pid: Int32, diskImage: String?) -> String {
+    /// `arguments` are given to the copy that opens: a copy that restarts
+    /// opens as it was opened, so that a database location or a mode given
+    /// for one launch alone still holds after the restart.
+    static func relaunchScript(_ destination: URL, pid: Int32, diskImage: String?, arguments: [String] = []) -> String {
         let detach = diskImage.map { "; /bin/sleep 5; /usr/bin/hdiutil detach " + shellQuote($0) } ?? ""
+        let given = arguments.isEmpty ? "" : " --args " + arguments.map(shellQuote).joined(separator: " ")
         return "while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.1; done; /usr/bin/open "
-            + shellQuote(destination.path) + " && :" + detach
+            + shellQuote(destination.path) + given + " && :" + detach
     }
 
     func relaunch(_ destination: URL, diskImage: String?) throws {
+        try relaunch(destination, diskImage: diskImage, arguments: [])
+    }
+
+    func relaunch(_ destination: URL, diskImage: String?, arguments: [String]) throws {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", Self.relaunchScript(destination, pid: getpid(), diskImage: diskImage)]
+        task.arguments = ["-c", Self.relaunchScript(destination, pid: getpid(), diskImage: diskImage, arguments: arguments)]
         task.standardInput = FileHandle.nullDevice
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice

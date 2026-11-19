@@ -3,7 +3,7 @@
 
 Four defects kept by the translation of the navigator to Swift:
 
-1. Navigator.xib (en and ja-JP) connected an outlet `scroller` that
+1. Navigator.xib (en, which Japanese reads too) connected an outlet `scroller` that
    NavigatorWindowController does not have: loading the nib logged a failure
    to connect it. Every outlet of the File's Owner is now a property of the
    class, or the window NSWindowController has.
@@ -62,7 +62,7 @@ def method(text, selector):
 
 # 1. The outlets of the nibs.
 controller = code(read('Horos/Sources/NavigatorWindowController.swift'))
-for language in ('en', 'ja-JP'):
+for language in ('en',):
     nib = read('Horos/Resources/%s.lproj/Navigator.xib' % language)
     owner = re.search(r'<customObject id="-2"[^>]*customClass="NavigatorWindowController">(.*?)</customObject>',
                       nib, re.S)

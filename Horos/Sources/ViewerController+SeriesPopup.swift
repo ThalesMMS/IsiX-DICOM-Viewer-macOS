@@ -470,7 +470,9 @@ extension SeriesMenuPresenter {
         }
         if noStudy { return }
 
-        let model = SeriesMenuModel(studies: read.studies)
+        // The study of the window, as the series list has it: one highlight
+        // for the series shown in the menu and in the list.
+        let model = SeriesMenuModel(studies: read.studies, windowStudy: SeriesListPresenter.windowStudy(of: viewer))
         fill(menu, from: model, read: read, inverted: inverted)
 
         viewer.horos_seriesPopupContextualMenu?.submenu = menu?.copy() as? NSMenu
@@ -489,6 +491,14 @@ extension SeriesMenuPresenter {
             name = name?.stringByTruncating(toLength: 50)
         }
         return (name ?? "") as String
+    }
+
+    /// The number of images of a series as the menu writes it after the name
+    /// of the series, in the language of the menu: "1 image", "1,200 images".
+    static func imageCount(_ count: Int) -> String {
+        let format = count == 1 ? NSLocalizedString("%d image", comment: "the number of images of a series, in the series menu of the 2D viewer, when it has one")
+                                : NSLocalizedString("%d images", comment: "")
+        return String.localizedStringWithFormat(format, Int32(clamping: count))
     }
 
     /// Reads the study listed at `index` (a study of the database, the
@@ -604,8 +614,10 @@ extension SeriesMenuPresenter {
 
                 var attributes: [NSAttributedString.Key: Any] = [:]
                 switch model.highlight(of: series) {
-                case .shown:
+                case .shown(.current):
                     attributes[.backgroundColor] = SeriesListColors.shown
+                case .shown(.previous):
+                    attributes[.backgroundColor] = SeriesListColors.shownPrevious
                 case .fused:
                     attributes[.backgroundColor] = SeriesListColors.fused
                 case .windowColour:
@@ -615,7 +627,7 @@ extension SeriesMenuPresenter {
                     break
                 }
                 attributes[.font] = NSFont.systemFont(ofSize: 14)
-                cell.attributedTitle = NSAttributedString(string: SeriesMenuModel.title(of: series), attributes: attributes)
+                cell.attributedTitle = NSAttributedString(string: SeriesMenuModel.title(of: series, images: Self.imageCount), attributes: attributes)
                 cell.image = read.pictures[index][position]
                 added.append(cell)
             }

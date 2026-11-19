@@ -47,16 +47,15 @@ for key, value in catalog.items():
     else:
         assert original.count('%') == value.count('%'), key
     assert Counter(re.findall(r'%\{value\d+\}@', original)) == Counter(re.findall(r'%\{value\d+\}@', value)), key
-for key in residual.english_comments():
-    assert catalog[key].isascii(), f'Non-ASCII overlay: {key}'
 
 # German words that are spelled identically to English; these are translations,
 # not English fallback. Technical tokens and UI sample/format strings follow.
 IDENTICAL_GERMAN = set('''April August November September Dilatation Division Erosion Element Engine Filter
-Format Fusion Global Index Info Interpolation Linear Mail Matrix Medium Name Navigation Navigator
+Format Fusion Global Index Info Interpolation Linear Mail Matrix Median Medium Name Navigation Navigator
 Oval Parallel Patient Polygon Port Position Radio Radius Rate Region Renderer Sagittal Schema Score Spline
 Standard Status Syntax System Tag Test Text Threads Upgrade Version Plugins'''.split())
 EXTRA_TECHNICAL = {'3D MIP', '3D MPR', '3D SR', '3D VR', 'BILINEAR', 'Power Crust',
+                  '10 im/s', '60 im/s', '%{value1}@ im/s',  # the cine rate, as it is written in every language
                   'Delaunay', 'Papyrus', 'Soundex', 'JPEG Baseline', 'JPEG Extended', 'RLE', 'HTTPS', 'TLS',
                   'UTF8 (Unicode): ISO_IR 192', 'AcquisitionTime (0008,0032)', 'ContentTime (0008,0033)',
                   'SeriesTime (0008,0031)', 'StudyTime (0008,0030)', 'AETitleValue', 'PortValue',
@@ -66,7 +65,11 @@ EXTRA_TECHNICAL = {'3D MIP', '3D MPR', '3D SR', '3D VR', 'BILINEAR', 'Power Crus
                   'mm:\t\tx:0 y:0 z:0', 'px:\t\tx:0 y:0 z:0',
                   '<< do not localize >>', '<<do not localize window title>>',
                   '<<A disc named %@ and containing %d DICOM files was mounted. THIS STRING IS JUST A PLACEHOLDER, no need to localize it.>>',
-                  'Position: %@ '}
+                  'Position: %@ ',
+                  # The median of an ROI, written over the image: the German word.
+                  'Median: %@%@',
+                  # The line of the one filter of a 3D preset, in its summary: the German word.
+                  'Filter: %@'}
 for key, value in catalog.items():
     original = english.get(key, key)
     if value != original or residual.is_residual(key, original):
@@ -77,6 +80,11 @@ for key, value in catalog.items():
             or value in {'Pages (.pages)', 'Microsoft Word (.doc)', 'TextEdit (.rtf)',
                          'LibreOffice (.odt)', 'Mail.app',
                          'github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS'}), f'Unlisted English: {key}'
+# The two ends of a range are labelled in one language: a word of two letters passes for a token above, and the
+# sheets that export a series read "Von:" over "To:", the log of the transfers "Von" beside "To".
+range_ends = [key for key in ('From:', 'To:', 'From', 'To', 'from:', 'to:', 'to') if key in catalog]
+assert len({catalog[key] == key for key in range_ends}) <= 1, \
+    f'A range has its ends in two languages: {[catalog[key] for key in range_ends]}'
 
 
 def visible_text(node):
@@ -117,4 +125,4 @@ if len(sys.argv) > 1:
     for source in sources:
         if source.parent == RESOURCES / 'en.lproj':
             assert (built / (source.stem + '.nib')).exists(), source.name
-print(f'PASS: German {len(catalog)} entries, live/source coverage, format tokens, ASCII overlays and {len(sources)} XIBs with unchanged wiring')
+print(f'PASS: German {len(catalog)} entries, live/source coverage, format tokens and {len(sources)} XIBs with unchanged wiring')

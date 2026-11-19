@@ -332,6 +332,8 @@ public class DCMView: NSView {
     @objc(horos_studyDateBox) final var studyDateAnnotationBox: AnnotationBox!
     @objc(horos_showDescriptionInLargeText) final var largeDescriptionBox: AnnotationBox!
     @objc final var horos_recordAnnotationRects = false
+    /// The orientation letters and the notices drawn in the frame being drawn, which the side lines keep away from.
+    final var frameOrientationCommands: [AnnotationOverlayLayout.Command] = []
     @objc final var horos_rectArray: NSMutableArray!
     @objc final var horos_stringSize = NSSize.zero
     @objc final var horos_labelFont: NSFont!, horos_fontGL: NSFont!

@@ -239,7 +239,9 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
     (folder / "bridging.h").write_text(BRIDGING)
     # NSWindow+N2.swift: the compression sheet ends through -orderOutAndEndSheet(returnCode:).
     # PaneCatalogTranslation.swift: the pane loads its nib through instantiatePaneNib.
+    # WindowNibCatalog.swift: the manager loads its window through loadWindowReadingCatalog.
     pane = swift_dylib([PANE_SOURCE, ROI_SOURCE, ROOT / "Horos/Sources/MainActorCallbacks.swift",
+                        ROOT / "Horos/Sources/WindowNibCatalog.swift",
                         ROOT / "Nitrogen/Sources/NSWindow+N2.swift", ROOT / "Preference Panes/PaneCatalogTranslation.swift",
                         ROOT / "Horos/Sources/DefaultPreferences+Application.swift"], helpers, app / "MacOS/libOSIGeneralPreferencePanePref.dylib",
                        bridging_header=folder / "bridging.h",
@@ -249,7 +251,8 @@ with tempfile.TemporaryDirectory(prefix="horos-table-sliders-") as folder:
                        flags=isix_modules.module_flags("IsiXPreferences", folder / "modules",
                                                        ("-target", "arm64-apple-macos26.0")))
     executable = link_probe(source, objects + [pane], app / "MacOS/TableSliders", frameworks=("Cocoa", "PreferencePanes"))
-    for roi_locale, prefs_locale in (("en", "Base"), ("ja-JP", "ja-JP")):
+    # Japanese has a copy of the pane's nib and none of the manager's: the English one loads there.
+    for roi_locale, prefs_locale in (("en", "Base"), ("en", "ja-JP")):
         for nib, path in (
             ("ROIVolumeManager", ROOT / f"Horos/Resources/{roi_locale}.lproj/ROIVolumeManager.xib"),
             ("OSIGeneralPreferencePanePref", ROOT / f"Preference Panes/OSIGeneralPreferencePane/{prefs_locale}.lproj/OSIGeneralPreferencePanePref.xib"),

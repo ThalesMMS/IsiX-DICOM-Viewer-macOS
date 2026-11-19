@@ -85,6 +85,7 @@ residual = module('ru_residual', 'host-localization-residual.py')
 # Extra interface-only technical tokens; shared residual-contract integration is pending.
 UI_TECHNICAL = {' (TLS)', 'DatabaseAlbums.albums', '3D MIP', '3D SR', 'AE Title:', 'DICOMCD', 'MainMenu', 'NONE', 'Power Crust', 'REPLICATE', 'Return', 'Soundex', 'WL: WW:', 'YES', 'asdasd', 'asdasdasdqq', 'option return', 'return', 'wado', 
     'RLE', 'JPEG Baseline', 'JPEG Extended', 'AETitle:',  # DICOM's own names
+    '10 im/s', '10 im/s\n', '60 im/s', '%{value1}@ im/s',  # the cine rate, as it is written in every language
     'ContentTime (0008,0033)', 'mm:\t\tx:0 y:0 z:0', 'px:\t\tx:0 y:0 z:0', 'dd/bb/cc',
     'Pages (.pages)', 'AETitle', 'AETitleValue', 'TextEdit (.rtf)', 'WL/WW', 'WL/WW:',
     '3D VR', '3D MPR', 'OsiriX CT - 129', 'Mail.app', 'ROI 1', 'CLUT:', 'TRUEPREDICATE',
@@ -97,8 +98,6 @@ for key, translated in ru.items():
     original = en.get(key, key)
     if translated == original:
         assert key in UI_TECHNICAL or residual.is_residual(key, original), f'Untranslated text: {key!r}'
-for key in residual.english_comments():
-    assert ru[key].isascii(), f'Legacy ASCII overlay: {key!r}'
 paths = list((RESOURCES / 'en.lproj').glob('*.xib'))
 paths += list((ROOT / 'Preference Panes').glob('*/Base.lproj/*.xib'))
 assert {p.name for p in paths} == {p.name for p in TARGET.glob('*.xib')}, 'Missing/stale XIBs'
@@ -116,6 +115,6 @@ if len(sys.argv) > 1:
     bundle = Path(sys.argv[1]) / 'Contents/Resources/ru.lproj'
     assert catalog(bundle / 'Localizable.strings') == ru
     assert all((bundle / path.with_suffix('.nib').name).exists() for path in paths)
-print(f'PASS: {len(ru)} keys, {len(source_keys)} source keys, formats, ASCII overlays, '
+print(f'PASS: {len(ru)} keys, {len(source_keys)} source keys, formats, '
       f'{len(paths)} current XIBs and unchanged actions/outlets/shortcuts'
       + ('; built bundle resources' if len(sys.argv) > 1 else '; bundle/app validation pending'))

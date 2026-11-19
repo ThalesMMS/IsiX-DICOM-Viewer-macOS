@@ -98,7 +98,8 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
     }()
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 460),
+        // Wide enough for the nine columns of the list, 996 points with their spacing, inside its margins.
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1030, height: 460),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = NSLocalizedString("Modality Worklist", comment: "Title of the Modality Worklist window")
         window.minSize = NSSize(width: 560, height: 240)
@@ -160,10 +161,21 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
         table.usesAlternatingRowBackgroundColors = true
         table.allowsMultipleSelection = false
         table.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        // A table made in code has 17 points between its columns, and the list was 1108 points wide for the 960
+        // of its columns: it has the 3 points of the tables of the nibs.
+        table.intercellSpacing = NSSize(width: 3, height: 2)
         table.dataSource = self
         table.delegate = self
         table.autosaveName = "IsiXModalityWorklistTable"
         table.autosaveTableColumns = true
+        // The widths of Column are those of short English headers, and the saved ones were left under the
+        // headers of the language of that day: "Accession Number" needs 103 points and has 100, and
+        // "Регистрационный номер" 141. A column whose header needs more takes the room from the columns that
+        // have some to spare, and no column can be made narrower than its header after that.
+        PaneFit.fitColumns(of: table)
+        for column in table.tableColumns where !column.title.isEmpty {
+            column.minWidth = max(column.minWidth, ceil(column.headerCell.cellSize.width))
+        }
 
         let scroll = NSScrollView(frame: NSRect(x: 14, y: 36, width: bounds.width - 28, height: bounds.height - 36 - 46))
         scroll.documentView = table
@@ -178,6 +190,10 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
         status.autoresizingMask = [.width, .maxYMargin]
 
         for view in [label, dateWindow, spinner, refreshButton, scroll, status] as [NSView] { content.addSubview(view) }
+        // Outside a scroll view a list has the margins of one with no border, 29 points where the bordered one it
+        // becomes has 9, and as it entered its scroll view its last column gave the difference and the 15 points
+        // of a scroller: "Node" had 61 of its 90 points, with room left after it. It takes the room the list has.
+        table.sizeLastColumnToFit()
     }
 
     // MARK: Refresh

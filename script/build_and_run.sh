@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "${1:-}" == --release ]]; then
+  HOROS_DEV_CONFIGURATION=Release
+  shift
+fi
 MODE="${1:-run}"
-case "$MODE" in run|--debug|--logs|--telemetry|--verify|--diagnostics) ;; *) echo "usage: $0 [--debug|--logs|--telemetry|--verify|--diagnostics]" >&2; exit 2;; esac
+case "$MODE" in run|--debug|--logs|--telemetry|--verify|--diagnostics) ;; *) echo "usage: $0 [--release] [--debug|--logs|--telemetry|--verify|--diagnostics]" >&2; exit 2;; esac
 DEV_CONFIGURATION="${HOROS_DEV_CONFIGURATION:-Debug}"
 case "$DEV_CONFIGURATION" in Debug|Release) ;; *) echo "HOROS_DEV_CONFIGURATION must be Debug or Release" >&2; exit 2;; esac
 unset HOROS_DEV_CONFIGURATION
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+  SELECTED_DEVELOPER_DIR="$(/usr/bin/xcode-select -p 2>/dev/null || true)"
+  if [[ -z "$SELECTED_DEVELOPER_DIR" || ! -x "$SELECTED_DEVELOPER_DIR/usr/bin/xcodebuild" ]]; then
+    XCODE_DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    if [[ ! -x "$XCODE_DEVELOPER_DIR/usr/bin/xcodebuild" ]]; then
+      echo "Full Xcode is required. Install it in /Applications or set DEVELOPER_DIR to its Contents/Developer directory." >&2
+      exit 1
+    fi
+    export DEVELOPER_DIR="$XCODE_DEVELOPER_DIR"
+  fi
+fi
 # Each compile task can take more than a gigabyte; xcodebuild's default of one
 # task per core exhausted a 16 GB Mac on a full rebuild.
 BUILD_JOBS="${HOROS_BUILD_JOBS:-4}"

@@ -115,6 +115,31 @@ extension HorosObjCException {
         return result!
     }
 
+    /// `[lock lock]; @try { … } @finally { [lock unlock]; }`: nothing locked
+    /// when `lock` is nil. An exception raised inside is caught, the lock is
+    /// left, and the exception is raised again for the caller. A Swift `defer`
+    /// does not run when an NSException unwinds through it, so a lock other
+    /// threads wait on (PapyrusLock, shared with plugins) is taken here: a
+    /// leaked one hangs every image load behind it.
+    @inline(__always)
+    @discardableResult
+    static func locked<T>(_ lock: NSLocking?, _ body: () -> T) -> T {
+        guard let lock else { return body() }
+        lock.lock()
+        var result: T?
+        let raised = caught { result = body() }
+        lock.unlock()
+        if let raised { raised.raise() }
+        return result!
+    }
+
+    /// locked(_:_:) for a `body` that throws: its error is thrown on once
+    /// the lock is left.
+    static func lockedThrowing<T>(_ lock: NSLocking?, _ body: () throws -> T) throws -> T {
+        let outcome: Result<T, Error> = locked(lock) { Result { try body() } }
+        return try outcome.get()
+    }
+
     /// Runs `body`, whose NSException goes on to the caller: it is caught where
     /// it was raised and raised again here, so that it does not unwind the Swift
     /// frames of `body`.

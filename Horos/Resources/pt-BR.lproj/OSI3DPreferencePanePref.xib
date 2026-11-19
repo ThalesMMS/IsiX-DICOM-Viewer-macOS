@@ -23,7 +23,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="724" height="531"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                 <subviews>
-                    <box title="Melhor botão de renderização" id="298">
+                    <box title="Botão Melhor renderização" id="298">
                         <rect key="frame" x="18" y="435" width="689" height="85"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rLE-2L-VZ6">
@@ -218,7 +218,7 @@
                                 <button id="341">
                                     <rect key="frame" x="14" y="72" width="665" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Se houver múltiplas telas, abra a janela 3D em uma tela diferente do Visualizador 2D." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="368">
+                                    <buttonCell key="cell" type="check" title="Se houver múltiplas telas, abrir a janela 3D em uma tela diferente do Visualizador 2D." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="368">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -240,7 +240,7 @@
                                 <button id="372">
                                     <rect key="frame" x="14" y="32" width="295" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use Spline para ROI de tesoura" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
+                                    <buttonCell key="cell" type="check" title="Usar spline para ROI de tesoura" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

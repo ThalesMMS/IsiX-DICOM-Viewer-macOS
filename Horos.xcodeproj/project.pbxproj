@@ -207,6 +207,7 @@
 		5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001010 /* AutoCleanupPreview.swift */; };
 		5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */; };
 		99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */; };
+		CE0E6E1B23B3461F90A04085 /* WindowNibCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C112A0AD67438BB8F4C28A /* WindowNibCatalog.swift */; };
 		F65A999AAD214A6E85FC1D73 /* WebPortalMailPassword.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0446BBE134A41AC9E2C0F5B /* WebPortalMailPassword.swift */; };
 		FCF33ECB81D74EE7A4309E43 /* WebPortalMailDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CDB85935614404E87487A12 /* WebPortalMailDelivery.swift */; };
 		A6A1B1AE32C14E5AB678391F /* HorosROIStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB213C9788B44DF8563ED4C /* HorosROIStatistics.swift */; };
@@ -781,6 +782,7 @@
 		F7E98C7044B04F9EAAC15419 /* IncomingFolderOnQuit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */; };
 		6E1A7C3F0B2D4E59A8C61298 /* IncomingImportGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */; };
 		A7C3E91D5B2F4086B1D4E6F2 /* OrderlyQuit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D8F02A6E1B4397A5F0B8D3 /* OrderlyQuit.swift */; };
+		E2151B1C5D7F49A2A18C4B6F /* ApplicationRestart.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2151A0B4C6E48F1907B3A5E /* ApplicationRestart.swift */; };
 		D2B6A4C81F3E47590C7A9E15 /* BrowserQuitAgreement.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F1C3B57A2D4608B3C5D7A4 /* BrowserQuitAgreement.swift */; };
 		75DA7190BC6544B9A5D36352 /* PlanarMetal4Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */; };
 		128CE698F7BC430BA73251E3 /* PreviewWindowing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */; };
@@ -943,6 +945,8 @@
 		5F9A0C000000000000002370 /* HorosArchitectureAudit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */; };
 		5F9A0C000000000000002217 /* MPROpenGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C000000000000001217 /* MPROpenGeometry.swift */; };
 		5F9A0C890000000000002001 /* MPRToolbarItemViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */; };
+		5F9A21870000000000002001 /* CompanionPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A21870000000000001001 /* CompanionPanels.swift */; };
+		5F9A22010000000000002001 /* PresetPullDownTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A22010000000000001001 /* PresetPullDownTitle.swift */; };
 		5F9A0C8B0000000000002001 /* ReconstructionCrossDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C8B0000000000001001 /* ReconstructionCrossDrag.swift */; };
 		5F9A0C8C0000000000002001 /* ReconstructionUndoEntries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C8C0000000000001001 /* ReconstructionUndoEntries.swift */; };
 		5F9A0C896000000000002001 /* MPRPositionSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C896000000000001001 /* MPRPositionSync.swift */; };
@@ -2565,7 +2569,6 @@
 		369129295BA4E707FA79F90E /* DCMPix+ROIFill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMPix+ROIFill.swift"; sourceTree = "<group>"; };
 		675E6E5B01179365B4C07BD0 /* DCMPix+ROIMeasure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMPix+ROIMeasure.swift"; sourceTree = "<group>"; };
 		4C12F3F51B9DFFD8979249D7 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = en.lproj/ViewerPanels.xib; sourceTree = "<group>"; };
-		A952D5698B1A41633FEFE343 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ViewerPanels.xib"; sourceTree = "<group>"; };
 		5494948DB0A4AE3E98EC7836 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "pt-BR"; path = "Horos/Resources/pt-BR.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
 		5A598130B8C4264FAA53DB9E /* fr */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "fr"; path = "Horos/Resources/fr.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
 		A7D05E818484874C9C1BE2EC /* de */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "de"; path = "Horos/Resources/de.lproj/ViewerPanels.xib"; sourceTree = SOURCE_ROOT; };
@@ -2624,6 +2627,7 @@
 		5F9A0C000000000000001010 /* AutoCleanupPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AutoCleanupPreview.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationMenuLookup.swift"; sourceTree = "<group>"; };
 		24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RetrieveListenerRequirement.swift"; sourceTree = "<group>"; };
+		40C112A0AD67438BB8F4C28A /* WindowNibCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WindowNibCatalog.swift"; sourceTree = "<group>"; };
 		E0446BBE134A41AC9E2C0F5B /* WebPortalMailPassword.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebPortalMailPassword.swift"; sourceTree = "<group>"; };
 		8CDB85935614404E87487A12 /* WebPortalMailDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebPortalMailDelivery.swift"; sourceTree = "<group>"; };
 		DDB213C9788B44DF8563ED4C /* HorosROIStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HorosROIStatistics.swift"; sourceTree = "<group>"; };
@@ -3194,6 +3198,7 @@
 		1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IncomingFolderOnQuit.swift"; sourceTree = "<group>"; };
 		2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IncomingImportGate.swift"; sourceTree = "<group>"; };
 		C4D8F02A6E1B4397A5F0B8D3 /* OrderlyQuit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OrderlyQuit.swift"; sourceTree = "<group>"; };
+		D2151A0B4C6E48F1907B3A5E /* ApplicationRestart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ApplicationRestart.swift"; sourceTree = "<group>"; };
 		E9F1C3B57A2D4608B3C5D7A4 /* BrowserQuitAgreement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserQuitAgreement.swift"; sourceTree = "<group>"; };
 		1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlanarMetal4Renderer.swift"; sourceTree = "<group>"; };
 		1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PreviewWindowing.swift"; sourceTree = "<group>"; };
@@ -3359,6 +3364,8 @@
 		5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HorosArchitectureAudit.swift"; sourceTree = "<group>"; };
 		5F9A0C000000000000001217 /* MPROpenGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPROpenGeometry.swift"; sourceTree = "<group>"; };
 		5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRToolbarItemViews.swift"; sourceTree = "<group>"; };
+		5F9A21870000000000001001 /* CompanionPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CompanionPanels.swift"; sourceTree = "<group>"; };
+		5F9A22010000000000001001 /* PresetPullDownTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PresetPullDownTitle.swift"; sourceTree = "<group>"; };
 		5F9A0C8B0000000000001001 /* ReconstructionCrossDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReconstructionCrossDrag.swift"; sourceTree = "<group>"; };
 		5F9A0C8C0000000000001001 /* ReconstructionUndoEntries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReconstructionUndoEntries.swift"; sourceTree = "<group>"; };
 		5F9A0C896000000000001001 /* MPRPositionSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MPRPositionSync.swift"; sourceTree = "<group>"; };
@@ -3422,7 +3429,6 @@
 		183C864208563F3A000E6A68 /* Point3D.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Point3D.h; sourceTree = "<group>"; };
 		183C864608563F3A000E6A68 /* SRFlyThruAdapter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SRFlyThruAdapter.h; sourceTree = "<group>"; };
 		183C864808563F3A000E6A68 /* VRFlyThruAdapter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = VRFlyThruAdapter.h; sourceTree = "<group>"; };
-		200BBAF320AA3BCA002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/O2HMigrationAssistant.xib"; sourceTree = "<group>"; };
 		200BBAF420AA3BCA002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OSIPACSOnDemand.xib"; sourceTree = "<group>"; };
 		200BBAF520AA3BCB002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OSIWebSharingPreferencePanePref.xib"; sourceTree = "<group>"; };
 		200BBAF620AA3BCB002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OSIViewerPreferencePanePref.xib"; sourceTree = "<group>"; };
@@ -3439,53 +3445,12 @@
 		200BBB0120AA3BCE002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OSIAutoroutingPreferencePanePref.xib"; sourceTree = "<group>"; };
 		200BBB0220AA3BCE002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OSI3DPreferencePanePref.xib"; sourceTree = "<group>"; };
 		200BBB0320AA3BCE002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AYDicomPrintPref.xib"; sourceTree = "<group>"; };
-		200BBB0520AA3BCF002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/3DPosition.xib"; sourceTree = "<group>"; };
-		200BBB0620AA3BCF002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AnonymizationCustomTagPanel.xib"; sourceTree = "<group>"; };
-		200BBB0720AA3BCF002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AnonymizationPanel.xib"; sourceTree = "<group>"; };
-		200BBB0820AA3BCF002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AnonymizationSavePanel.xib"; sourceTree = "<group>"; };
-		200BBB0920AA3BCF002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AnonymizationTemplateNamePanel.xib"; sourceTree = "<group>"; };
-		200BBB0A20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AnonymizationView.xib"; sourceTree = "<group>"; };
-		200BBB0B20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/AYDicomPrint.xib"; sourceTree = "<group>"; };
-		200BBB0C20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/BurnViewer.xib"; sourceTree = "<group>"; };
-		200BBB0D20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/CalciumScoring.xib"; sourceTree = "<group>"; };
-		200BBB0E20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/CPR.xib"; sourceTree = "<group>"; };
-		200BBB0F20AA3BD0002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/CustomIntervalPanel.xib"; sourceTree = "<group>"; };
-		200BBB1020AA3BD1002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Endoscopy.xib"; sourceTree = "<group>"; };
-		200BBB1120AA3BD1002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/FlyThru.xib"; sourceTree = "<group>"; };
-		200BBB1220AA3BD1002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Histogram.xib"; sourceTree = "<group>"; };
-		200BBB1320AA3BD1002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ICloudDriveDetector.xib"; sourceTree = "<group>"; };
-		200BBB1420AA3BD1002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ITKSegmentation.xib"; sourceTree = "<group>"; };
-		200BBB1520AA3BD2002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/LogWindow.xib"; sourceTree = "<group>"; };
 		200BBB1620AA3BD2002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Loupe.xib"; sourceTree = "<group>"; };
 		200BBB1720AA3BD2002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/MainMenu.xib"; sourceTree = "<group>"; };
-		200BBB1820AA3BD2002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/MPR.xib"; sourceTree = "<group>"; };
-		200BBB1920AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Navigator.xib"; sourceTree = "<group>"; };
-		200BBB1A20AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/OrthogonalMPR.xib"; sourceTree = "<group>"; };
-		200BBB1B20AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/PaletteBrush.xib"; sourceTree = "<group>"; };
-		200BBB1C20AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/PETCT.xib"; sourceTree = "<group>"; };
-		200BBB1D20AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Plot.xib"; sourceTree = "<group>"; };
-		200BBB1E20AA3BD3002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/PluginManager.xib"; sourceTree = "<group>"; };
 		200BBB1F20AA3BD4002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/PreferencesWindow.xib"; sourceTree = "<group>"; };
-		200BBB2020AA3BD4002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Query.xib"; sourceTree = "<group>"; };
-		200BBB2120AA3BD4002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/QuicktimeExport.xib"; sourceTree = "<group>"; };
-		200BBB2220AA3BD4002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ROI.xib"; sourceTree = "<group>"; };
-		200BBB2320AA3BD4002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ROIDefaults.xib"; sourceTree = "<group>"; };
-		200BBB2420AA3BD5002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ROIManager.xib"; sourceTree = "<group>"; };
-		200BBB2520AA3BD5002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ROIVolume.xib"; sourceTree = "<group>"; };
-		200BBB2620AA3BD5002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ROIVolumeManager.xib"; sourceTree = "<group>"; };
-		200BBB2720AA3BD5002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Send.xib"; sourceTree = "<group>"; };
-		200BBB2820AA3BD5002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/SmartAlbum.xib"; sourceTree = "<group>"; };
 		200BBB2920AA3BD6002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Splash.xib"; sourceTree = "<group>"; };
-		200BBB2A20AA3BD6002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/SR.xib"; sourceTree = "<group>"; };
-		200BBB2B20AA3BD6002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ThickSlab.xib"; sourceTree = "<group>"; };
-		200BBB2C20AA3BD6002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ThreadModalForWindow.xib"; sourceTree = "<group>"; };
 		200BBB2D20AA3BD6002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ThumbnailsList.xib"; sourceTree = "<group>"; };
 		200BBB2E20AA3BD7002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/ToolbarPanel.xib"; sourceTree = "<group>"; };
-		200BBB2F20AA3BD7002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Viewer.xib"; sourceTree = "<group>"; };
-		200BBB3020AA3BD7002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/VR.xib"; sourceTree = "<group>"; };
-		200BBB3120AA3BD7002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/Wait.xib"; sourceTree = "<group>"; };
-		200BBB3220AA3BD7002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/WaitRendering.xib"; sourceTree = "<group>"; };
-		200BBB3320AA3BD8002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = "ja-JP"; path = "ja-JP.lproj/XMLViewer.xib"; sourceTree = "<group>"; };
 		200BBB3420AA3BD8002914C4 /* ja-JP */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "ja-JP"; path = "ja-JP.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
@@ -7314,6 +7279,7 @@
 				5F9A0C000000000000001010 /* AutoCleanupPreview.swift */,
 				5F9A0C000000000000001020 /* ApplicationMenuLookup.swift */,
 				24200105551B5A3B9BA97357 /* RetrieveListenerRequirement.swift */,
+				40C112A0AD67438BB8F4C28A /* WindowNibCatalog.swift */,
 				E0446BBE134A41AC9E2C0F5B /* WebPortalMailPassword.swift */,
 				8CDB85935614404E87487A12 /* WebPortalMailDelivery.swift */,
 				DDB213C9788B44DF8563ED4C /* HorosROIStatistics.swift */,
@@ -7882,6 +7848,7 @@
 				1CEE9E5FDEBD4FEEAD43C9CE /* IncomingFolderOnQuit.swift */,
 				2F8D4B6A91C340E7B5D21A07 /* IncomingImportGate.swift */,
 				C4D8F02A6E1B4397A5F0B8D3 /* OrderlyQuit.swift */,
+				D2151A0B4C6E48F1907B3A5E /* ApplicationRestart.swift */,
 				E9F1C3B57A2D4608B3C5D7A4 /* BrowserQuitAgreement.swift */,
 				1514BB20EAE94E9DBB05640A /* PlanarMetal4Renderer.swift */,
 				1AB36C38AE644EAF9826D453 /* PreviewWindowing.swift */,
@@ -8073,6 +8040,8 @@
 				5F9A0C000000000000001370 /* HorosArchitectureAudit.swift */,
 				5F9A0C000000000000001217 /* MPROpenGeometry.swift */,
 				5F9A0C890000000000001001 /* MPRToolbarItemViews.swift */,
+				5F9A21870000000000001001 /* CompanionPanels.swift */,
+				5F9A22010000000000001001 /* PresetPullDownTitle.swift */,
 				5F9A0C8B0000000000001001 /* ReconstructionCrossDrag.swift */,
 				5F9A0C8C0000000000001001 /* ReconstructionUndoEntries.swift */,
 				5F9A0C896000000000001001 /* MPRPositionSync.swift */,
@@ -10383,6 +10352,7 @@
 				5F9A0C000000000000002010 /* AutoCleanupPreview.swift in Sources */,
 				5F9A0C000000000000002020 /* ApplicationMenuLookup.swift in Sources */,
 				99E3A59DBF64555CAB4F65B6 /* RetrieveListenerRequirement.swift in Sources */,
+				CE0E6E1B23B3461F90A04085 /* WindowNibCatalog.swift in Sources */,
 				F65A999AAD214A6E85FC1D73 /* WebPortalMailPassword.swift in Sources */,
 				FCF33ECB81D74EE7A4309E43 /* WebPortalMailDelivery.swift in Sources */,
 				A6A1B1AE32C14E5AB678391F /* HorosROIStatistics.swift in Sources */,
@@ -10951,6 +10921,7 @@
 				F7E98C7044B04F9EAAC15419 /* IncomingFolderOnQuit.swift in Sources */,
 				6E1A7C3F0B2D4E59A8C61298 /* IncomingImportGate.swift in Sources */,
 				A7C3E91D5B2F4086B1D4E6F2 /* OrderlyQuit.swift in Sources */,
+				E2151B1C5D7F49A2A18C4B6F /* ApplicationRestart.swift in Sources */,
 				D2B6A4C81F3E47590C7A9E15 /* BrowserQuitAgreement.swift in Sources */,
 				75DA7190BC6544B9A5D36352 /* PlanarMetal4Renderer.swift in Sources */,
 				128CE698F7BC430BA73251E3 /* PreviewWindowing.swift in Sources */,
@@ -11144,6 +11115,8 @@
 				5F9A0C000000000000002370 /* HorosArchitectureAudit.swift in Sources */,
 				5F9A0C000000000000002217 /* MPROpenGeometry.swift in Sources */,
 				5F9A0C890000000000002001 /* MPRToolbarItemViews.swift in Sources */,
+				5F9A21870000000000002001 /* CompanionPanels.swift in Sources */,
+				5F9A22010000000000002001 /* PresetPullDownTitle.swift in Sources */,
 				5F9A0C8B0000000000002001 /* ReconstructionCrossDrag.swift in Sources */,
 				5F9A0C8C0000000000002001 /* ReconstructionUndoEntries.swift in Sources */,
 				5F9A0C896000000000002001 /* MPRPositionSync.swift in Sources */,
@@ -11445,7 +11418,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				4C12F3F51B9DFFD8979249D7 /* English */,
-				A952D5698B1A41633FEFE343 /* ja-JP */,
 				5494948DB0A4AE3E98EC7836 /* pt-BR */,
 				5A598130B8C4264FAA53DB9E /* fr */,
 				A7D05E818484874C9C1BE2EC /* de */,
@@ -11462,7 +11434,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5926822211CF60BD00CFA81F /* English */,
-				200BBB2C20AA3BD6002914C4 /* ja-JP */,
 				FB5C354FCC36A3D4ABA35BEC /* pt-BR */,
 				C6E9D770E8A8C7C55BE67D72 /* fr */,
 				E9E12A1B956F57F1EB053258 /* de */,
@@ -11479,7 +11450,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5997897211B7B423002DB107 /* English */,
-				200BBB0620AA3BCF002914C4 /* ja-JP */,
 				DA6ED78C4FCB6DBED412DEEC /* pt-BR */,
 				8AC4C8EDE30656524431136F /* fr */,
 				2F6A0207EB83B3344893DCD4 /* de */,
@@ -11496,7 +11466,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5997897411B7B423002DB107 /* English */,
-				200BBB0720AA3BCF002914C4 /* ja-JP */,
 				F2498826C67BB1FB4F83DE59 /* pt-BR */,
 				A04AF8DA3935F55A8D0CC73A /* fr */,
 				13C56A9ABECC403E72B27A37 /* de */,
@@ -11513,7 +11482,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5997897611B7B423002DB107 /* English */,
-				200BBB0820AA3BCF002914C4 /* ja-JP */,
 				956D1A1F57FC4A9539B62E07 /* pt-BR */,
 				51B4D07663589DE9CB41040D /* fr */,
 				FD27784A85A3D1B5596C3DBB /* de */,
@@ -11530,7 +11498,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5997897811B7B423002DB107 /* English */,
-				200BBB0920AA3BCF002914C4 /* ja-JP */,
 				5697FD6F4650D29A5BA8CA42 /* pt-BR */,
 				5582479E10240CB7480FB2F9 /* fr */,
 				B12EBE48BE13CEAE5136DFA6 /* de */,
@@ -11547,7 +11514,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				5997897A11B7B423002DB107 /* English */,
-				200BBB0A20AA3BD0002914C4 /* ja-JP */,
 				42641A914A3166C9C8132C19 /* pt-BR */,
 				D8337A2CD0904F654E3D8A23 /* fr */,
 				94F23B71C2E1E7AD4CE4F068 /* de */,
@@ -11598,7 +11564,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				71E6C0811FB5943B00FF75B6 /* en */,
-				200BBAF320AA3BCA002914C4 /* ja-JP */,
 				E1B687E69EE1248462C307A9 /* pt-BR */,
 				FE1812860EC8092605462B7F /* fr */,
 				7C85BE892D76A50FDB009641 /* de */,
@@ -11616,7 +11581,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				848327AA15ED08F3003BAEEB /* English */,
-				200BBB0F20AA3BD0002914C4 /* ja-JP */,
 				27AF4A784A720752131B5821 /* pt-BR */,
 				FE87895EF7B35E4B347919EB /* fr */,
 				A9A8C0619DB9E7EB09F12A47 /* de */,
@@ -11633,7 +11597,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				9952F26D2020C1010020CCD4 /* en */,
-				200BBB1320AA3BD1002914C4 /* ja-JP */,
 				FFD7EB2570ABE60A828F3C0E /* pt-BR */,
 				7A9F217AC71245E322C79BE3 /* fr */,
 				D268C7CB3E8C6E250665A3B0 /* de */,
@@ -11650,7 +11613,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				A9333D390F56E9670097DAB7 /* English */,
-				200BBB1820AA3BD2002914C4 /* ja-JP */,
 				F1E48B9DD21F3F09C6BEDA88 /* pt-BR */,
 				2E9B263EC133DF7E43DA6D4A /* fr */,
 				6BE7940D6D5CCCB1627DBD91 /* de */,
@@ -11667,7 +11629,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				A987B3E00D5A069200BF89C0 /* English */,
-				200BBB1920AA3BD3002914C4 /* ja-JP */,
 				B289BAA25CBDE97713E6F562 /* pt-BR */,
 				6972952D8567A062D4F2614E /* fr */,
 				A046B99955FC43218FEAFB08 /* de */,
@@ -11720,7 +11681,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE2AC2671830BEFB00C2B67B /* English */,
-				200BBB2B20AA3BD6002914C4 /* ja-JP */,
 				A240C9B75CC62876B314406A /* pt-BR */,
 				8394691FA639372F782D41A6 /* fr */,
 				566F01C855694EA75539E9D9 /* de */,
@@ -11737,7 +11697,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98E50C84724B00CB38F1 /* English */,
-				200BBB2820AA3BD5002914C4 /* ja-JP */,
 				0CAF2195E561E2CC8E638A60 /* pt-BR */,
 				86175511C81B88EB7E56B182 /* fr */,
 				067C1924D25525D79AEA7A7B /* de */,
@@ -11754,7 +11713,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98E70C84724B00CB38F1 /* English */,
-				200BBB2620AA3BD5002914C4 /* ja-JP */,
 				8833B9622BD40BF510DFDB6D /* pt-BR */,
 				EF1BCF90A3E8979B12B74A23 /* fr */,
 				73560B4B2FF4BC0A49D5F2B0 /* de */,
@@ -11771,7 +11729,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98E90C84724B00CB38F1 /* English */,
-				200BBB1C20AA3BD3002914C4 /* ja-JP */,
 				415D020253944EB606A82EDA /* pt-BR */,
 				F73FD34181E0B98EF793B6B4 /* fr */,
 				4467F1EEB6103436688179EB /* de */,
@@ -11788,7 +11745,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98EB0C84724B00CB38F1 /* English */,
-				200BBB1520AA3BD2002914C4 /* ja-JP */,
 				35B2375D65D600BA5399A409 /* pt-BR */,
 				4CB143404DF38080FECAEF4B /* fr */,
 				A23A839CE458C5F6B7D06F95 /* de */,
@@ -11805,7 +11761,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98ED0C84724B00CB38F1 /* English */,
-				200BBB1120AA3BD1002914C4 /* ja-JP */,
 				23402E734B63F314029B5983 /* pt-BR */,
 				0145891B0BFA76F575E0CE0F /* fr */,
 				088AD6E57E864A70F0D2D3C4 /* de */,
@@ -11858,7 +11813,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F98FF0C84724B00CB38F1 /* English */,
-				200BBB2220AA3BD4002914C4 /* ja-JP */,
 				89E45980B037643E54212748 /* pt-BR */,
 				D52118637F2A5B7F0B6EB495 /* fr */,
 				E3E52BEF9661CE4A8605AFA9 /* de */,
@@ -11875,7 +11829,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99010C84724B00CB38F1 /* English */,
-				200BBB0D20AA3BD0002914C4 /* ja-JP */,
 				DE0103A84E085367CF86F712 /* pt-BR */,
 				8DD72DB8BB8689EB710710EA /* fr */,
 				6A7CCC2B250CDFAB4DBAE0E4 /* de */,
@@ -11892,7 +11845,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99030C84724B00CB38F1 /* English */,
-				200BBB2420AA3BD5002914C4 /* ja-JP */,
 				29FF1618C3F7A7B4630295C6 /* pt-BR */,
 				3EBA4E32C020BC084C5D28AC /* fr */,
 				9F8A6EADACCD58D8BD66AF2A /* de */,
@@ -11909,7 +11861,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99050C84724B00CB38F1 /* English */,
-				200BBB2720AA3BD5002914C4 /* ja-JP */,
 				FAB6821EDB72EB6A3AC7CF79 /* pt-BR */,
 				03AA187C58E3AC9E791A3892 /* fr */,
 				99D837AA4DD6EC172C1EDE5F /* de */,
@@ -11926,7 +11877,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99070C84724B00CB38F1 /* English */,
-				200BBB1A20AA3BD3002914C4 /* ja-JP */,
 				745F761FE5DE7335586F460A /* pt-BR */,
 				E864F3F93896FBA9F9E177BB /* fr */,
 				FB5DE34E61C4F6BFDF66CE7A /* de */,
@@ -11943,7 +11893,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F990B0C84724B00CB38F1 /* English */,
-				200BBB1020AA3BD1002914C4 /* ja-JP */,
 				2BB1206BB85B767C93047E66 /* pt-BR */,
 				2A503422F2C2044EE7906E8F /* fr */,
 				94ACE50095B4412D717407EF /* de */,
@@ -11960,7 +11909,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99110C84724B00CB38F1 /* English */,
-				200BBB1420AA3BD1002914C4 /* ja-JP */,
 				066841792B9275E0CD98F2FE /* pt-BR */,
 				76EA79C848C3E5576963AB85 /* fr */,
 				A6B3B1C445B9EC44EB048CCE /* de */,
@@ -11977,7 +11925,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99130C84724B00CB38F1 /* English */,
-				200BBB2020AA3BD4002914C4 /* ja-JP */,
 				8F72CA5EBFC3E8DBA6EB4F1B /* pt-BR */,
 				E99E5A830C128E41BFF3A10E /* fr */,
 				7B8C1966ABA64F00A63F1D5A /* de */,
@@ -11994,7 +11941,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99150C84724B00CB38F1 /* English */,
-				200BBB1220AA3BD1002914C4 /* ja-JP */,
 				C8BF89BD6B17864574E837F1 /* pt-BR */,
 				364BC74B3BFCC4664EE1AD90 /* fr */,
 				6AA418CA3E504AA7D5201562 /* de */,
@@ -12011,7 +11957,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99170C84724B00CB38F1 /* English */,
-				200BBB1E20AA3BD3002914C4 /* ja-JP */,
 				BCCA72A0BDC0FC6E35D7BB49 /* pt-BR */,
 				17CCBF1A2B44ED2D6CDA4495 /* fr */,
 				BD32D08697C77822F7958428 /* de */,
@@ -12028,7 +11973,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F991B0C84724B00CB38F1 /* English */,
-				200BBB3220AA3BD7002914C4 /* ja-JP */,
 				A6EB13D1CB6631F457DC7713 /* pt-BR */,
 				0C199B39EC9B4D0C2B153DD2 /* fr */,
 				9672871A3F1F91ED14F3B75B /* de */,
@@ -12045,7 +11989,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F991D0C84724B00CB38F1 /* English */,
-				200BBB1D20AA3BD3002914C4 /* ja-JP */,
 				54FF0C04BC358AFE0CE6A198 /* pt-BR */,
 				32CAFFBB2FEFA9AC3623CD2D /* fr */,
 				211DB42166B38F85EC8B6BE1 /* de */,
@@ -12062,7 +12005,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F991F0C84724B00CB38F1 /* English */,
-				200BBB2520AA3BD5002914C4 /* ja-JP */,
 				AF6D358989A5A62825474631 /* pt-BR */,
 				C6E28F2843CCB61CACA5C1A3 /* fr */,
 				CFC162FDBF52C3CF23413824 /* de */,
@@ -12079,7 +12021,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99270C84724B00CB38F1 /* English */,
-				200BBB1B20AA3BD3002914C4 /* ja-JP */,
 				58C2469BB999E90460A1F0BD /* pt-BR */,
 				54C4A89BBB8E3608A02F4B67 /* fr */,
 				782E5A8EC4102C323B3841C3 /* de */,
@@ -12096,7 +12037,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F992D0C84724B00CB38F1 /* English */,
-				200BBB0C20AA3BD0002914C4 /* ja-JP */,
 				299017C93BB77B41CF6CBE4C /* pt-BR */,
 				B387F4DF1DEC6C1D87AB3C98 /* fr */,
 				548061798C8EF91AA4866FC3 /* de */,
@@ -12113,7 +12053,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F992F0C84724B00CB38F1 /* English */,
-				200BBB2320AA3BD4002914C4 /* ja-JP */,
 				57099FA0B376BD552AEC4628 /* pt-BR */,
 				A3E1C7339E72BB399BC0D2BA /* fr */,
 				7EA0C2BAED60E8CC23527340 /* de */,
@@ -12130,7 +12069,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99310C84724B00CB38F1 /* English */,
-				200BBB3020AA3BD7002914C4 /* ja-JP */,
 				6623B9A196804F0ACBFAE604 /* pt-BR */,
 				57A07DEC05B8FD3679493E46 /* fr */,
 				772EFA3D1A648780420A8E36 /* de */,
@@ -12147,7 +12085,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99330C84724B00CB38F1 /* English */,
-				200BBB2120AA3BD4002914C4 /* ja-JP */,
 				4C4200C0354F75CE5862C46D /* pt-BR */,
 				4FC8A3191445C6A03593CDD4 /* fr */,
 				ED7FC893DD267FF38E38FAC0 /* de */,
@@ -12164,7 +12101,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99350C84724B00CB38F1 /* English */,
-				200BBB2A20AA3BD6002914C4 /* ja-JP */,
 				C382B7FA7B92752E0B13EDF1 /* pt-BR */,
 				7D2BD26F4305D090274AC964 /* fr */,
 				7A932361737A390B88E8A74D /* de */,
@@ -12181,7 +12117,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99370C84724B00CB38F1 /* English */,
-				200BBB2F20AA3BD7002914C4 /* ja-JP */,
 				262FC43EDDD279407A12DB80 /* pt-BR */,
 				2C63A698E2FCD92451E182C7 /* fr */,
 				871EF256566D1E1453830761 /* de */,
@@ -12217,7 +12152,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F993B0C84724B00CB38F1 /* English */,
-				200BBB3120AA3BD7002914C4 /* ja-JP */,
 				69F806B2F9D43D4A2D766548 /* pt-BR */,
 				EEDEEB93B90D98863BFD0C36 /* fr */,
 				8AAE8F04C8E485D4A3C70B82 /* de */,
@@ -12234,7 +12168,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F993F0C84724B00CB38F1 /* English */,
-				200BBB3320AA3BD8002914C4 /* ja-JP */,
 				39F0D5AECEB92B8DE5EE05B8 /* pt-BR */,
 				E28654648AF8B994780F6131 /* fr */,
 				231578441DC1CB6E3073261B /* de */,
@@ -12251,7 +12184,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE3F99410C84724B00CB38F1 /* English */,
-				200BBB0B20AA3BD0002914C4 /* ja-JP */,
 				E8AB5218F116DFF6138FD81C /* pt-BR */,
 				C881E5AA1E532A49BEF1E8DE /* fr */,
 				1099186E92D16AD0B72A9AA5 /* de */,
@@ -12268,7 +12200,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE40ED580D86D634007C6D49 /* English */,
-				200BBB0520AA3BCF002914C4 /* ja-JP */,
 				630FB5ACD19B71D1E2D6380C /* pt-BR */,
 				0221FBED0E69677490458B47 /* fr */,
 				10DF5042E53B7C4E1DA40382 /* de */,
@@ -12285,7 +12216,6 @@
 			isa = PBXVariantGroup;
 			children = (
 				CE90551712F5B68100263AB6 /* English */,
-				200BBB0E20AA3BD0002914C4 /* ja-JP */,
 				50D5D5DAE9BAC9530CAD936D /* pt-BR */,
 				1D4092872EB89626D4324F15 /* fr */,
 				BD33434E3C46F3C9C555C48A /* de */,

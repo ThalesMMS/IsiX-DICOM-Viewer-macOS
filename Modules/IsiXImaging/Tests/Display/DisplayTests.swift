@@ -112,6 +112,49 @@ struct ThumbnailIconTests {
 }
 
 struct ThickSlabReductionTests {
+    @Test func aSlabIsReducedWhereItsSlicesAreIntoABufferOfItsOwn() {
+        // 1000 pixels of five slices whose values are not integers, shared out among workers that do not divide them.
+        let count = 1000
+        let slices: [[Float]] = (0..<5).map { z in (0..<count).map { Float($0 % 37) * 0.3 - Float(z) * 1.7 + Float(($0 * (z + 3)) % 11) / 7 } }
+        let before = slices
+        for mode in [ThickSlabReduction.mean, ThickSlabReduction.maximum, ThickSlabReduction.minimum] {
+            for others in [[1], [1, 2, 3, 4], [4, 2]] {
+                // What computeThickSlab does: the current image copied, folded with the others in order, the mean divided.
+                var expected = slices[0]
+                expected.withUnsafeMutableBufferPointer { result in
+                    for other in others {
+                        slices[other].withUnsafeBufferPointer {
+                            ThickSlabReduction.fold(into: result.baseAddress!, count: count, slices: [$0.baseAddress!], mode: mode, workers: 1)
+                        }
+                    }
+                    if mode == ThickSlabReduction.mean { ThickSlabReduction.divide(result.baseAddress!, count: count, by: Float(others.count + 1)) }
+                }
+                var pointers: [UnsafeMutablePointer<Float>] = []
+                for slice in slices {
+                    let pointer = UnsafeMutablePointer<Float>.allocate(capacity: count)
+                    pointer.update(from: slice, count: count)
+                    pointers.append(pointer)
+                }
+                let read: [UnsafePointer<Float>] = others.map { (index: Int) in UnsafePointer<Float>(pointers[index]) }
+                let reduced = ThickSlabReduction.slab(of: UnsafePointer<Float>(pointers[0]), count: count, slices: read, mode: mode, workers: 7)
+                #expect(reduced.length == count * MemoryLayout<Float>.size)
+                let made = [Float](UnsafeBufferPointer(start: reduced.bytes.assumingMemoryBound(to: Float.self), count: count))
+                #expect(made.map { $0.bitPattern } == expected.map { $0.bitPattern }, "mode \(mode), slices \(others)")
+                // The slices are read, never written.
+                for (pointer, slice) in zip(pointers, before) {
+                    #expect([Float](UnsafeBufferPointer(start: pointer, count: count)) == slice)
+                    pointer.deallocate()
+                }
+            }
+        }
+        // No other slice: the image itself, in a buffer of its own.
+        var alone: [Float] = [3, -1, 0.5]
+        let copy: NSData = alone.withUnsafeMutableBufferPointer { buffer in
+            ThickSlabReduction.slab(of: UnsafePointer<Float>(buffer.baseAddress!), count: 3, slices: [], mode: 1, workers: 4)
+        }
+        #expect([Float](UnsafeBufferPointer(start: copy.bytes.assumingMemoryBound(to: Float.self), count: 3)) == [3, -1, 0.5])
+    }
+
     @Test func slicesAreFoldedByMode() {
         let a: [Float] = [1, 5, 3], b: [Float] = [4, 2, 6]
         for (mode, expected) in [(ThickSlabReduction.maximum, [Float](arrayLiteral: 4, 5, 6)), (ThickSlabReduction.minimum, [1, 2, 3]),

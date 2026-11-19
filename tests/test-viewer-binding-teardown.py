@@ -29,7 +29,8 @@ expected = {
 # sheets loaded on demand with the same owner. Those inbound bindings are what
 # AppKit tears down through NSAutounbinder after the controller is already gone.
 found = {}
-for folder in (root / 'Horos/Resources/en.lproj', root / 'Horos/Resources/ja-JP.lproj'):
+# Every language that has a copy of the two nibs; the others load the English ones.
+for folder in sorted(xib.parent for xib in (root / 'Horos/Resources').glob('*.lproj/ViewerPanels.xib')):
     keys = set()
     for xib in (folder / 'Viewer.xib', folder / 'ViewerPanels.xib'):
         keys |= set(re.findall(

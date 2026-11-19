@@ -274,6 +274,12 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         didChangeValue(forKey: "volumes")
     }
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override func windowDidLoad() {
         super.windowDidLoad()
         NSLog("BurnViewer did load")

@@ -39,13 +39,14 @@ window = source_text('ToolBarNSWindow')
 assert '@objc(_hasActiveAppearance)' in window, 'the panel must report the viewer key state for drawing'
 assert 'override var isKeyWindow' not in window, 'isKeyWindow does not change the drawing on macOS 26'
 
-for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib', root / 'Horos/Resources/ja-JP.lproj/Viewer.xib'):
+# Japanese has no copy of the viewer's nib: the English one loads there.
+for xib in (root / 'Horos/Resources/en.lproj/Viewer.xib',):
     text = xib.read_text()
     assert 'customClass="HorosImageNavigationSlider"' in text and 'id="11"' in text, f'{xib}: viewport slider is not the navigation bar'
 
 # The 3D MPR's toolbar sliders (LOD, Thick Slab, movie rate and position,
 # Fusion) would otherwise draw as the stock macOS 26 slider.
-for xib in (root / 'Horos/Resources/en.lproj/MPR.xib', root / 'Horos/Resources/ja-JP.lproj/MPR.xib'):
+for xib in (root / 'Horos/Resources/en.lproj/MPR.xib',):
     text = xib.read_text()
     for slider in ('653', '663', '846', '847', '859'):
         tag = next(line for line in text.splitlines() if '<slider ' in line and f'id="{slider}"' in line)
@@ -62,7 +63,7 @@ toolbar_sliders = {
     'OrthogonalMPR.xib': ('145', '279', '281'),
 }
 for name, sliders in toolbar_sliders.items():
-    for language in ('en', 'ja-JP'):
+    for language in ('en',):
         xib = root / 'Horos/Resources' / f'{language}.lproj' / name
         lines = xib.read_text().splitlines()
         for slider in sliders:

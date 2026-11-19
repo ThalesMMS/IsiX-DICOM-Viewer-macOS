@@ -86,7 +86,15 @@ final class HorosFormView: NSView {
         field.removeFromSuperview()
         layoutRows()
     }
-    func sizeToCells() { setFrameSize(NSSize(width: frame.width, height: CGFloat(fields.count) * (rowHeight + rowSpacing) - (fields.isEmpty ? 0 : rowSpacing))) }
+    /// The height the rows of the form take, with the space between them.
+    var heightOfRows: CGFloat { CGFloat(fields.count) * (rowHeight + rowSpacing) - (fields.isEmpty ? 0 : rowSpacing) }
+    /// The constraint a nib gives the form for a height of its own, if it
+    /// lays the form out with constraints. Its constant follows the rows:
+    /// the form has no intrinsic height.
+    var heightConstraint: NSLayoutConstraint? {
+        constraints.first { $0.firstItem === self && $0.firstAttribute == .height && $0.secondItem == nil && $0.relation == .equal }
+    }
+    func sizeToCells() { setFrameSize(NSSize(width: frame.width, height: heightOfRows)) }
     override func resizeSubviews(withOldSize oldSize: NSSize) { super.resizeSubviews(withOldSize: oldSize); layoutRows() }
     fileprivate func layoutRows() {
         let controls = fields

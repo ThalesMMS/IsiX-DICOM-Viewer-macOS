@@ -240,7 +240,7 @@
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Lgc-im-Sep"/>
-                                        <menuItem title="Importer les études de Horos ou OsiriX…" id="Lgc-im-Itm">
+                                        <menuItem title="Importer les examens de Horos ou OsiriX…" id="Lgc-im-Itm">
                                             <connections>
                                                 <action selector="importStudiesFromEarlierApplication:" target="Isp-im-Obj" id="Lgc-im-Act"/>
                                             </connections>
@@ -506,7 +506,7 @@
                             <menuItem isSeparatorItem="YES" id="14756">
                                 <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                             </menuItem>
-                            <menuItem title="Avorter les processus entrants DICOM (Store-SCU)" tag="1" keyEquivalent="a" id="13793">
+                            <menuItem title="Abandonner les processus DICOM entrants (Store-SCU)" tag="1" keyEquivalent="a" id="13793">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>
                                     <action selector="killAllStoreSCU:" target="694" id="13797"/>
@@ -704,7 +704,7 @@
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13317"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="-&gt; RGB" tag="3" id="13316">
+                                        <menuItem title="BW -&gt; RGB" tag="3" id="13316">
                                             <connections>
                                                 <action selector="ConvertToRGBMenu:" target="-1" id="13320"/>
                                             </connections>
@@ -986,7 +986,7 @@
                                                             </binding>
                                                         </connections>
                                                     </menuItem>
-                                                    <menuItem title="ROIs" id="Prp-ro-Itm">
+                                                    <menuItem title="ROI" id="Prp-ro-Itm">
                                                         <modifierMask key="keyEquivalentModifierMask"/>
                                                         <connections>
                                                             <binding destination="12279" name="enabled" keyPath="values.COPYSETTINGS" id="Pro-en-Bnd"/>
@@ -1567,7 +1567,7 @@
                                     <action selector="mprViewer:" target="-1" id="13762"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="MPR curviligne 3D" image="MPR" tag="1" id="13754">
+                            <menuItem title="MPR courbe 3D" image="MPR" tag="1" id="13754">
                                 <connections>
                                     <action selector="cprViewer:" target="-1" id="14189"/>
                                 </connections>
@@ -1669,9 +1669,9 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Trajectoire curviligne 3D" id="14464">
+                            <menuItem title="Trajectoire courbe 3D" id="14464">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Trajectoire curviligne 3D" id="14465">
+                                <menu key="submenu" title="Trajectoire courbe 3D" id="14465">
                                     <items>
                                         <menuItem title="Charger depuis un fichier..." id="14467">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -1743,7 +1743,7 @@
                                     <action selector="roiSaveSeries:" target="-1" id="13659"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Exporter les ROIs en CSV…" id="Rcv-ex-Itm">
+                            <menuItem title="Exporter les ROI en CSV…" id="Rcv-ex-Itm">
                                 <connections>
                                     <action selector="roiExportCSV:" target="Vsc-cm-Obj" id="Rcv-ex-Act"/>
                                 </connections>
@@ -1999,7 +1999,7 @@
                                                 <action selector="roiPropagateSetup:" target="-1" id="1437"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Propager la ROI sélectionnée dans la dalle épaisse actuelle" keyEquivalent="s" id="1644">
+                                        <menuItem title="Propager la ROI sélectionnée dans la coupe épaisse actuelle" keyEquivalent="s" id="1644">
                                             <modifierMask key="keyEquivalentModifierMask" control="YES"/>
                                             <connections>
                                                 <action selector="roiPropagateSlab:" target="-1" id="1648"/>
@@ -2418,23 +2418,23 @@ Gw
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="Échelle de 8 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="11458">
+                            <buttonCell type="radio" title="Niveaux de gris 8 bits" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="11458">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bits non signé gris échelle petit Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
+                            <buttonCell type="radio" title="Gris 16 bits non signé, little endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="11459">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bits signé graysscale petit Endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
+                            <buttonCell type="radio" title="Gris 16 bits signé, little endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="3" inset="2" id="11460">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bits non signé graysscale grand endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
+                            <buttonCell type="radio" title="Gris 16 bits non signé, big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="4" inset="2" id="11461">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
-                            <buttonCell type="radio" title="16 bits signés gris grand endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
+                            <buttonCell type="radio" title="Gris 16 bits signé, big endian" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="5" inset="2" id="11462">
                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                 <font key="font" metaFont="system"/>
                             </buttonCell>
@@ -2644,7 +2644,7 @@ Gw
                 <button horizontalCompressionResistancePriority="1000" id="13824">
                     <rect key="frame" x="6" y="4" width="60" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="check" title="Sonex" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
+                    <buttonCell key="cell" type="check" title="Soundex" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="mini" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="13825">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="miniSystem"/>
                     </buttonCell>
@@ -4335,7 +4335,7 @@ Gw
                                 <buttonCell type="radio" title="Reconstruction complète" imagePosition="left" alignment="left" controlSize="small" inset="2" id="14385">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
-                                    <string key="toolTip">L'indice SQL sera supprimé. IsiX DICOM Viewer importera ensuite tous les fichiers disponibles dans le dossier DATABASE. Tous les fichiers « liés », qui n'étaient pas dans le dossier DATABASE, ne seront PAS réimportés.</string>
+                                    <string key="toolTip">L'index SQL sera supprimé. IsiX DICOM Viewer importera ensuite tous les fichiers disponibles dans le dossier DATABASE. Tous les fichiers « liés », qui n'étaient pas dans le dossier DATABASE, ne seront PAS réimportés.</string>
                                 </buttonCell>
                                 <buttonCell type="radio" title="Réimporter les fichiers DICOM et nettoyer" imagePosition="left" alignment="left" controlSize="small" state="on" tag="1" inset="2" id="14384">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -4740,7 +4740,7 @@ Gw
                                                                     <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                                 </tableColumn>
                                                                 <tableColumn identifier="date" editable="NO" width="130" minWidth="130" maxWidth="180" id="960">
-                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Date d’acquisition">
+                                                                    <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Acquis le">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                         <color key="backgroundColor" white="0.33333298560000002" alpha="1" colorSpace="calibratedWhite"/>
@@ -5215,8 +5215,8 @@ Gw
                                         </connections>
                                     </button>
                                     <textField verticalHuggingPriority="750" allowsCharacterPickerTouchBarItem="YES" id="14357">
-                                        <rect key="frame" x="27" y="3" width="406" height="14"/>
-                                        <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxX="YES"/>
+                                        <rect key="frame" x="27" y="3" width="400" height="14"/>
+                                        <autoresizingMask key="autoresizingMask" widthSizable="YES"/>
                                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Informations sur la base de données" id="14358">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" red="0.20000000300000001" green="0.20000000300000001" blue="0.20000000300000001" alpha="1" colorSpace="calibratedRGB"/>

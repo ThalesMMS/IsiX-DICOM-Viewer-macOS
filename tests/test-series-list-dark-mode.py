@@ -7,6 +7,17 @@ the system's text colour: light text on a light fill in the dark appearance.
 HorosSeriesListColors gives each a dark shade there and keeps the pastels in
 the light appearance.
 
+A viewer whose study is a previous one of the patient has an orange frame, and
+the series it shows had the blue fill of the current study. Their fill is now
+an orange made from the colour of a previous study as the blue was from that
+of the current one: the same hue, and the share of its saturation and of its
+brightness the blue has of its own. The frame of the study is stroked on the
+fill in the same hue, so their lightness is measured apart, as for the blue.
+An orange frame is itself lighter than a blue one: in the light appearance
+even a white fill would leave it at 1.97 where the blue has 2.06, so the pale
+orange is held to 1.7 there, and to the blue's 2.0 in the dark appearance. The
+presenter takes the fill from the study the frame's rule gives the window.
+
 The colours are compiled from the source and resolved in both appearances. The
 cell paints them at 75% over the window's background, and the title must keep a
 contrast of at least 4.5:1 against that blend. The wiring in the viewer and the
@@ -41,7 +52,8 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
     appearance.performAsCurrentDrawingAppearance {
         let window = NSColor.windowBackgroundColor.usingColorSpace(.sRGB)!
         let label = over(NSColor.labelColor.usingColorSpace(.sRGB)!, NSColor.labelColor.usingColorSpace(.sRGB)!.alphaComponent, window)
-        for (what, color) in [("shown", SeriesListColors.shown), ("fused", SeriesListColors.fused), ("other study", SeriesListColors.otherStudy)] {
+        for (what, color) in [("shown", SeriesListColors.shown), ("shown, previous study", SeriesListColors.shownPrevious),
+                              ("fused", SeriesListColors.fused), ("other study", SeriesListColors.otherStudy)] {
             let fill = over(color.usingColorSpace(.sRGB)!, 0.75, window)
             let (a, b) = (luminance(fill), luminance(label))
             let ratio = (max(a, b) + 0.05) / (min(a, b) + 0.05)
@@ -60,6 +72,35 @@ for name in [NSAppearance.Name.aqua, .darkAqua] {
         let apart = (max(a, b) + 0.05) / (min(a, b) + 0.05)
         print(String(format: "%@ shown against the frame of its study: %.2f", name.rawValue, apart))
         if apart < 2.0 { failed = true }
+
+        // The series shown of a previous study: the orange of that study, as
+        // a tint, under the orange frame.
+        let previous = SeriesListColors.shownPrevious.usingColorSpace(.sRGB)!
+        if !(previous.redComponent > previous.greenComponent && previous.greenComponent > previous.blueComponent) {
+            print("\(name.rawValue) shown of a previous study is not an orange"); failed = true
+        }
+        let previousFrame = NSColor(calibratedRed: 1.00, green: 0.58, blue: 0.12, alpha: 1).usingColorSpace(.sRGB)!
+        let (c, d) = (luminance(over(previous, 0.75, window)), luminance(previousFrame))
+        let previousApart = (max(c, d) + 0.05) / (min(c, d) + 0.05)
+        print(String(format: "%@ shown of a previous study against the frame of its study: %.2f", name.rawValue, previousApart))
+        // The orange frame is lighter than the blue one: on a light fill it cannot be as far from it.
+        if previousApart < (name == .aqua ? 1.7 : 2.0) { failed = true }
+        // Made from its study's colour as the blue is from its own: the hue
+        // kept, the same share of the saturation and of the brightness.
+        func shares(_ tint: NSColor, of study: NSColor) -> (hue: CGFloat, saturation: CGFloat, brightness: CGFloat) {
+            var (h, s, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+            var (sh, ss, sb): (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
+            tint.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+            study.getHue(&sh, saturation: &ss, brightness: &sb, alpha: &a)
+            return (abs(h - sh) * 360, s / ss, b / sb)
+        }
+        let (blue, orange) = (shares(shown, of: frame), shares(previous, of: previousFrame))
+        print(String(format: "%@ shares of saturation and brightness: blue %.2f %.2f, orange %.2f %.2f", name.rawValue,
+                     blue.saturation, blue.brightness, orange.saturation, orange.brightness))
+        if orange.hue > 6 || abs(orange.saturation - blue.saturation) > 0.05 || abs(orange.brightness - blue.brightness) > 0.05 {
+            print("\(name.rawValue) the orange is not made from its study's colour as the blue is"); failed = true
+        }
+        if previous == shown { print("\(name.rawValue) a previous study has the fill of the current one"); failed = true }
     }
 }
 let dark = SeriesListColors.shown.usingColorSpace(.sRGB)!
@@ -81,7 +122,8 @@ with tempfile.TemporaryDirectory(prefix='horos-series-colors-') as directory:
         run = subprocess.run([str(work / 'contrast')], capture_output=True, text=True, timeout=60)
         print(run.stdout.strip())
         if run.returncode:
-            failures.append('a title is below 4.5:1 on its background, or the series shown is not a blue the frame stands out on\n' + run.stderr[-800:])
+            failures.append('a title is below 4.5:1 on its background, or the series shown is not a blue, or an orange for a previous study, '
+                            'the frame stands out on\n' + run.stderr[-800:])
 
 if '- (void) buildMatrixPreview: (BOOL) showSelected' in viewer:
     for gone in ('_fusionedItemColor', '_differentStudyColor'):
@@ -114,10 +156,21 @@ else:
         fixed = [line for line in fills if not line.endswith('backgroundColor = nil') and 'backgroundColor = Self.color(of: ' not in line]
         tints = presenter[presenter.index('private static func color(of tint: SeriesListModel.Tint)'):]
         tints = tints[:tints.index('\n    }\n')]
-        for tint, colour in (('none', 'nil'), ('otherStudy', 'SeriesListColors.otherStudy'), ('shown', 'SeriesListColors.shown'),
-                             ('fused', 'SeriesListColors.fused')):
+        for tint, colour in (('none', 'nil'), ('otherStudy', 'SeriesListColors.otherStudy'), ('shown(.current)', 'SeriesListColors.shown'),
+                             ('shown(.previous)', 'SeriesListColors.shownPrevious'), ('fused', 'SeriesListColors.fused')):
             if 'case .%s: return %s' % (tint, colour) not in tints:
                 fixed.append('the tint %s is not %s' % (tint, colour))
+        # The study of the fill is the one the frame's rule gives the window:
+        # the list's model is told it, and tints the series shown by it.
+        study = presenter[presenter.index('static func windowStudy(of viewer: ViewerController) -> SeriesIdentity.Study {'):]
+        study = study[:study.index('\n    }\n')]
+        if 'WindowFrameRule.frame(' not in study or 'SeriesListIdentification.study(of: viewer)' not in study:
+            fixed.append('the fill of the series shown does not take its study from the rule of the frame')
+        if 'countedCells: countedCells, windowStudy: Self.windowStudy(of: viewer))' not in presenter:
+            fixed.append("the list's model is not told the study of the window")
+        model = (root / 'Modules/IsiXImaging/Sources/ViewerSeriesList/SeriesListModel.swift').read_text()
+        if 'if series.isShown { return .shown(windowStudy) }' not in model:
+            fixed.append("the list's model does not tint the series shown by the study of the window")
         # The cell resets, the study, its hidden series, the series and its
         # colour, the placeholder.
         least = 6
@@ -131,7 +184,19 @@ else:
         popup = menu[menu.index('private func fill(_ menu: NSMenu?, from model: SeriesMenuModel'):menu.index('private func newItem()')]
     else:
         popup = menu[menu.index('func buildSeriesPopup()'):menu.index('func loadSelectedSeries(')]
-    menu_colours = 'attributes[.backgroundColor] = SeriesListColors.shown' in popup and 'attributes[.backgroundColor] = SeriesListColors.fused' in popup
+    menu_colours = 'attributes[.backgroundColor] = SeriesListColors.shown\n' in popup and 'attributes[.backgroundColor] = SeriesListColors.fused' in popup
+    if presenter and 'private func fill(_ menu: NSMenu?, from model: SeriesMenuModel' in menu:
+        # The series the viewer shows have in the menu the colour they have
+        # in the list: the menu's model is told the study of the window by
+        # the list's own rule, and highlights the series shown by it.
+        for highlight, colour in (('current', 'shown'), ('previous', 'shownPrevious')):
+            if 'case .shown(.%s):\n                    attributes[.backgroundColor] = SeriesListColors.%s\n' % (highlight, colour) not in popup:
+                menu_colours = False
+        if 'SeriesMenuModel(studies: read.studies, windowStudy: SeriesListPresenter.windowStudy(of: viewer))' not in menu:
+            failures.append("the series menu's model is not told the study of the window by the rule of the list")
+        menu_model = (root / 'Modules/IsiXImaging/Sources/ViewerSeriesList/SeriesMenuModel.swift').read_text()
+        if 'if series.isShown { return .shown(windowStudy) }' not in menu_model:
+            failures.append("the series menu's model does not highlight the series shown by the study of the window")
 if fixed or len(fills) < least:
     failures.append('the series list cells do not all take the appearance\'s colours: %r' % fixed)
 if not menu_colours:

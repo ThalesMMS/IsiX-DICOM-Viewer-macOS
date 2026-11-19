@@ -2,7 +2,10 @@
 """The endoscopy's 2D WL/WW item and the Path Assistant's retry.
 
 1. The toolbar item of the MPR (2D) WL/WW view set usesItemFromMenu on the 3D
-   popup, the VR controller's, and never on its own, wlww2DPopup.
+   popup, the VR controller's, and never on its own, wlww2DPopup. Each item
+   now has the title of its own popup shown (PresetPullDownTitle.show(on:),
+   which tells the cell what to draw: the menu's item, or the name cut in the
+   middle when it does not fit).
 2. -pathAssistantSetPointB:, when the distance transform had not finished,
    asked the assistant again for up to ten seconds; a path it found then
    (err == 0) was neither drawn in the MPR views nor looked at by the camera.
@@ -56,12 +59,12 @@ item_2d = block(viewer, 'itemIdent.rawValue == WLWW2DToolbarItemIdentifier {')
 item_3d = block(viewer, 'itemIdent.rawValue == WLWW3DToolbarItemIdentifier {')
 if not item_2d or not item_3d:
     failures.append('the WLWW2D or WLWW3D toolbar item is missing')
-if '(wlww2DPopup?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true' not in item_2d:
-    failures.append('the WLWW2D item does not set usesItemFromMenu on the 2D popup')
+if 'PresetPullDownTitle.show(on: wlww2DPopup)' not in item_2d:
+    failures.append('the WLWW2D item does not have the title of the 2D popup shown')
 if 'vrController?.wlwwPopup()' in item_2d:
     failures.append('the WLWW2D item changes the 3D popup')
-if '(vrController?.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true' not in item_3d:
-    failures.append('the WLWW3D item no longer sets usesItemFromMenu on the 3D popup')
+if 'PresetPullDownTitle.show(on: vrController?.wlwwPopup())' not in item_3d:
+    failures.append('the WLWW3D item no longer has the title of the 3D popup shown')
 
 # 2. The retry of -pathAssistantSetPointB:.
 point_b = block(viewer, 'public dynamic func pathAssistantSetPointB(_ sender: Any!) {')

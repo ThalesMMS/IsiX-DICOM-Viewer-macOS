@@ -111,19 +111,34 @@ public struct ThickSlabSliderScale: Sendable, Equatable {
     /// long track to that of a short one: the main marks only.
     private static let divisions = [10, 5, 2]
 
-    /// Where the marks stand, both ends included, never closer than
-    /// `minimumSpacing` of the track. Every mark stands where the knob stops,
-    /// by the same curve: the knob reaches each of them, and stands on it.
+    /// The intervals of an exponential ruler, from that of a long track to
+    /// that of a short one.
+    private static let gatheredDivisions = [16, 12, 10, 8, 6, 5, 4, 3, 2]
+
+    /// How many times closer than `minimumSpacing` the last two marks of an
+    /// exponential ruler may stand: its marks gather towards the thick end,
+    /// and are still told apart there.
+    public static let exponentialCrowding = 3.0
+
+    /// Where the marks stand, both ends included.
     ///
     /// A linear scale counts whole units from its thin end in equal steps, so
-    /// its marks are evenly spaced; the last step, to the thick end, is what
-    /// the range leaves. An exponential scale marks the stops nearest to
-    /// equal shares of the track, each the same ratio of thickness.
-    public func tickPositions(minimumSpacing: Double) -> [Double] {
+    /// its marks are evenly spaced, never closer than `minimumSpacing` of the
+    /// track; the last step, to the thick end, is what the range leaves.
+    /// Every one of them stands where the knob stops: the knob reaches it,
+    /// and stands on it.
+    ///
+    /// An exponential scale draws what its curve does: marks far apart at
+    /// the thin end, each closer to the next than the one before, gathered
+    /// at the thick end (`gatheredMarks`). They show the curve and are not
+    /// stops: the knob stops where it does between them. `most` is the most
+    /// intervals such a ruler may have, for a scale of few stops.
+    public func tickPositions(minimumSpacing: Double, most: Int = .max) -> [Double] {
         guard maximum > minimum else { return [] }
         let spacing = minimumSpacing.isFinite ? max(minimumSpacing, 0) : 0
+        if exponential { return gatheredMarks(spacing: spacing, most: most) }
         guard let intervals = Self.divisions.first(where: { 1 / Double($0) >= spacing }) else { return [0, 1] }
-        let (stops, step) = exponential ? curveStops(intervals) : evenStops(intervals)
+        let (stops, step) = evenStops(intervals)
         // A mark that would touch an end gives way to the end's own, and so
         // does one that leaves less than half a step before the thick end.
         let edge = max(spacing, 1e-9)
@@ -132,6 +147,25 @@ public struct ThickSlabSliderScale: Sendable, Equatable {
             marks.append(mark)
         }
         return marks + [1]
+    }
+
+    /// The marks of an exponential ruler: thicknesses whose steps grow by the
+    /// same amount from each to the next (the squares of equal steps between
+    /// the square roots of the two ends), placed by the curve. Equal steps of
+    /// thickness would leave the thin half of the track without a mark, and
+    /// equal ratios would space the marks evenly, as on a linear ruler; these
+    /// stand closer at every step, whatever the range, and put a few marks
+    /// where the thin slabs are. As many intervals as leave the last two
+    /// marks, the closest, a third of `spacing` apart, and no more than `most`.
+    private func gatheredMarks(spacing: Double, most: Int) -> [Double] {
+        let edge = max(spacing / Self.exponentialCrowding, 1e-9)
+        let thin = minimum.squareRoot(), thick = maximum.squareRoot()
+        func place(_ index: Int, of intervals: Int) -> Double {
+            let root = thin + (thick - thin) * Double(index) / Double(intervals)
+            return position(for: root * root)
+        }
+        guard let intervals = Self.gatheredDivisions.first(where: { $0 <= most && 1 - place($0 - 1, of: $0) >= edge }) else { return [0, 1] }
+        return [0] + (1..<intervals).map { place($0, of: intervals) } + [1]
     }
 
     /// Whole units from the first one of the scale, in equal steps of as many
@@ -150,10 +184,5 @@ public struct ThickSlabSliderScale: Sendable, Equatable {
             value += units
         }
         return (stops, units / (maximum - minimum))
-    }
-
-    /// The stops nearest to `intervals` equal shares of the track.
-    private func curveStops(_ intervals: Int) -> (stops: [Double], step: Double) {
-        ((1..<intervals).map { wholeThickness(at: Double($0) / Double(intervals)) }, 0)
     }
 }

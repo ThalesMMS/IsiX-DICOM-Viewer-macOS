@@ -13,7 +13,8 @@
 import AppKit
 
 /// The backgrounds of the viewer's series list cells: a series shown in this
-/// viewer, one fused with it, and a series of another study.
+/// viewer, of the current study or of a previous one, one fused with it, and
+/// a series of another study.
 ///
 /// They were light pastels in either appearance, and the cells' titles take
 /// the system's text colour: light text on a light fill in the dark
@@ -26,6 +27,13 @@ public final class SeriesListColors: NSObject {
     /// fill keeps away from it in lightness: paler than the frame in the
     /// light appearance, darker in the dark one.
     @objc public static let shown = dynamic(light: (0.81, 0.90, 1.00), dark: (0.10, 0.22, 0.45))
+    /// A series shown in a viewer whose study is a previous one: the orange
+    /// of a previous study, made a tint as the blue was. The hue is that of
+    /// the study's colour; the light shade has the blue one's share of the
+    /// colour's saturation (0.27) at full brightness, the dark one its share
+    /// of the brightness (0.45) with the saturation raised as the blue's was
+    /// (by 1.11).
+    @objc public static let shownPrevious = dynamic(light: (1.00, 0.89, 0.76), dark: (0.45, 0.24, 0.01))
     /// A series fused with this viewer's (green).
     @objc public static let fused = dynamic(light: (195 / 255, 249 / 255, 145 / 255), dark: (0.16, 0.40, 0.12))
     /// A series of another study (grey).

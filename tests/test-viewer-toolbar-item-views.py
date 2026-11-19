@@ -37,14 +37,15 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # noqa: E402  - the Thick Slab popup takes a mode's short name from IsiXImaging
 import process_graph_stand_in  # noqa: E402  - the 2D viewer's sources read the catalog's keys through PreferencesSource
 
 root = Path(__file__).resolve().parents[1]
 swift_sources = [root / 'Horos/Sources/HorosCellSlider.swift',
                  root / 'Horos/Sources/ViewerToolbarItemViews.swift',
                  root / 'Horos/Sources/ToolbarMenuBridge.swift']
-xibs = [root / 'Horos/Resources/en.lproj/Viewer.xib',
-        root / 'Horos/Resources/ja-JP.lproj/Viewer.xib']
+# The nib of every language that has no copy of its own.
+xibs = [root / 'Horos/Resources/en.lproj/Viewer.xib']
 for source in [*swift_sources, *xibs]:
     assert source.is_file(), f'missing {source}'
 
@@ -330,7 +331,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-toolbar-items-') as folder
         'xcrun', 'swiftc', '-swift-version', '5',
         '-import-objc-header', str(folder / 'Owner.h'),
         *[str(s) for s in swift_sources], str(folder / 'Owner.m'), str(folder / 'main.swift'),
-        *process_graph_stand_in.swift_flags(folder / 'isix'),
+        *process_graph_stand_in.swift_flags(folder / 'isix'), *isix_modules.module_flags('IsiXImaging', folder / 'isix'),
         '-framework', 'AppKit',
         '-o', str(folder / 'test'),
     ], check=True)

@@ -116,49 +116,90 @@ final class HorosScrollPositionPreview: NSView {
         if wasVisible { _host?.needsDisplay = true }
     }
 
+    // What prepareVolume reads of a slice, copied while its load lock is held.
+    private struct SliceGeometry {
+        var width = 0, height = 0
+        var rgb = false
+        var spacingX = 0.0, spacingY = 0.0
+        var originX = 0.0, originY = 0.0, originZ = 0.0
+        var orientation = [Float](repeating: 0, count: 9)
+        var interval = 0.0, location = 0.0
+    }
+
+    // The geometry of a decoded slice, read without waiting: nil while it is
+    // not decoded or another thread holds its load lock. The DCMPix getters
+    // call CheckLoad, which waits on that lock on the main thread: behind a
+    // stalled load the whole viewer stops (the 6.0.5 hang on a 3-series open).
+    private func loadedGeometry(_ pix: DCMPix) -> SliceGeometry? {
+        guard let checking = pix.horos_checking, checking.try() else { return nil }
+        defer { checking.unlock() }
+        guard pix.horos_fImage != nil else { return nil }
+        var g = SliceGeometry()
+        g.width = pix.horos_width; g.height = pix.horos_height; g.rgb = pix.horos_isRGB
+        g.spacingX = pix.horos_pixelSpacingX; g.spacingY = pix.horos_pixelSpacingY
+        g.originX = pix.horos_originX; g.originY = pix.horos_originY; g.originZ = pix.horos_originZ
+        for k in 0..<9 { g.orientation[k] = Float(pix.horos_orientation[k]) }
+        g.interval = pix.horos_sliceInterval; g.location = pix.horos_sliceLocation
+        return g
+    }
+
     // Validate once for this slice list. The existing orthogonal reslicer requires
     // a loaded, regular parallel stack. Never trigger decoding during scrolling,
-    // repair the source series, or present a misleading scout for mixed geometry.
+    // never wait on a slice's load lock, repair the source series, or present a
+    // misleading scout for mixed geometry.
     private func prepareVolume() -> Bool {
         let slices: NSMutableArray? = _host?.dcmPixList
-        if slices === _slices { return _reslicer != nil }
+        if slices === _slices { return _reslicer != nil && slicesIdle() }
         clearVolume()
         guard let list = slices, list.count >= 2 else { return false }
-        let first = list.firstObject as! DCMPix, last = list.lastObject as! DCMPix
-        if !first.isLoaded() || first.isRGB || first.pwidth < 2 || first.pheight < 2 ||
-            !first.pixelSpacingX.isFinite || first.pixelSpacingX <= 0 ||
-            !first.pixelSpacingY.isFinite || first.pixelSpacingY <= 0 { return false }
-        var o = [Float](repeating: 0, count: 9); first.orientation(&o)
+        var geometries: [SliceGeometry] = []
+        geometries.reserveCapacity(list.count)
+        for case let pix as DCMPix in list {
+            guard let g = loadedGeometry(pix) else { return false }
+            geometries.append(g)
+        }
+        guard geometries.count == list.count else { return false }
+        let first = geometries[0], last = geometries[geometries.count - 1]
+        if first.rgb || first.width < 2 || first.height < 2 ||
+            !first.spacingX.isFinite || first.spacingX <= 0 ||
+            !first.spacingY.isFinite || first.spacingY <= 0 { return false }
+        let o = first.orientation
         let count = Double(list.count - 1)
         let step: [Double] = [(last.originX - first.originX) / count,
                               (last.originY - first.originY) / count,
                               (last.originZ - first.originZ) / count]
         let interval = step[0]*Double(o[6]) + step[1]*Double(o[7]) + step[2]*Double(o[8])
-        let usedInterval = first.sliceInterval != 0 ? first.sliceInterval : (list[1] as! DCMPix).sliceLocation - first.sliceLocation
+        let usedInterval = first.interval != 0 ? first.interval : geometries[1].location - first.location
         if !interval.isFinite || abs(interval) < 1e-6 || !usedInterval.isFinite ||
             abs(interval - usedInterval) > fmax(0.01, abs(interval)*0.01) { return false }
         for k in 0..<3 {
             if !step[k].isFinite || abs(step[k] - interval*Double(o[6+k])) > 0.01 { return false }
         }
-        var index = 0
-        for case let pix as DCMPix in list {
-            if !pix.isLoaded() || pix.isRGB || pix.pwidth != first.pwidth || pix.pheight != first.pheight ||
-                abs(pix.pixelSpacingX - first.pixelSpacingX) > 1e-5 ||
-                abs(pix.pixelSpacingY - first.pixelSpacingY) > 1e-5 { return false }
-            var orientation = [Float](repeating: 0, count: 9); pix.orientation(&orientation)
+        for (index, g) in geometries.enumerated() {
+            if g.rgb || g.width != first.width || g.height != first.height ||
+                abs(g.spacingX - first.spacingX) > 1e-5 ||
+                abs(g.spacingY - first.spacingY) > 1e-5 { return false }
             for k in 0..<9 {
-                if !orientation[k].isFinite || abs(orientation[k] - o[k]) > 1e-4 { return false }
+                if !g.orientation[k].isFinite || abs(g.orientation[k] - o[k]) > 1e-4 { return false }
             }
-            let origins: [Double] = [pix.originX - first.originX, pix.originY - first.originY, pix.originZ - first.originZ]
+            let origins: [Double] = [g.originX - first.originX, g.originY - first.originY, g.originZ - first.originZ]
             for k in 0..<3 {
                 if !origins[k].isFinite || abs(origins[k] - Double(index)*step[k]) > 0.01 { return false }
             }
-            index += 1
         }
         _axis = Int(HorosPreviewResliceAxis(o))
         _slices = list
         _reslicer = OrthogonalReslice(originalDCMPixList: list)
         _reslicer?.useYcache = false
+        return true
+    }
+
+    // Whether every slice is decoded and no thread holds its load lock now: the
+    // reslice that follows reads each one's pixels through CheckLoad, on the
+    // main thread. A slice taken in the meantime makes this preview skip a frame.
+    private func slicesIdle() -> Bool {
+        guard let list = _slices else { return false }
+        for case let pix as DCMPix in list where !pix.isLoaded() { return false }
         return true
     }
 

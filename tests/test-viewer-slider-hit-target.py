@@ -26,7 +26,8 @@ helper = root / 'Horos/Sources/HorosCellSlider.swift'
 navigation = root / 'Horos/Sources/ImageNavigationSlider.swift'
 # The viewer's window and toolbar views are in Viewer.xib; its sheets (the
 # morphology radius, export and print ranges among them) in ViewerPanels.xib.
-locales = ['en', 'ja-JP']
+# English and one of the languages that have a copy of the two nibs.
+locales = ['en', 'de']
 xibs = [root / f'Horos/Resources/{locale}.lproj/{name}.xib'
         for locale in locales for name in ('Viewer', 'ViewerPanels')]
 for source in [helper, navigation, *xibs]:

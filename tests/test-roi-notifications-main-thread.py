@@ -30,6 +30,17 @@ def body(text, signature):
     at = text.find(signature)
     if at < 0:
         return ''
+    return braces(text, at)
+
+
+def initializer(text, parameters):
+    """The body of the public initializer whose parameter list begins with `parameters`, whatever modifiers stand
+    between `public` and `init` (required, convenience, dynamic): None when the class has no such initializer."""
+    found = re.search(r'\bpublic (?:\w+ )*init[?!]?\(' + re.escape(parameters), text)
+    return braces(text, found.start()) if found else None
+
+
+def braces(text, at):
     opening = text.index('{', at)
     depth = 0
     for index in range(opening, len(text)):
@@ -59,13 +70,29 @@ direct = [line.strip() for line in code.split('\n')
 if direct:
     failures.append(f'{len(direct)} ROI notification(s) posted outside the helpers, e.g. {direct[0]}')
 
-for signature, notification in (('public required init?(coder: NSCoder)', 'OsirixROIChange'),
-                                ('public init!(texture tBuff:', 'OsirixROIChange'),
-                                ('public init!(type itype: ToolMode, _ ipixelSpacingx', 'OsirixROIChange'),
-                                ('deinit', 'OsirixRemoveROI')):
-    method = body(code, signature)
-    if f'postOnMainThreadOnly(.{notification})' not in method or 'postChange(' in method:
-        failures.append(f'{signature} does not post {notification} on the main thread only')
+for parameters in ('coder: NSCoder)', 'texture tBuff:', 'type itype: ToolMode, _ ipixelSpacingx'):
+    method = initializer(code, parameters)
+    if method is None:
+        failures.append(f'no public initializer of ROI begins with init({parameters}: the test does not know where it posts')
+    elif 'postOnMainThreadOnly(.OsirixROIChange)' not in method or 'postChange(' in method:
+        failures.append(f'init({parameters} does not post OsirixROIChange on the main thread only')
+method = body(code, 'deinit')
+if 'postOnMainThreadOnly(.OsirixRemoveROI)' not in method or 'postChange(' in method:
+    failures.append('deinit does not post OsirixRemoveROI on the main thread only')
+# The search itself: an initializer is found under any modifiers, one that posts another way is refused, and
+# a parameter list no initializer has is said to be missing.
+probe = 'public required dynamic init?(coder: NSCoder) { postChange() }\npublic convenience init!(other: Int) { }'
+if initializer(probe, 'coder: NSCoder)') != '{ postChange() }' or initializer(probe, 'texture tBuff:') is not None:
+    failures.append('the search for an initializer does not find one under its modifiers, or finds one that is not there')
+
+# An SR read by the import only to count its ROIs decodes them quietly: they
+# reach no viewer, and an observer that looks for theirs crashed (ROI-Enhancement,
+# -[RoiEnhancementROIList indexInViewer:], while a viewer was closing).
+if 'if !ROI.decodesQuietly { postOnMainThreadOnly(.OsirixROIChange) }' not in (initializer(code, 'coder: NSCoder)') or ''):
+    failures.append('a ROI decoded quietly still posts OsirixROIChange')
+reading = (root / 'Horos/Sources/DicomFile+DICOMReading.swift').read_text()
+if not re.search(r'ROI\.decodingQuietly \{ RestrictedUnarchiver\.unarchiveROIs\(with: roiData\)', reading):
+    failures.append('the import counts the ROIs of an SR with their notifications')
 
 if 'postChange()' not in body(code, 'func setNameValue('):
     failures.append('the name setter of ROI does not post its change through postChange')

@@ -387,7 +387,8 @@ extension SeriesListPresenter {
         switch tint {
         case .none: return nil
         case .otherStudy: return SeriesListColors.otherStudy
-        case .shown: return SeriesListColors.shown
+        case .shown(.current): return SeriesListColors.shown
+        case .shown(.previous): return SeriesListColors.shownPrevious
         case .fused: return SeriesListColors.fused
         }
     }
@@ -693,7 +694,22 @@ extension SeriesListPresenter {
                                                  seriesHidden: (shown as? DicomStudy)?.isHidden() ?? false, series: series,
                                                  excludedCount: excluded[ObjectIdentifier(shown)]?.count ?? 0))
         }
-        return SeriesListModel(studies: studies, countedCells: countedCells)
+        return SeriesListModel(studies: studies, countedCells: countedCells, windowStudy: Self.windowStudy(of: viewer))
+    }
+
+    /// Which of the patient's open studies the window of `viewer` shows, by
+    /// the rule that colours the frame of its active view: the fill of the
+    /// series the viewer shows in its list, their highlight in its series
+    /// menu and that frame have the colour of one study. Where no frame is
+    /// drawn, one window with the study it was opened with, the study is the
+    /// one the window's "Previous" mark says.
+    static func windowStudy(of viewer: ViewerController) -> SeriesIdentity.Study {
+        let marked = SeriesListIdentification.study(of: viewer)
+        guard let graph = viewer.sessionGraph else { return marked }
+        let frame = WindowFrameRule.frame(severalOnScreen: graph.registry.severalViewersAreOnScreen, isActive: true, study: marked,
+                                          studies: graph.windowStudies)
+        if case .study(let study) = frame { return study }
+        return marked
     }
 
     /// Builds the series menu's first item and, when the list shows, the list:

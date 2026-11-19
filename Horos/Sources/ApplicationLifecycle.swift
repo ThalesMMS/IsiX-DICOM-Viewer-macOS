@@ -582,6 +582,33 @@ import IsiXStorage
         finishTermination(sender)
     }
 
+    /// The Quit command, with the application opening again once this process
+    /// has ended: for a setting that takes effect only at launch. The copy
+    /// that runs is the one reopened, by the shell that waits for the process
+    /// as it does after an update, and with the arguments this launch was
+    /// given: a copy opened on a database of its own for one launch would
+    /// otherwise come back on the database of the Documents folder.
+    @discardableResult func restart(_ sender: Any?) -> ApplicationRestart.Outcome {
+        restart(sender, agree: { self.quit.agreeNow() }, droppingArgumentsFor: [])
+    }
+
+    /// The same restart once the database window has agreed to quit, as it
+    /// does before its folder is moved: it is not asked a second time.
+    /// `stale` names the preferences whose launch arguments no longer hold,
+    /// which the copy that opens is not given again.
+    @discardableResult func restartAlreadyAgreed(_ sender: Any?, droppingArgumentsFor stale: Set<String>) -> ApplicationRestart.Outcome {
+        restart(sender, agree: { true }, droppingArgumentsFor: stale)
+    }
+
+    private func restart(_ sender: Any?, agree: @escaping @MainActor () -> Bool,
+                         droppingArgumentsFor stale: Set<String>) -> ApplicationRestart.Outcome {
+        let arguments = ApplicationRestart.arguments(ofLaunch: ProcessInfo.processInfo.arguments, dropping: stale)
+        return ApplicationRestart(
+            agree: agree,
+            reopen: { try HorosNativeInstallOperations().relaunch(Bundle.main.bundleURL, diskImage: nil, arguments: arguments) },
+            quit: { self.finishTermination(sender) }).run()
+    }
+
     /// The rest of quitting, once the browser has agreed to it: AppKit asks
     /// `shouldTerminate()`, which stops what has to stop and then lets it
     /// terminate, without asking again.

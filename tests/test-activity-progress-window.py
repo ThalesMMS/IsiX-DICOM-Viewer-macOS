@@ -457,10 +457,15 @@ with tempfile.TemporaryDirectory(prefix='horos-activity-progress-') as tmp:
     def guards(log):
         text = objc_exception_guards.source_at(revision, root, log)
         return [('HorosObjCException+Guards.swift', text)] if text else []
+    # The panel loads its nib through these, where the tree has them.
+    nib_loading = [(path.name, path.read_text(encoding='utf-8'))
+                   for path in (root / 'Horos/Sources/WindowNibCatalog.swift', root / 'Preference Panes/PaneCatalogTranslation.swift')
+                   if 'loadWindowReadingCatalog' in panel_implementation]
     builds = {
         'threads': ('Horos/Sources/ThreadsManager.swift', [('driver.swift', THREADS_DRIVER)] + thread_companions + guards(False), 'harness.h', None),
         'progress': ('Horos/Sources/ThreadModalForWindowController.swift',
-                     [('doubles.swift', progress_doubles), ('driver.swift', PROGRESS_DRIVER)] + token + thread_companions + guards(False),
+                     [('doubles.swift', progress_doubles), ('driver.swift', PROGRESS_DRIVER)] + token + thread_companions + guards(False)
+                     + nib_loading,
                      'harness.h', None),
         'log': ('Horos/Sources/LogManager.swift', [('graph.swift', LOG_GRAPH), ('driver.swift', LOG_DRIVER)] + guards(True), 'log.h', LOG_DOUBLES),
     }

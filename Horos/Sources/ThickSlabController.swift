@@ -50,6 +50,12 @@ public final class ThickSlabController: NSWindowController, NSWindowDelegate {
     /// The former `IBOutlet ThickSlabVR *view` ivar, set by the xib.
     @IBOutlet private var view: ThickSlabVR?
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// -initWithWindowNibName:@"ThickSlab", through the Objective-C initializer.
     @objc public convenience init() {
         self.init(windowNibName: "ThickSlab")

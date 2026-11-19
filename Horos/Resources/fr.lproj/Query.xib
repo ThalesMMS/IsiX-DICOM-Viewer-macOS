@@ -48,7 +48,7 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window title="DICOM Requête/Récupération" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" frameAutosaveName="QR" animationBehavior="default" id="144" userLabel="Window">
+        <window title="Requête/Récupération DICOM" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" visibleAtLaunch="NO" frameAutosaveName="QR" animationBehavior="default" id="144" userLabel="Window">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
             <rect key="contentRect" x="0.0" y="0.0" width="914" height="672"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
@@ -160,7 +160,7 @@
                                             </buttonCell>
                                             <cells>
                                                 <column>
-                                                    <buttonCell type="radio" title="Exactement." imagePosition="left" alignment="left" state="on" inset="2" id="991">
+                                                    <buttonCell type="radio" title="Exactement" imagePosition="left" alignment="left" state="on" inset="2" id="991">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
@@ -225,7 +225,7 @@
                                     </constraints>
                                 </view>
                             </tabViewItem>
-                            <tabViewItem label="Désignation des marchandises" identifier="2" id="901">
+                            <tabViewItem label="Description" identifier="2" id="901">
                                 <view key="view" id="902">
                                     <rect key="frame" x="10" y="19" width="929" height="30"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -406,7 +406,7 @@
                                                     </buttonCell>
                                                 </column>
                                                 <column>
-                                                    <buttonCell type="radio" title="Révision" imagePosition="left" alignment="left" tag="2" inset="2" id="gf0-Wl-OKO">
+                                                    <buttonCell type="radio" title="Révisé" imagePosition="left" alignment="left" tag="2" inset="2" id="gf0-Wl-OKO">
                                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                         <font key="font" metaFont="system"/>
                                                     </buttonCell>
@@ -762,7 +762,7 @@
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="Jour avant hier" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="9" inset="2" id="817">
+                                                            <buttonCell type="radio" title="Avant-hier" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="9" inset="2" id="817">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -784,7 +784,7 @@
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="On:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="6" inset="2" id="608">
+                                                            <buttonCell type="radio" title="Le:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="6" inset="2" id="608">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -810,11 +810,11 @@
                                                             </buttonCell>
                                                         </column>
                                                         <column>
-                                                            <buttonCell type="radio" title="Dernière 30 min" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="230" inset="2" id="1008">
+                                                            <buttonCell type="radio" title="Dernières 30 min" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="230" inset="2" id="1008">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
-                                                            <buttonCell type="radio" title="Dernière 1 heure" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="101" inset="2" id="1013">
+                                                            <buttonCell type="radio" title="Dernière heure" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="101" inset="2" id="1013">
                                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                 <font key="font" metaFont="smallSystem"/>
                                                             </buttonCell>
@@ -881,7 +881,7 @@
                                         <constraints>
                                             <constraint firstItem="515" firstAttribute="top" secondItem="551" secondAttribute="top" constant="3" id="0ij-D3-FkS"/>
                                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="343" id="69T-Nf-UxD"/>
-                                            <constraint firstAttribute="trailing" secondItem="515" secondAttribute="trailing" constant="-3" id="InY-nA-J5b"/>
+                                            <constraint firstAttribute="trailing" secondItem="515" secondAttribute="trailing" constant="5" id="InY-nA-J5b"/>
                                             <constraint firstItem="971" firstAttribute="top" secondItem="969" secondAttribute="bottom" constant="8" symbolic="YES" id="KFR-f9-P6E"/>
                                             <constraint firstItem="969" firstAttribute="leading" secondItem="971" secondAttribute="leading" id="aCh-GL-90z"/>
                                             <constraint firstItem="515" firstAttribute="leading" secondItem="551" secondAttribute="leading" constant="5" id="fIW-x4-bM7"/>
@@ -1031,7 +1031,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="theDescription" editable="NO" width="66" minWidth="50" maxWidth="600" id="354">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Désignation des marchandises">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Description">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1117,7 +1117,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="accessionNumber" editable="NO" width="72" minWidth="60" maxWidth="200" id="784">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Adhésion">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="N° d'accès">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1201,7 +1201,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="performingPhysician" width="65" minWidth="65" maxWidth="300" id="1181" userLabel="Table Column - Performing">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Exécution">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Exécutant">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1215,7 +1215,7 @@
                                                             <tableColumnResizingMask key="resizingMask" resizeWithTable="YES" userResizable="YES"/>
                                                         </tableColumn>
                                                         <tableColumn identifier="referringPhysician" width="65" minWidth="65" maxWidth="300" id="1183" userLabel="Table Column - Referring">
-                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Renvoi">
+                                                            <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Prescript.">
                                                                 <font key="font" metaFont="smallSystem"/>
                                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="headerColor" catalog="System" colorSpace="catalog"/>
@@ -1252,7 +1252,7 @@
                                     </scrollView>
                                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="735">
                                         <rect key="frame" x="33" y="432" width="65" height="14"/>
-                                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Récupérer :" id="761">
+                                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Récupérer vers :" id="761">
                                             <font key="font" metaFont="smallSystem"/>
                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1323,7 +1323,7 @@
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <menu key="menu" title="Autres vues" id="824">
                                                         <items>
-                                                            <menuItem title="Ne vous rafraîchissez pas" id="825"/>
+                                                            <menuItem title="Ne pas rafraîchir" id="825"/>
                                                             <menuItem isSeparatorItem="YES" id="831"/>
                                                             <menuItem title="Rafraîchir toutes les 5 secondes" tag="-5" id="826" userLabel="Menu Item - Refresh every 5 s"/>
                                                             <menuItem title="Rafraîchir toutes les 10 secondes" tag="-10" id="1202"/>
@@ -1375,8 +1375,8 @@
                                         <segmentedCell key="cell" lineBreakMode="charWrapping" state="on" borderStyle="border" alignment="left" style="texturedSquare" trackingMode="momentary" id="760">
                                             <font key="font" metaFont="system"/>
                                             <segments>
-                                                <segment label="Demande" imageScaling="none"/>
-                                                <segment label="Demande de renseignements au patient" imageScaling="none" tag="1"/>
+                                                <segment label="Requête" imageScaling="none"/>
+                                                <segment label="Requête patient" imageScaling="none" tag="1"/>
                                                 <segment label="Récupérer" imageScaling="none" tag="2"/>
                                                 <segment label="Vérifier" imageScaling="none"/>
                                             </segments>
@@ -1517,7 +1517,7 @@
                             <action selector="lockAutoQRWindow:" target="-2" id="1121"/>
                         </connections>
                     </toolbarItem>
-                    <toolbarItem implicitItemIdentifier="BE0D9FAA-22E1-4631-9644-AEE8E82702C6" label="Liste des cas" paletteLabel="Liste des cas" id="1165" userLabel="Toolbar Item - Instances List">
+                    <toolbarItem implicitItemIdentifier="BE0D9FAA-22E1-4631-9644-AEE8E82702C6" label="Liste des instances" paletteLabel="Liste des instances" id="1165" userLabel="Toolbar Item - Instances List">
                         <nil key="toolTip"/>
                         <size key="minSize" width="100" height="25"/>
                         <size key="maxSize" width="212" height="25"/>
@@ -1640,7 +1640,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" setsMaxLayoutWidthAtFirstLayout="YES" translatesAutoresizingMaskIntoConstraints="NO" id="800">
                         <rect key="frame" x="3" y="14" width="308" height="26"/>
-                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche de décalage enfoncée." id="803">
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" title="Pour supprimer un préréglage du menu : il suffit de le sélectionner tout en maintenant la touche Maj enfoncée." id="803">
                             <font key="font" metaFont="system" size="10"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1648,7 +1648,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="801">
                         <rect key="frame" x="9" y="133" width="171" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Donnez un nom pour ce Preset:" id="802">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Donnez un nom à ce préréglage:" id="802">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1656,7 +1656,7 @@
                     </textField>
                     <button horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="913">
                         <rect key="frame" x="12" y="79" width="215" height="18"/>
-                        <buttonCell key="cell" type="check" title="Inclure DICOM Sélection des nœuds" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="914">
+                        <buttonCell key="cell" type="check" title="Inclure la sélection des nœuds DICOM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="914">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                             <font key="font" metaFont="system"/>
                         </buttonCell>
@@ -1735,7 +1735,7 @@
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="1132">
                         <rect key="frame" x="9" y="82" width="317" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Donnez un nom pour cette instance de requête automatique / Récupérer :" id="1137">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Donnez un nom pour cette instance de requête/récupération automatique :" id="1137">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1753,6 +1753,7 @@
                     <constraint firstItem="1134" firstAttribute="centerX" secondItem="1128" secondAttribute="centerX" id="iHu-QQ-jzm"/>
                     <constraint firstItem="1131" firstAttribute="width" secondItem="1130" secondAttribute="width" id="vJS-y9-SMT"/>
                     <constraint firstItem="1131" firstAttribute="baseline" secondItem="1130" secondAttribute="baseline" id="z0m-nB-f4h"/>
+                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="1132" secondAttribute="trailing" constant="12" id="Tq2-0a-Cn3"/>
                 </constraints>
             </view>
         </window>
@@ -1801,9 +1802,9 @@
                         <rect key="frame" x="114" y="182" width="336" height="70"/>
                         <textFieldCell key="cell" controlSize="small" sendsActionOnEndEditing="YES" alignment="left" id="855">
                             <font key="font" metaFont="smallSystem"/>
-                            <string key="title">Chaque examen affichée dans la liste Query &amp; Retrieve sera automatiquement récupérée sur l'ordinateur de destination.
+                            <string key="title">Chaque examen affiché dans la liste Query &amp; Retrieve sera automatiquement récupéré sur l'ordinateur de destination.
 
-Seules 10 examens sont récupérées à chaque fois. Les 10 prochaines examens seront récupérées lors du prochain « rafraîchissement ».</string>
+Seuls 10 examens sont récupérés à chaque fois. Les 10 prochains examens seront récupérés lors du prochain « rafraîchissement ».</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
@@ -1821,7 +1822,7 @@ Seules 10 examens sont récupérées à chaque fois. Les 10 prochaines examens s
                     </button>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="862">
                         <rect key="frame" x="17" y="150" width="336" height="14"/>
-                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Pour chaque examen récupérée, récupérer également, si nécessaire et disponible :" id="863">
+                        <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="left" title="Pour chaque examen récupéré, récupérer également, si nécessaire et disponible :" id="863">
                             <font key="font" metaFont="smallSystem"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -1850,16 +1851,16 @@ Seules 10 examens sont récupérées à chaque fois. Les 10 prochaines examens s
                     </button>
                     <popUpButton verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="866">
                         <rect key="frame" x="17" y="119" width="186" height="22"/>
-                        <popUpButtonCell key="cell" type="push" title="Ne pas récupérer l'examen précédente" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="878" id="867">
+                        <popUpButtonCell key="cell" type="push" title="Ne pas récupérer l'examen précédent" bezelStyle="rounded" alignment="left" controlSize="small" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" imageScaling="proportionallyDown" inset="2" selectedItem="878" id="867">
                             <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="smallSystem"/>
                             <menu key="menu" title="Autres vues" id="868">
                                 <items>
-                                    <menuItem title="Ne pas récupérer l'examen précédente" state="on" id="878"/>
+                                    <menuItem title="Ne pas récupérer l'examen précédent" state="on" id="878"/>
                                     <menuItem isSeparatorItem="YES" id="880"/>
-                                    <menuItem title="L'examen précédente" tag="1" id="869"/>
-                                    <menuItem title="Les 2 dernières examens précédentes" tag="2" id="870"/>
-                                    <menuItem title="Les 3 dernières examens précédentes" tag="3" id="871"/>
+                                    <menuItem title="L'examen précédent" tag="1" id="869"/>
+                                    <menuItem title="Les 2 derniers examens précédents" tag="2" id="870"/>
+                                    <menuItem title="Les 3 derniers examens précédents" tag="3" id="871"/>
                                 </items>
                             </menu>
                         </popUpButtonCell>
@@ -1910,6 +1911,7 @@ Seules 10 examens sont récupérées à chaque fois. Les 10 prochaines examens s
                     <constraint firstItem="862" firstAttribute="top" secondItem="874" secondAttribute="bottom" constant="37" id="waA-gs-tov"/>
                     <constraint firstItem="862" firstAttribute="leading" secondItem="845" secondAttribute="leading" constant="19" id="z3k-n0-pLP"/>
                     <constraint firstItem="874" firstAttribute="top" secondItem="845" secondAttribute="top" constant="12" id="zV0-sK-m3z"/>
+                    <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="850" secondAttribute="bottom" constant="20" id="Tq2-0a-Cn4"/>
                 </constraints>
             </view>
         </window>

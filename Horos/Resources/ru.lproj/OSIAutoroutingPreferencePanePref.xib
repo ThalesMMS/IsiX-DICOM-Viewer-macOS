@@ -365,7 +365,7 @@
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                         <font key="titleFont" metaFont="system" size="16"/>
                     </box>
-                    <box autoresizesSubviews="NO" title="фильтр" id="tUN-nM-WBD">
+                    <box autoresizesSubviews="NO" title="Фильтр" id="tUN-nM-WBD">
                         <rect key="frame" x="17" y="279" width="572" height="195"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="Qvs-YQ-jsZ">

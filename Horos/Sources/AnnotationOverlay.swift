@@ -93,6 +93,93 @@ struct AnnotationTint: Hashable {
     static let black = AnnotationTint(r: 0, g: 0, b: 0, a: 1)
 }
 
+/// The widths of the texts of the annotations and the cuts of those their row
+/// has no room for, in a font at a scale. A view asks for the width of every
+/// side line at every frame, and for the cut of the lines that do not fit:
+/// laying a text out to measure it, several times over to find where it is
+/// cut, is done once for a text, and for a text and a room. A table is that of
+/// one font at one scale; a text or a cut that is not in it is measured and
+/// kept, and a table that reaches `limit` texts, or cuts, is emptied, so that
+/// a series of thousands of images, each with its own lines, takes no more.
+/// The tables of four fonts are kept at the most.
+@MainActor
+final class AnnotationTextMeasure {
+    private struct Face: Hashable {
+        let name: String
+        let size: CGFloat
+        let scale: CGFloat
+    }
+    private struct Cut: Hashable {
+        let text: String
+        /// The room in whole pixels: a width asked for with a fraction more is the same cut.
+        let room: Int
+    }
+
+    static let limit = 2048
+    private static var tables: [Face: AnnotationTextMeasure] = [:]
+    /// The table asked for last, with its font: a view asks for the same one at every frame.
+    private static var last: (font: NSFont, scale: CGFloat, table: AnnotationTextMeasure)?
+
+    static func table(font: NSFont, scale: CGFloat) -> AnnotationTextMeasure {
+        if let last, last.font === font, last.scale == scale { return last.table }
+        let face = Face(name: font.fontName, size: font.pointSize, scale: scale)
+        let table: AnnotationTextMeasure
+        if let known = tables[face] {
+            table = known
+        } else {
+            if tables.count >= 4 { tables.removeAll() }
+            table = AnnotationTextMeasure(font: font, scale: scale)
+            tables[face] = table
+        }
+        last = (font, scale, table)
+        return table
+    }
+
+    private let attributes: [NSAttributedString.Key: Any]
+    private let scale: CGFloat
+    /// The most a UTF-16 unit of a text takes, in backing pixels: the widest advance of the font, and no less
+    /// than one and a half times its size, for the characters another font draws.
+    let widestCharacter: Double
+    private var widths: [String: Double] = [:]
+    private var cuts: [Cut: String] = [:]
+    /// How many texts were measured and how many cuts were made, for a check of what a frame costs.
+    private(set) var measuredCount = 0, cutCount = 0
+
+    private init(font: NSFont, scale requested: CGFloat) {
+        attributes = [.font: font]
+        // The scale a text is rasterized at (AnnotationText).
+        scale = requested == 1 || requested == 2 ? requested : (NSScreen.main?.backingScaleFactor ?? 1)
+        widestCharacter = Double(max(font.maximumAdvancement.width, font.pointSize * 1.5) * scale)
+    }
+
+    /// The width of `text` in backing pixels, without the margins of its picture.
+    func width(of text: String) -> Double {
+        if let known = widths[text] { return known }
+        if widths.count >= Self.limit { widths.removeAll(keepingCapacity: true) }
+        let width = measure(text)
+        widths[text] = width
+        return width
+    }
+
+    private func measure(_ text: String) -> Double {
+        measuredCount += 1
+        return Double(NSAttributedString(string: text, attributes: attributes).size().width * scale)
+    }
+
+    /// `text` cut at its end to `room` backing pixels, by `cutting`: the rule of the rows of the annotations,
+    /// which is given a text, a room and what measures a text.
+    func cut(_ text: String, to room: Double, by cutting: (String, Double, (String) -> Double) -> String) -> String {
+        let key = Cut(text: text, room: Int(room.rounded(.down)))
+        if let known = cuts[key] { return known }
+        if cuts.count >= Self.limit { cuts.removeAll(keepingCapacity: true) }
+        // The beginnings tried on the way are measured and not kept: only the lines a view draws are.
+        let shown = cutting(text, Double(key.room)) { self.widths[$0] ?? self.measure($0) }
+        cuts[key] = shown
+        cutCount += 1
+        return shown
+    }
+}
+
 /// A string rasterized the way the viewer's annotation textures always were:
 /// white antialiased glyphs drawn at 4 × 2 points of margin in a calibrated
 /// RGB bitmap of ceil(frame × scale) pixels, one texel to a backing pixel.

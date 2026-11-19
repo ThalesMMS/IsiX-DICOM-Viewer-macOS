@@ -23,7 +23,7 @@
                 <rect key="frame" x="0.0" y="0.0" width="724" height="531"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                 <subviews>
-                    <box title="Meilleur bouton de rendu" id="298">
+                    <box title="Bouton Meilleur rendu" id="298">
                         <rect key="frame" x="18" y="435" width="689" height="85"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="rLE-2L-VZ6">
@@ -229,7 +229,7 @@
                                 <button id="347">
                                     <rect key="frame" x="14" y="52" width="630" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Auto-Rotate objets après 3 min. dans Volume Rendering/MIP visualiseurs." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
+                                    <buttonCell key="cell" type="check" title="Rotation automatique des objets après 3 min. dans les visualiseurs VR/MIP." bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="369">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -240,7 +240,7 @@
                                 <button id="372">
                                     <rect key="frame" x="14" y="32" width="295" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Utiliser Spline pour les ciseaux ROI" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
+                                    <buttonCell key="cell" type="check" title="Utiliser une spline pour la ROI des ciseaux" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="373">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

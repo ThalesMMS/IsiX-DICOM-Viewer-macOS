@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 import IsiXPreferences
 
 /// The Thick Slab mode popup of the 2D viewer's toolbar.
@@ -23,17 +24,20 @@ import IsiXPreferences
 @objc(HorosThickSlabModePopUpButtonCell)
 public final class ThickSlabModePopUpButtonCell: NSPopUpButtonCell {
 
-    /// Short names by menu item tag (the fusion mode `-setFusionMode:` takes).
+    /// Short names by menu item tag (the fusion mode `-setFusionMode:` takes),
+    /// in the language of the menu. The two volume renderings share what comes
+    /// before the dash of their names, so the catalog names each mode; an item
+    /// with another tag shows its name up to the dash (ThickSlabModeName).
     @objc(shortTitleForItem:)
     public static func shortTitle(for item: NSMenuItem?) -> String {
         guard let item else { return "" }
         switch item.tag {
-        case 1: return "Mean"
-        case 2: return "MIP"
-        case 3: return "MinIP"
-        case 4: return "VR Up"
-        case 5: return "VR Down"
-        default: return item.title
+        case 1: return NSLocalizedString("Mean", comment: "Thick Slab mode, as the closed pop-up of the 2D viewer's toolbar shows it")
+        case 2: return NSLocalizedString("MIP", comment: "Thick Slab mode, as the closed pop-up of the 2D viewer's toolbar shows it")
+        case 3: return NSLocalizedString("MinIP", comment: "Thick Slab mode, as the closed pop-up of the 2D viewer's toolbar shows it")
+        case 4: return NSLocalizedString("VR Up", comment: "Thick Slab mode, as the closed pop-up of the 2D viewer's toolbar shows it: volume rendering, upwards")
+        case 5: return NSLocalizedString("VR Down", comment: "Thick Slab mode, as the closed pop-up of the 2D viewer's toolbar shows it: volume rendering, downwards")
+        default: return ThickSlabModeName.short(of: item.title)
         }
     }
 

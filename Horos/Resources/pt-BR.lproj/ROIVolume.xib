@@ -46,7 +46,7 @@
                         <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" sendsActionOnEndEditing="YES" id="765">
                             <font key="font" metaFont="smallSystem"/>
                             <string key="title">Volume: XXX cm3
-Um
+A
 B
 C
 D</string>
@@ -126,7 +126,7 @@ D</string>
                         </buttonCell>
                         <cells>
                             <column>
-                                <buttonCell type="radio" title="Crosta de Poder" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="779">
+                                <buttonCell type="radio" title="Power Crust" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" scrollable="YES" lineBreakMode="clipping" tag="2" inset="2" id="779">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
@@ -134,7 +134,7 @@ D</string>
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>
-                                <buttonCell type="radio" title="Contorno ISO" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="0" inset="2" id="8oL-6d-Q4I">
+                                <buttonCell type="radio" title="Iso-contorno" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" tag="0" inset="2" id="8oL-6d-Q4I">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="smallSystem"/>
                                 </buttonCell>

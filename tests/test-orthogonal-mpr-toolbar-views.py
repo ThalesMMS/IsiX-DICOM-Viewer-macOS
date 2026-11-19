@@ -48,7 +48,7 @@ root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
 # Every localization of the nib: the Thick Slab view's width follows the
 # translated titles of its controls.
-LOCALES = ('en', 'ja-JP', 'pt-BR', 'de', 'fr', 'ar', 'hi', 'ko', 'ru', 'zh-Hans')
+LOCALES = ('en', 'pt-BR', 'de', 'fr', 'ar', 'hi', 'ko', 'ru', 'zh-Hans')
 # The views the viewer hands to these items, by the item identifier.
 VIEWS = {'Tools': '60', 'WLWW': '186', 'ThickSlab': '142', 'Movie': '278'}
 

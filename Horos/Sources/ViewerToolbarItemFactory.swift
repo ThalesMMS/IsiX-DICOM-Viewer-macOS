@@ -260,10 +260,10 @@ private let maxScreens = 10
         case Catalog.windowLevel:
             control(NSLocalizedString("WL/WW & CLUT", comment: ""), toolTip: NSLocalizedString("Modify WL/WW & CLUT", comment: ""), view: viewer.horos_WLWWView)
             // A pull-down that does not change the item.
-            (viewer.horos_wlwwPopup?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: viewer.horos_wlwwPopup)
         case Catalog.filters:
             control(NSLocalizedString("Convolution Filters", comment: ""), toolTip: NSLocalizedString("Apply a convolution filter", comment: ""), view: viewer.horos_ConvView)
-            (viewer.horos_convPopup?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: viewer.horos_convPopup)
         case Catalog.thickSlab:
             // A fixed width, like the other items with controls: the popup shows
             // the mode's short name and the slider does not stretch.

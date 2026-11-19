@@ -39,7 +39,8 @@ tool_matrices = {
     'PETCT.xib': ('39',),
 }
 for name, ids in tool_matrices.items():
-    for language in ('en', 'ja-JP'):
+    # Japanese has no copy of these nibs: the English ones load there.
+    for language in ('en',):
         xib = root / 'Horos/Resources' / f'{language}.lproj' / name
         text = xib.read_text(encoding='latin-1')
         for matrix_id in ids:

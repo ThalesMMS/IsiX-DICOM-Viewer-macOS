@@ -129,8 +129,9 @@ public extension ViewerController {
 
     /// The slider can ask for the whole series, whatever its length: its
     /// capacity is the number of slices of the series, and a request the
-    /// series no longer has comes down to it. Its track is the scale of the
-    /// image shown (`refreshScale`), which ends where the series does.
+    /// series no longer has comes down to it. Its track is that of the
+    /// series, by the scale of the image shown (`refreshScale`), which says
+    /// how far along it the images left let the knob go.
     func fitSliderToSeries() {
         guard let slider = viewer.horos_sliderFusion else { return }
         let counts = (0..<viewer.horos_movieCount).map { viewer.horos_pixList(at: $0)?.count ?? 0 }
@@ -329,7 +330,8 @@ public extension ViewerController {
 
     /// The scale of the slab at the image `view` shows: the thicknesses its
     /// images make from there to the end of the series, within what the
-    /// slider can ask for. Nil for a view that shows nothing.
+    /// slider can ask for, on the track of the whole series. Nil for a view
+    /// that shows nothing.
     ///
     /// The images are placed along the normal of the one shown, once the
     /// series is loaded: before that, asking an image where it is would

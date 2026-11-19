@@ -208,9 +208,9 @@ import IsiXPreferences
     @objc(setToset:) private func setToset(_ field: NSTextField?) { tosetOutlet = field }
     @objc(setAddCLUTWindow:) private func setAddCLUTWindow(_ window: NSWindow?) { addCLUTWindowOutlet = window }
     @objc(setClutView:) private func setClutView(_ view: ColorTransferView?) { clutViewOutlet = view }
-    @objc(setWlwwPopup:) private func setWlwwPopup(_ popup: NSPopUpButton?) { wlwwPopupOutlet = popup }
-    @objc(setClutPopup:) private func setClutPopup(_ popup: NSPopUpButton?) { clutPopupOutlet = popup }
-    @objc(setOpacityPopup:) private func setOpacityPopup(_ popup: NSPopUpButton?) { opacityPopupOutlet = popup }
+    @objc(setWlwwPopup:) private func setWlwwPopup(_ popup: NSPopUpButton?) { wlwwPopupOutlet = popup; PresetPullDownTitle.install(on: popup) }
+    @objc(setClutPopup:) private func setClutPopup(_ popup: NSPopUpButton?) { clutPopupOutlet = popup; PresetPullDownTitle.install(on: popup) }
+    @objc(setOpacityPopup:) private func setOpacityPopup(_ popup: NSPopUpButton?) { opacityPopupOutlet = popup; PresetPullDownTitle.install(on: popup) }
 
     // MARK: - State the subclasses share
 

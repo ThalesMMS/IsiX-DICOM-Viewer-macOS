@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """An orthogonal MPR view drops the planar thick slab it keeps when its images are resliced.
 
-The planar draw copies the other slices of a thick slab (mean, MIP, MinIP) once
-and keeps them on the view between draws, recognised by the address of each
-DCMPix and of its pixels. OrthogonalReslice hands the sagittal and coronal
+The planar draw reduces a thick slab (mean, MIP, MinIP) once and keeps the
+reduction on the view between draws, recognised by the address of each DCMPix
+and of its pixels. OrthogonalReslice hands the sagittal and coronal
 views the same DCMPix objects on every reslice, their pixels rewritten in
 place, so the addresses never change: with the slab on, a scroll in those
 views reduced the new current slice with the slices of the old position, and
@@ -11,9 +11,9 @@ the projection hardly moved.
 
 Source-level contract:
 
-- the bridge keys its copy of the slices by their addresses (the reason for
-  the rest) and has `horosPlanarForgetSlab`, declared in its header, which
-  clears both the key and the copy;
+- the bridge keys the reduction it keeps by the addresses of the slices (the
+  reason for the rest) and has `horosPlanarForgetSlab`, declared in its
+  header, which clears the key, the reduction and the samples it was made with;
 - `-[OrthogonalMPRView setPixList:::]`, which every reslice goes through, and
   through it the PET-CT and endoscopy views, calls it after the new list is
   set and before the view draws it;
@@ -48,15 +48,15 @@ reslicer = read('Horos/Sources/OrthogonalReslice.swift')
 # The cache is recognised by addresses, so rewritten pixels keep its key.
 assert 'key += Self.address(slice, samples)' in bridge and \
     'return "/\\(Unmanaged.passUnretained(object).toOpaque()):\\(pixels)"' in bridge, 'the slab key is no longer made of addresses'
-assert 'slab = state.slabKey == key ? state.slabData : nil' in bridge
+assert 'if state.slabKey == key, let kept = state.slabCurrent' in bridge and 'reduced = state.slabData' in bridge
 
-# The bridge can forget it: key and copy both.
+# The bridge can forget it: the key, the reduction and the samples of the image it was made with.
 assert re.search(r'^    @objc\(horosPlanarForgetSlab\)\n    func horosPlanarForgetSlab\(\) \{$', header, re.M), \
     'horosPlanarForgetSlab is not declared'
 forget = re.search(r'func horosPlanarForgetSlab\(\) \{(.*?)\n    \}', header, re.S)
 assert forget, 'horosPlanarForgetSlab is not implemented'
 assert 'state.slabKey = nil' in forget.group(1)
-assert 'state.slabData = nil' in forget.group(1)
+assert '(state.slabData, state.slabCurrent) = (nil, nil)' in forget.group(1)
 
 # The orthogonal view forgets it whenever its images are replaced, before it draws them.
 start = view.index('@objc(setPixList:::)')

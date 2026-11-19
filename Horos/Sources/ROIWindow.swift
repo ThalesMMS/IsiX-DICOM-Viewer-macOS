@@ -94,6 +94,12 @@ public final class ROIWindow: NSWindowController, NSComboBoxDataSource {
 
     private var previousName: String?
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     /// Overridden so that -initWithWindowNibName: is inherited, unchanged.
     public override init(window: NSWindow?) {
         super.init(window: window)

@@ -207,7 +207,8 @@ expect(item.index('AnnotationsPopUpButton.install(in: viewer.horos_annotations)'
 expect('AnnotationsMenu.installInMainMenu()' in toolbar[toolbar.index('func setUpToolbar(in viewer: ViewerController)'):], 'the menu bar has no Custom')
 
 xibs = sorted((root / 'Horos/Resources').glob('*.lproj/Viewer.xib'))
-expect(len(xibs) == 10, f'{len(xibs)} Viewer.xib')
+# English and the eight languages that have a copy; Spanish, Italian and Japanese load the English nib.
+expect(len(xibs) == 9, f'{len(xibs)} Viewer.xib')
 for xib in xibs:
     text = xib.read_text()
     start = text.index('<customView id="2577" userLabel="Annotations">')

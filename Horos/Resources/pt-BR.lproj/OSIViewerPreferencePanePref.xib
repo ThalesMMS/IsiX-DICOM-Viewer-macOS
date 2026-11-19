@@ -658,7 +658,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="JNW-Zo-Pk3">
                                     <rect key="frame" x="10" y="42" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Exibir as ROIs do centro do círculo" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="cnn-XX-QeR">
+                                    <buttonCell key="cell" type="check" title="Exibir o centro dos ROIs circulares" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="cnn-XX-QeR">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -703,7 +703,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="197">
                                     <rect key="frame" x="10" y="182" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Direção reversa da roda de rolagem" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="343">
+                                    <buttonCell key="cell" type="check" title="Inverter direção da roda de rolagem" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="343">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -736,7 +736,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="431">
                                     <rect key="frame" x="10" y="123" width="286" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Percorra a imagem e a série para:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
+                                    <buttonCell key="cell" type="check" title="Percorrer a imagem e a série para:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="432">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -815,7 +815,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="458">
                                     <rect key="frame" x="10" y="102" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Selecione a janela ao usar a roda de rolagem" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
+                                    <buttonCell key="cell" type="check" title="Selecionar a janela ao usar a roda de rolagem" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="459">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -934,7 +934,7 @@
                                 <button verticalHuggingPriority="751" horizontalCompressionResistancePriority="1000" id="298">
                                     <rect key="frame" x="130" y="211" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Colocar janelas automaticamente ao fechar ou abrir uma nova série" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="358">
+                                    <buttonCell key="cell" type="check" title="Dispor janelas automaticamente ao fechar ou abrir uma nova série" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="358">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -956,7 +956,7 @@
                                 <button verticalHuggingPriority="251" horizontalCompressionResistancePriority="1000" id="497">
                                     <rect key="frame" x="130" y="321" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Reserve a tela do banco de dados para o banco de dados" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="498">
+                                    <buttonCell key="cell" type="check" title="Reservar a tela do banco de dados para o banco de dados" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="498">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -967,7 +967,7 @@
                                 <button verticalHuggingPriority="755" horizontalCompressionResistancePriority="1000" id="522">
                                     <rect key="frame" x="130" y="301" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Use a tela do banco de dados no último" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="523">
+                                    <buttonCell key="cell" type="check" title="Usar a tela do banco de dados por último" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="523">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1002,7 +1002,7 @@
                                         <binding destination="308" name="value" keyPath="values.automaticWorkspaceSave" id="337"/>
                                     </connections>
                                 </button>
-                                <button toolTip="Restaure o layout do visualizador salvo, incluindo outros estudos salvos na área de trabalho." horizontalCompressionResistancePriority="1000" id="336">
+                                <button toolTip="Restaurar o layout do visualizador salvo, incluindo outros estudos salvos na área de trabalho." horizontalCompressionResistancePriority="1000" id="336">
                                     <rect key="frame" x="130" y="87" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <buttonCell key="cell" type="check" title="Carregar automaticamente o estado do espaço de trabalho ao abrir um estudo" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="363">
@@ -1027,7 +1027,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="Aob-dY-jNd">
                                     <rect key="frame" x="130" y="63" width="266" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Lista de série única por tela" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="Uq0-8g-c6d">
+                                    <buttonCell key="cell" type="check" title="Lista de séries única por tela" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="Uq0-8g-c6d">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1070,7 +1070,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="390">
                                     <rect key="frame" x="130" y="15" width="632" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Ative automaticamente o suporte ao display Totoku de 12 bits para CR, MG, DX, DR, XA e RF" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
+                                    <buttonCell key="cell" type="check" title="Ativar automaticamente o suporte ao display Totoku de 12 bits para CR, MG, DX, DR, XA e RF" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="391">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1209,7 +1209,7 @@
                                 <button horizontalCompressionResistancePriority="1000" id="454">
                                     <rect key="frame" x="10" y="60" width="720" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Mantenha barras CLUT ao exportar capturas de tela" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
+                                    <buttonCell key="cell" type="check" title="Manter barras CLUT ao exportar capturas de tela" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="455">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -1274,7 +1274,7 @@
                                 <button id="339">
                                     <rect key="frame" x="18" y="114" width="744" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Se houver visualizações lado a lado, exporte todas as visualizações lado a lado, não apenas a vista selecionada" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="353">
+                                    <buttonCell key="cell" type="check" title="Se houver visualizações lado a lado, exportar todas as visualizações lado a lado, não apenas a vista selecionada" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="353">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

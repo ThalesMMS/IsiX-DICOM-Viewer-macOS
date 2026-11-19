@@ -261,7 +261,7 @@ private let toolsMenuIconSize = NSMakeSize(28.0, 28.0)
         sizeMenu.addItem(NSMenuItem.separator())
 
         let resizeMenu = NSMenu(title: "Resize window")
-        for (tag, titleMenu) in ["25%", "50%", "100%", "200%", "300%", "iPod Video"].enumerated() {
+        for (tag, titleMenu) in ["25%", "50%", "100%", "200%", "300%", NSLocalizedString("iPod Video", comment: "")].enumerated() {
             item = NSMenuItem(title: titleMenu, action: #selector(DCMView.resizeWindow(_:)), keyEquivalent: "")
             item.tag = tag
             item.target = viewer.horos_imageView

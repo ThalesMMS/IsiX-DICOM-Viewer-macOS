@@ -180,6 +180,9 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
     var observesPreferences = false
     var queryButtonPressed = false
     var designedMinimumSize = NSSize.zero
+    /// The columns of the results are being fitted to their headers: their
+    /// widths are not the user's, and are not saved as such.
+    var fittingResultColumns = false
     @objc nonisolated public var autoQueryLock: NSRecursiveLock { QueryController.madeIfNil(&_autoQueryLock) }
     /// Taken by the threads that query, off the main actor.
     nonisolated(unsafe) final var _autoQueryLock: NSRecursiveLock? = NSRecursiveLock()
@@ -498,6 +501,12 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
     // MARK: Window
 
+    /// The texts of the nib come from the catalog in a language that has no
+    /// copy of it.
+    public override func loadWindow() {
+        if !loadWindowReadingCatalog() { super.loadWindow() }
+    }
+
     public override func awakeFromNib() {
         super.awakeFromNib()
         MainActor.assumeIsolated {
@@ -567,6 +576,31 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
         captureWindowState()
     }
 
+    /// The Retrieve segment of the row of commands names the command, a verb
+    /// beside Query and Verify. The nib writes it with the word the Locations
+    /// settings head their column of retrieve modes with, which a language
+    /// reads there as a noun: the command takes a text of its own. The segment
+    /// is found by the action of its control and by its tag.
+    private func readRetrieveCommand() {
+        guard let content = window?.contentView else { return }
+        var views = [content]
+        while let view = views.popLast() {
+            if let segments = view as? NSSegmentedControl, segments.action == #selector(pressButtons(_:)) {
+                for index in 0..<segments.segmentCount where segments.tag(forSegment: index) == 2 {
+                    segments.setLabel(NSLocalizedString("Retrieve (button)", value: "Retrieve",
+                                                        comment: "Query and Retrieve window: the command that retrieves the selected studies, a verb beside Query and Verify"),
+                                      forSegment: index)
+                }
+                return
+            }
+            if let tabs = view as? NSTabView {
+                views += tabs.tabViewItems.compactMap(\.view)
+            } else if !(view is NSControl) {
+                views += view.subviews
+            }
+        }
+    }
+
     /// The right that unlocks the automatic query's settings. SFAuthorizationView
     /// may keep the pointer: a literal's static storage, as the former C string.
     private static var autoQRRight: UnsafePointer<CChar> {
@@ -576,6 +610,13 @@ public final class QueryController: NSWindowController, NSWindowDelegate, NSOutl
 
     public override func windowDidLoad() {
         super.windowDidLoad()
+
+        // The menu of presets holds the names the user gave them, and a preset is found again by the title
+        // of its item. Where the texts of the nib were read from the catalog, a preset named as one of the
+        // catalog's texts took its translation: the menu is built again from the stored names.
+        buildPresetsMenu()
+        readRetrieveCommand()
+        resultColumnsDidReadCatalog()
 
         // The nib fixes a minimum designed for a large display. Kept as it is, a
         // smaller or differently scaled screen cannot show the whole window: the

@@ -42,20 +42,20 @@
                                     <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                     <size key="cellSize" width="436" height="18"/>
                                     <size key="intercellSpacing" width="4" height="4"/>
-                                    <buttonCell key="prototype" type="check" title="Prefira CLUT &quot;B/W Inverse&quot; com este CLUT para mistura:" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="444">
+                                    <buttonCell key="prototype" type="check" title="Preferir CLUT &quot;B/W Inverse&quot; com este CLUT para mistura:" bezelStyle="regularSquare" imagePosition="left" alignment="left" tag="-1" inset="2" id="444">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Use CLUT &quot;B/W Inverse&quot; com este CLUT para misturar:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="292">
+                                            <buttonCell type="radio" title="Usar CLUT &quot;B/W Inverse&quot; com este CLUT para misturar:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" state="on" inset="2" id="292">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                                 <connections>
                                                     <action selector="setPETCLUTfor3DMIP:" target="-2" id="297"/>
                                                 </connections>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use este CLUT para PET, inclusive para mistura:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="296">
+                                            <buttonCell type="radio" title="Usar este CLUT para PET, inclusive para mistura:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" tag="1" inset="2" id="296">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -66,7 +66,7 @@
                                     </connections>
                                 </matrix>
                                 <popUpButton verticalHuggingPriority="750" id="298">
-                                    <rect key="frame" x="455" y="47" width="83" height="26"/>
+                                    <rect key="frame" x="455" y="47" width="240" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="301" id="425">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -81,7 +81,7 @@
                                     </popUpButtonCell>
                                 </popUpButton>
                                 <popUpButton verticalHuggingPriority="750" id="303">
-                                    <rect key="frame" x="455" y="26" width="83" height="26"/>
+                                    <rect key="frame" x="455" y="26" width="240" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="307" id="426">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -98,7 +98,7 @@
                                 <button id="399">
                                     <rect key="frame" x="14" y="11" width="430" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Aplique este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
+                                    <buttonCell key="cell" type="check" title="Aplicar este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="427">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -163,7 +163,7 @@
                                 <button id="397">
                                     <rect key="frame" x="14" y="9" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Aplique este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="429">
+                                    <buttonCell key="cell" type="check" title="Aplicar este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="429">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -195,15 +195,15 @@
                                     </buttonCell>
                                     <cells>
                                         <column>
-                                            <buttonCell type="radio" title="Use WL e WW armazenados" imagePosition="left" alignment="left" state="on" inset="2" id="387">
+                                            <buttonCell type="radio" title="Usar WL e WW armazenados" imagePosition="left" alignment="left" state="on" inset="2" id="387">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use níveis fixos, em porcentagens:" imagePosition="left" alignment="left" tag="1" inset="2" id="388">
+                                            <buttonCell type="radio" title="Usar níveis fixos, em porcentagens:" imagePosition="left" alignment="left" tag="1" inset="2" id="388">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
-                                            <buttonCell type="radio" title="Use níveis fixos, em SUV:" imagePosition="left" alignment="left" tag="2" inset="2" id="389">
+                                            <buttonCell type="radio" title="Usar níveis fixos, em SUV:" imagePosition="left" alignment="left" tag="2" inset="2" id="389">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
                                             </buttonCell>
@@ -326,7 +326,7 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="365">
                                             <items>
-                                                <menuItem title="linear" id="378"/>
+                                                <menuItem title="Linear" id="378"/>
                                                 <menuItem title="Alto-Baixo-Alto" tag="1" id="379"/>
                                                 <menuItem title="Baixo-Alto-Baixo" tag="2" id="380"/>
                                                 <menuItem title="Logarítmica" tag="3" id="381"/>
@@ -355,7 +355,7 @@
                         <color key="borderColor" white="0.0" alpha="0.41999999999999998" colorSpace="calibratedWhite"/>
                         <color key="fillColor" white="0.0" alpha="0.0" colorSpace="calibratedWhite"/>
                     </box>
-                    <box title="Computação SUV" id="448">
+                    <box title="Cálculo de SUV" id="448">
                         <rect key="frame" x="11" y="16" width="715" height="119"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="VhS-2q-PlZ">
@@ -365,7 +365,7 @@
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="996" id="450">
                                     <rect key="frame" x="15" y="43" width="337" height="17"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Use para o parâmetro Tempo de aquisição:" id="451">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Usar para o parâmetro Hora de aquisição:" id="451">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -379,10 +379,10 @@
                                         <font key="font" metaFont="menu"/>
                                         <menu key="menu" title="Outras visualizações" id="463">
                                             <items>
-                                                <menuItem title="Tempo da série (0008.0031)" id="469"/>
-                                                <menuItem title="Tempo de Aquisição (0008.0032)" tag="1" id="468"/>
-                                                <menuItem title="ContentTime (0008.0033)" tag="2" id="467"/>
-                                                <menuItem title="Tempo de estudo (0008.0030)" tag="3" id="466"/>
+                                                <menuItem title="Hora da série (0008,0031)" id="469"/>
+                                                <menuItem title="Hora de aquisição (0008,0032)" tag="1" id="468"/>
+                                                <menuItem title="Hora do conteúdo (0008,0033)" tag="2" id="467"/>
+                                                <menuItem title="Hora do estudo (0008,0030)" tag="3" id="466"/>
                                             </items>
                                         </menu>
                                     </popUpButtonCell>
@@ -395,7 +395,7 @@
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="center" id="475">
                                         <font key="font" metaFont="miniSystem"/>
-                                        <string key="title">A dose é corrigida pela meia-vida, em relação ao Tempo de Aquisição e ao Tempo de Injeção.
+                                        <string key="title">A dose é corrigida pela meia-vida, em relação à Hora de Aquisição e à Hora de Injeção.
 Dose corrigida = Dose * exp (ln(2) / Meia-vida). Verifique com o fabricante da modalidade PET qual campo deverá ser utilizado.</string>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -404,7 +404,7 @@ Dose corrigida = Dose * exp (ln(2) / Meia-vida). Verifique com o fabricante da m
                                 <button id="477">
                                     <rect key="frame" x="15" y="76" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Converta automaticamente PET em SUV ao carregar, se possível. " bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="478">
+                                    <buttonCell key="cell" type="check" title="Converter automaticamente PET em SUV ao carregar, se possível. " bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="478">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -425,7 +425,7 @@ Dose corrigida = Dose * exp (ln(2) / Meia-vida). Verifique com o fabricante da m
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <popUpButton verticalHuggingPriority="750" id="413">
-                                    <rect key="frame" x="450" y="30" width="83" height="26"/>
+                                    <rect key="frame" x="450" y="30" width="240" height="26"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                     <popUpButtonCell key="cell" type="push" title="Item 1" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="borderAndBezel" inset="2" arrowPosition="arrowAtCenter" preferredEdge="maxY" selectedItem="416" id="441">
                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
@@ -442,7 +442,7 @@ Dose corrigida = Dose * exp (ln(2) / Meia-vida). Verifique com o fabricante da m
                                 <button id="418">
                                     <rect key="frame" x="14" y="9" width="690" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Aplique este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="442">
+                                    <buttonCell key="cell" type="check" title="Aplicar este comportamento também à modalidade NM" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="442">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>
@@ -453,7 +453,7 @@ Dose corrigida = Dose * exp (ln(2) / Meia-vida). Verifique com o fabricante da m
                                 <button id="419">
                                     <rect key="frame" x="14" y="35" width="430" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Aplique esta tabela de opacidade ao visualizar um PET:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="443">
+                                    <buttonCell key="cell" type="check" title="Aplicar esta tabela de opacidade ao visualizar um PET:" bezelStyle="regularSquare" imagePosition="left" alignment="left" scrollable="YES" lineBreakMode="clipping" inset="2" id="443">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="system"/>
                                     </buttonCell>

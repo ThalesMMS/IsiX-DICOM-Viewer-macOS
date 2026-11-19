@@ -881,7 +881,7 @@
                                         <constraints>
                                             <constraint firstItem="515" firstAttribute="top" secondItem="551" secondAttribute="top" constant="3" id="0ij-D3-FkS"/>
                                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="343" id="69T-Nf-UxD"/>
-                                            <constraint firstAttribute="trailing" secondItem="515" secondAttribute="trailing" constant="-3" id="InY-nA-J5b"/>
+                                            <constraint firstAttribute="trailing" secondItem="515" secondAttribute="trailing" constant="5" id="InY-nA-J5b"/>
                                             <constraint firstItem="971" firstAttribute="top" secondItem="969" secondAttribute="bottom" constant="8" symbolic="YES" id="KFR-f9-P6E"/>
                                             <constraint firstItem="969" firstAttribute="leading" secondItem="971" secondAttribute="leading" id="aCh-GL-90z"/>
                                             <constraint firstItem="515" firstAttribute="leading" secondItem="551" secondAttribute="leading" constant="5" id="fIW-x4-bM7"/>
@@ -1753,6 +1753,7 @@
                     <constraint firstItem="1134" firstAttribute="centerX" secondItem="1128" secondAttribute="centerX" id="iHu-QQ-jzm"/>
                     <constraint firstItem="1131" firstAttribute="width" secondItem="1130" secondAttribute="width" id="vJS-y9-SMT"/>
                     <constraint firstItem="1131" firstAttribute="baseline" secondItem="1130" secondAttribute="baseline" id="z0m-nB-f4h"/>
+                    <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="1132" secondAttribute="trailing" constant="12" id="Tq2-0a-Cn3"/>
                 </constraints>
             </view>
         </window>
@@ -1908,6 +1909,7 @@
                     <constraint firstItem="862" firstAttribute="top" secondItem="874" secondAttribute="bottom" constant="37" id="waA-gs-tov"/>
                     <constraint firstItem="862" firstAttribute="leading" secondItem="845" secondAttribute="leading" constant="19" id="z3k-n0-pLP"/>
                     <constraint firstItem="874" firstAttribute="top" secondItem="845" secondAttribute="top" constant="12" id="zV0-sK-m3z"/>
+                    <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="850" secondAttribute="bottom" constant="20" id="Tq2-0a-Cn4"/>
                 </constraints>
             </view>
         </window>

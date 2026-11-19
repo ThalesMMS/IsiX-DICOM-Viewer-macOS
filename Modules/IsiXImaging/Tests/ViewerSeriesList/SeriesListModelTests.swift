@@ -43,7 +43,7 @@ import Testing
     @Test func tintsOfSeriesAndStudies() {
         let model = patient()
         #expect(model.tint(of: .study(0)) == .none)
-        #expect(model.tint(of: .series(study: 0, series: 0)) == .shown)
+        #expect(model.tint(of: .series(study: 0, series: 0)) == .shown(.current))
         #expect(model.tint(of: .series(study: 0, series: 1)) == .none)
         #expect(model.tint(of: .series(study: 0, series: 2)) == .fused)
         #expect(model.tint(of: .excluded(study: 0, placeholder: 1)) == .none)
@@ -51,6 +51,29 @@ import Testing
         #expect(model.tint(of: .study(1)) == .fused)
         #expect(model.tint(of: .study(2)) == .otherStudy)
         #expect(model.tint(of: .series(study: 2, series: 0)) == .otherStudy)
+    }
+
+    /// The window of the list shows a previous study of the patient: the
+    /// series it shows are tinted as that study, and nothing else changes.
+    @Test func theSeriesShownTakeTheStudyOfTheWindow() {
+        var model = patient()
+        #expect(model.windowStudy == .current)
+        let current = model.cells.map { model.tint(of: $0) }
+        model.windowStudy = .previous
+        #expect(model.tint(of: .series(study: 0, series: 0)) == .shown(.previous))
+        #expect(model.colour(of: .series(study: 0, series: 0)) == .shown(.previous))
+        let previous = model.cells.map { model.tint(of: $0) }
+        #expect(zip(current, previous).allSatisfy { $0 == $1 || ($0 == .shown(.current) && $1 == .shown(.previous)) })
+        #expect(previous.filter { $0 == .shown(.previous) }.count == 1 && !previous.contains(.shown(.current)))
+        // A study with its series hidden takes the tint of the series shown, in the same study's colour.
+        let hidden = SeriesListModel(studies: [
+            .init(kind: .local, isViewerStudy: true, seriesHidden: true, series: [Self.plain, Self.shown, Self.fused], excludedCount: 0),
+        ], countedCells: 0, windowStudy: .previous)
+        #expect(hidden.tint(of: .study(0)) == .shown(.previous) && hidden.framingSeries(ofStudy: 0) == 1)
+        // The fused series and the other studies keep their own.
+        #expect(model.tint(of: .series(study: 0, series: 2)) == .fused && model.tint(of: .study(2)) == .otherStudy)
+        // The two models are not one: a change of the window's study recolours the list.
+        #expect(model != patient())
     }
 
     @Test func framingStopsAtTheSeriesThatTints() {

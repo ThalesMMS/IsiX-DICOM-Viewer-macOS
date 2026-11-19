@@ -122,7 +122,7 @@
             <subviews>
                 <searchField wantsLayer="YES" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="27">
                     <rect key="frame" x="8" y="0" width="238" height="22"/>
-                    <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="sequência de pesquisa" bezelStyle="round" maximumRecents="20" recentsAutosaveName="XMLSearchSaveName" id="113">
+                    <searchFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" alignment="left" placeholderString="texto de pesquisa" bezelStyle="round" maximumRecents="20" recentsAutosaveName="XMLSearchSaveName" id="113">
                         <font key="font" metaFont="system"/>
                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -140,7 +140,7 @@
                 <constraint firstAttribute="trailing" secondItem="27" secondAttribute="trailing" constant="6" id="r71-Ro-tSn"/>
             </constraints>
         </customView>
-        <menu title="Cardápio" id="32" userLabel="Menu (Menu)">
+        <menu title="Menu" id="32" userLabel="Menu (Menu)">
             <items>
                 <menuItem title="Pesquisas recentes" tag="1000" id="33"/>
                 <menuItem title="Recentes" tag="1001" id="34"/>
@@ -208,7 +208,7 @@
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="85">
                         <rect key="frame" x="17" y="186" width="154" height="17"/>
-                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Adicione um novo campo DICOM:" id="118">
+                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Adicionar um novo campo DICOM:" id="118">
                             <font key="font" metaFont="system"/>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
@@ -471,9 +471,9 @@ Gw
                         </scroller>
                     </scrollView>
                     <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="143">
-                        <rect key="frame" x="1" y="4" width="271" height="11"/>
+                        <rect key="frame" x="1" y="4" width="296" height="11"/>
                         <constraints>
-                            <constraint firstAttribute="width" constant="267" id="zU7-3S-pkI"/>
+                            <constraint firstAttribute="width" constant="292" id="zU7-3S-pkI"/>
                         </constraints>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Baseado no Validador DICOM - dciodvfy, de David A. Clunie:" id="144">
                             <font key="font" metaFont="miniSystem"/>
@@ -482,7 +482,7 @@ Gw
                         </textFieldCell>
                     </textField>
                     <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="147">
-                        <rect key="frame" x="277" y="1" width="97" height="17"/>
+                        <rect key="frame" x="302" y="1" width="97" height="17"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="97" id="KmH-FJ-pBn"/>
                         </constraints>

@@ -99,7 +99,8 @@ assert 'horosRenderMetalImage(in: scene, fused: fused, mprPlane: mprPlane) {' in
     'let scene = horos_vtk.renderingScene(),' in view_render and 'CPU fallback: ' in host
 assert 'imageRegion: region' in host and 'mprVoxelToWorldTransform()' in host
 assert mapper.index('this->RenderImage(this->RenderImageContext') < mapper.index('this->PerImageInitialization( ren, vol, 0')
-for catalog in ('en', 'ja-JP'):
+# Japanese has no copy of the nib: the English one loads there.
+for catalog in ('en',):
     xib = (root / 'Horos/Resources' / (catalog + '.lproj') / 'VR.xib').read_text()
     # The VR draws with Metal only: no engine list to pick it from.
     assert ET.fromstring(xib).find('.//*[@id="vr-metal-radio"]') is None

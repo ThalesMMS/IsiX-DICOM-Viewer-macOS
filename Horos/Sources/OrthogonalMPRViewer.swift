@@ -1139,7 +1139,7 @@ public final class OrthogonalMPRViewer: Window3DController, NSSplitViewDelegate,
             toolbarItem?.view = WLWWView
             ToolbarPolicy.constrainView(of: toolbarItem, minimum: ToolbarPolicy.designedSize(of: WLWWView), maximum: ToolbarPolicy.designedSize(of: WLWWView))
 
-            (self.wlwwPopup()?.cell as? NSPopUpButtonCell)?.usesItemFromMenu = true
+            PresetPullDownTitle.show(on: self.wlwwPopup())
         } else if itemIdent.rawValue == MovieToolbarItemIdentifier {
             // Set up the standard properties
             toolbarItem?.label = NSLocalizedString("4D Player", comment: "")
