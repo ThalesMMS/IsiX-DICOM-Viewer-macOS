@@ -12,9 +12,10 @@ filled (`cachedPapyGroups`, `-clearCachedPapyGroups`); the unused
 `PapyrusLockFunction`; the `USEPAPYRUSDCMPIX4` default; extern declarations of
 the lock in files that never take it.
 
-Kept: the `PapyrusLock` global, allocated at launch and still taken around the
-parsed-file cache, the annotations and the single-field and crop reads in
-DicomFile, the import's header reading having moved outside it; the store
+Kept: the `PapyrusLock` global, allocated at launch and exported for the
+plugins, which the application takes nowhere: the parsed-file cache, the
+annotations and the single-field and crop reads in DicomFile take a lock of
+the application's own, the import's header reading having moved outside it; the store
 listener locks; the photometric interpretation codes of the YBR conversion;
 `-loadDICOMPapyrus` and `-releaseParsedFile` (formerly `-clearCachedDCMFrameworkFiles`) in the SDK header;
 `TOOLKITPARSER4`, whose presence DicomFile reads; the annotations method named
@@ -80,18 +81,26 @@ for lock in ("STORESCP", "STORESCPTLS"):
 # The parsed-file cache in DCMPix+Loading.swift, the annotations in DCMPix+Annotations.swift.
 annotations = text("Horos/Sources/DCMPix+Annotations.swift")
 cache = text("Horos/Sources/DCMPix+Loading.swift")
-# Each region goes through HorosObjCException.locked(PapyrusLock) { }, which
+# The application takes a lock of its own there, DCMPixParsedFileCache.lock,
+# not the exported one, which a plugin can take and leave held. Each region
+# goes through HorosObjCException.locked(DCMPixParsedFileCache.lock) { }, which
 # leaves the lock when an NSException unwinds through it; a bare lock() whose
 # defer an exception skips leaves every image load behind it waiting.
-GUARDED = "HorosObjCException.locked(PapyrusLock)"
-GUARDED_ANY = re.compile(r"HorosObjCException\.locked(?:Throwing)?\(PapyrusLock\)")
-check("PapyrusLock?.lock()" not in pix and "PapyrusLock?.unlock()" not in pix,
-      "DCMPix takes PapyrusLock outside HorosObjCException.locked")
+GUARDED = "HorosObjCException.locked(DCMPixParsedFileCache.lock)"
+GUARDED_ANY = re.compile(r"HorosObjCException\.locked(?:Throwing)?\(DCMPixParsedFileCache\.lock\)")
+check("static let lock = AccountableLock(" in cache, "the parsed-file cache has no lock of its own")
+check(".lock.lock()" not in pix and ".lock.unlock()" not in pix,
+      "DCMPix takes the lock of the parsed files outside HorosObjCException.locked")
 check(cache.count(GUARDED) >= 4 and annotations.count(GUARDED) >= 1,
-      "DCMPix no longer takes PapyrusLock around the parsed-file cache and annotations")
+      "DCMPix no longer takes its lock around the parsed-file cache and annotations")
 dcmtk = "".join(text("Horos/Sources/" + name) for name in DCMTK_READING)
-check(len(GUARDED_ANY.findall(dcmtk)) >= 3 and "PapyrusLock?.lock()" not in dcmtk,
-      "the field and crop reads of DicomFile no longer take PapyrusLock through HorosObjCException.locked")
+check(len(GUARDED_ANY.findall(dcmtk)) >= 3,
+      "the field and crop reads of DicomFile no longer take the lock of the parsed files through HorosObjCException.locked")
+# Nothing of the application waits for the exported lock: it is allocated, for the plugins, and named nowhere else.
+for path in sorted((ROOT / "Horos/Sources").glob("*.swift")):
+    if path.name != "ApplicationLifecycle.swift":
+        check(not re.search(r"locked(?:Throwing)?\(PapyrusLock\)|PapyrusLock\??\.(?:lock|unlock|try)", path.read_text(errors="replace")),
+              f"{path.name} takes the lock the plugin SDK exports")
 codes = re.search(r"enum EPhoto_Interpret\s*\{([^}]+)\}", pix)
 if codes is None and "loadNonDICOMImage" in pix:
     # The YBR conversion is in Swift (IsiXImaging), with the three codes it converts
@@ -125,5 +134,6 @@ if failures:
     print(f"{len(failures)} failure(s)")
     raise SystemExit(1)
 print("PASS: the Papyrus3 toolkit, the always-NO flag, its fallback, the empty group cache, the C lock wrapper, the "
-      "default and the stray extern declarations are gone; PapyrusLock (allocated, balanced around the cache, "
-      "annotations and DCMTK reads), the store locks, the colour codes, the SDK methods and TOOLKITPARSER4 remain")
+      "default and the stray extern declarations are gone; PapyrusLock (allocated and exported, taken nowhere by the "
+      "application, whose cache, annotations and DCMTK reads take a lock of their own), the store locks, the "
+      "colour codes, the SDK methods and TOOLKITPARSER4 remain")

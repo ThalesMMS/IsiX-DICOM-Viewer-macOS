@@ -195,10 +195,13 @@ public final class FlyAssistant: NSObject, @unchecked Sendable {
         }
     }
 
+    /// Answers YES once the transform is computed, as later headers of the plugin SDK declare it.
     @objc(distanceTransformWithThreshold:)
-    public func distanceTransform(withThreshold sender: Any?) {
+    @discardableResult
+    public func distanceTransform(withThreshold sender: Any?) -> Bool {
         core.distanceTransform()
         copyCoreState()
+        return true
     }
 
     @objc(converPoint2ResampleCoordinate:)

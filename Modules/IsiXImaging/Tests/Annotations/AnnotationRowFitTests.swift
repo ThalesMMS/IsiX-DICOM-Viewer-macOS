@@ -36,8 +36,7 @@ private func layout(width: Double, height: Double = 400, orientation: Bool = fal
 
 private func fit(_ layout: AnnotationOverlayLayout, _ groups: [[Command]], fixed: [Command] = [], measures: inout Int) -> [[Command]] {
     var count = 0
-    let bounds = Double(layout.start(of: "MiddleLeft").x)...Double(layout.start(of: "MiddleRight").x)
-    let fitted = AnnotationRowFit.fit(groups, fixed: fixed, bounds: bounds, lineHeight: layout.lineHeight, gap: layout.characterWidth,
+    let fitted = AnnotationRowFit.fit(groups, fixed: fixed, in: layout,
                                       width: { count += 1; return wide($0) },
                                       cut: { AnnotationRowFit.cut($0, to: $1, width: wide) })
     measures = count
@@ -247,5 +246,59 @@ struct AnnotationRowFitTests {
         #expect(fitted == groups)
         #expect(measures == 3)
         #expect(cuts == 0)
+    }
+
+    // MARK: - A view narrower than its margins
+
+    /// A layout as a view of `width` points gives it at `scale`: its sizes are backing pixels.
+    private func shrunk(width: Double, scale: Float, edgeReserve: Double = 0) -> AnnotationOverlayLayout {
+        AnnotationOverlayLayout(originX: 0, originY: 0, width: width * Double(scale), height: 400 * Double(scale), scale: scale,
+                                characterWidth: 10 * Double(scale), lineHeight: 16 * Double(scale), edgeReserve: edgeReserve)
+    }
+
+    @Test func aViewNarrowerThanItsMarginsHasNoSideEdges() {
+        // The left lines start 6 points in and the right ones end 2 points in: 8 points of margins.
+        for scale: Float in [1, 2] {
+            for width in [0.0, 1, 7] {
+                #expect(shrunk(width: width, scale: scale).sideEdges == nil, "width \(width), scale \(scale)")
+            }
+            let edges = shrunk(width: 8, scale: scale).sideEdges
+            #expect(edges?.lowerBound == Double(6 * scale))
+            #expect(edges?.upperBound == Double(6 * scale))
+            #expect(shrunk(width: 9, scale: scale).sideEdges != nil)
+            // The frame of a 2D viewer takes its room on each side as well.
+            #expect(shrunk(width: 15, scale: scale, edgeReserve: 4).sideEdges == nil)
+            #expect(shrunk(width: 16, scale: scale, edgeReserve: 4).sideEdges != nil)
+        }
+        #expect(layout(width: 1024).sideEdges == 6...1022)
+    }
+
+    @Test func aViewNarrowerThanItsMarginsDrawsNoSideLineAndMeasuresNothing() {
+        for scale: Float in [1, 2] {
+            for width in [0.0, 1, 7] {
+                let layout = shrunk(width: width, scale: scale)
+                let signature = layout.signature
+                let groups = [lines(layout, "TopLeft", ["name", "study"]), lines(layout, "TopRight", ["hospital"]),
+                              lines(layout, "MiddleLeft", ["left"]), lines(layout, "MiddleRight", ["right"]),
+                              lines(layout, "LowerLeft", ["zoom"]), lines(layout, "LowerRight", ["date"]),
+                              lines(layout, "TopMiddle", ["top"]) + [.orientation, .plugin(x: 3, y: 40, alignment: .left)],
+                              [.text("signature", x: signature.x, y: signature.y, alignment: .right)]]
+                var measures = 0
+                let fitted = fit(layout, groups, fixed: layout.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: ["notice"]),
+                                 measures: &measures)
+                #expect(fitted.count == groups.count)
+                #expect(fitted.flatMap { texts($0) } == ["top"], "width \(width), scale \(scale)")
+                #expect(fitted[6] == groups[6])
+                #expect(fitted[7].isEmpty)
+                #expect(measures == 0)
+            }
+        }
+    }
+
+    @Test func aViewAsWideAsItsMarginsCutsItsSideLinesToNothingWithoutASideEdgeCrossingTheOther() {
+        // The two edges meet: no line has room for «…», and none is drawn.
+        let layout = shrunk(width: 8, scale: 1)
+        let fitted = fit(layout, [lines(layout, "TopLeft", ["name"]), lines(layout, "TopRight", ["hospital"])])
+        #expect(fitted.flatMap { texts($0) }.isEmpty)
     }
 }

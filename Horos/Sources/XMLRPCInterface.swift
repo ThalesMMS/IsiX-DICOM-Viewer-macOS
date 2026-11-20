@@ -45,8 +45,11 @@ import IsiXPreferences
 /// XML-RPC for RIS integration: the methods a RIS, a script, a horos:// link
 /// or AppleScript calls by name.
 ///
-/// The interface owns the listener and answers its connections; each
-/// connection runs on a thread of its own (XMLRPCInterfaceConnection.swift).
+/// The interface dispatches the methods and opens no port: a link and
+/// AppleScript call it in this process (`methodCall(_:parameters:)`), and the
+/// server of the network, when it is turned on, hands it the calls of its
+/// connections (XMLRPCNetworkServer.swift), each on a thread of its own
+/// (XMLRPCInterfaceConnection.swift).
 /// The methods, by responsibility:
 /// - opening studies and series: XMLRPCInterface+Display.swift, and showing
 ///   them on the main thread: XMLRPCInterface+Opening.swift;
@@ -61,75 +64,29 @@ import IsiXPreferences
 /// sent there, as it always was.
 @objc(XMLRPCInterface)
 public final class XMLRPCInterface: NSObject, N2XMLRPCConnectionDelegate {
-    private var listener: XMLRPCListener?
     // The instance variables of the former plugin SDK, which a plugin reads at
     // the offset the application exports for each, so each is a stored field
     // of this class, never private, constant, lazy or observed. The SDK's
     // listener was of the class of its own sockets, which this server does not
-    // use: the field stays nil, and the listener is the one above.
+    // use: the field stays nil, and the listener is the network server's.
     var _listener: AnyObject?
     var https: Bool
     /// The graph of the process, which hands the methods the browser and its database.
     let processGraph: ProcessGraph
 
-    /// Made by the application controller when the preferences turn the interface on.
+    /// Made by the application when the links or the server are turned on.
     public convenience override init() {
         self.init(processGraph: ProcessGraph.process)
     }
 
     init(processGraph: ProcessGraph) {
         self.processGraph = processGraph
-        let preferences = processGraph.preferences
-        let port = preferences[NetworkPreferences.xmlrpcServerPort]
-
-        // This interface publishes KillOsiriX, Retrieve, DownloadURL and
-        // dbwindowfind, and dbwindowfind returns the database: patient names
-        // and identifiers included. By default it answers every peer without a
-        // credential unless the Listener pane narrows it. The socket
-        // listens on every interface, as a RIS on this Mac often calls the
-        // machine's own network address, and each request is judged by its
-        // peer address against the settings of the pane as they are when it
-        // arrives, after what a web page sends has been refused.
-        https = preferences[NetworkPreferences.xmlrpcServerHTTPS]
+        https = processGraph.preferences[NetworkPreferences.xmlrpcServerHTTPS]
         super.init()
-
-        // HTTPS presents the web portal's identity, made the first time either
-        // needs it: one self-signed certificate for the two servers of this Mac.
-        if https && !XMLRPCListener.httpsIdentityAvailable() {
-            // The interface stays, without a listener, rather than serving
-            // plain HTTP.
-            NSLog("--- XML-RPC interface not activated on port %d: HTTPS is on and no certificate could be read or created in the keychain", Int32(truncatingIfNeeded: port))
-            return
-        }
-
-        // Each connection runs on a thread of its own and answers through
-        // this interface. The listener does not retain the interface, which
-        // owns it.
-        listener = XMLRPCListener(port: port, https: https) { [weak self] transport in
-            guard let self else { return nil }
-            let connection = XMLRPCInterfaceConnection(transport: transport)
-            connection.dontSpecifyStringType = true
-            connection.delegate = self
-            return connection
-        }
-
-        if listener != nil {
-            let policy = XMLRPCAccessPolicy.policy(from: preferences)
-            let scopes = ["this Mac only", "this Mac and the local network", "this Mac and any address"]
-            NSLog("--- XML-RPC interface activated on port: %d (%@), answering %@%@%@", Int32(truncatingIfNeeded: port),
-                  (https ? "HTTPS" : "HTTP") as NSString,
-                  scopes[policy.scope.rawValue] as NSString,
-                  (policy.scope == .thisMac ? "" : (policy.requirePassword ? ", with a password" : ", WITHOUT a password")) as NSString,
-                  (policy.allowedAddresses.isEmpty ? "" : ", and the listed addresses without one") as NSString)
-        } else {
-            ApplicationNetworkNotices(processGraph: processGraph).listenBindFailed(service: "XML-RPC", port: port,
-                                                                                  errno: XMLRPCListener.lastBindErrno())
-        }
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        listener?.stop()
     }
 
     // MARK: N2XMLRPCConnectionDelegate

@@ -294,7 +294,7 @@ extension DCMPix {
     /// Empties the annotations: the next drawing builds them again.
     @objc(reloadAnnotations)
     public dynamic func reloadAnnotations() {
-        HorosObjCException.locked(PapyrusLock) {
+        HorosObjCException.locked(DCMPixParsedFileCache.lock) {
             horos_annotationsDictionary?.removeAllObjects()
         }
     }

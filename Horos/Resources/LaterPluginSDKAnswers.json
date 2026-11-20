@@ -1,0 +1,6029 @@
+{
+ "about": "The selectors that only later headers of the plugin SDK declare and the application has no method for, by class, each with the type encoding the Objective-C compiler gives the declaration of those headers. kept: the properties a plugin can set, [name, - or + for a class property, getter, its types, setter, its types], which the application keeps with the object and reads back. neutral: the selectors of features the application does not have, which answer nil, zero or nothing. answered: the selectors of the viewer and of its view that the application has something behind, which LaterPluginSDKViewerAnswers adds with these types. LaterPluginSDKAnswers adds each to its class when the application starts; tools/plugin-sdk-selector-sweep.py table writes this file.",
+ "classes": {
+  "Anonymization": {
+   "kept": [],
+   "neutral": {
+    "+anonymizeFiles:dicomImages:toPath:withTags:newUIDs:": "@@:@@@@B",
+    "+anonymizeFiles:withTags:newUIDs:": "v@:@@B"
+   }
+  },
+  "AnonymizationTagsPopUpButton": {
+   "kept": [
+    [
+     "DICOMField",
+     "-",
+     "DICOMField",
+     "@@:",
+     "setDICOMField:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-setSelectedTag:": "v@:@"
+   }
+  },
+  "AppController": {
+   "kept": [
+    [
+     "appNapActivity",
+     "-",
+     "appNapActivity",
+     "@@:",
+     "setAppNapActivity:",
+     "v@:@"
+    ],
+    [
+     "applicationDidFinishLaunching",
+     "-",
+     "applicationDidFinishLaunching",
+     "B@:",
+     "setApplicationDidFinishLaunching:",
+     "v@:B"
+    ],
+    [
+     "currentRegistrationKey",
+     "-",
+     "currentRegistrationKey",
+     "@@:",
+     "setCurrentRegistrationKey:",
+     "v@:@"
+    ],
+    [
+     "keysFromAccountHidden",
+     "-",
+     "keysFromAccountHidden",
+     "B@:",
+     "setKeysFromAccountHidden:",
+     "v@:B"
+    ],
+    [
+     "refreshOAuthTokensTimer",
+     "-",
+     "refreshOAuthTokensTimer",
+     "@@:",
+     "setRefreshOAuthTokensTimer:",
+     "v@:@"
+    ],
+    [
+     "showRestartNeeded",
+     "-",
+     "showRestartNeeded",
+     "B@:",
+     "setShowRestartNeeded:",
+     "v@:B"
+    ],
+    [
+     "upgradeRegistrationKey",
+     "-",
+     "upgradeRegistrationKey",
+     "@@:",
+     "setUpgradeRegistrationKey:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+FPlistForKey:": "B@:@",
+    "+OpenGL41": "B@:",
+    "+allThreads": "@@:",
+    "+baseURL": "@@:",
+    "+binpdf:toFile:": "v@:@@",
+    "+buttonTouchBarItemWithIdentifier:title:customizationLabel:image:target:action:": "@@:@@@@@:",
+    "+buttonTouchBarItemWithIdentifier:type:title:customizationLabel:image:target:action:": "@@:@Q@@@@:",
+    "+clearEvents": "v@:",
+    "+clutIconForClutName:": "@@:@",
+    "+clutIconForRed:green:blue:": "@@:***",
+    "+computerName": "@@:",
+    "+convolutionIconForDcmPix:name:": "@@:@@",
+    "+debugMode": "B@:",
+    "+defaultTouchBar": "@@:",
+    "+delayedTileWindows:": "v@:@",
+    "+displayAppleScriptPermissionError:": "v@:@",
+    "+displayVeryImportantNotice32:": "i@:@",
+    "+displayVeryImportantNotice64:": "i@:@",
+    "+getLastLines:forApplication:": "@@:i@",
+    "+getLastLines:forApplication:authenticate:": "@@:i@B",
+    "+getRK": "@@:",
+    "+hasMacOSSierra": "B@:",
+    "+hasMacOSSierra10122": "B@:",
+    "+hasMacOSX:": "B@:@",
+    "+hasNSParagraphStyleTabStopsBug": "B@:",
+    "+hasOSXElCapitan": "B@:",
+    "+hasOSXYosemite": "B@:",
+    "+hideWarningAboutDatabaseAccess": "v@:",
+    "+hostReachable:": "B@:@",
+    "+isANVISA": "B@:",
+    "+isMD": "B@:",
+    "+isOSXYosemite": "B@:",
+    "+isStarting": "B@:",
+    "+isSystemInDarkMode": "B@:",
+    "+isTerminating": "B@:",
+    "+isTouchBarAvailable": "B@:",
+    "+isUnsupportedOS": "i@:",
+    "+longForFPlistForKey:": "q@:@",
+    "+obfuscatedKey": "@@:",
+    "+opacityIconForOpacityName:": "@@:@",
+    "+parametersForURL:": "@@:@",
+    "+pingPlugin:userDict:": "v@:@@",
+    "+refreshOAuthForServer:": "v@:@",
+    "+resetCLUTMenuCache": "v@:",
+    "+resetClutIcons": "v@:",
+    "+resetOpacityIcons": "v@:",
+    "+resetPopupMenuFont:": "v@:@",
+    "+resetThumbnailsList": "v@:",
+    "+resizeImageForIcon:": "@@:@",
+    "+restartOsiriX": "v@:",
+    "+restartOsiriXWithTerminate:": "v@:B",
+    "+runningOsiriXMDSubscriptionInLimitedMode": "B@:",
+    "+sendAnalyticsWithName:": "v@:@",
+    "+sendAnalyticsWithName:dictionary:": "v@:@@",
+    "+serverMode": "B@:",
+    "+setPopupMenuFont:": "v@:@",
+    "+setPopupMenuFont:allItems:": "v@:@B",
+    "+showWarningAboutDatabaseAccess": "v@:",
+    "+sortObjects:accordingToSeriesDescriptionsArray:": "@@:@@",
+    "+sortObjects:accordingToSeriesDescriptionsArray:oneSeriesPerSeriesDescription:": "@@:@@B",
+    "+thisFeatureIsNotAvailable:": "v@:@",
+    "+visibleFrameForScreen:": "{CGRect={CGPoint=dd}{CGSize=dd}}@:@",
+    "+webBrowserIcon": "@@:",
+    "+wwwlIconForDcmPix:ww:wl:": "@@:@ff",
+    "-VOILutMenu": "@@:",
+    "-alternateModal:": "v@:@",
+    "-applyWindowProtocolMenu": "@@:",
+    "-buildROIInformationsBoxMenu": "@@:",
+    "-buildWindowsStateMenu:": "B@:@",
+    "-checkWindowDisplay": "v@:",
+    "-computeViewersRowColumn": "v@:",
+    "-cr": "v@:",
+    "-currentColumnForViewer:": "i@:@",
+    "-currentRowForViewer:": "i@:@",
+    "-dicomWebBonjourPublisher": "@@:",
+    "-displayAllUsersFolder:": "v@:@",
+    "-displayCurrentUserFolder:": "v@:@",
+    "-displayPixmeoLogin:": "v@:@",
+    "-enterNewRegistrationKey:": "v@:@",
+    "-enterNewRegistrationKeyWithString:": "B@:@",
+    "-growlTitle:description:name:": "v@:@@@",
+    "-growlTitle:description:name:userInfo:": "v@:@@@@",
+    "-isAppActive": "B@:",
+    "-lastAppActivity": "d@:",
+    "-lastColumns": "i@:",
+    "-lastCount": "i@:",
+    "-lastRows": "i@:",
+    "-loadWindowsStateDICOMSRForStudy:state:": "v@:@@",
+    "-openOsirixWebPage:": "v@:@",
+    "-orderedWindowsAccordingToPositionByRows": "@@:",
+    "-orderedWindowsAccordingToPositionByRows:": "@@:@",
+    "-pokeAppActivity": "v@:",
+    "-processOsiriXSchemeURL:": "B@:@",
+    "-releaseObject:afterDelay:": "v@:@i",
+    "-rows:columns:forScreen:": "v@:^i^i@",
+    "-runningTimeInterval": "d@:",
+    "-userManual:": "v@:@",
+    "-windowTracker": "@@:",
+    "-workspacesForStudy:": "@@:@"
+   }
+  },
+  "AsyncSocket": {
+   "kept": [
+    [
+     "blacklisted",
+     "-",
+     "blacklisted",
+     "B@:",
+     "setBlacklisted:",
+     "v@:B"
+    ],
+    [
+     "cerbotCheckTimer",
+     "-",
+     "cerbotCheckTimer",
+     "@@:",
+     "setCerbotCheckTimer:",
+     "v@:@"
+    ],
+    [
+     "noActivityTimer",
+     "-",
+     "noActivityTimer",
+     "@@:",
+     "setNoActivityTimer:",
+     "v@:@"
+    ],
+    [
+     "theAssignedRunLoop",
+     "-",
+     "theAssignedRunLoop",
+     "@@:",
+     "setTheAssignedRunLoop:",
+     "v@:@"
+    ],
+    [
+     "theAssignedThread",
+     "-",
+     "theAssignedThread",
+     "@@:",
+     "setTheAssignedThread:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+asyncSocketCounter": "Q@:",
+    "+asyncSocketWithRunLoopCounter": "Q@:",
+    "+blackListedHostnames": "@@:",
+    "+isBlackListed:": "B@:@",
+    "+mostUsedSocketsPerHostname": "@@:",
+    "+scanCertBotFolder:domainName:": "^{__SecIdentity=}@:@@",
+    "-connectedHostWithCheckForThreadSafery:": "@@:B",
+    "-restart:onPort:": "B@:^@S",
+    "-tlsVersion": "@@:"
+   }
+  },
+  "BLAuthentication": {
+   "kept": [],
+   "neutral": {
+    "+setDontAskPrivileges:": "v@:B",
+    "-executeCommand:withArgs:wait:": "B@:@@B",
+    "-executeCommand:withArgs:wait:pipe:": "B@:@@B^^{__sFILE}",
+    "-executeCommand:withArgs:wait:pipe:dontAskPrivileges:": "B@:@@B^^{__sFILE}B"
+   }
+  },
+  "BrowserController": {
+   "kept": [
+    [
+     "DICOMwebServerPassword",
+     "-",
+     "DICOMwebServerPassword",
+     "@@:",
+     "setDICOMwebServerPassword:",
+     "v@:@"
+    ],
+    [
+     "DICOMwebServerToAuthenticate",
+     "-",
+     "DICOMwebServerToAuthenticate",
+     "@@:",
+     "setDICOMwebServerToAuthenticate:",
+     "v@:@"
+    ],
+    [
+     "DICOMwebServerUsername",
+     "-",
+     "DICOMwebServerUsername",
+     "@@:",
+     "setDICOMwebServerUsername:",
+     "v@:@"
+    ],
+    [
+     "badgeCursor",
+     "-",
+     "badgeCursor",
+     "@@:",
+     "setBadgeCursor:",
+     "v@:@"
+    ],
+    [
+     "canAddToFetchLimit",
+     "-",
+     "canAddToFetchLimit",
+     "B@:",
+     "setCanAddToFetchLimit:",
+     "v@:B"
+    ],
+    [
+     "cloudPreviousStudy",
+     "-",
+     "cloudPreviousStudy",
+     "@@:",
+     "setCloudPreviousStudy:",
+     "v@:@"
+    ],
+    [
+     "comparativeSeriesWaited",
+     "-",
+     "comparativeSeriesWaited",
+     "@@:",
+     "setComparativeSeriesWaited:",
+     "v@:@"
+    ],
+    [
+     "comparativeStudyWaited",
+     "-",
+     "comparativeStudyWaited",
+     "@@:",
+     "setComparativeStudyWaited:",
+     "v@:@"
+    ],
+    [
+     "comparativeStudyWaitedModality",
+     "-",
+     "comparativeStudyWaitedModality",
+     "@@:",
+     "setComparativeStudyWaitedModality:",
+     "v@:@"
+    ],
+    [
+     "comparativeStudyWaitedViewer",
+     "-",
+     "comparativeStudyWaitedViewer",
+     "@@:",
+     "setComparativeStudyWaitedViewer:",
+     "v@:@"
+    ],
+    [
+     "contactPicker",
+     "-",
+     "contactPicker",
+     "@@:",
+     "setContactPicker:",
+     "v@:@"
+    ],
+    [
+     "distantComparativeStudies",
+     "-",
+     "distantComparativeStudies",
+     "@@:",
+     "setDistantComparativeStudies:",
+     "v@:@"
+    ],
+    [
+     "distantComparativeStudiesPatientUID",
+     "-",
+     "distantComparativeStudiesPatientUID",
+     "@@:",
+     "setDistantComparativeStudiesPatientUID:",
+     "v@:@"
+    ],
+    [
+     "getInfoString",
+     "-",
+     "getInfoString",
+     "@@:",
+     "setGetInfoString:",
+     "v@:@"
+    ],
+    [
+     "lastWorkSpaceURI",
+     "-",
+     "lastWorkSpaceURI",
+     "@@:",
+     "setLastWorkSpaceURI:",
+     "v@:@"
+    ],
+    [
+     "modalityFilterPopoverTouchBarItem",
+     "-",
+     "modalityFilterPopoverTouchBarItem",
+     "@@:",
+     "setModalityFilterPopoverTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "modalityScrubber",
+     "-",
+     "modalityScrubber",
+     "@@:",
+     "setModalityScrubber:",
+     "v@:@"
+    ],
+    [
+     "openedStudyInstanceUID",
+     "-",
+     "openedStudyInstanceUID",
+     "@@:",
+     "setOpenedStudyInstanceUID:",
+     "v@:@"
+    ],
+    [
+     "originalOutlineViewArray",
+     "-",
+     "originalOutlineViewArray",
+     "@@:",
+     "setOriginalOutlineViewArray:",
+     "v@:@"
+    ],
+    [
+     "outlineViewArray",
+     "-",
+     "outlineViewArray",
+     "@@:",
+     "setOutlineViewArray:",
+     "v@:@"
+    ],
+    [
+     "outlineViewArrayStudyInstanceUIDs",
+     "-",
+     "outlineViewArrayStudyInstanceUIDs",
+     "@@:",
+     "setOutlineViewArrayStudyInstanceUIDs:",
+     "v@:@"
+    ],
+    [
+     "outlineViewPredicate",
+     "-",
+     "outlineViewPredicate",
+     "@@:",
+     "setOutlineViewPredicate:",
+     "v@:@"
+    ],
+    [
+     "outlineViewSortDescriptors",
+     "-",
+     "outlineViewSortDescriptors",
+     "@@:",
+     "setOutlineViewSortDescriptors:",
+     "v@:@"
+    ],
+    [
+     "savedDatabaseDescriptors",
+     "-",
+     "savedDatabaseDescriptors",
+     "@@:",
+     "setSavedDatabaseDescriptors:",
+     "v@:@"
+    ],
+    [
+     "searchToBeResetted",
+     "-",
+     "searchToBeResetted",
+     "B@:",
+     "setSearchToBeResetted:",
+     "v@:B"
+    ],
+    [
+     "selectedAlbumUID",
+     "-",
+     "selectedAlbumUID",
+     "@@:",
+     "setSelectedAlbumUID:",
+     "v@:@"
+    ],
+    [
+     "selectedRowsBeforeResizing",
+     "-",
+     "selectedRowsBeforeResizing",
+     "@@:",
+     "setSelectedRowsBeforeResizing:",
+     "v@:@"
+    ],
+    [
+     "smartAlbumDistantUID",
+     "-",
+     "smartAlbumDistantUID",
+     "@@:",
+     "setSmartAlbumDistantUID:",
+     "v@:@"
+    ],
+    [
+     "statusPopoverTouchBarItem",
+     "-",
+     "statusPopoverTouchBarItem",
+     "@@:",
+     "setStatusPopoverTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "statusScrubber",
+     "-",
+     "statusScrubber",
+     "@@:",
+     "setStatusScrubber:",
+     "v@:@"
+    ],
+    [
+     "tableViewAlbumsCache",
+     "-",
+     "tableViewAlbumsCache",
+     "@@:",
+     "setTableViewAlbumsCache:",
+     "v@:@"
+    ],
+    [
+     "thumbnailsScrubber",
+     "-",
+     "thumbnailsScrubber",
+     "@@:",
+     "setThumbnailsScrubber:",
+     "v@:@"
+    ],
+    [
+     "timeIntervalEnd",
+     "-",
+     "timeIntervalEnd",
+     "@@:",
+     "setTimeIntervalEnd:",
+     "v@:@"
+    ],
+    [
+     "timeIntervalFilterPopoverTouchBarItem",
+     "-",
+     "timeIntervalFilterPopoverTouchBarItem",
+     "@@:",
+     "setTimeIntervalFilterPopoverTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "timeIntervalScrubber",
+     "-",
+     "timeIntervalScrubber",
+     "@@:",
+     "setTimeIntervalScrubber:",
+     "v@:@"
+    ],
+    [
+     "timeIntervalStart",
+     "-",
+     "timeIntervalStart",
+     "@@:",
+     "setTimeIntervalStart:",
+     "v@:@"
+    ],
+    [
+     "unifyFromList",
+     "-",
+     "unifyFromList",
+     "@@:",
+     "setUnifyFromList:",
+     "v@:@"
+    ],
+    [
+     "unifyMultipleStudies",
+     "-",
+     "unifyMultipleStudies",
+     "B@:",
+     "setUnifyMultipleStudies:",
+     "v@:B"
+    ],
+    [
+     "unifyNewSOPInstanceUIDs",
+     "-",
+     "unifyNewSOPInstanceUIDs",
+     "B@:",
+     "setUnifyNewSOPInstanceUIDs:",
+     "v@:B"
+    ],
+    [
+     "unifyNewSeriesInstanceUIDs",
+     "-",
+     "unifyNewSeriesInstanceUIDs",
+     "B@:",
+     "setUnifyNewSeriesInstanceUIDs:",
+     "v@:B"
+    ],
+    [
+     "unifyNewStudyInstanceUID",
+     "-",
+     "unifyNewStudyInstanceUID",
+     "B@:",
+     "setUnifyNewStudyInstanceUID:",
+     "v@:B"
+    ],
+    [
+     "unifyPatientID",
+     "-",
+     "unifyPatientID",
+     "B@:",
+     "setUnifyPatientID:",
+     "v@:B"
+    ],
+    [
+     "unifyReferringPhysician",
+     "-",
+     "unifyReferringPhysician",
+     "B@:",
+     "setUnifyReferringPhysician:",
+     "v@:B"
+    ],
+    [
+     "unifyStudiesMenu",
+     "-",
+     "unifyStudiesMenu",
+     "@@:",
+     "setUnifyStudiesMenu:",
+     "v@:@"
+    ],
+    [
+     "unifyStudyID",
+     "-",
+     "unifyStudyID",
+     "B@:",
+     "setUnifyStudyID:",
+     "v@:B"
+    ],
+    [
+     "unifyTo",
+     "-",
+     "unifyTo",
+     "@@:",
+     "setUnifyTo:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+buildReportsMenu:": "v@:@",
+    "+buildStateTextMenu": "@@:",
+    "+buildStateTextMenuWithEdit:": "@@:B",
+    "+computeTimeIntervalForTimeIntervalType:start:end:": "v@:I^@^@",
+    "+createStateDotWithColor:alpha:": "@@:@f",
+    "+getStudies:andSeries:fromObjects:": "v@:@@@",
+    "+isIdenticalLocalStudy:toDistantStudy:": "B@:@@",
+    "+localObjectForDistantObject:": "@@:@",
+    "+localObjectsForDistantObject:": "@@:@",
+    "+localTotalNumberOfRawFiles:": "i@:@",
+    "+resetPreferences": "v@:",
+    "+statesDictionary": "@@:",
+    "+stringByReplaceNotAdmitted:": "@@:@",
+    "-PACSOnDemandDictionaryForThisSmartAlbumUID:": "@@:@",
+    "-PACSOnDemandDictionaryForThisSmartAlbumUID:database:": "@@:@@",
+    "-attachReport:": "v@:@",
+    "-authenticateForDICOMwebServer:": "@@:@",
+    "-changeStateValueTo:forStudies:": "v@:i@",
+    "-clickInImageCell:": "v@:@",
+    "-comparativeRetrieveQueue": "@@:",
+    "-comparativeSeriesRetrieveQueue": "@@:",
+    "-comparativeStudiesForStudy:protocol:": "@@:@@",
+    "-computingNumberOfStudiesForAlbumsLock": "@@:",
+    "-currentAlbum:": "@@:@",
+    "-databaseOpenStudy:useWindowsState:": "v@:@B",
+    "-databaseOpenStudy:useWindowsState:dontChangeOpenedStudy:": "v@:@BB",
+    "-dicomImagesForDatabaseMatrixSelection": "@@:",
+    "-dicomImagesForDatabaseMatrixSelectionAllFiles:": "@@:B",
+    "-dicomImagesForDatabaseMatrixSelectionOnlyImages:": "@@:B",
+    "-dicomImagesForDatabaseMatrixSelectionOnlyImages:includeLocalizers:": "@@:BB",
+    "-dicomImagesForDatabaseOutlineSelection": "@@:",
+    "-dicomImagesForDatabaseOutlineSelectionAllFiles:": "@@:B",
+    "-dicomImagesForDatabaseOutlineSelectionOnlyImages:": "@@:B",
+    "-dicomImagesForDatabaseOutlineSelectionOnlyImages:includeLocalizers:": "@@:BB",
+    "-dicomImagesForDatabaseOutlineSelectionOnlyImages:includeLocalizers:sorted:": "@@:BBB",
+    "-displayStudy:": "B@:@",
+    "-distantStudiesForSmartAlbumUID:database:": "@@:@@",
+    "-editAlbum:": "v@:@",
+    "-executeActionsForState:": "v@:@",
+    "-getDICOMFile:inSyntax:quality:frameNumber:": "@@:@@ii",
+    "-getInfo:": "v@:@",
+    "-getPixelData:": "@@:@",
+    "-loadWindowsState:": "v@:@",
+    "-localDatabases": "@@:",
+    "-macroForSelector:": "@@:@",
+    "-macroForSelectorDictionary:": "@@:@",
+    "-menuStringValueForTimeIntervalType:": "@@:I",
+    "-menuStringValueForTimeIntervalType:localizedForWeb:": "@@:IB",
+    "-menuWillOpenSources:": "v@:@",
+    "-noteEditor:": "v@:@",
+    "-outlineViewRefreshWithoutFetchLimit": "@@:",
+    "-pasteFiles:": "@@:@",
+    "-pasteImageForDicomImage:": "v@:@",
+    "-patientsnamePredicate:soundex:level:": "@@:@B@",
+    "-pressCellForRow:column:event:identifier:": "v@:ii@@",
+    "-proceedDeleteObjectIDs:": "v@:@",
+    "-refreshComparativeStudiesNow": "v@:",
+    "-refreshDistantStudies": "v@:",
+    "-refreshMatrixThumbnail:": "v@:@",
+    "-reloadDatabaseOutlineForStudies:": "v@:@",
+    "-resetSpaceIcons": "v@:",
+    "-resetToDefaultDatabase": "v@:",
+    "-rightClickCellForRow:column:event:identifier:": "v@:ii@@",
+    "-searchType": "i@:",
+    "-selectAlbumWithUID:": "B@:@",
+    "-selectStudyWithStudyInstanceID:": "v@:@",
+    "-selectThisStudy:changeAlbumIfNecessary:": "B@:@B",
+    "-selectedSeries": "@@:",
+    "-selectedStudies": "@@:",
+    "-setLockDatabaseTitleBarButton": "v@:",
+    "-setSearchTypeTo:": "v@:@",
+    "-setStatus:forRemoteDatabase:": "v@:i@",
+    "-showTemplateFolderInFinder:": "v@:@",
+    "-sourcesTableView": "@@:",
+    "-testDatabaseWindowResolution": "v@:",
+    "-translateStrings:": "v@:@",
+    "-unifyOKEnabled": "B@:",
+    "-unifyPatientIdentitiesForStudies:dictionary:merge:": "v@:@@B",
+    "-waitForDistantSearchThread": "v@:",
+    "-windowWillAppear": "v@:"
+   }
+  },
+  "BrowserMatrix": {
+   "kept": [
+    [
+     "badgeCursor",
+     "-",
+     "badgeCursor",
+     "@@:",
+     "setBadgeCursor:",
+     "v@:@"
+    ],
+    [
+     "dontScrollCellToVisible",
+     "-",
+     "dontScrollCellToVisible",
+     "B@:",
+     "setDontScrollCellToVisible:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "BurnerWindowController": {
+   "kept": [
+    [
+     "burning",
+     "-",
+     "burning",
+     "B@:",
+     "setBurning:",
+     "v@:B"
+    ],
+    [
+     "cdName",
+     "-",
+     "cdName",
+     "@@:",
+     "setCdName:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+writeJSViewerImages:filesForSOPInstanceUID:toFolder:anonymized:": "v@:@@@B",
+    "-initWithObjects:": "@@:@"
+   }
+  },
+  "CLUTOpacityView": {
+   "kept": [],
+   "neutral": {
+    "-setWindowWillClose:": "v@:B"
+   }
+  },
+  "CPRController": {
+   "kept": [
+    [
+     "displayRadius",
+     "-",
+     "displayRadius",
+     "B@:",
+     "setDisplayRadius:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-assistant": "@@:",
+    "-assistedCurvedPath": "B@:",
+    "-cprVolumeData": "@@:"
+   }
+  },
+  "CPRCurvedPath": {
+   "kept": [],
+   "neutral": {
+    "-addPatientNodes:": "v@:@",
+    "-isEqualToPath:": "B@:@",
+    "-transverseSliceRequestsForSpacing:outputWidth:outputHeight:mmWide:angle:": "@@:dQQdd"
+   }
+  },
+  "CPRGenerator": {
+   "kept": [],
+   "neutral": {
+    "+waitQueueEmpty": "v@:"
+   }
+  },
+  "CPRMPRDCMView": {
+   "kept": [
+    [
+     "dragLineNumber",
+     "-",
+     "dragLineNumber",
+     "i@:",
+     "setDragLineNumber:",
+     "v@:i"
+    ],
+    [
+     "restoreDisplayCrossLinesAfterScroll",
+     "-",
+     "restoreDisplayCrossLinesAfterScroll",
+     "B@:",
+     "setRestoreDisplayCrossLinesAfterScroll:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-deleteCurrentCurvedPath": "v@:",
+    "-toggleFrameZoom": "v@:"
+   }
+  },
+  "CPRObliqueSliceOperation": {
+   "kept": [],
+   "neutral": {
+    "+waitQueueEmpty": "v@:"
+   }
+  },
+  "CPRStraightenedOperation": {
+   "kept": [],
+   "neutral": {
+    "+waitQueueEmpty": "v@:"
+   }
+  },
+  "CPRStraightenedView": {
+   "kept": [
+    [
+     "drawAllNodes",
+     "-",
+     "drawAllNodes",
+     "B@:",
+     "setDrawAllNodes:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "CPRStretchedOperation": {
+   "kept": [],
+   "neutral": {
+    "+waitQueueEmpty": "v@:"
+   }
+  },
+  "CPRStretchedView": {
+   "kept": [
+    [
+     "drawAllNodes",
+     "-",
+     "drawAllNodes",
+     "B@:",
+     "setDrawAllNodes:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "CSMailMailClient": {
+   "kept": [],
+   "neutral": {
+    "-SMTPAccountFromKeyChainForEmail:": "@@:@",
+    "-findSMTPAccount": "@@:"
+   }
+  },
+  "Camera": {
+   "kept": [],
+   "neutral": {
+    "-isEqualToCamera:": "B@:@"
+   }
+  },
+  "DCMPix": {
+   "kept": [
+    [
+     "SOPInstanceUID",
+     "-",
+     "SOPInstanceUID",
+     "@@:",
+     "setSOPInstanceUID:",
+     "v@:@"
+    ],
+    [
+     "SULConverted",
+     "-",
+     "SULConverted",
+     "B@:",
+     "setSULConverted:",
+     "v@:B"
+    ],
+    [
+     "bodyPartExamined",
+     "-",
+     "bodyPartExamined",
+     "@@:",
+     "setBodyPartExamined:",
+     "v@:@"
+    ],
+    [
+     "contentFrameRect",
+     "-",
+     "contentFrameRect",
+     "{CGRect={CGPoint=dd}{CGSize=dd}}@:",
+     "setContentFrameRect:",
+     "v@:{CGRect={CGPoint=dd}{CGSize=dd}}"
+    ],
+    [
+     "decryptedFile",
+     "-",
+     "decryptedFile",
+     "@@:",
+     "setDecryptedFile:",
+     "v@:@"
+    ],
+    [
+     "diffusionbvalue",
+     "-",
+     "diffusionbvalue",
+     "f@:",
+     "setDiffusionbvalue:",
+     "v@:f"
+    ],
+    [
+     "dontReadPixelData",
+     "-",
+     "dontReadPixelData",
+     "B@:",
+     "setDontReadPixelData:",
+     "v@:B"
+    ],
+    [
+     "doseGridScaling",
+     "-",
+     "doseGridScaling",
+     "d@:",
+     "setDoseGridScaling:",
+     "v@:d"
+    ],
+    [
+     "doseType",
+     "-",
+     "doseType",
+     "@@:",
+     "setDoseType:",
+     "v@:@"
+    ],
+    [
+     "doseUnit",
+     "-",
+     "doseUnit",
+     "@@:",
+     "setDoseUnit:",
+     "v@:@"
+    ],
+    [
+     "echoTime",
+     "-",
+     "echoTime",
+     "f@:",
+     "setEchoTime:",
+     "v@:f"
+    ],
+    [
+     "excludeFromComputeContentFrame",
+     "-",
+     "excludeFromComputeContentFrame",
+     "B@:",
+     "setExcludeFromComputeContentFrame:",
+     "v@:B"
+    ],
+    [
+     "featuresPath",
+     "-",
+     "featuresPath",
+     "@@:",
+     "setFeaturesPath:",
+     "v@:@"
+    ],
+    [
+     "inverseVal",
+     "-",
+     "inverseVal",
+     "B@:",
+     "setInverseVal:",
+     "v@:B"
+    ],
+    [
+     "nominalInterval",
+     "-",
+     "nominalInterval",
+     "f@:",
+     "setNominalInterval:",
+     "v@:f"
+    ],
+    [
+     "patientOrientation",
+     "-",
+     "patientOrientation",
+     "@@:",
+     "setPatientOrientation:",
+     "v@:@"
+    ],
+    [
+     "patientsSex",
+     "-",
+     "patientsSex",
+     "@@:",
+     "setPatientsSex:",
+     "v@:@"
+    ],
+    [
+     "patientsSize",
+     "-",
+     "patientsSize",
+     "f@:",
+     "setPatientsSize:",
+     "v@:f"
+    ],
+    [
+     "realWorldOffset",
+     "-",
+     "realWorldOffset",
+     "f@:",
+     "setRealWorldOffset:",
+     "v@:f"
+    ],
+    [
+     "realWorldSlope",
+     "-",
+     "realWorldSlope",
+     "f@:",
+     "setRealWorldSlope:",
+     "v@:f"
+    ],
+    [
+     "repetitionTime",
+     "-",
+     "repetitionTime",
+     "f@:",
+     "setRepetitionTime:",
+     "v@:f"
+    ],
+    [
+     "seriesDuration",
+     "-",
+     "seriesDuration",
+     "d@:",
+     "setSeriesDuration:",
+     "v@:d"
+    ],
+    [
+     "seriesInstanceUID",
+     "-",
+     "seriesInstanceUID",
+     "@@:",
+     "setSeriesInstanceUID:",
+     "v@:@"
+    ],
+    [
+     "studyDuration",
+     "-",
+     "studyDuration",
+     "d@:",
+     "setStudyDuration:",
+     "v@:d"
+    ],
+    [
+     "studyInstanceUID",
+     "-",
+     "studyInstanceUID",
+     "@@:",
+     "setStudyInstanceUID:",
+     "v@:@"
+    ],
+    [
+     "triggerTime",
+     "-",
+     "triggerTime",
+     "f@:",
+     "setTriggerTime:",
+     "v@:f"
+    ],
+    [
+     "visionFeature",
+     "-",
+     "visionFeature",
+     "@@:",
+     "setVisionFeature:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+LBMSize:weight:sex:": "f@:ff@",
+    "+clearDcmPixCache": "v@:",
+    "+computeNormalOrientation:": "v@:^d",
+    "+convertDICOMSR:toHTML:": "v@:@@",
+    "+convertDICOMSR:toHTML:extraArguments:": "v@:@@@",
+    "+convertECGStorageToPDF:sopInstanceUID:": "@@:@@",
+    "+convertHTMLtoPDF:": "@@:@",
+    "+convertPixX:pixY:toDICOMCoords:pixelCenter:vectors:spacing:origin:": "v@:ff^fB^f^f^f",
+    "+dcmPixWithImageObj:data:size:": "@@:@^fQ",
+    "+featurePrintObservationForImages:processed:": "v@:@B",
+    "+featurePrintObservationForImages:processed:wait:": "v@:@B@",
+    "+haveAllSameOrientation:": "B@:@",
+    "+isDataEmpty:width:height:spp:bpp:fraction:": "B@:^vIIIIf",
+    "+median:length:": "f@:^fq",
+    "+resamplePixArray:data:": "@@:@^@",
+    "+resamplePixArray:toSliceInterval:data:": "@@:@f^@",
+    "+resetNSImageCache": "v@:",
+    "-LBM": "f@:",
+    "-SULFactor": "f@:",
+    "-UID": "@@:",
+    "-VOILUT_tables": "@@:",
+    "-bitsAllocated": "s@:",
+    "-checkingLock": "v@:",
+    "-checkingUnlock": "v@:",
+    "-ciImage": "@@:",
+    "-clearCachedPapyGroups": "v@:",
+    "-clearFromCache": "v@:",
+    "-computeAlphaMaskIfNeeded": "v@:",
+    "-computeCineRateFromNominalIntervalForCount:": "v@:f",
+    "-convert3DPoint:": "{CGPoint=dd}@:^f",
+    "-convertDICOMCoords:": "{CGPoint=dd}@:^f",
+    "-convertExternalOwnedtoSelfOwned": "v@:",
+    "-coordinates": "@@:",
+    "-defaultWL": "f@:",
+    "-defaultWW": "f@:",
+    "-generateThumbnailImageWithWW:WL:xFlipped:yFlipped:rotation:": "@@:ffBBf",
+    "-getCLUTRed:green:blue:": "B@:***",
+    "-getPapyGroup:": "^v@:i",
+    "-getPixelDataWidth:height:spp:bpp:force8bits:squarePixels:origin:spacing:alphaChannel:offset:isSigned:": "*@:^q^q^q^qBB^f^fB^i^B",
+    "-hasCLUT": "B@:",
+    "-hasOrientation": "B@:",
+    "-imageXFlip:YFlip:rotation:": "@@:BBf",
+    "-imageXFlip:YFlip:rotation:minSize:maxSize:": "@@:BBf{CGSize=dd}{CGSize=dd}",
+    "-intersect:": "B@:@",
+    "-isHologicTomosynthesis": "B@:",
+    "-maximumEncodedValue": "d@:",
+    "-minimumEncodedValue": "d@:",
+    "-numberOfFrames": "i@:",
+    "-offsetPixDoubleX:pixY:toDICOMCoords:": "v@:dd^d",
+    "-orientationFromPatientOrientation:": "v@:^f",
+    "-originDeltaWith:": "{CGPoint=dd}@:@",
+    "-originDeltaWith:angle:": "{CGPoint=dd}@:@f",
+    "-originDeltaWith:angle:originIsPixelCenter:": "{CGPoint=dd}@:@fB",
+    "-overlaysROIs": "@@:",
+    "-readHologicTomosynthesis:": "^v@:i",
+    "-readRawDataFromGroup:field:length:": "^v@:ii^Q",
+    "-releaseImage": "v@:",
+    "-renderWithScale:": "@@:f",
+    "-resetFullWWAndWL": "v@:",
+    "-setfImage:size:": "v@:^fQ",
+    "-thickSlabController": "@@:",
+    "-usefullRectWithRotation:scale:xFlipped:yFlipped:": "{CGRect={CGPoint=dd}{CGSize=dd}}@:ffBB",
+    "-usefullRectWithRotation:scale:xFlipped:yFlipped:useContentFrameRect:": "{CGRect={CGPoint=dd}{CGSize=dd}}@:ffBBB"
+   }
+  },
+  "DCMTKFileFormat": {
+   "kept": [],
+   "neutral": {
+    "+getGroupAndElementForName:group:element:": "i@:@^i^i",
+    "+getNameForGroupAndElement:element:": "@@:ii",
+    "+prepareDICOMFieldsArrays": "@@:"
+   }
+  },
+  "DCMTKPrintSCU": {
+   "kept": [],
+   "neutral": {
+    "+test": "v@:"
+   }
+  },
+  "DCMTKQueryNode": {
+   "kept": [
+    [
+     "WADORSURL",
+     "-",
+     "WADORSURL",
+     "@@:",
+     "setWADORSURL:",
+     "v@:@"
+    ],
+    [
+     "abstractSyntax",
+     "-",
+     "abstractSyntax",
+     "@@:",
+     "setAbstractSyntax:",
+     "v@:@"
+    ],
+    [
+     "db",
+     "-",
+     "db",
+     "@@:",
+     "setDb:",
+     "v@:@"
+    ],
+    [
+     "incomingPath",
+     "-",
+     "incomingPath",
+     "@@:",
+     "setIncomingPath:",
+     "v@:@"
+    ],
+    [
+     "localStudyName",
+     "-",
+     "localStudyName",
+     "@@:",
+     "setLocalStudyName:",
+     "v@:@"
+    ],
+    [
+     "localSudyDescription",
+     "-",
+     "localSudyDescription",
+     "@@:",
+     "setLocalSudyDescription:",
+     "v@:@"
+    ],
+    [
+     "wadoRSBoundary",
+     "-",
+     "wadoRSBoundary",
+     "@@:",
+     "setWadoRSBoundary:",
+     "v@:@"
+    ],
+    [
+     "wadoRSHeader",
+     "-",
+     "wadoRSHeader",
+     "@@:",
+     "setWadoRSHeader:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+addAuthenticationToRequest:fromParameters:": "B@:@@",
+    "+boundaryFromHeaders:": "@@:@",
+    "+dicomWebURLSession": "@@:",
+    "+errorURL:": "v@:@",
+    "+indexForServer:": "i@:@",
+    "+queryNodeWithWADORSURL:": "@@:@",
+    "+retrieveModeString:": "@@:i",
+    "+retrieveWADORSURL:": "B@:@",
+    "+serverForIndex:": "@@:i",
+    "-URLRequest": "@@:",
+    "-acquisitionDuration": "d@:",
+    "-bodyPartExamined": "@@:",
+    "-childrenTimeInterval": "d@:",
+    "-deleteObjectOnServer": "B@:",
+    "-displayedName": "@@:",
+    "-firstImageDate": "@@:",
+    "-isWorkList": "B@:",
+    "-lastImageDate": "@@:",
+    "-manufacturerModelName": "@@:",
+    "-miscDictionary": "@@:",
+    "-patientSex": "@@:",
+    "-queryAllChildren": "B@:",
+    "-rawName": "@@:",
+    "-retrieveWADORS": "v@:",
+    "-setModality:": "v@:@",
+    "-setNumberOfImages:": "v@:@",
+    "-studyDescription": "@@:",
+    "-type": "@@:"
+   }
+  },
+  "DCMTKSeriesQueryNode": {
+   "kept": [],
+   "neutral": {
+    "-computeNumberOfImages": "v@:",
+    "-seriesDICOMUID": "@@:"
+   }
+  },
+  "DCMTKServiceClassUser": {
+   "kept": [
+    [
+     "abortAssociation",
+     "-",
+     "abortAssociation",
+     "B@:",
+     "setAbortAssociation:",
+     "v@:B"
+    ],
+    [
+     "acse_timeout",
+     "-",
+     "acse_timeout",
+     "i@:",
+     "setAcse_timeout:",
+     "v@:i"
+    ],
+    [
+     "dhparam",
+     "-",
+     "dhparam",
+     "@@:",
+     "setDhparam:",
+     "v@:@"
+    ],
+    [
+     "dimse_timeout",
+     "-",
+     "dimse_timeout",
+     "i@:",
+     "setDimse_timeout:",
+     "v@:i"
+    ],
+    [
+     "hostname",
+     "-",
+     "hostname",
+     "@@:",
+     "setHostname:",
+     "v@:@"
+    ],
+    [
+     "port",
+     "-",
+     "port",
+     "i@:",
+     "setPort:",
+     "v@:i"
+    ],
+    [
+     "readSeedFile",
+     "-",
+     "readSeedFile",
+     "@@:",
+     "setReadSeedFile:",
+     "v@:@"
+    ],
+    [
+     "transferSyntax",
+     "-",
+     "transferSyntax",
+     "i@:",
+     "setTransferSyntax:",
+     "v@:i"
+    ],
+    [
+     "writeSeedFile",
+     "-",
+     "writeSeedFile",
+     "@@:",
+     "setWriteSeedFile:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-setCalledAET:": "v@:@",
+    "-setCallingAET:": "v@:@"
+   }
+  },
+  "DCMTKStoreSCU": {
+   "kept": [
+    [
+     "dhparam",
+     "-",
+     "dhparam",
+     "@@:",
+     "setDhparam:",
+     "v@:@"
+    ],
+    [
+     "maxThreads",
+     "-",
+     "maxThreads",
+     "i@:",
+     "setMaxThreads:",
+     "v@:i"
+    ],
+    [
+     "networkTransferSyntax",
+     "-",
+     "networkTransferSyntax",
+     "i@:",
+     "setNetworkTransferSyntax:",
+     "v@:i"
+    ],
+    [
+     "opt_Quality",
+     "-",
+     "opt_Quality",
+     "i@:",
+     "setOpt_Quality:",
+     "v@:i"
+    ],
+    [
+     "opt_blockMode",
+     "-",
+     "opt_blockMode",
+     "i@:",
+     "setOpt_blockMode:",
+     "v@:i"
+    ],
+    [
+     "opt_dimse_timeout",
+     "-",
+     "opt_dimse_timeout",
+     "i@:",
+     "setOpt_dimse_timeout:",
+     "v@:i"
+    ],
+    [
+     "opt_proposeOnlyRequiredPresentationContexts",
+     "-",
+     "opt_proposeOnlyRequiredPresentationContexts",
+     "B@:",
+     "setOpt_proposeOnlyRequiredPresentationContexts:",
+     "v@:B"
+    ],
+    [
+     "opt_verbose",
+     "-",
+     "opt_verbose",
+     "B@:",
+     "setOpt_verbose:",
+     "v@:B"
+    ],
+    [
+     "readSeedFile",
+     "-",
+     "readSeedFile",
+     "@@:",
+     "setReadSeedFile:",
+     "v@:@"
+    ],
+    [
+     "writeSeedFile",
+     "-",
+     "writeSeedFile",
+     "@@:",
+     "setWriteSeedFile:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+sendSyntaxForSyntaxUID:": "i@:@",
+    "+syntaxStringFor:": "@@:i",
+    "-initWithCallingAET:calledAET:hostname:port:filesToSend:transferSyntax:extraParameters:": "@@:@@@i@i@",
+    "-run": "v@:"
+   }
+  },
+  "DCMTKStudyQueryNode": {
+   "kept": [
+    [
+     "localStudyObjectID",
+     "-",
+     "localStudyObjectID",
+     "@@:",
+     "setLocalStudyObjectID:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-computeModalitiesInStudy": "v@:",
+    "-computeNumberOfImages": "v@:",
+    "-dateOfBirthString": "@@:",
+    "-displayedName": "@@:",
+    "-isHidden": "B@:",
+    "-isModalityFieldEmpty": "B@:",
+    "-localStudyObjectIDForContext:": "@@:@",
+    "-modalities": "@@:",
+    "-queryChildrenAtIMAGELevel": "v@:",
+    "-setHidden:": "v@:B",
+    "-studyID": "@@:"
+   }
+  },
+  "DCMView": {
+   "answered": {
+    "-arrayOfROIsNames": "@@:",
+    "-roisWithName:": "@@:@",
+    "-setWLWW::saveChanges:": "v@:ffB",
+    "-syncOnLocationImpossible": "B@:",
+    "-viewer": "@@:"
+   },
+   "kept": [
+    [
+     "cleanedOutDcmPixArray",
+     "-",
+     "cleanedOutDcmPixArray",
+     "@@:",
+     "setCleanedOutDcmPixArray:",
+     "v@:@"
+    ],
+    [
+     "colorTransfer",
+     "-",
+     "colorTransfer",
+     "B@:",
+     "setColorTransfer:",
+     "v@:B"
+    ],
+    [
+     "curROI",
+     "-",
+     "curROI",
+     "@@:",
+     "setCurROI:",
+     "v@:@"
+    ],
+    [
+     "displayResliceView",
+     "-",
+     "displayResliceView",
+     "B@:",
+     "setDisplayResliceView:",
+     "v@:B"
+    ],
+    [
+     "displayStyleSeriesToSave",
+     "-",
+     "displayStyleSeriesToSave",
+     "@@:",
+     "setDisplayStyleSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "dontDraw",
+     "-",
+     "dontDraw",
+     "B@:",
+     "setDontDraw:",
+     "v@:B"
+    ],
+    [
+     "dontSaveImageParameters",
+     "-",
+     "dontSaveImageParameters",
+     "B@:",
+     "setDontSaveImageParameters:",
+     "v@:B"
+    ],
+    [
+     "eventsDelegate",
+     "-",
+     "eventsDelegate",
+     "@@:",
+     "setEventsDelegate:",
+     "v@:@"
+    ],
+    [
+     "flippedRendered",
+     "-",
+     "flippedRendered",
+     "B@:",
+     "setFlippedRendered:",
+     "v@:B"
+    ],
+    [
+     "isLatestModality",
+     "-",
+     "isLatestModality",
+     "B@:",
+     "setIsLatestModality:",
+     "v@:B"
+    ],
+    [
+     "labelFontHeight",
+     "-",
+     "labelFontHeight",
+     "f@:",
+     "setLabelFontHeight:",
+     "v@:f"
+    ],
+    [
+     "labelFontSize",
+     "-",
+     "labelFontSize",
+     "f@:",
+     "setLabelFontSize:",
+     "v@:f"
+    ],
+    [
+     "latestModalityNotices",
+     "-",
+     "latestModalityNotices",
+     "@@:",
+     "setLatestModalityNotices:",
+     "v@:@"
+    ],
+    [
+     "mouseDownInOpenGLSlider",
+     "-",
+     "mouseDownInOpenGLSlider",
+     "B@:",
+     "setMouseDownInOpenGLSlider:",
+     "v@:B"
+    ],
+    [
+     "mouseDownROI",
+     "-",
+     "mouseDownROI",
+     "@@:",
+     "setMouseDownROI:",
+     "v@:@"
+    ],
+    [
+     "mousePosUSRegion",
+     "-",
+     "mousePosUSRegion",
+     "@@:",
+     "setMousePosUSRegion:",
+     "v@:@"
+    ],
+    [
+     "newTextROICreated",
+     "-",
+     "newTextROICreated",
+     "B@:",
+     "setNewTextROICreated:",
+     "v@:B"
+    ],
+    [
+     "offsetOrigin",
+     "-",
+     "offsetOrigin",
+     "{CGPoint=dd}@:",
+     "setOffsetOrigin:",
+     "v@:{CGPoint=dd}"
+    ],
+    [
+     "resliceViewDisplayed",
+     "-",
+     "resliceViewDisplayed",
+     "B@:",
+     "setResliceViewDisplayed:",
+     "v@:B"
+    ],
+    [
+     "resliceViewSizeFactor",
+     "-",
+     "resliceViewSizeFactor",
+     "f@:",
+     "setResliceViewSizeFactor:",
+     "v@:f"
+    ],
+    [
+     "rightClickTimer",
+     "-",
+     "rightClickTimer",
+     "@@:",
+     "setRightClickTimer:",
+     "v@:@"
+    ],
+    [
+     "roiNamePopOver",
+     "-",
+     "roiNamePopOver",
+     "@@:",
+     "setRoiNamePopOver:",
+     "v@:@"
+    ],
+    [
+     "rotationAngleSeriesToSave",
+     "-",
+     "rotationAngleSeriesToSave",
+     "@@:",
+     "setRotationAngleSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "rotationAngleToSave",
+     "-",
+     "rotationAngleToSave",
+     "@@:",
+     "setRotationAngleToSave:",
+     "v@:@"
+    ],
+    [
+     "scaleSeriesToSave",
+     "-",
+     "scaleSeriesToSave",
+     "@@:",
+     "setScaleSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "scaleToSave",
+     "-",
+     "scaleToSave",
+     "@@:",
+     "setScaleToSave:",
+     "v@:@"
+    ],
+    [
+     "screenCapture",
+     "-",
+     "screenCapture",
+     "@@:",
+     "setScreenCapture:",
+     "v@:@"
+    ],
+    [
+     "stickToCenter",
+     "-",
+     "stickToCenter",
+     "B@:",
+     "setStickToCenter:",
+     "v@:B"
+    ],
+    [
+     "thickSlabMode",
+     "-",
+     "thickSlabMode",
+     "s@:",
+     "setThickSlabMode:",
+     "v@:s"
+    ],
+    [
+     "thickSlabStacks",
+     "-",
+     "thickSlabStacks",
+     "s@:",
+     "setThickSlabStacks:",
+     "v@:s"
+    ],
+    [
+     "thumbnailCrossObject0",
+     "-",
+     "thumbnailCrossObject0",
+     "@@:",
+     "setThumbnailCrossObject0:",
+     "v@:@"
+    ],
+    [
+     "thumbnailCrossObject1",
+     "-",
+     "thumbnailCrossObject1",
+     "@@:",
+     "setThumbnailCrossObject1:",
+     "v@:@"
+    ],
+    [
+     "wasScaledToFit",
+     "-",
+     "wasScaledToFit",
+     "B@:",
+     "setWasScaledToFit:",
+     "v@:B"
+    ],
+    [
+     "windowLevelSeriesToSave",
+     "-",
+     "windowLevelSeriesToSave",
+     "@@:",
+     "setWindowLevelSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "windowLevelToSave",
+     "-",
+     "windowLevelToSave",
+     "@@:",
+     "setWindowLevelToSave:",
+     "v@:@"
+    ],
+    [
+     "windowWidthSeriesToSave",
+     "-",
+     "windowWidthSeriesToSave",
+     "@@:",
+     "setWindowWidthSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "windowWidthToSave",
+     "-",
+     "windowWidthToSave",
+     "@@:",
+     "setWindowWidthToSave:",
+     "v@:@"
+    ],
+    [
+     "xFlippedSeriesToSave",
+     "-",
+     "xFlippedSeriesToSave",
+     "@@:",
+     "setXFlippedSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "xFlippedToSave",
+     "-",
+     "xFlippedToSave",
+     "@@:",
+     "setXFlippedToSave:",
+     "v@:@"
+    ],
+    [
+     "xOffsetSeriesToSave",
+     "-",
+     "xOffsetSeriesToSave",
+     "@@:",
+     "setXOffsetSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "xOffsetToSave",
+     "-",
+     "xOffsetToSave",
+     "@@:",
+     "setXOffsetToSave:",
+     "v@:@"
+    ],
+    [
+     "yFlippedSeriesToSave",
+     "-",
+     "yFlippedSeriesToSave",
+     "@@:",
+     "setYFlippedSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "yFlippedToSave",
+     "-",
+     "yFlippedToSave",
+     "@@:",
+     "setYFlippedToSave:",
+     "v@:@"
+    ],
+    [
+     "yOffsetSeriesToSave",
+     "-",
+     "yOffsetSeriesToSave",
+     "@@:",
+     "setYOffsetSeriesToSave:",
+     "v@:@"
+    ],
+    [
+     "yOffsetToSave",
+     "-",
+     "yOffsetToSave",
+     "@@:",
+     "setYOffsetToSave:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+computePETBlendingCLUT:": "v@:@",
+    "+getDeltaY:event:": "d@:d@",
+    "+getWL:WW:fromROIs:": "B@:^f^f@",
+    "+isToolforROIs:": "B@:i",
+    "+lastMouseEvent": "d@:",
+    "+lengthOfString:length:forFont:": "q@:^SQ^q",
+    "+pbaseDouble_Plane::::": "d@:^d^d^d^d",
+    "+projectPoint:ontoLine::": "{CGPoint=dd}@:{CGPoint=dd}{CGPoint=dd}{CGPoint=dd}",
+    "+resizeRawPixels:height:width:newHeight:newWidth:bpp:spp:isSigned:": "*@:*iiiiiiB",
+    "+updateLastMouseEvent": "v@:",
+    "+viewUnderMouse": "@@:",
+    "-ConvertNSViewCenter2GL": "{CGPoint=dd}@:",
+    "-ConvertRectFromGL2NSView:": "{CGRect={CGPoint=dd}{CGSize=dd}}@:{CGRect={CGPoint=dd}{CGSize=dd}}",
+    "-addOrigin:": "v@:{CGPoint=dd}",
+    "-addOriginX:Y:": "v@:ff",
+    "-annotationsSwitch:": "v@:@",
+    "-applyROIWLWW": "v@:",
+    "-clickInROI:testTextBox:": "@@:{CGPoint=dd}B",
+    "-closeScreenCapture": "v@:",
+    "-computeContextualMenuForROI:": "v@:@",
+    "-createAliasesFor3DMeasure:": "v@:@",
+    "-createAliasesOnAdjacentSlicesForROI:": "v@:@",
+    "-delete3DROIsAliases": "v@:",
+    "-displayFirstImage:": "v@:@",
+    "-displayLastImage:": "v@:@",
+    "-displayMiddleImage:": "v@:@",
+    "-displayedImageIndexOfROI:": "i@:@",
+    "-exportDCMCurrentImage:size:views:viewsRect:exportSpacingAndOrigin:force8bits:": "@@:@i@@BB",
+    "-findPlaneForPoint:preferParallelTo:localPoint:distanceWithPlane:limitWithSliceThickness:": "i@:^f^f^f^fB",
+    "-forceResliceViewDisplay": "v@:",
+    "-generate3DROIsAliases": "v@:",
+    "-getOrientationStrings": "@@:",
+    "-getRawPixelsViewWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allowSmartCropping:origin:spacing:offset:isSigned:limitResolution:alphaChannel:": "*@:^q^q^q^qBBBBB^f^f^i^BBB",
+    "-getRawPixelsWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allTiles:allowSmartCropping:origin:spacing:offset:isSigned:limitResolution:": "*@:^q^q^q^qBBBBBB^f^f^i^BB",
+    "-getRawPixelsWidth:height:spp:bpp:screenCapture:force8bits:removeGraphical:squarePixels:allTiles:allowSmartCropping:origin:spacing:offset:isSigned:limitResolution:alphaChannel:": "*@:^q^q^q^qBBBBBB^f^f^i^BBB",
+    "-haveAllPixSameOrientationTo:": "B@:@",
+    "-imageIndex:": "i@:i",
+    "-imageIndexOfROI:": "i@:@",
+    "-lastCineSyncTimeInterval": "d@:",
+    "-loadOpenGLIdentityForDrawingFrame:": "v@:{CGRect={CGPoint=dd}{CGSize=dd}}",
+    "-middleIndexOfROIName:": "i@:@",
+    "-middleIndexOfROIName:arrayOfROIsNames:": "i@:@@",
+    "-middleSliceInThickStack": "@@:",
+    "-needToLoadTexture": "B@:",
+    "-nsimageScaledToFitSquare:": "@@:^{CGPoint=dd}",
+    "-roi3DROIConvertIsocontourToBrush:": "v@:@",
+    "-roiCopyInfo:": "v@:@",
+    "-roiDeleteAll": "v@:",
+    "-roiEdit3DROISettings:": "v@:@",
+    "-roiExportMetaData:": "v@:@",
+    "-roiGetInfo:": "v@:@",
+    "-roiHistogram:": "v@:@",
+    "-roiIntDeleteAllROIsWithSameName:": "v@:@",
+    "-roiSaveCurrent:": "v@:@",
+    "-roiXYPlot:": "v@:@",
+    "-scaleToFitIfNecessary": "v@:",
+    "-screenCaptureEnded:": "v@:@",
+    "-screenCaptureIcon:": "v@:@",
+    "-sendSyncMessage": "v@:",
+    "-setDcmFilesList:": "v@:@",
+    "-setDcmPixList:": "v@:@",
+    "-setDcmRoiList:": "v@:@",
+    "-setIndexWithReset:sizeToFit:": "v@:sB",
+    "-setMouseThumbnailCrossReferences:index:": "v@:@i",
+    "-subtractDCMPix:absolute:": "v@:@B",
+    "-volumicData": "i@:"
+   }
+  },
+  "DDKeychain": {
+   "kept": [],
+   "neutral": {
+    "+accessPrivateKey:": "B@:@",
+    "+accessPrivateKeyForIdentity:": "B@:^{__SecIdentity=}",
+    "+createNewIdentityFor:": "v@:@",
+    "+isIdentityExpired:": "B@:^{__SecIdentity=}"
+   }
+  },
+  "DICOMExport": {
+   "kept": [
+    [
+     "PETasGML",
+     "-",
+     "PETasGML",
+     "B@:",
+     "setPETasGML:",
+     "v@:B"
+    ],
+    [
+     "convertBWtoRGB",
+     "-",
+     "convertBWtoRGB",
+     "B@:",
+     "setConvertBWtoRGB:",
+     "v@:B"
+    ],
+    [
+     "convertRGBtoBW",
+     "-",
+     "convertRGBtoBW",
+     "B@:",
+     "setConvertRGBtoBW:",
+     "v@:B"
+    ],
+    [
+     "mpeg4File",
+     "-",
+     "mpeg4File",
+     "@@:",
+     "setMpeg4File:",
+     "v@:@"
+    ],
+    [
+     "removeDICOMOverlays",
+     "-",
+     "removeDICOMOverlays",
+     "B@:",
+     "setRemoveDICOMOverlays:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "+convertMultiFramePath:": "@@:@",
+    "+convertMultiFramePath:intoDirInPath:": "@@:@@",
+    "+exporter": "@@:",
+    "+exporterWithSeriesNumber:": "@@:q",
+    "+getMovieMetaInformationsForPath:imageAtFrame:": "@@:@f",
+    "+getMovieMetaInformationsForPath:withNumberOfFrames:": "@@:@B",
+    "+getMovieMetaInformationsForPath:withNumberOfFrames:imageAtFrame:": "@@:@Bf",
+    "-setBitmapImageRep:": "q@:@",
+    "-setPixelData:samplesPerPixel:bitsPerSample:width:height:alphaLast:": "q@:*iiqqB",
+    "-setSourceDicomImage:": "v@:@"
+   }
+  },
+  "DICOMTLS": {
+   "kept": [],
+   "neutral": {
+    "+opensslSync": "@@:"
+   }
+  },
+  "DNDArrayController": {
+   "kept": [
+    [
+     "dontAcceptFirstRowChange",
+     "-",
+     "dontAcceptFirstRowChange",
+     "B@:",
+     "setDontAcceptFirstRowChange:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-copySelectedRow:": "v@:@",
+    "-cutSelectedRow:": "v@:@",
+    "-pasteSelectedRow:": "v@:@",
+    "-setContextualMenuForPreferencePanel": "v@:"
+   }
+  },
+  "DataNodeIdentifier": {
+   "kept": [
+    [
+     "checked",
+     "-",
+     "checked",
+     "B@:",
+     "setChecked:",
+     "v@:B"
+    ],
+    [
+     "index",
+     "-",
+     "index",
+     "i@:",
+     "setIndex:",
+     "v@:i"
+    ]
+   ],
+   "neutral": {
+    "-freeSpacePercentage": "f@:",
+    "-willBeRemoved": "v@:"
+   }
+  },
+  "DefaultsOsiriX": {
+   "kept": [],
+   "neutral": {
+    "+addCLUT:dictionary:": "v@:@@",
+    "+addDefaultsCLUTToDictionary:": "v@:@"
+   }
+  },
+  "DicomAlbum": {
+   "kept": [
+    [
+     "cloud_downloaded",
+     "-",
+     "cloud_downloaded",
+     "@@:",
+     "setCloud_downloaded:",
+     "v@:@"
+    ],
+    [
+     "cloud_set",
+     "-",
+     "cloud_set",
+     "@@:",
+     "setCloud_set:",
+     "v@:@"
+    ],
+    [
+     "modifiedTimeStamp",
+     "-",
+     "modifiedTimeStamp",
+     "@@:",
+     "setModifiedTimeStamp:",
+     "v@:@"
+    ],
+    [
+     "uid",
+     "-",
+     "uid",
+     "@@:",
+     "setUid:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+smartAlbumPredicateString:": "@@:@",
+    "-smartAlbumPredicate": "@@:"
+   }
+  },
+  "DicomDatabase": {
+   "kept": [
+    [
+     "dontImportFilesFromIncomingDirOnBackground",
+     "-",
+     "dontImportFilesFromIncomingDirOnBackground",
+     "B@:",
+     "setDontImportFilesFromIncomingDirOnBackground:",
+     "v@:B"
+    ],
+    [
+     "lastCleanForFreeSpaceTimeInterval",
+     "-",
+     "lastCleanForFreeSpaceTimeInterval",
+     "d@:",
+     "setLastCleanForFreeSpaceTimeInterval:",
+     "v@:d"
+    ],
+    [
+     "rebuildMode",
+     "-",
+     "rebuildMode",
+     "B@:",
+     "setRebuildMode:",
+     "v@:B"
+    ],
+    [
+     "timeOfLastIsFileSystemFreeSizeLimitReachedVerification",
+     "-",
+     "timeOfLastIsFileSystemFreeSizeLimitReachedVerification",
+     "d@:",
+     "setTimeOfLastIsFileSystemFreeSizeLimitReachedVerification:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "+DICOMFieldForLocalField:": "@@:@",
+    "+DICOMFieldForLocalField:level:": "@@:@@",
+    "+OsiriXDataPath": "@@:",
+    "+baseDirPath": "@@:",
+    "+checkIfFileSystemFreeSizeLimitReachedAtPath:": "B@:@",
+    "+clone:inContext:": "@@:@@",
+    "+currentLocalDatabase": "@@:",
+    "+dataDirPathForOsiriXDataFolder:": "@@:@",
+    "+databaseAtPath:name:createIfNecessary:": "@@:@@B",
+    "+databaseDictionary": "@@:",
+    "+databaseForCurrentThread:": "@@:@",
+    "+databaseForPersistentStore:": "@@:@",
+    "+forgetAbout:": "v@:@",
+    "+imageWithObjectID:": "@@:@",
+    "+localFieldForDICOMField:": "@@:@",
+    "+localizedAlbum:forLocale:": "@@:@@",
+    "+objectWithObjectID:": "@@:@",
+    "+recomputeBodyPartsInContext:": "v@:@",
+    "+seriesDICOMUIDFor:from:seriesID:": "@@:@@@",
+    "+seriesWithObjectID:": "@@:@",
+    "+studyWithObjectID:": "@@:@",
+    "+unmountAndEjectDeviceAtPath:": "v@:@",
+    "-PACSOnDemandForSearchField": "B@:",
+    "-PACSOnDemandSeriesLevelSupport": "B@:",
+    "-addAlbumWithName:predicate:": "@@:@@",
+    "-addFilesAtPaths:postNotifications:dicomOnly:": "@@:@BB",
+    "-addFilesAtPaths:postNotifications:dicomOnly:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:dicomFileDictionary:": "@@:@BBBBBB@",
+    "-addFilesAtPaths:postNotifications:dicomOnly:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:dicomFileDictionary:mainThread:": "@@:@BBBBBB@@",
+    "-addFilesDescribedInDictionaries:postNotifications:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:changesDictionary:": "@@:@BBBBB^@",
+    "-addFilesDescribedInDictionaries:postNotifications:rereadExistingItems:generatedByOsiriX:importedFiles:returnArray:changesDictionary:mainThread:": "@@:@BBBBB^@@",
+    "-addImagesToRouting:": "v@:@",
+    "-albumWithName:": "@@:@",
+    "-applyIncomingSyntaxConversionToPaths:": "B@:@",
+    "-applyRoutingRules:toImages:displayGUI:": "v@:@@B",
+    "-applyRoutingRules:toImages:displayGUI:evenIfInactive:": "v@:@@BB",
+    "-automaticallyRetrievePartialStudies": "B@:",
+    "-checkAllAlbumsHaveAnUID": "v@:",
+    "-checkIfFileSystemFreeSizeLimitReached": "B@:",
+    "-childrenArray:": "@@:@",
+    "-childrenArray:containingPixels:": "@@:@B",
+    "-childrenArray:onlyImages:": "@@:@B",
+    "-childrenArray:onlyImages:includeLocalizers:": "@@:@BB",
+    "-childrenArray:onlyImages:retrieveDistant:": "@@:@BB",
+    "-childrenArray:onlyImages:retrieveDistant:includeLocalizers:": "@@:@BBB",
+    "-comparativeServers": "@@:",
+    "-compressingSOPs": "@@:",
+    "-containsStore:": "B@:@",
+    "-databaseForCurrentThread": "@@:",
+    "-deleteObjectIDs:": "@@:@",
+    "-distantStudiesInstanceUIDsForAlbum:": "@@:@",
+    "-editAlbum:": "v@:@",
+    "-emptyQueue": "v@:",
+    "-featuresPath": "@@:",
+    "-freeSpaceLimitSoonReachedForPath:": "B@:@",
+    "-imagesArray:": "@@:@",
+    "-imagesArray:onlyImages:": "@@:@B",
+    "-imagesArray:preferredObject:": "@@:@i",
+    "-imagesArray:preferredObject:onlyImages:": "@@:@iB",
+    "-imagesArray:preferredObject:onlyImages:sorted:": "@@:@iBB",
+    "-imagesPathArray:": "@@:@",
+    "-isDefaultDatabase": "B@:",
+    "-isImportingFilesFromIncomingDir": "B@:",
+    "-localObjectForDistantObject:": "@@:@",
+    "-localObjectsForDistantObject:": "@@:@",
+    "-mainDatabaseCreated": "v@:",
+    "-oldestStudyForComparatives": "i@:",
+    "-preferStudyWithMoreImages": "B@:",
+    "-queueSize": "i@:",
+    "-reindexObjects:": "@@:@",
+    "-removeStudies:fromAlbum:": "v@:@@",
+    "-routingLock": "@@:",
+    "-saveRoutingToFile": "v@:",
+    "-scanAtPath:isVolume:": "B@:@B",
+    "-scanAtPath:isVolume:dicomImages:": "B@:@B^@",
+    "-scanDicomdirAt:withPaths:pathsToScanAnyway:": "@@:@@@",
+    "-searchForComparativeStudiesOnDICOMNodes": "B@:",
+    "-searchForSmartAlbumStudiesOnDICOMNodes": "B@:",
+    "-setIsFileSystemFreeSizeLimitReached:": "v@:B",
+    "-smartAlbumStudiesDICOMNodes": "@@:",
+    "-smartAlbums": "@@:",
+    "-staticAlbums": "@@:",
+    "-statisticalDataForHTML:getDATABASEsize:": "@@:BB",
+    "-syncToCloudDatabase": "B@:",
+    "-turnImagesAndSeriesIntoFault": "v@:",
+    "-uniqueDcmFileInIncomingDirPath": "@@:",
+    "-uniqueDcmFileInIncomingDirPathStartingWithDot:": "@@:B",
+    "-uniquePathForNewDataFileWithExtension:forStore:": "@@:@@",
+    "-uniqueTmpfolder": "@@:",
+    "-vacuum": "v@:",
+    "-validateStudiesPatientUIDs:": "@@:@"
+   }
+  },
+  "DicomFile": {
+   "kept": [
+    [
+     "filePath",
+     "-",
+     "filePath",
+     "@@:",
+     "setFilePath:",
+     "v@:@"
+    ],
+    [
+     "serie",
+     "-",
+     "serie",
+     "@@:",
+     "setSerie:",
+     "v@:@"
+    ],
+    [
+     "studyID",
+     "-",
+     "studyID",
+     "@@:",
+     "setStudyID:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+combineSeriesDictionary": "@@:",
+    "+combineSplitModalities": "@@:",
+    "+containsLocalizerInString:": "B@:@",
+    "+dicomFileWithPath:": "@@:@",
+    "+excludedFileExtensions": "@@:",
+    "+getDicomDataForGroup:element:forDcmFileFormat:": "@@:ii^v",
+    "+getDicomDataForGroup:element:forFile:": "@@:ii@",
+    "+getDicomFieldForGroup:element:forFile:": "@@:ii@",
+    "+getPixelDataForFrame:forFile:": "@@:i@",
+    "+getTransferSyntaxForFile:": "@@:@",
+    "+getVRForElement:group:": "S@:SS",
+    "+isDICOMFile:compressed:image:SOP:": "B@:@^B^B^@",
+    "+isDICOMFile:compressed:transferSyntax:image:SOP:": "B@:@^B^i^B^@",
+    "+isRGBForPhotometricInterpretation:": "B@:@",
+    "+moviesExtensions": "@@:",
+    "+patientUIDwithName:birthdate:patientID:": "@@:@@@",
+    "+readDICOMSRForFile:": "@@:@",
+    "+readDICOMSegmentationFile:": "@@:@",
+    "+rewriteAsExplicit:": "B@:@",
+    "+rewritePath:asSyntax:": "B@:@i",
+    "+rewritePath:asSyntax:toPath:": "B@:@i@",
+    "+seriesInstanceUIDForFile:": "@@:@",
+    "+splitSeriesDictionary": "@@:",
+    "+studyDateFromDataset:": "@@:^v",
+    "+zipExtensions": "@@:",
+    "-PDFFile": "@@:",
+    "-combineSeries": "@@:",
+    "-compressed:image:SOP:": "v@:^B^B^@",
+    "-getHologicHeader": "B@:",
+    "-presentationStateDictionaries": "@@:",
+    "-sequenceType": "@@:",
+    "-splitMonochromeRGB": "B@:",
+    "-splitSeries": "@@:"
+   }
+  },
+  "DicomImage": {
+   "kept": [
+    [
+     "cloudDownloaded",
+     "-",
+     "cloudDownloaded",
+     "@@:",
+     "setCloudDownloaded:",
+     "v@:@"
+    ],
+    [
+     "cloudUploaded",
+     "-",
+     "cloudUploaded",
+     "@@:",
+     "setCloudUploaded:",
+     "v@:@"
+    ],
+    [
+     "rois",
+     "-",
+     "rois",
+     "@@:",
+     "setRois:",
+     "v@:@"
+    ],
+    [
+     "sortingValue",
+     "-",
+     "sortingValue",
+     "@@:",
+     "setSortingValue:",
+     "v@:@"
+    ],
+    [
+     "viewedImage",
+     "-",
+     "viewedImage",
+     "@@:",
+     "setViewedImage:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+initCaptureScreenWindow": "v@:",
+    "+uniquePathsForDicomImageArray:": "@@:@",
+    "-ROIs": "@@:",
+    "-ROIsDescription": "@@:",
+    "-completePathForLocalPath:": "@@:@",
+    "-imageAsDICOMScreenCapture:exporterForRGB:": "@@:@@",
+    "-imageAsScreenCapture": "@@:",
+    "-imageAsScreenCapture:annotationsLevel:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}I",
+    "-imageAsScreenCapture:annotationsLevel:useROIWLWW:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}IB",
+    "-imageAsScreenCapture:annotationsLevel:useROIWLWW:maxSize:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}IB{CGSize=dd}",
+    "-isPDFRenderableDocument": "B@:",
+    "-isPDFStorage": "@@:",
+    "-seriesInstanceUID": "@@:",
+    "-setIsKeyImage:archiveAnnotationsAsDICOMSR:": "v@:@B",
+    "-validateFramesForPDF": "v@:"
+   }
+  },
+  "DicomNodeIdentifier": {
+   "kept": [],
+   "neutral": {
+    "-uniqueKey": "@@:"
+   }
+  },
+  "DicomSeries": {
+   "kept": [
+    [
+     "bodyPart",
+     "-",
+     "bodyPart",
+     "@@:",
+     "setBodyPart:",
+     "v@:@"
+    ],
+    [
+     "dateAddedTimeZone",
+     "-",
+     "dateAddedTimeZone",
+     "@@:",
+     "setDateAddedTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateOpenedTimeZone",
+     "-",
+     "dateOpenedTimeZone",
+     "@@:",
+     "setDateOpenedTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateTimeZone",
+     "-",
+     "dateTimeZone",
+     "@@:",
+     "setDateTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dictionaryData",
+     "-",
+     "dictionaryData",
+     "@@:",
+     "setDictionaryData:",
+     "v@:@"
+    ],
+    [
+     "firstImageCoordinates",
+     "-",
+     "firstImageCoordinates",
+     "@@:",
+     "setFirstImageCoordinates:",
+     "v@:@"
+    ],
+    [
+     "firstImageDate",
+     "-",
+     "firstImageDate",
+     "@@:",
+     "setFirstImageDate:",
+     "v@:@"
+    ],
+    [
+     "hasKeyImages",
+     "-",
+     "hasKeyImages",
+     "@@:",
+     "setHasKeyImages:",
+     "v@:@"
+    ],
+    [
+     "hasROIs",
+     "-",
+     "hasROIs",
+     "@@:",
+     "setHasROIs:",
+     "v@:@"
+    ],
+    [
+     "hiddenWebPortal",
+     "-",
+     "hiddenWebPortal",
+     "@@:",
+     "setHiddenWebPortal:",
+     "v@:@"
+    ],
+    [
+     "lastImageCoordinates",
+     "-",
+     "lastImageCoordinates",
+     "@@:",
+     "setLastImageCoordinates:",
+     "v@:@"
+    ],
+    [
+     "lastImageDate",
+     "-",
+     "lastImageDate",
+     "@@:",
+     "setLastImageDate:",
+     "v@:@"
+    ],
+    [
+     "lastIndex",
+     "-",
+     "lastIndex",
+     "@@:",
+     "setLastIndex:",
+     "v@:@"
+    ],
+    [
+     "lastIndexDate",
+     "-",
+     "lastIndexDate",
+     "@@:",
+     "setLastIndexDate:",
+     "v@:@"
+    ],
+    [
+     "laterality",
+     "-",
+     "laterality",
+     "@@:",
+     "setLaterality:",
+     "v@:@"
+    ],
+    [
+     "latestDistantNumberOfImages",
+     "-",
+     "latestDistantNumberOfImages",
+     "i@:",
+     "setLatestDistantNumberOfImages:",
+     "v@:i"
+    ],
+    [
+     "sequenceType",
+     "-",
+     "sequenceType",
+     "@@:",
+     "setSequenceType:",
+     "v@:@"
+    ],
+    [
+     "sortSeriesBySliceLocation",
+     "-",
+     "sortSeriesBySliceLocation",
+     "@@:",
+     "setSortSeriesBySliceLocation:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+frameForImageAsScreenCapture": "{CGRect={CGPoint=dd}{CGSize=dd}}@:",
+    "+initCaptureScreenWindow": "v@:",
+    "+recomputeLocalizersSeriesInstanceUIDForStudies:": "v@:@",
+    "+recomputeSeriesUIDForSeries:": "v@:@",
+    "+sortDescriptorsForImages": "@@:",
+    "-ROIsDescription": "@@:",
+    "-acquisitionDuration": "d@:",
+    "-addBodyPart:": "v@:@",
+    "-addToDictionaryObject:forKey:": "v@:@@",
+    "-applyPresentationState": "@@:",
+    "-areThereImagesWithROIsDisplayedInKeyImagesWindow:": "B@:B",
+    "-calledAET": "@@:",
+    "-callingAET": "@@:",
+    "-computeDuration": "v@:",
+    "-computeHasROIs": "B@:",
+    "-dictionary": "@@:",
+    "-firstKeyOrROIImage": "q@:",
+    "-getNewAndUniqueSeriesIDAfterCurrentSeriesID": "q@:",
+    "-hasPixels": "B@:",
+    "-hostname": "@@:",
+    "-imagesAsScreenCapture": "@@:",
+    "-imagesAsScreenCapture:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}",
+    "-imagesAsScreenCapture:dicomImages:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}@",
+    "-imagesAsScreenCapture:dicomImages:annotationsLevel:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}@I",
+    "-imagesAsScreenCapture:dicomImages:annotationsLevel:cinteRate:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}@I^q",
+    "-imagesAsScreenCapture:dicomImages:annotationsLevel:cinteRate:timeout:": "@@:{CGRect={CGPoint=dd}{CGSize=dd}}@I^qf",
+    "-imagesROIs": "@@:",
+    "-imagesWithROIs": "@@:",
+    "-imagesWithROIsDisplayedInKeyImagesWindow:": "@@:B",
+    "-imagesWithROIsDisplayedInKeyImagesWindow:firstImageOnly:": "@@:BB",
+    "-isMpgVideo": "@@:",
+    "-isVolumic": "B@:",
+    "-lastKeyOrROIImage": "q@:",
+    "-loadVolumeDataInPixArray:": "^f@:@",
+    "-middleImage": "@@:",
+    "-modifyDICOMField:value:showError:newUIDs:": "v@:@@BB",
+    "-modifyDICOMWithDictionary:showError:newUIDs:": "v@:@BB",
+    "-multiframesNumber": "i@:",
+    "-nextKeyOrROIImageTo:": "q@:q",
+    "-nextKeyOrROIImageTo:forward:": "q@:qB",
+    "-orientation": "I@:",
+    "-presentationStates": "@@:",
+    "-purgeCaches": "v@:",
+    "-removeKeyFromDictionaryObject:": "v@:@",
+    "-setDictionary:": "v@:@",
+    "-setRawNoFiles:": "v@:@",
+    "-sortedKeyImages": "@@:",
+    "-thumbnailImage": "@@:",
+    "-viewedPercentage": "f@:"
+   }
+  },
+  "DicomStudy": {
+   "kept": [
+    [
+     "bodyPart",
+     "-",
+     "bodyPart",
+     "@@:",
+     "setBodyPart:",
+     "v@:@"
+    ],
+    [
+     "cloudDownloaded",
+     "-",
+     "cloudDownloaded",
+     "@@:",
+     "setCloudDownloaded:",
+     "v@:@"
+    ],
+    [
+     "cloudUploadFailed",
+     "-",
+     "cloudUploadFailed",
+     "@@:",
+     "setCloudUploadFailed:",
+     "v@:@"
+    ],
+    [
+     "cloudUploaded",
+     "-",
+     "cloudUploaded",
+     "@@:",
+     "setCloudUploaded:",
+     "v@:@"
+    ],
+    [
+     "color",
+     "-",
+     "color",
+     "@@:",
+     "setColor:",
+     "v@:@"
+    ],
+    [
+     "dateAddedTimeZone",
+     "-",
+     "dateAddedTimeZone",
+     "@@:",
+     "setDateAddedTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateDay",
+     "-",
+     "dateDay",
+     "@@:",
+     "setDateDay:",
+     "v@:@"
+    ],
+    [
+     "dateDayOfWeek",
+     "-",
+     "dateDayOfWeek",
+     "@@:",
+     "setDateDayOfWeek:",
+     "v@:@"
+    ],
+    [
+     "dateHourMinute",
+     "-",
+     "dateHourMinute",
+     "@@:",
+     "setDateHourMinute:",
+     "v@:@"
+    ],
+    [
+     "dateMonth",
+     "-",
+     "dateMonth",
+     "@@:",
+     "setDateMonth:",
+     "v@:@"
+    ],
+    [
+     "dateOfBirthString",
+     "-",
+     "dateOfBirthString",
+     "@@:",
+     "setDateOfBirthString:",
+     "v@:@"
+    ],
+    [
+     "dateOfBirthTimeZone",
+     "-",
+     "dateOfBirthTimeZone",
+     "@@:",
+     "setDateOfBirthTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateOpenedTimeZone",
+     "-",
+     "dateOpenedTimeZone",
+     "@@:",
+     "setDateOpenedTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateTimeZone",
+     "-",
+     "dateTimeZone",
+     "@@:",
+     "setDateTimeZone:",
+     "v@:@"
+    ],
+    [
+     "dateYear",
+     "-",
+     "dateYear",
+     "@@:",
+     "setDateYear:",
+     "v@:@"
+    ],
+    [
+     "dictionaryData",
+     "-",
+     "dictionaryData",
+     "@@:",
+     "setDictionaryData:",
+     "v@:@"
+    ],
+    [
+     "distantSOPInstances",
+     "-",
+     "distantSOPInstances",
+     "@@:",
+     "setDistantSOPInstances:",
+     "v@:@"
+    ],
+    [
+     "distantServer",
+     "-",
+     "distantServer",
+     "@@:",
+     "setDistantServer:",
+     "v@:@"
+    ],
+    [
+     "distantServerState",
+     "-",
+     "distantServerState",
+     "i@:",
+     "setDistantServerState:",
+     "v@:i"
+    ],
+    [
+     "distantServerStateTime",
+     "-",
+     "distantServerStateTime",
+     "d@:",
+     "setDistantServerStateTime:",
+     "v@:d"
+    ],
+    [
+     "firstImageDate",
+     "-",
+     "firstImageDate",
+     "@@:",
+     "setFirstImageDate:",
+     "v@:@"
+    ],
+    [
+     "hasKeyImages",
+     "-",
+     "hasKeyImages",
+     "@@:",
+     "setHasKeyImages:",
+     "v@:@"
+    ],
+    [
+     "hasNote",
+     "-",
+     "hasNote",
+     "@@:",
+     "setHasNote:",
+     "v@:@"
+    ],
+    [
+     "hasROIs",
+     "-",
+     "hasROIs",
+     "@@:",
+     "setHasROIs:",
+     "v@:@"
+    ],
+    [
+     "hiddenWebPortal",
+     "-",
+     "hiddenWebPortal",
+     "@@:",
+     "setHiddenWebPortal:",
+     "v@:@"
+    ],
+    [
+     "lastImageDate",
+     "-",
+     "lastImageDate",
+     "@@:",
+     "setLastImageDate:",
+     "v@:@"
+    ],
+    [
+     "manufacturerModelName",
+     "-",
+     "manufacturerModelName",
+     "@@:",
+     "setManufacturerModelName:",
+     "v@:@"
+    ],
+    [
+     "priority",
+     "-",
+     "priority",
+     "@@:",
+     "setPriority:",
+     "v@:@"
+    ],
+    [
+     "requestedProcedureID",
+     "-",
+     "requestedProcedureID",
+     "@@:",
+     "setRequestedProcedureID:",
+     "v@:@"
+    ],
+    [
+     "setDICOMSRAsImportedByOsiriX",
+     "-",
+     "setDICOMSRAsImportedByOsiriX",
+     "B@:",
+     "setSetDICOMSRAsImportedByOsiriX:",
+     "v@:B"
+    ],
+    [
+     "source",
+     "-",
+     "source",
+     "@@:",
+     "setSource:",
+     "v@:@"
+    ],
+    [
+     "studyState",
+     "-",
+     "studyState",
+     "@@:",
+     "setStudyState:",
+     "v@:@"
+    ],
+    [
+     "viewedBy",
+     "-",
+     "viewedBy",
+     "@@:",
+     "setViewedBy:",
+     "v@:@"
+    ],
+    [
+     "viewedByDate",
+     "-",
+     "viewedByDate",
+     "@@:",
+     "setViewedByDate:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+acceptedExtensions": "@@:",
+    "+chronologicalColors": "@@:",
+    "+comparativeStudiesForStudy:": "@@:@",
+    "+comparativeStudiesForStudy:useCacheForLocal:includeDistant:": "@@:@BB",
+    "+convertDate:withTimeZone:": "@@:@@",
+    "+distantStudiesForStudy:": "@@:@",
+    "+formattedPatientName:": "@@:@",
+    "+getUsername": "@@:",
+    "+imageBlockForDicomImage:": "@@:@",
+    "+imageBlockForImage:withDicomImage:": "@@:@@",
+    "+isSendingStudyID:": "B@:@",
+    "+resetPreferences": "v@:",
+    "+seriesSortDescriptorsWithSubKey:": "@@:@",
+    "+seriesSortDescriptorsWithSubKey:addStudyDateSorting:": "@@:@B",
+    "+setSendingStudyID:to:": "v@:@B",
+    "+setSendingStudyIDs:to:": "v@:@B",
+    "+timeZoneForDate:": "@@:@",
+    "+transformPdfAtPath:toDicomAtPath:usingSourceDicomAtPath:seriesDescription:": "v@:@@@@",
+    "+transformSTLAtPath:toDicomAtPath:usingSourceDicomAtPath:seriesDescription:": "v@:@@@@",
+    "-DICOMName": "@@:",
+    "-HTMLReport": "@@:",
+    "-NSColor": "@@:",
+    "-OsiriXSRSeries": "@@:",
+    "-ROIsDescription": "@@:",
+    "-SRImageWithSeriesID:seriesDescription:": "@@:i@",
+    "-acquisitionDuration": "d@:",
+    "-acquisitionDurationFormatted": "@@:",
+    "-addBodyPart:": "v@:@",
+    "-addToDictionaryObject:forKey:": "v@:@@",
+    "-addToReportCurrentImage": "B@:",
+    "-addToReportROIs:andKeyImages:": "B@:BB",
+    "-archiveNoteAsDICOMSR:": "v@:@",
+    "-areThereImagesWithROIsDisplayedInKeyImagesWindow:": "B@:B",
+    "-calledAET": "@@:",
+    "-callingAET": "@@:",
+    "-checkDistantServerState": "v@:",
+    "-checkDistantServerStateUploadIfNoFilesOnDistantServer:": "v@:B",
+    "-checkMultipleSeriesWithSameUID": "v@:",
+    "-chronologicalColor": "@@:",
+    "-chronologicalNumber": "@@:",
+    "-comments": "@@:",
+    "-computeDateProperties": "v@:",
+    "-computeDistantServerState": "v@:",
+    "-computeDuration": "v@:",
+    "-computeDurationAndSeries:": "v@:B",
+    "-computeHasKeyImages": "B@:",
+    "-computeHasROIs": "B@:",
+    "-dateOfBirthFormatted": "@@:",
+    "-deleteReport": "v@:",
+    "-dictionary": "@@:",
+    "-displayedName": "@@:",
+    "-getNewAndFirstSeriesID": "q@:",
+    "-getNewAndLastSeriesID": "q@:",
+    "-getNewAndUniqueSeriesIDAfterThisSeriesID:": "q@:q",
+    "-hostname": "@@:",
+    "-imageSeriesContainingPixels:includeLocalizersSeries:": "@@:BB",
+    "-imageSeriesContainingPixels:includeLocalizersSeries:sorted:": "@@:BBB",
+    "-imageSeriesContainingPixels:includeLocalizersSeries:sorted:includeHidden:": "@@:BBBB",
+    "-imageWithPixels": "@@:",
+    "-imagesWithROIs": "@@:",
+    "-imagesWithROIsDisplayedInKeyImagesWindow:": "@@:B",
+    "-isExcludedFromWebPortal": "B@:",
+    "-isIncompleteStudy": "B@:",
+    "-isVolumic": "B@:",
+    "-keyImagesOnlyOneImageIfEntireSeries:": "@@:B",
+    "-localizersSeries": "@@:",
+    "-modifyDICOMField:value:showError:newUIDs:": "v@:@@BB",
+    "-noteData": "@@:",
+    "-noteHTML": "@@:",
+    "-noteString": "@@:",
+    "-noteWebArchive": "@@:",
+    "-presentationStateDictionaries": "@@:",
+    "-presentationStateObjects": "@@:",
+    "-recordViewedBy": "v@:",
+    "-recordViewedBy:": "v@:@",
+    "-refresh": "v@:",
+    "-removeKeyFromDictionaryObject:": "v@:@",
+    "-resetCachedRawNoFiles": "v@:",
+    "-resetDistanceServerState": "v@:",
+    "-resetHasKeyImages": "v@:",
+    "-resetHasROIs": "v@:",
+    "-roiAndKeyImagesWithOnlyROIsDisplayedInKeyImagesWindow": "@@:",
+    "-roiAndKeyImagesWithROIsDisplayedInKeyImagesWindow:": "@@:B",
+    "-roiForImage:inArray:commentsArray:": "@@:@@@",
+    "-roiPathForImage:inArray:commentsArray:": "@@:@@@",
+    "-setDictionary:": "v@:@",
+    "-setExcludedFromWebPortal:": "v@:B",
+    "-setIsIncompleteStudy:": "v@:B",
+    "-setNSColor:": "v@:@",
+    "-thumbnail": "@@:",
+    "-thumbnailImage": "@@:",
+    "-thumbnailIncludingSeries": "@@:",
+    "-transformPath:seriesDescription:": "B@:@@",
+    "-transformPath:toDicomAtPath:seriesDescription:": "B@:@@@",
+    "-transformPath:toDicomAtPath:seriesDescription:producedImages:": "B@:@@@@",
+    "-uploadFilesToCloud:": "v@:@",
+    "-viewedByDateFormatted": "@@:",
+    "-visibleImageSeries": "@@:",
+    "-yearOldNowAndAtAcquisition": "@@:"
+   }
+  },
+  "EndoscopyViewer": {
+   "kept": [
+    [
+     "dontChangeMPRPosition",
+     "-",
+     "dontChangeMPRPosition",
+     "B@:",
+     "setDontChangeMPRPosition:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "FlyAssistant": {
+   "kept": [
+    [
+     "isDistanceTransformAvailable",
+     "-",
+     "isDistanceTransformAvailable",
+     "B@:",
+     "setIsDistanceTransformAvailable:",
+     "v@:B"
+    ],
+    [
+     "modality",
+     "-",
+     "modality",
+     "@@:",
+     "setModality:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-averageRadiusAt:On:InRange:mininum:maximum:": "f@:i@i^f^f",
+    "-initWithVolume:WidthDimension:Spacing:ResampleVoxelSize:modality:": "@@:^f^i^ff@",
+    "-resetThreshold": "v@:",
+    "-resetThresholdIfNecessaryFromPointA:ToPointB:": "v@:@@",
+    "-thresholdImage:": "B@:@"
+   }
+  },
+  "HTTPConnection": {
+   "kept": [],
+   "neutral": {
+    "+HTTPConnectionCounter": "Q@:",
+    "+countryForIP:": "@@:@",
+    "+recentNonces": "@@:",
+    "-asyncSocket": "@@:",
+    "-connectionDate": "d@:",
+    "-server": "@@:"
+   }
+  },
+  "HTTPDataResponse": {
+   "kept": [],
+   "neutral": {
+    "-loadDataFromFiles:withBoundary:": "v@:@@"
+   }
+  },
+  "HTTPServer": {
+   "kept": [
+    [
+     "isAcceptingConnections",
+     "-",
+     "isAcceptingConnections",
+     "B@:",
+     "setIsAcceptingConnections:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-isSecureServer": "B@:",
+    "-restart:": "B@:^@",
+    "-secureIdentityName": "@@:"
+   }
+  },
+  "HistoView": {
+   "kept": [],
+   "neutral": {
+    "-setCurPix:": "v@:@"
+   }
+  },
+  "HistoWindow": {
+   "kept": [],
+   "neutral": {
+    "-initWithData:size:pix:": "@@:^fQ@"
+   }
+  },
+  "ITKSegmentation3D": {
+   "kept": [],
+   "neutral": {
+    "+itkSegmentationWithPix:": "@@:@",
+    "-regionGrowing2DForPix:startingPoint:algorithmNumber:parameters:roiType:roiResolution:roiName:": "@@:@{CGPoint=dd}i@iq@",
+    "-regionGrowing3D::::::::::::::::": "@@:@@q{CGPoint=dd}i@BfBfiq@B@B",
+    "-regionGrowing3DForViewer:destinationViewer:slice:startingPoint:algorithmNumber:parameters:setIn:inValue:setOut:outValue:roiType:roiResolution:roiName:mergeWithExistingROIs:limit3DBall:outBall:": "@@:@@q{CGPoint=dd}i@BfBfiq@B@B",
+    "-regionGrowing3DForViewer:slice:startingPoint:algorithmNumber:parameters:roiName:": "@@:@q{CGPoint=dd}i@@",
+    "-regionGrowing3DForViewer:slice:startingPoint:algorithmNumber:roiType:roiResolution:parameters:addToROIList:": "@@:@q{CGPoint=dd}iiq@B"
+   }
+  },
+  "ImageAndTextCell": {
+   "kept": [
+    [
+     "clickedImageIndex",
+     "-",
+     "clickedImageIndex",
+     "i@:",
+     "setClickedImageIndex:",
+     "v@:i"
+    ],
+    [
+     "delegate",
+     "-",
+     "delegate",
+     "@@:",
+     "setDelegate:",
+     "v@:@"
+    ],
+    [
+     "imagesNames",
+     "-",
+     "imagesNames",
+     "@@:",
+     "setImagesNames:",
+     "v@:@"
+    ],
+    [
+     "rescaleImageToFit",
+     "-",
+     "rescaleImageToFit",
+     "B@:",
+     "setRescaleImageToFit:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "LocalDatabaseNodeIdentifier": {
+   "kept": [
+    [
+     "lastFreePercentageView",
+     "-",
+     "lastFreePercentageView",
+     "@@:",
+     "setLastFreePercentageView:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "LogManager": {
+   "kept": [],
+   "neutral": {
+    "+logToFileNetworkEvent:": "v@:@",
+    "-addDisplayLogLineForStudy:": "v@:@",
+    "-addLogLineForStudy:message:": "v@:@@"
+   }
+  },
+  "LogWindowController": {
+   "kept": [
+    [
+     "countFetch",
+     "-",
+     "countFetch",
+     "Q@:",
+     "setCountFetch:",
+     "v@:Q"
+    ]
+   ],
+   "neutral": {}
+  },
+  "MPRController": {
+   "kept": [
+    [
+     "ROIsOpacitySliderTouchBarItem",
+     "-",
+     "ROIsOpacitySliderTouchBarItem",
+     "@@:",
+     "setROIsOpacitySliderTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "ROIsThicknessSliderTouchBarItem",
+     "-",
+     "ROIsThicknessSliderTouchBarItem",
+     "@@:",
+     "setROIsThicknessSliderTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "dcmIntervalMaxExport",
+     "-",
+     "dcmIntervalMaxExport",
+     "f@:",
+     "setDcmIntervalMaxExport:",
+     "v@:f"
+    ],
+    [
+     "dcmMax",
+     "-",
+     "dcmMax",
+     "i@:",
+     "setDcmMax:",
+     "v@:i"
+    ],
+    [
+     "frameZoomed",
+     "-",
+     "frameZoomed",
+     "B@:",
+     "setFrameZoomed:",
+     "v@:B"
+    ],
+    [
+     "horizontalPanTouchBarItem",
+     "-",
+     "horizontalPanTouchBarItem",
+     "@@:",
+     "setHorizontalPanTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "lastSync3DMPRState",
+     "-",
+     "lastSync3DMPRState",
+     "@@:",
+     "setLastSync3DMPRState:",
+     "v@:@"
+    ],
+    [
+     "previousHorizontalTranslationOnTouchBar",
+     "-",
+     "previousHorizontalTranslationOnTouchBar",
+     "d@:",
+     "setPreviousHorizontalTranslationOnTouchBar:",
+     "v@:d"
+    ],
+    [
+     "previousPosition",
+     "-",
+     "previousPosition",
+     "@@:",
+     "setPreviousPosition:",
+     "v@:@"
+    ],
+    [
+     "resetDictionary",
+     "-",
+     "resetDictionary",
+     "@@:",
+     "setResetDictionary:",
+     "v@:@"
+    ],
+    [
+     "thickSlabSliderTouchBarItem",
+     "-",
+     "thickSlabSliderTouchBarItem",
+     "@@:",
+     "setThickSlabSliderTouchBarItem:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-addMoviePixList:filesList:volumeData:": "v@:@@@",
+    "-initWithDCMPixList:filesList:volumeData:viewerController:fusedViewerController:maxMovieIndex:": "@@:^@^@^@@@i",
+    "-positionChanged:": "v@:@",
+    "-setOriginalPix:": "v@:@",
+    "-setToolTag:": "v@:i"
+   }
+  },
+  "MPRDCMView": {
+   "kept": [
+    [
+     "dragLineNumber",
+     "-",
+     "dragLineNumber",
+     "i@:",
+     "setDragLineNumber:",
+     "v@:i"
+    ],
+    [
+     "edited2DPointROI",
+     "-",
+     "edited2DPointROI",
+     "@@:",
+     "setEdited2DPointROI:",
+     "v@:@"
+    ],
+    [
+     "restoreDisplayCrossLinesAfterScroll",
+     "-",
+     "restoreDisplayCrossLinesAfterScroll",
+     "B@:",
+     "setRestoreDisplayCrossLinesAfterScroll:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-borderColor": "@@:",
+    "-restoreCameraAndCheckForFrame:restoreScale:": "v@:BB",
+    "-updateViewMPR:checkForFrame:": "v@:BB"
+   }
+  },
+  "MyOutlineView": {
+   "kept": [
+    [
+     "faderTimer",
+     "-",
+     "faderTimer",
+     "@@:",
+     "setFaderTimer:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-mouseRow": "q@:",
+    "-setColumnWithIdentifier:visible:position:": "v@:@Bi"
+   }
+  },
+  "MyPoint": {
+   "kept": [],
+   "neutral": {
+    "+pointWithDoubleArray:": "@@:^f",
+    "+pointWithFloatArray:": "@@:^f",
+    "-CGPoint": "{CGPoint=dd}@:",
+    "-distanceWithPoint:": "d@:@",
+    "-isEqualToMyPoint:": "B@:@",
+    "-squareDistanceWithNSPoint:": "d@:{CGPoint=dd}",
+    "-squareDistanceWithPoint:": "d@:@"
+   }
+  },
+  "N2Button": {
+   "kept": [
+    [
+     "contextMenu",
+     "-",
+     "contextMenu",
+     "@@:",
+     "setContextMenu:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "N2Connection": {
+   "kept": [],
+   "neutral": {
+    "+runLoopMode": "@@:",
+    "-inputStream": "@@:",
+    "-outputStream": "@@:"
+   }
+  },
+  "N2ConnectionListener": {
+   "kept": [
+    [
+     "acceptNonLocalAddress",
+     "-",
+     "acceptNonLocalAddress",
+     "B@:",
+     "setAcceptNonLocalAddress:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-initWithPort:tls:connectionClass:": "@@:qB#"
+   }
+  },
+  "N2ManagedDatabase": {
+   "kept": [
+    [
+     "dontArchiveAnnotationsAsDICOMSR",
+     "-",
+     "dontArchiveAnnotationsAsDICOMSR",
+     "B@:",
+     "setDontArchiveAnnotationsAsDICOMSR:",
+     "v@:B"
+    ],
+    [
+     "isCD",
+     "-",
+     "isCD",
+     "B@:",
+     "setIsCD:",
+     "v@:B"
+    ],
+    [
+     "isReadOnly",
+     "-",
+     "isReadOnly",
+     "B@:",
+     "setIsReadOnly:",
+     "v@:B"
+    ],
+    [
+     "isSaving",
+     "-",
+     "isSaving",
+     "B@:",
+     "setIsSaving:",
+     "v@:B"
+    ],
+    [
+     "timeOfLastModification",
+     "-",
+     "timeOfLastModification",
+     "d@:",
+     "setTimeOfLastModification:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "+dbTimeStampPathForStore:": "@@:@",
+    "+deleteSqlFiles:": "v@:@",
+    "+showNotMainThreadWarning:": "v@:B",
+    "+storeOptions": "@@:",
+    "-addPersistentStoreWithPath:": "@@:@",
+    "-canLockDatabase": "B@:",
+    "-dbTimeStampPath": "@@:",
+    "-deleteAllPersistenStores": "v@:",
+    "-deleteObjects:": "v@:@",
+    "-deleteSqlFiles": "v@:",
+    "-dumpSqlFile": "B@:",
+    "-executeFetchRequest:error:": "@@:@^@",
+    "-getMainDatabase": "@@:",
+    "-independentDatabaseIfNotMainThread": "@@:",
+    "-initWithMainDatabase:": "@@:@",
+    "-isCloudSync": "B@:",
+    "-isLocked": "B@:",
+    "-mainStore": "@@:",
+    "-managedObjectContextExist": "B@:",
+    "-objectWithID:existingObjectsOnly:": "@@:@B",
+    "-objectsForEntity:predicate:error:fetchLimit:fetchOffset:sortDescriptors:": "@@:@@^@QQ@",
+    "-objectsForEntity:predicate:error:fetchLimit:fetchOffset:sortDescriptors:propertiesToFetch:": "@@:@@^@QQ@@",
+    "-objectsForEntity:predicate:propertiesToFetch:": "@@:@@@",
+    "-objectsForEntity:propertiesToFetch:": "@@:@@",
+    "-refreshObjectsFromNotification:": "v@:@",
+    "-reloadPersistentStores": "v@:",
+    "-removeAllSecondaryStores": "v@:",
+    "-savingFilePath": "@@:",
+    "-setLocked:": "v@:B",
+    "-setSqlFilePath:": "v@:@",
+    "-sqlFileChanged": "v@:"
+   }
+  },
+  "N2ManagedObjectContext": {
+   "kept": [
+    [
+     "thread",
+     "-",
+     "thread",
+     "@@:",
+     "setThread:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+dicomManagedObjectContextCounter": "i@:",
+    "+webManagedObjectContextCounter": "i@:",
+    "-setDatabase:": "v@:@"
+   }
+  },
+  "N2Shell": {
+   "kept": [],
+   "neutral": {
+    "+execute:arguments:timeout:": "@@:@@d"
+   }
+  },
+  "N2UserDefaults": {
+   "kept": [],
+   "neutral": {
+    "+setGlobalPreferencesForKey:value:": "v@:@@"
+   }
+  },
+  "N2View": {
+   "kept": [
+    [
+     "n2layout",
+     "-",
+     "n2layout",
+     "@@:",
+     "setN2layout:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "NSArray": {
+   "kept": [],
+   "neutral": {
+    "+arrayWithContentsOfCSVURL:": "@@:@",
+    "+arrayWithContentsOfCSVURL:options:": "@@:@Q",
+    "+arrayWithContentsOfDelimitedURL:delimiter:": "@@:@S",
+    "+arrayWithContentsOfDelimitedURL:options:delimiter:": "@@:@QS",
+    "+arrayWithContentsOfDelimitedURL:options:delimiter:error:": "@@:@QS^@",
+    "-CSVString": "@@:",
+    "-divideArraySizeBy:": "@@:i",
+    "-identicalDictionaries": "@@:",
+    "-reduceArrayByMovingAverageOfPeriod:": "@@:i"
+   }
+  },
+  "NSCursor": {
+   "kept": [],
+   "neutral": {
+    "+crossCursorForROI:": "@@:q",
+    "+screenCaptureCursor": "@@:"
+   }
+  },
+  "NSData": {
+   "kept": [],
+   "neutral": {
+    "+decryptFile:": "@@:@",
+    "+decryptFile:toPath:": "B@:@@",
+    "+encryptFile:": "@@:@",
+    "+encryptFile:toPath:": "B@:@@",
+    "-AES256DecryptWithKey:": "@@:@",
+    "-AES256EncryptWithKey:": "@@:@",
+    "-multipartArray": "@@:",
+    "-multipartArrayWithBoundary:": "@@:@",
+    "-multipartArrayWithBoundary:latestPosition:": "@@:@^Q"
+   }
+  },
+  "NSDictionary": {
+   "kept": [],
+   "neutral": {
+    "+dictionaryWithContentsOfFile:cipher:": "@@:@@",
+    "-deepFindValueForKey:": "@@:@",
+    "-delta:": "@@:@",
+    "-dictionaryToXML": "@@:",
+    "-dictionaryToXMLWithStartElement:": "@@:@",
+    "-writeToFile:atomically:cipher:": "B@:@B@"
+   }
+  },
+  "NSFileManager": {
+   "kept": [],
+   "neutral": {
+    "-confirmDirectoryAtPath:subDirectory:createIntermediateDirectories:": "@@:@BB",
+    "-volumeFormatForPath:localized:": "@@:@^@"
+   }
+  },
+  "NSFont": {
+   "kept": [],
+   "neutral": {
+    "+createCharacterWithImage:": "*@:@",
+    "+resetFont:": "v@:i",
+    "+setOpenGLLogging:": "v@:B",
+    "-drawUnicodeString:length:withFontType:glList:scaling:": "v@:^SQiIf",
+    "-initFontImage:count:fontType:scaling:": "v@:Siif",
+    "-makeGLDisplayListBase::::": "v@:i^qif"
+   }
+  },
+  "NSImage": {
+   "kept": [],
+   "neutral": {
+    "+badgeSizeForString:": "{CGSize=dd}@:@",
+    "+drawBadgeImageWithText:atPoint:": "v@:@{CGPoint=dd}"
+   }
+  },
+  "NSManagedObjectID": {
+   "kept": [],
+   "neutral": {
+    "-XID": "@@:",
+    "-XIDFilename": "@@:"
+   }
+  },
+  "NSMenu": {
+   "kept": [],
+   "neutral": {
+    "-initWithTitle:withDictionary:forWindowController:": "@@:@@@"
+   }
+  },
+  "NSString": {
+   "kept": [],
+   "neutral": {
+    "-CSVComponents": "@@:",
+    "-CSVComponentsWithOptions:": "@@:Q",
+    "-JSON": "@@:",
+    "-componentsSeparatedByDelimiter:": "@@:S",
+    "-componentsSeparatedByDelimiter:options:": "@@:SQ",
+    "-componentsSeparatedByDelimiter:options:error:": "@@:SQ^@",
+    "-correctWebURL": "@@:",
+    "-localizedForLanguage:": "@@:@",
+    "-localizedForWebPortal": "@@:",
+    "-resolveNSLocalizedStrings": "@@:",
+    "-resolveNSLocalizedStringsEscapeQuotationMarks:": "@@:B",
+    "-resolveNSLocalizedStringsForLanguage:": "@@:@",
+    "-resolveNSLocalizedStringsForLanguage:inBundle:": "@@:@@",
+    "-resolveNSLocalizedStringsForLanguage:inBundle:escapeQuotationMarks:": "@@:@@B",
+    "-stringByRemovingInsertionPoints": "@@:",
+    "-txtToHtml": "@@:",
+    "-valueForJSONKey:": "@@:@"
+   }
+  },
+  "NSThread": {
+   "kept": [],
+   "neutral": {
+    "-enterIgnoreGUIChanges": "v@:",
+    "-exitIgnoreGUIChanges": "v@:"
+   }
+  },
+  "NSUserDefaults": {
+   "kept": [],
+   "neutral": {
+    "-delayedSetObjectForKey:": "v@:@",
+    "-screenPartForScreen:": "I@:@",
+    "-setScreenPart:forScreen:": "v@:I@"
+   }
+  },
+  "NSValue": {
+   "kept": [],
+   "neutral": {
+    "-ddrangeCompare:": "q@:@"
+   }
+  },
+  "NSView": {
+   "kept": [],
+   "neutral": {
+    "-openGLViewScreenCapture": "@@:"
+   }
+  },
+  "O2ViewerThumbnailsMatrix": {
+   "kept": [],
+   "neutral": {
+    "+draggingThumbnailCell": "B@:",
+    "-resetCacheCells": "v@:"
+   }
+  },
+  "O2ViewerThumbnailsMatrixRepresentedObject": {
+   "kept": [
+    [
+     "curStudyIndexAll",
+     "-",
+     "curStudyIndexAll",
+     "i@:",
+     "setCurStudyIndexAll:",
+     "v@:i"
+    ],
+    [
+     "isOpenedStudy",
+     "-",
+     "isOpenedStudy",
+     "B@:",
+     "setIsOpenedStudy:",
+     "v@:B"
+    ],
+    [
+     "numberOfImages",
+     "-",
+     "numberOfImages",
+     "i@:",
+     "setNumberOfImages:",
+     "v@:i"
+    ],
+    [
+     "screen",
+     "-",
+     "screen",
+     "@@:",
+     "setScreen:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+object:children:studyIndex:numberOfImages:screen:": "@@:@@ii@"
+   }
+  },
+  "OSIWindowController": {
+   "kept": [
+    [
+     "redoQueue",
+     "-",
+     "redoQueue",
+     "@@:",
+     "setRedoQueue:",
+     "v@:@"
+    ],
+    [
+     "screenColumn",
+     "-",
+     "screenColumn",
+     "i@:",
+     "setScreenColumn:",
+     "v@:i"
+    ],
+    [
+     "screenRow",
+     "-",
+     "screenRow",
+     "i@:",
+     "setScreenRow:",
+     "v@:i"
+    ],
+    [
+     "undoQueue",
+     "-",
+     "undoQueue",
+     "@@:",
+     "setUndoQueue:",
+     "v@:@"
+    ],
+    [
+     "windowInitTime",
+     "-",
+     "windowInitTime",
+     "d@:",
+     "setWindowInitTime:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "+allMagneticWindowControllers": "@@:",
+    "+darkAppearanceBackgroundColor": "@@:",
+    "+darkAppearanceBlackColor": "@@:",
+    "+darkAppearanceBlackColorWithAlpha:": "@@:f",
+    "+darkAppearanceFontColor": "@@:",
+    "+darkAppearanceFontColorWhiteLevel": "f@:",
+    "+darkAppearanceFontColorWithAlpha:": "@@:f",
+    "+setWindowAppearance:": "v@:@",
+    "-autoreleaseIfClosed": "v@:",
+    "-selectROI:deselectingOther:bringToFront:": "v@:@BB"
+   }
+  },
+  "OrthogonalMPRController": {
+   "kept": [],
+   "neutral": {
+    "-initWithPixList::::::copyROI:": "@@:@@@@@@B",
+    "-saveROIsTo2DViewer": "v@:",
+    "-setPixList:::copyROI:": "v@:@@@B",
+    "-viewerController": "@@:"
+   }
+  },
+  "OrthogonalMPRPETCTController": {
+   "kept": [],
+   "neutral": {
+    "-initWithPixList:::::::": "@@:@@@@@@B",
+    "-setName:": "v@:@"
+   }
+  },
+  "OrthogonalMPRPETCTViewer": {
+   "kept": [
+    [
+     "dcmToMax",
+     "-",
+     "dcmToMax",
+     "i@:",
+     "setDcmToMax:",
+     "v@:i"
+    ]
+   ],
+   "neutral": {
+    "-checkView:enabled:": "v@:@B"
+   }
+  },
+  "OrthogonalMPRView": {
+   "kept": [
+    [
+     "roiListPixelIndex",
+     "-",
+     "roiListPixelIndex",
+     "i@:",
+     "setRoiListPixelIndex:",
+     "v@:i"
+    ]
+   ],
+   "neutral": {}
+  },
+  "OrthogonalMPRViewer": {
+   "kept": [
+    [
+     "dcmToMax",
+     "-",
+     "dcmToMax",
+     "i@:",
+     "setDcmToMax:",
+     "v@:i"
+    ],
+    [
+     "has4DData",
+     "-",
+     "has4DData",
+     "B@:",
+     "setHas4DData:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {}
+  },
+  "OsiriXSCPDataHandler": {
+   "kept": [
+    [
+     "moveDestinationHostname",
+     "-",
+     "moveDestinationHostname",
+     "@@:",
+     "setMoveDestinationHostname:",
+     "v@:@"
+    ],
+    [
+     "specificCharacterSet",
+     "-",
+     "specificCharacterSet",
+     "@@:",
+     "setSpecificCharacterSet:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+databases": "@@:",
+    "-findArray": "@@:",
+    "-findEnumerator": "@@:",
+    "-start": "d@:"
+   }
+  },
+  "PSGenerator": {
+   "kept": [
+    [
+     "sourceString",
+     "-",
+     "sourceString",
+     "@@:",
+     "setSourceString:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-generate": "@@:"
+   }
+  },
+  "PluginManager": {
+   "kept": [],
+   "neutral": {
+    "+activatePluginWithPath:": "v@:@",
+    "+changeAvailabilityOfPluginWithPath:to:": "v@:@@",
+    "+deactivatePluginWithPath:": "v@:@",
+    "+displayedVersionForPath:": "@@:@",
+    "+installPluginFromPath:andActivate:": "v@:@B",
+    "+pluginIconForBundle:": "@@:@",
+    "+pluginsAlertAlreadyDisplayed": "B@:",
+    "+pluginsBundleDictionnary": "@@:",
+    "+pluginsFoldersPaths": "@@:",
+    "+pluginsInfoDictionary": "@@:",
+    "+pluginsInstances": "@@:",
+    "+pluginsLoadError": "@@:",
+    "+setMenus:::::": "v@:@@@@@",
+    "+setPluginsAlertAlreadyDisplayed:": "v@:B",
+    "+sharedInstance": "@@:",
+    "+startCheckForPluginsUpdatesVerbose:": "v@:B",
+    "+teamIDForBundle:": "@@:@",
+    "+validSignatureForPath:": "B@:@",
+    "+versionForPath:": "@@:@"
+   }
+  },
+  "PluginManagerController": {
+   "kept": [
+    [
+     "errorPopoverMessage",
+     "-",
+     "errorPopoverMessage",
+     "@@:",
+     "setErrorPopoverMessage:",
+     "v@:@"
+    ],
+    [
+     "loadURL",
+     "-",
+     "loadURL",
+     "@@:",
+     "setLoadURL:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-availablePlugins": "@@:",
+    "-changeWebView:": "v@:@",
+    "-generateAvailablePluginsMenu": "v@:",
+    "-setDownloadURL:": "v@:@",
+    "-setURL:": "v@:@",
+    "-setURLforPluginWithName:": "v@:@"
+   }
+  },
+  "Point3D": {
+   "kept": [],
+   "neutral": {
+    "+pointWithArray:": "@@:^d",
+    "+pointWithDictionary:": "@@:@",
+    "-isEqualToPoint3D:": "B@:@"
+   }
+  },
+  "PreferencesWindowContext": {
+   "kept": [
+    [
+     "icon",
+     "-",
+     "icon",
+     "@@:",
+     "setIcon:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "PreferencesWindowController": {
+   "kept": [
+    [
+     "searchResults",
+     "-",
+     "searchResults",
+     "@@:",
+     "setSearchResults:",
+     "v@:@"
+    ],
+    [
+     "searchResultsPopover",
+     "-",
+     "searchResultsPopover",
+     "@@:",
+     "setSearchResultsPopover:",
+     "v@:@"
+    ],
+    [
+     "signedInLabel",
+     "-",
+     "signedInLabel",
+     "@@:",
+     "setSignedInLabel:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "PrettyCell": {
+   "kept": [],
+   "neutral": {
+    "+setWillBeVisible:": "v@:B",
+    "+willBeVisible": "B@:",
+    "-removeRightSubViews": "v@:"
+   }
+  },
+  "PreviewView": {
+   "kept": [
+    [
+     "preferredFontSize",
+     "-",
+     "preferredFontSize",
+     "f@:",
+     "setPreferredFontSize:",
+     "v@:f"
+    ]
+   ],
+   "neutral": {}
+  },
+  "QueryArrayController": {
+   "kept": [
+    [
+     "db",
+     "-",
+     "db",
+     "@@:",
+     "setDb:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-performQuery:sender:": "B@:B@"
+   }
+  },
+  "QueryController": {
+   "kept": [
+    [
+     "DICOMField",
+     "-",
+     "DICOMField",
+     "@@:",
+     "setDICOMField:",
+     "v@:@"
+    ],
+    [
+     "addWildcardToQuery",
+     "-",
+     "addWildcardToQuery",
+     "B@:",
+     "setAddWildcardToQuery:",
+     "v@:B"
+    ],
+    [
+     "countPresetNode",
+     "-",
+     "countPresetNode",
+     "@@:",
+     "setCountPresetNode:",
+     "v@:@"
+    ],
+    [
+     "countPresetThread",
+     "-",
+     "countPresetThread",
+     "@@:",
+     "setCountPresetThread:",
+     "v@:@"
+    ],
+    [
+     "customDICOMFieldGroupAndElement",
+     "-",
+     "customDICOMFieldGroupAndElement",
+     "@@:",
+     "setCustomDICOMFieldGroupAndElement:",
+     "v@:@"
+    ],
+    [
+     "filterResult",
+     "-",
+     "filterResult",
+     "@@:",
+     "setFilterResult:",
+     "v@:@"
+    ],
+    [
+     "localRawNoFilesCache",
+     "-",
+     "localRawNoFilesCache",
+     "@@:",
+     "setLocalRawNoFilesCache:",
+     "v@:@"
+    ],
+    [
+     "queryControllerFromDate",
+     "-",
+     "queryControllerFromDate",
+     "@@:",
+     "setQueryControllerFromDate:",
+     "v@:@"
+    ],
+    [
+     "queryControllerOnDate",
+     "-",
+     "queryControllerOnDate",
+     "@@:",
+     "setQueryControllerOnDate:",
+     "v@:@"
+    ],
+    [
+     "queryControllerToDate",
+     "-",
+     "queryControllerToDate",
+     "@@:",
+     "setQueryControllerToDate:",
+     "v@:@"
+    ],
+    [
+     "refreshQueryOnlyWhenActive",
+     "-",
+     "refreshQueryOnlyWhenActive",
+     "B@:",
+     "setRefreshQueryOnlyWhenActive:",
+     "v@:B"
+    ],
+    [
+     "resultsOutOf",
+     "-",
+     "resultsOutOf",
+     "@@:",
+     "setResultsOutOf:",
+     "v@:@"
+    ],
+    [
+     "sourceNodeCMove",
+     "-",
+     "sourceNodeCMove",
+     "B@:",
+     "setSourceNodeCMove:",
+     "v@:B"
+    ],
+    [
+     "unfilteredResultArray",
+     "-",
+     "unfilteredResultArray",
+     "@@:",
+     "setUnfilteredResultArray:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+clearQueryStudiesCache": "v@:",
+    "+findCorrespondingServer:inServers:": "@@:@@",
+    "+getDateAndTimeQueryFilterWithTag:fromDate:toDate:onDate:date:time:": "v@:I@@@^@^@",
+    "+indexOfCorrespondingServer:inServers:": "Q@:@@",
+    "+purgeCache": "v@:",
+    "+querySOPInstancesForStudyInstanceUID:server:": "@@:@@",
+    "+querySOPInstancesForStudyInstanceUID:server:database:showErrors:": "@@:@@@B",
+    "+querySOPInstancesForStudyInstanceUID:server:showErrors:": "@@:@@B",
+    "+querySeriesForFilters:servers:showErrors:": "@@:@@B",
+    "+queryStudiesForFilters:servers:showErrors:error:": "@@:@@B^@",
+    "+queryStudiesForPatient:usePatientID:usePatientName:usePatientBirthDate:servers:showErrors:error:": "@@:@BBB@B^@",
+    "+retrieveStudies:showErrors:checkForPreviousAutoRetrieve:onlyIfNeeded:": "v@:@BBB",
+    "-pressStateCellForRow:column:event:": "v@:ii@",
+    "-queryAccessionNumber:": "@@:@",
+    "-queryStudyInstanceUID:": "@@:@",
+    "-selectSourceForServer:": "v@:@"
+   }
+  },
+  "QueryLogController": {
+   "kept": [
+    [
+     "countFetch",
+     "-",
+     "countFetch",
+     "Q@:",
+     "setCountFetch:",
+     "v@:Q"
+    ],
+    [
+     "defaultPredicate",
+     "-",
+     "defaultPredicate",
+     "@@:",
+     "setDefaultPredicate:",
+     "v@:@"
+    ],
+    [
+     "lastRequest",
+     "-",
+     "lastRequest",
+     "@@:",
+     "setLastRequest:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "QueryOutlineView": {
+   "kept": [],
+   "neutral": {
+    "-dragging": "B@:"
+   }
+  },
+  "QuicktimeExport": {
+   "kept": [],
+   "neutral": {
+    "+CVPixelBufferFromCGImageRef:": "^{__CVBuffer=}@:^{CGImage=}"
+   }
+  },
+  "ROI": {
+   "kept": [
+    [
+     "UUID",
+     "-",
+     "UUID",
+     "@@:",
+     "setUUID:",
+     "v@:@"
+    ],
+    [
+     "creationDate",
+     "-",
+     "creationDate",
+     "@@:",
+     "setCreationDate:",
+     "v@:@"
+    ],
+    [
+     "dontDisplayInKeyImagesWindow",
+     "-",
+     "dontDisplayInKeyImagesWindow",
+     "B@:",
+     "setDontDisplayInKeyImagesWindow:",
+     "v@:B"
+    ],
+    [
+     "dontSavePreferredWLWW",
+     "-",
+     "dontSavePreferredWLWW",
+     "B@:",
+     "setDontSavePreferredWLWW:",
+     "v@:B"
+    ],
+    [
+     "is3DMeasure",
+     "-",
+     "is3DMeasure",
+     "B@:",
+     "setIs3DMeasure:",
+     "v@:B"
+    ],
+    [
+     "is3DROI",
+     "-",
+     "is3DROI",
+     "B@:",
+     "setIs3DROI:",
+     "v@:B"
+    ],
+    [
+     "loadedROICopy",
+     "-",
+     "loadedROICopy",
+     "@@:",
+     "setLoadedROICopy:",
+     "v@:@"
+    ],
+    [
+     "localFontHeight",
+     "-",
+     "localFontHeight",
+     "f@:",
+     "setLocalFontHeight:",
+     "v@:f"
+    ],
+    [
+     "localFontName",
+     "-",
+     "localFontName",
+     "@@:",
+     "setLocalFontName:",
+     "v@:@"
+    ],
+    [
+     "localFontSize",
+     "-",
+     "localFontSize",
+     "f@:",
+     "setLocalFontSize:",
+     "v@:f"
+    ],
+    [
+     "magicROI",
+     "-",
+     "magicROI",
+     "@@:",
+     "setMagicROI:",
+     "v@:@"
+    ],
+    [
+     "middleIndex",
+     "-",
+     "middleIndex",
+     "i@:",
+     "setMiddleIndex:",
+     "v@:i"
+    ],
+    [
+     "modificationDate",
+     "-",
+     "modificationDate",
+     "@@:",
+     "setModificationDate:",
+     "v@:@"
+    ],
+    [
+     "notifyOnRelease",
+     "-",
+     "notifyOnRelease",
+     "B@:",
+     "setNotifyOnRelease:",
+     "v@:B"
+    ],
+    [
+     "postNotifications",
+     "-",
+     "postNotifications",
+     "B@:",
+     "setPostNotifications:",
+     "v@:B"
+    ],
+    [
+     "preferredWL",
+     "-",
+     "preferredWL",
+     "f@:",
+     "setPreferredWL:",
+     "v@:f"
+    ],
+    [
+     "preferredWW",
+     "-",
+     "preferredWW",
+     "f@:",
+     "setPreferredWW:",
+     "v@:f"
+    ],
+    [
+     "roiRotation",
+     "-",
+     "roiRotation",
+     "f@:",
+     "setRoiRotation:",
+     "v@:f"
+    ],
+    [
+     "roiToolActive",
+     "-",
+     "roiToolActive",
+     "B@:",
+     "setRoiToolActive:",
+     "v@:B"
+    ],
+    [
+     "textualBoxLine10",
+     "-",
+     "textualBoxLine10",
+     "@@:",
+     "setTextualBoxLine10:",
+     "v@:@"
+    ],
+    [
+     "textualBoxLine7",
+     "-",
+     "textualBoxLine7",
+     "@@:",
+     "setTextualBoxLine7:",
+     "v@:@"
+    ],
+    [
+     "textualBoxLine8",
+     "-",
+     "textualBoxLine8",
+     "@@:",
+     "setTextualBoxLine8:",
+     "v@:@"
+    ],
+    [
+     "textualBoxLine9",
+     "-",
+     "textualBoxLine9",
+     "@@:",
+     "setTextualBoxLine9:",
+     "v@:@"
+    ],
+    [
+     "thickSlabCount",
+     "-",
+     "thickSlabCount",
+     "i@:",
+     "setThickSlabCount:",
+     "v@:i"
+    ],
+    [
+     "thickSlabMode",
+     "-",
+     "thickSlabMode",
+     "i@:",
+     "setThickSlabMode:",
+     "v@:i"
+    ],
+    [
+     "username",
+     "-",
+     "username",
+     "@@:",
+     "setUsername:",
+     "v@:@"
+    ],
+    [
+     "zLocation",
+     "-",
+     "zLocation",
+     "f@:",
+     "setZLocation:",
+     "v@:f"
+    ]
+   ],
+   "neutral": {
+    "+brushCursorForSize:": "*@:i",
+    "+dilateAndFrameWithMargin:texture:width:height:": "*@:i*ii",
+    "+isBetween:::": "B@:{CGPoint=dd}{CGPoint=dd}{CGPoint=dd}",
+    "+roiWithTexture:rect:inView:": "@@:*{CGRect={CGPoint=dd}{CGSize=dd}}@",
+    "+stringTypeForROI:": "@@:i",
+    "-applySettingsFromParent": "v@:",
+    "-applySettingsToParent": "v@:",
+    "-computeAndDrawDiameterAgainst:scaleValue:offsetX:offsetY:": "v@:@fff",
+    "-containBallROI:pixelCoordinates:radius:": "B@:@^d^d",
+    "-containBallROIInPix:pixelCoordinates:radius:": "B@:@^d^d",
+    "-creationTimeStamp": "d@:",
+    "-flipTextureHorizontally": "v@:",
+    "-flipTextureVertically": "v@:",
+    "-getBrushROI": "@@:",
+    "-getBrushROIwithMinimum:maximum:dcmPix:": "@@:ff@",
+    "-getMapSize:origin:": "*@:^{CGSize=dd}^{CGPoint=dd}",
+    "-initWith3DRepresentation:inView:": "@@:@@",
+    "-invertBrushROI": "B@:",
+    "-isoContour": "@@:",
+    "-modifiedSinceLoad": "B@:",
+    "-newUID": "v@:",
+    "-ovalROIFromBallAtPix:": "@@:@",
+    "-peakValue": "@@:",
+    "-pointsIn3DCoordinates": "@@:",
+    "-purgeTexturesAfterFlush": "v@:",
+    "-representationIn3D": "@@:",
+    "-roiList": "@@:",
+    "-rotateTexture90:center:": "v@:i{CGPoint=dd}",
+    "-savedStudyInstanceUID": "@@:",
+    "-setObservers": "v@:",
+    "-stringTags": "@@:",
+    "-textualForLens": "@@:",
+    "-texturesToDeleteAfterFlush": "@@:",
+    "-voronoi": "v@:"
+   }
+  },
+  "ROIManagerController": {
+   "kept": [
+    [
+     "arrayOfNames",
+     "-",
+     "arrayOfNames",
+     "@@:",
+     "setArrayOfNames:",
+     "v@:@"
+    ],
+    [
+     "cacheList",
+     "-",
+     "cacheList",
+     "@@:",
+     "setCacheList:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-setFilter:": "v@:@"
+   }
+  },
+  "ROIVolume": {
+   "kept": [],
+   "neutral": {
+    "-setName:": "v@:@"
+   }
+  },
+  "ROIWindow": {
+   "kept": [
+    [
+     "thicknessEnabled",
+     "-",
+     "thicknessEnabled",
+     "B@:",
+     "setThicknessEnabled:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "-opacity": "f@:",
+    "-setRoiNames:": "v@:@",
+    "-thickness": "f@:"
+   }
+  },
+  "RemoteDicomDatabase": {
+   "kept": [
+    [
+     "remoteCopyNumberOfFiles",
+     "-",
+     "remoteCopyNumberOfFiles",
+     "i@:",
+     "setRemoteCopyNumberOfFiles:",
+     "v@:i"
+    ],
+    [
+     "remoteDBPathToLoad",
+     "-",
+     "remoteDBPathToLoad",
+     "@@:",
+     "setRemoteDBPathToLoad:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+databaseForLocation:port:tls:name:update:": "@@:@QB@B",
+    "-TLS": "B@:",
+    "-cacheDataForImage:": "@@:@",
+    "-forceInitiateUpdate": "@@:",
+    "-initWithHost:port:TLS:update:": "@@:@qBB"
+   }
+  },
+  "Reports": {
+   "kept": [
+    [
+     "templateFilename",
+     "-",
+     "templateFilename",
+     "@@:",
+     "setTemplateFilename:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+checkForOpenDocumentTemplates": "v@:",
+    "+databaseOpenDocumentTemplatesDirPath": "@@:",
+    "+getDICOMStringValueForField:inDICOMFile:": "@@:@@",
+    "+getNewUniqueFilename:": "@@:@",
+    "+searchAndReplaceFieldsFromStudy:inString:": "@@:@@",
+    "+searchAndReplaceFieldsFromStudy:inString:testValidFields:htmlEncoding:": "@@:@@BB",
+    "+searchAndReplaceFieldsFromStudy:inString:testValidFields:htmlEncoding:user:": "@@:@@BB@"
+   }
+  },
+  "SMTPClient": {
+   "kept": [],
+   "neutral": {
+    "-sendMessage:withSubject:from:to:headers:isHTML:": "v@:@@@@@B",
+    "-sendMessage:withSubject:from:to:isHTML:": "v@:@@@@B"
+   }
+  },
+  "SRAnnotation": {
+   "kept": [],
+   "neutral": {
+    "+hasRoiFromDICOM:": "B@:@",
+    "-initWithData:path:forImage:seriesNumber:seriesDescription:": "@@:@@@i@",
+    "-initWithDictionary:path:forImage:seriesNumber:seriesDescription:": "@@:@@@i@"
+   }
+  },
+  "SRController": {
+   "kept": [],
+   "neutral": {
+    "-initWithSTLFile:series:": "@@:@@"
+   }
+  },
+  "SRView": {
+   "kept": [
+    [
+     "cursorTracking",
+     "-",
+     "cursorTracking",
+     "@@:",
+     "setCursorTracking:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-loadSTLFile:": "v@:@",
+    "-setSeriesObj:": "v@:@"
+   }
+  },
+  "SendController": {
+   "kept": [
+    [
+     "destinationsArray",
+     "-",
+     "destinationsArray",
+     "@@:",
+     "setDestinationsArray:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+changeTransferSyntaxTo:quality:forFiles:tmpFiles:": "@@:ii@^@",
+    "+changeTransferSyntaxToAnyOfTheseSyntaxes:quality:forFiles:tmpFiles:": "@@:@i@^@",
+    "+executeSend:database:showError:server:error:": "B@:@@B@^@",
+    "+executeSend:database:showError:server:error:syntax:": "B@:@@B@^@i"
+   }
+  },
+  "ShadingArrayController": {
+   "kept": [],
+   "neutral": {
+    "-setWindowController:": "v@:@"
+   }
+  },
+  "SmartWindowController": {
+   "kept": [
+    [
+     "PODActiveString",
+     "-",
+     "PODActiveString",
+     "@@:",
+     "setPODActiveString:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "SplashScreen": {
+   "kept": [],
+   "neutral": {
+    "+showLicense": "v@:"
+   }
+  },
+  "StringTexture": {
+   "kept": [
+    [
+     "attributes",
+     "-",
+     "attributes",
+     "@@:",
+     "setAttributes:",
+     "v@:@"
+    ],
+    [
+     "maxWidth",
+     "-",
+     "maxWidth",
+     "i@:",
+     "setMaxWidth:",
+     "v@:i"
+    ]
+   ],
+   "neutral": {
+    "-string": "@@:"
+   }
+  },
+  "ThumbnailCell": {
+   "kept": [
+    [
+     "animationHeightPercent",
+     "-",
+     "animationHeightPercent",
+     "f@:",
+     "setAnimationHeightPercent:",
+     "v@:f"
+    ],
+    [
+     "blackBackgroundImage",
+     "-",
+     "blackBackgroundImage",
+     "B@:",
+     "setBlackBackgroundImage:",
+     "v@:B"
+    ],
+    [
+     "displayedSeries",
+     "-",
+     "displayedSeries",
+     "B@:",
+     "setDisplayedSeries:",
+     "v@:B"
+    ],
+    [
+     "mouseOverCell",
+     "-",
+     "mouseOverCell",
+     "B@:",
+     "setMouseOverCell:",
+     "v@:B"
+    ],
+    [
+     "mouseOverViewer",
+     "-",
+     "mouseOverViewer",
+     "B@:",
+     "setMouseOverViewer:",
+     "v@:B"
+    ],
+    [
+     "redFrame",
+     "-",
+     "redFrame",
+     "B@:",
+     "setRedFrame:",
+     "v@:B"
+    ]
+   ],
+   "neutral": {
+    "+drawAnnotationsForROIs:andKeyimages:inRect:": "B@:BB{CGRect={CGPoint=dd}{CGSize=dd}}",
+    "+drawAnnotationsForROIsAndKeyimages:inRect:": "B@:@{CGRect={CGPoint=dd}{CGSize=dd}}",
+    "+hasThisObject:ROIs:orIsKey:": "v@:@^B^B",
+    "+resetThumbnailCellWidth": "v@:",
+    "+resizeFactor": "f@:"
+   }
+  },
+  "ThumbnailsListPanel": {
+   "kept": [
+    [
+     "eventMonitor",
+     "-",
+     "eventMonitor",
+     "@@:",
+     "setEventMonitor:",
+     "v@:@"
+    ],
+    [
+     "mouseOverCell",
+     "-",
+     "mouseOverCell",
+     "@@:",
+     "setMouseOverCell:",
+     "v@:@"
+    ],
+    [
+     "mouseOverSeries",
+     "-",
+     "mouseOverSeries",
+     "@@:",
+     "setMouseOverSeries:",
+     "v@:@"
+    ],
+    [
+     "trackingArea",
+     "-",
+     "trackingArea",
+     "@@:",
+     "setTrackingArea:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+updateTrackingCells": "v@:",
+    "-setThumbnailsView:rootView:viewer:": "v@:@@@"
+   }
+  },
+  "VRController": {
+   "kept": [
+    [
+     "horizontalPanTouchBarItem",
+     "-",
+     "horizontalPanTouchBarItem",
+     "@@:",
+     "setHorizontalPanTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "initialized",
+     "-",
+     "initialized",
+     "B@:",
+     "setInitialized:",
+     "v@:B"
+    ],
+    [
+     "previousHorizontalTranslationOnTouchBar",
+     "-",
+     "previousHorizontalTranslationOnTouchBar",
+     "d@:",
+     "setPreviousHorizontalTranslationOnTouchBar:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "-initWithPix:::::style:mode:maxMovieIndex:": "@@:^@^@^@@@@@i",
+    "-layerVRView": "@@:",
+    "-recomputeMinMax": "v@:",
+    "-selectedPresetPreview": "@@:"
+   }
+  },
+  "VRView": {
+   "kept": [
+    [
+     "backAzi",
+     "-",
+     "backAzi",
+     "d@:",
+     "setBackAzi:",
+     "v@:d"
+    ],
+    [
+     "backEle",
+     "-",
+     "backEle",
+     "d@:",
+     "setBackEle:",
+     "v@:d"
+    ],
+    [
+     "backKB",
+     "-",
+     "backKB",
+     "d@:",
+     "setBackKB:",
+     "v@:d"
+    ],
+    [
+     "backLightColor",
+     "-",
+     "backLightColor",
+     "@@:",
+     "setBackLightColor:",
+     "v@:@"
+    ],
+    [
+     "backWarm",
+     "-",
+     "backWarm",
+     "d@:",
+     "setBackWarm:",
+     "v@:d"
+    ],
+    [
+     "bottomConstraint",
+     "-",
+     "bottomConstraint",
+     "@@:",
+     "setBottomConstraint:",
+     "v@:@"
+    ],
+    [
+     "cinematicRenderingActived",
+     "-",
+     "cinematicRenderingActived",
+     "B@:",
+     "setCinematicRenderingActived:",
+     "v@:B"
+    ],
+    [
+     "cursorTracking",
+     "-",
+     "cursorTracking",
+     "@@:",
+     "setCursorTracking:",
+     "v@:@"
+    ],
+    [
+     "denoise",
+     "-",
+     "denoise",
+     "B@:",
+     "setDenoise:",
+     "v@:B"
+    ],
+    [
+     "fillAzi",
+     "-",
+     "fillAzi",
+     "d@:",
+     "setFillAzi:",
+     "v@:d"
+    ],
+    [
+     "fillEle",
+     "-",
+     "fillEle",
+     "d@:",
+     "setFillEle:",
+     "v@:d"
+    ],
+    [
+     "fillKF",
+     "-",
+     "fillKF",
+     "d@:",
+     "setFillKF:",
+     "v@:d"
+    ],
+    [
+     "fillLightColor",
+     "-",
+     "fillLightColor",
+     "@@:",
+     "setFillLightColor:",
+     "v@:@"
+    ],
+    [
+     "fillWarm",
+     "-",
+     "fillWarm",
+     "d@:",
+     "setFillWarm:",
+     "v@:d"
+    ],
+    [
+     "focalDisk",
+     "-",
+     "focalDisk",
+     "d@:",
+     "setFocalDisk:",
+     "v@:d"
+    ],
+    [
+     "focalDistance",
+     "-",
+     "focalDistance",
+     "d@:",
+     "setFocalDistance:",
+     "v@:d"
+    ],
+    [
+     "globalIlluminationReach",
+     "-",
+     "globalIlluminationReach",
+     "d@:",
+     "setGlobalIlluminationReach:",
+     "v@:d"
+    ],
+    [
+     "headKH",
+     "-",
+     "headKH",
+     "d@:",
+     "setHeadKH:",
+     "v@:d"
+    ],
+    [
+     "headLightColor",
+     "-",
+     "headLightColor",
+     "@@:",
+     "setHeadLightColor:",
+     "v@:@"
+    ],
+    [
+     "headWarm",
+     "-",
+     "headWarm",
+     "d@:",
+     "setHeadWarm:",
+     "v@:d"
+    ],
+    [
+     "keyAzi",
+     "-",
+     "keyAzi",
+     "d@:",
+     "setKeyAzi:",
+     "v@:d"
+    ],
+    [
+     "keyEle",
+     "-",
+     "keyEle",
+     "d@:",
+     "setKeyEle:",
+     "v@:d"
+    ],
+    [
+     "keyInt",
+     "-",
+     "keyInt",
+     "d@:",
+     "setKeyInt:",
+     "v@:d"
+    ],
+    [
+     "keyLightColor",
+     "-",
+     "keyLightColor",
+     "@@:",
+     "setKeyLightColor:",
+     "v@:@"
+    ],
+    [
+     "keyWarm",
+     "-",
+     "keyWarm",
+     "d@:",
+     "setKeyWarm:",
+     "v@:d"
+    ],
+    [
+     "leftConstraint",
+     "-",
+     "leftConstraint",
+     "@@:",
+     "setLeftConstraint:",
+     "v@:@"
+    ],
+    [
+     "lowerRight",
+     "-",
+     "lowerRight",
+     "@@:",
+     "setLowerRight:",
+     "v@:@"
+    ],
+    [
+     "maintainLuminace",
+     "-",
+     "maintainLuminace",
+     "B@:",
+     "setMaintainLuminace:",
+     "v@:B"
+    ],
+    [
+     "midLeft",
+     "-",
+     "midLeft",
+     "@@:",
+     "setMidLeft:",
+     "v@:@"
+    ],
+    [
+     "midLower",
+     "-",
+     "midLower",
+     "@@:",
+     "setMidLower:",
+     "v@:@"
+    ],
+    [
+     "midRight",
+     "-",
+     "midRight",
+     "@@:",
+     "setMidRight:",
+     "v@:@"
+    ],
+    [
+     "midUpper",
+     "-",
+     "midUpper",
+     "@@:",
+     "setMidUpper:",
+     "v@:@"
+    ],
+    [
+     "osprayAmbientSamples",
+     "-",
+     "osprayAmbientSamples",
+     "i@:",
+     "setOsprayAmbientSamples:",
+     "v@:i"
+    ],
+    [
+     "osprayComposite",
+     "-",
+     "osprayComposite",
+     "B@:",
+     "setOsprayComposite:",
+     "v@:B"
+    ],
+    [
+     "osprayLightScale",
+     "-",
+     "osprayLightScale",
+     "f@:",
+     "setOsprayLightScale:",
+     "v@:f"
+    ],
+    [
+     "ospraySPP",
+     "-",
+     "ospraySPP",
+     "i@:",
+     "setOspraySPP:",
+     "v@:i"
+    ],
+    [
+     "rightConstraint",
+     "-",
+     "rightConstraint",
+     "@@:",
+     "setRightConstraint:",
+     "v@:@"
+    ],
+    [
+     "savedConstraints",
+     "-",
+     "savedConstraints",
+     "@@:",
+     "setSavedConstraints:",
+     "v@:@"
+    ],
+    [
+     "scalarOpacityUnitDistance",
+     "-",
+     "scalarOpacityUnitDistance",
+     "f@:",
+     "setScalarOpacityUnitDistance:",
+     "v@:f"
+    ],
+    [
+     "screenCapture",
+     "-",
+     "screenCapture",
+     "@@:",
+     "setScreenCapture:",
+     "v@:@"
+    ],
+    [
+     "showAnnotations",
+     "-",
+     "showAnnotations",
+     "B@:",
+     "setShowAnnotations:",
+     "v@:B"
+    ],
+    [
+     "topConstraint",
+     "-",
+     "topConstraint",
+     "@@:",
+     "setTopConstraint:",
+     "v@:@"
+    ],
+    [
+     "trackPadNumberOfFingers",
+     "-",
+     "trackPadNumberOfFingers",
+     "i@:",
+     "setTrackPadNumberOfFingers:",
+     "v@:i"
+    ],
+    [
+     "upperLeft",
+     "-",
+     "upperLeft",
+     "@@:",
+     "setUpperLeft:",
+     "v@:@"
+    ],
+    [
+     "volumetricScatteringBlending",
+     "-",
+     "volumetricScatteringBlending",
+     "d@:",
+     "setVolumetricScatteringBlending:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "+addLogo:rowBytes:height:": "v@:*II",
+    "+exportAsVTI:volumeData:path:": "B@:@^f@",
+    "-LROrientationInDegrees": "f@:",
+    "-OpenGlBackingScaleFactor": "f@:",
+    "-RollOrientationInDegrees": "f@:",
+    "-SIOrientationInDegrees": "f@:",
+    "-changeColorWith:setNeedsDisplay:": "v@:@B",
+    "-exportDCMCurrentImageIn16bit:display:": "@@:BB",
+    "-isOSPRayEnabled": "B@:",
+    "-minimumLOD": "f@:",
+    "-minimumLODForWindow:": "f@:@",
+    "-mouseDown:backingScaleFactor:": "v@:@f",
+    "-mouseDragged:backingScaleFactor:": "v@:@f",
+    "-mouseUp:backingScaleFactor:": "v@:@f",
+    "-pitch:": "v@:f",
+    "-rightMouseDown:backingScaleFactor:": "v@:@f",
+    "-rightMouseDragged:backingScaleFactor:": "v@:@f",
+    "-roll:": "v@:f",
+    "-setBlendingController:": "v@:@",
+    "-setCornerAnnotationsVisible:": "v@:B",
+    "-setOrientationWidgetVisible:": "v@:B",
+    "-setPixSource:volumeData:volumeData8:offset:valueFactor:": "s@:@^f*ff",
+    "-setUpperLeftAnnotations": "v@:",
+    "-setViewSizeToMatrix3DExportForBackingScaleFactor:": "v@:f",
+    "-setVolumeVisible:": "v@:B",
+    "-setWindowCenter:backingScaleFactor:": "v@:{CGPoint=dd}f",
+    "-viewRescaleButton": "@@:"
+   }
+  },
+  "ViewerController": {
+   "answered": {
+    "+countOf2DViewers": "i@:",
+    "-addROI:": "v@:@",
+    "-deleteROIs:": "v@:@",
+    "-initWithPix:withFiles:withVolume:movie:": "@@:@@@B",
+    "-initWithPix:withFiles:withVolume:movie:preFlipped:": "@@:@@@BB",
+    "-initWithPix:withFiles:withVolume:movie:preFlipped:usePoolIfAvailable:": "@@:@@@BBB"
+   },
+   "kept": [
+    [
+     "ROIsOpacitySliderTouchBarItem",
+     "-",
+     "ROIsOpacitySliderTouchBarItem",
+     "@@:",
+     "setROIsOpacitySliderTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "ROIsThicknessSliderTouchBarItem",
+     "-",
+     "ROIsThicknessSliderTouchBarItem",
+     "@@:",
+     "setROIsThicknessSliderTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "SUV_AcquisitionTime",
+     "-",
+     "SUV_AcquisitionTime",
+     "@@:",
+     "setSUV_AcquisitionTime:",
+     "v@:@"
+    ],
+    [
+     "SUV_CorrectedDose",
+     "-",
+     "SUV_CorrectedDose",
+     "f@:",
+     "setSUV_CorrectedDose:",
+     "v@:f"
+    ],
+    [
+     "SUV_HalfLife",
+     "-",
+     "SUV_HalfLife",
+     "f@:",
+     "setSUV_HalfLife:",
+     "v@:f"
+    ],
+    [
+     "SUV_InjectedDose",
+     "-",
+     "SUV_InjectedDose",
+     "f@:",
+     "setSUV_InjectedDose:",
+     "v@:f"
+    ],
+    [
+     "SUV_InjectionTime",
+     "-",
+     "SUV_InjectionTime",
+     "@@:",
+     "setSUV_InjectionTime:",
+     "v@:@"
+    ],
+    [
+     "SUV_LBM",
+     "-",
+     "SUV_LBM",
+     "f@:",
+     "setSUV_LBM:",
+     "v@:f"
+    ],
+    [
+     "SUV_PatientsSex",
+     "-",
+     "SUV_PatientsSex",
+     "i@:",
+     "setSUV_PatientsSex:",
+     "v@:i"
+    ],
+    [
+     "SUV_PatientsSize",
+     "-",
+     "SUV_PatientsSize",
+     "f@:",
+     "setSUV_PatientsSize:",
+     "v@:f"
+    ],
+    [
+     "SUV_PatientsWeight",
+     "-",
+     "SUV_PatientsWeight",
+     "f@:",
+     "setSUV_PatientsWeight:",
+     "v@:f"
+    ],
+    [
+     "allPixLoaded",
+     "-",
+     "allPixLoaded",
+     "B@:",
+     "setAllPixLoaded:",
+     "v@:B"
+    ],
+    [
+     "allStudiesMatrixModalities",
+     "-",
+     "allStudiesMatrixModalities",
+     "@@:",
+     "setAllStudiesMatrixModalities:",
+     "v@:@"
+    ],
+    [
+     "annotationsObserver",
+     "-",
+     "annotationsObserver",
+     "@@:",
+     "setAnnotationsObserver:",
+     "v@:@"
+    ],
+    [
+     "chronologicalStudyIndex",
+     "-",
+     "chronologicalStudyIndex",
+     "Q@:",
+     "setChronologicalStudyIndex:",
+     "v@:Q"
+    ],
+    [
+     "loadingThread",
+     "-",
+     "loadingThread",
+     "@@:",
+     "setLoadingThread:",
+     "v@:@"
+    ],
+    [
+     "morphoFunction",
+     "-",
+     "morphoFunction",
+     "@@:",
+     "setMorphoFunction:",
+     "v@:@"
+    ],
+    [
+     "morphoOriginalROIs",
+     "-",
+     "morphoOriginalROIs",
+     "@@:",
+     "setMorphoOriginalROIs:",
+     "v@:@"
+    ],
+    [
+     "morphoSelectedROIs",
+     "-",
+     "morphoSelectedROIs",
+     "@@:",
+     "setMorphoSelectedROIs:",
+     "v@:@"
+    ],
+    [
+     "mouseOnThumbnail",
+     "-",
+     "mouseOnThumbnail",
+     "B@:",
+     "setMouseOnThumbnail:",
+     "v@:B"
+    ],
+    [
+     "movieViewer",
+     "-",
+     "movieViewer",
+     "B@:",
+     "setMovieViewer:",
+     "v@:B"
+    ],
+    [
+     "preFlipped",
+     "-",
+     "preFlipped",
+     "B@:",
+     "setPreFlipped:",
+     "v@:B"
+    ],
+    [
+     "prepareForCache",
+     "-",
+     "prepareForCache",
+     "B@:",
+     "setPrepareForCache:",
+     "v@:B"
+    ],
+    [
+     "previewPopOver",
+     "-",
+     "previewPopOver",
+     "@@:",
+     "setPreviewPopOver:",
+     "v@:@"
+    ],
+    [
+     "reconstructionToolsScrubber",
+     "-",
+     "reconstructionToolsScrubber",
+     "@@:",
+     "setReconstructionToolsScrubber:",
+     "v@:@"
+    ],
+    [
+     "reportURL",
+     "-",
+     "reportURL",
+     "@@:",
+     "setReportURL:",
+     "v@:@"
+    ],
+    [
+     "seriesIDAtInit",
+     "-",
+     "seriesIDAtInit",
+     "@@:",
+     "setSeriesIDAtInit:",
+     "v@:@"
+    ],
+    [
+     "seriesThumbnailsScrubber",
+     "-",
+     "seriesThumbnailsScrubber",
+     "@@:",
+     "setSeriesThumbnailsScrubber:",
+     "v@:@"
+    ],
+    [
+     "setPixelsApplyTo",
+     "-",
+     "setPixelsApplyTo",
+     "i@:",
+     "setSetPixelsApplyTo:",
+     "v@:i"
+    ],
+    [
+     "setPixelsIfLarger",
+     "-",
+     "setPixelsIfLarger",
+     "B@:",
+     "setSetPixelsIfLarger:",
+     "v@:B"
+    ],
+    [
+     "setPixelsIfSmaller",
+     "-",
+     "setPixelsIfSmaller",
+     "B@:",
+     "setSetPixelsIfSmaller:",
+     "v@:B"
+    ],
+    [
+     "setPixelsInOrOut",
+     "-",
+     "setPixelsInOrOut",
+     "B@:",
+     "setSetPixelsInOrOut:",
+     "v@:B"
+    ],
+    [
+     "setPixelsMaxValue",
+     "-",
+     "setPixelsMaxValue",
+     "f@:",
+     "setSetPixelsMaxValue:",
+     "v@:f"
+    ],
+    [
+     "setPixelsMinValue",
+     "-",
+     "setPixelsMinValue",
+     "f@:",
+     "setSetPixelsMinValue:",
+     "v@:f"
+    ],
+    [
+     "setPixelsPropagateTo4D",
+     "-",
+     "setPixelsPropagateTo4D",
+     "B@:",
+     "setSetPixelsPropagateTo4D:",
+     "v@:B"
+    ],
+    [
+     "setPixelsToValue",
+     "-",
+     "setPixelsToValue",
+     "f@:",
+     "setSetPixelsToValue:",
+     "v@:f"
+    ],
+    [
+     "setPixelsToValueMode",
+     "-",
+     "setPixelsToValueMode",
+     "i@:",
+     "setSetPixelsToValueMode:",
+     "v@:i"
+    ],
+    [
+     "sortedByKey",
+     "-",
+     "sortedByKey",
+     "@@:",
+     "setSortedByKey:",
+     "v@:@"
+    ],
+    [
+     "sortedInAscending",
+     "-",
+     "sortedInAscending",
+     "B@:",
+     "setSortedInAscending:",
+     "v@:B"
+    ],
+    [
+     "thickSlabSliderTouchBarItem",
+     "-",
+     "thickSlabSliderTouchBarItem",
+     "@@:",
+     "setThickSlabSliderTouchBarItem:",
+     "v@:@"
+    ],
+    [
+     "titleBarHidden",
+     "-",
+     "titleBarHidden",
+     "B@:",
+     "setTitleBarHidden:",
+     "v@:B"
+    ],
+    [
+     "trackingArea",
+     "-",
+     "trackingArea",
+     "@@:",
+     "setTrackingArea:",
+     "v@:@"
+    ],
+    [
+     "viewedImagesArray",
+     "-",
+     "viewedImagesArray",
+     "^i@:",
+     "setViewedImagesArray:",
+     "v@:^i"
+    ]
+   ],
+   "neutral": {
+    "+_fusionedItemColor": "@@:",
+    "+addAutoKeyEvent:forImage:": "v@:@@",
+    "+applyOnlySamePatient:": "v@:@",
+    "+buildApplyProtocolMenuForModality:": "@@:@",
+    "+computeOriginalOrientationForPixArray:orientationVector:": "d@:@^i",
+    "+dbFontSizeScaleFactor": "d@:",
+    "+displayedPatientUIDs": "@@:",
+    "+dontUseTooltipForThumbnail": "B@:",
+    "+get2DViewersObjectIDs": "@@:",
+    "+imageForROI:": "@@:i",
+    "+isAnimatingCells": "B@:",
+    "+isOneViewerPlaying": "B@:",
+    "+newWindowWithPixArray:data:": "@@:@@",
+    "+newWindowWithPixArray:data:usePoolIfAvailable:": "@@:@@B",
+    "+newWindowWithWidth:height:slices:": "@@:iii",
+    "+place3DViewerWindow:from2DViewer:": "v@:@@",
+    "+poolOf2DViewers": "@@:",
+    "+preferencesUpdated": "v@:",
+    "+processReslice:pixList:fileList:maxMovieIndex:processorsLock:newPixList:newFileList:newData:": "B@:q^@^@i@@@@",
+    "+processReslice:pixList:fileList:maxMovieIndex:processorsLock:newPixList:newFileList:newData:square:": "B@:q^@^@i@@@@B",
+    "+processResliceFrom:to:pixList:square:": "@@:II@B",
+    "+quitAllFullScreenViewers": "v@:",
+    "+renderDICOMSRFile:": "@@:@",
+    "+renderDICOMSegmentationFile:": "@@:@",
+    "+roiManager": "@@:",
+    "+scaledCursorForDBFontSize:": "@@:@",
+    "+sendImagesStoredInExportToMail": "v@:",
+    "+setDoNotCopySettings:": "v@:B",
+    "+titleBarVisible": "B@:",
+    "+viewerControllerWithImages:": "@@:@",
+    "+viewerControllerWithSeries:": "@@:@",
+    "-ROIToolTag": "i@:",
+    "-changeImageDataWithPix:images:data:newViewer:loadROI:": "v@:@@@BB",
+    "-checkIfThumbnailsWindowIsDisplayed": "v@:",
+    "-closePreviewPopOver": "v@:",
+    "-copyAllROIsInThisSeries:": "v@:@",
+    "-curConvMenu": "@@:",
+    "-deleteSeriesROIwithNames:": "v@:@",
+    "-exchangeIndex:withIndex:": "B@:ii",
+    "-exportDICOMFileInt:withName:seriesID:allViewers:": "@@:i@@B",
+    "-goToPrevious:ROIsImage:keyImage:inStudy:loop:": "B@:BBBBB",
+    "-imageAtIndex:": "@@:Q",
+    "-inactivatePlayTimer": "v@:",
+    "-isPlaying": "B@:",
+    "-keysCtrl": "@@:",
+    "-loadViewedImagesArray": "v@:",
+    "-menuItemsForROISR": "@@:",
+    "-mergeBrushROI:ROIs:": "@@:@@",
+    "-mergeBrushROIsOnEachImage:": "@@:@",
+    "-mergeBrushROIsWithSameName:": "v@:@",
+    "-morphoTransform:ROIs:": "v@:@@",
+    "-originalOrientation": "s@:",
+    "-performAnimationIfPlaying": "v@:",
+    "-prepareHistoryMenu:": "v@:@",
+    "-previewMatrix": "@@:",
+    "-reInstantiateToolbar": "v@:",
+    "-recomputeROIs": "v@:",
+    "-roiCopyInfo:": "v@:@",
+    "-roiPropagateToEntireSeries:alias:": "v@:@B",
+    "-roiVolume:ROI:": "v@:i@",
+    "-saveROI": "v@:",
+    "-seriesPopupMenu": "@@:",
+    "-setImage:andApplyROIWLWW:": "v@:@B",
+    "-setImageIndex:andApplyROIWLWW:": "v@:qB",
+    "-setOrientationReslice:": "v@:@",
+    "-setPix:": "v@:@",
+    "-setReportIcon:": "v@:@",
+    "-setToolTag:": "v@:i",
+    "-setWLWW:forDCMViews:": "v@:@@",
+    "-setWindowsTilingWithTag:": "v@:i",
+    "-showCurrentSeriesInSeriesList:": "v@:@",
+    "-showCurrentThumbnail:centered:": "v@:@B",
+    "-showPreviewPopOverButton:": "v@:@",
+    "-showPreviewPopOverForSeries:": "v@:@",
+    "-sliderFusionAdd:": "v@:i",
+    "-sliderFusionSet:": "v@:i",
+    "-studiesArray": "@@:",
+    "-syncWithViewer:": "B@:@",
+    "-toggleAllViewerTitleBarVisibility:": "v@:@",
+    "-toggleAllViewerToolbarVisibility:": "v@:@",
+    "-toggleTitleBarVisibility:": "v@:@",
+    "-validateToolbarItemIdentifier:": "B@:@",
+    "-windowsTilingNSMenu": "@@:"
+   }
+  },
+  "WADODownload": {
+   "kept": [
+    [
+     "database",
+     "-",
+     "database",
+     "@@:",
+     "setDatabase:",
+     "v@:@"
+    ],
+    [
+     "extraParameters",
+     "-",
+     "extraParameters",
+     "@@:",
+     "setExtraParameters:",
+     "v@:@"
+    ],
+    [
+     "incomingPath",
+     "-",
+     "incomingPath",
+     "@@:",
+     "setIncomingPath:",
+     "v@:@"
+    ],
+    [
+     "lastReceivedDataTime",
+     "-",
+     "lastReceivedDataTime",
+     "d@:",
+     "setLastReceivedDataTime:",
+     "v@:d"
+    ]
+   ],
+   "neutral": {
+    "+addFilesToDatabase:database:mainThread:": "v@:@@@",
+    "-WADODownload:server:": "v@:@@"
+   }
+  },
+  "WADOXML": {
+   "kept": [
+    [
+     "transferSyntax",
+     "-",
+     "transferSyntax",
+     "@@:",
+     "setTransferSyntax:",
+     "v@:@"
+    ],
+    [
+     "webLogin",
+     "-",
+     "webLogin",
+     "@@:",
+     "setWebLogin:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {}
+  },
+  "WaitRendering": {
+   "kept": [],
+   "neutral": {
+    "+showWithString:": "@@:@",
+    "+showWithString:cancel:": "@@:@B",
+    "-started": "B@:",
+    "-string": "@@:"
+   }
+  },
+  "WebPortal": {
+   "kept": [
+    [
+     "URLcache",
+     "-",
+     "URLcache",
+     "@@:",
+     "setURLcache:",
+     "v@:@"
+    ],
+    [
+     "hasStarted",
+     "-",
+     "hasStarted",
+     "B@:",
+     "setHasStarted:",
+     "v@:B"
+    ],
+    [
+     "poolSize",
+     "-",
+     "poolSize",
+     "q@:",
+     "setPoolSize:",
+     "v@:q"
+    ]
+   ],
+   "neutral": {
+    "+auditWebPortal": "@@:",
+    "+dataForPath:": "@@:@",
+    "+directoriesForDirectory:": "@@:@",
+    "+filesForDirectory:": "@@:@",
+    "+filesForDirectory:forExtension:": "@@:@@",
+    "+isExternalIPAddress:": "B@:@",
+    "+isWebPortalInitialized": "B@:",
+    "+pathForPath:": "@@:@",
+    "+pathForPath:includeInMemoryFiles:": "@@:@B",
+    "+webServicesHTMLFiles": "@@:",
+    "+webServicesHTMLPath": "@@:",
+    "-beginRunLoopActivity": "v@:",
+    "-clearDoubleAuthenticatedSessions": "v@:",
+    "-clearDoubleAuthenticationForSessionId:": "B@:@",
+    "-clearSessions": "v@:",
+    "-createPasswordDictionary": "@@:",
+    "-deleteSessionId:": "v@:@",
+    "-deleteSessionsForUser:": "v@:@",
+    "-domainName": "@@:",
+    "-endRunLoopActivity": "v@:",
+    "-httpThreads": "@@:",
+    "-localHostURL": "@@:",
+    "-ohifEnabled": "B@:",
+    "-resetLoopsLoad": "v@:",
+    "-server": "@@:",
+    "-updateLogEntryForDicomFile:withMessage:forUser:ip:": "v@:@@@@",
+    "-volViewEnabled": "B@:",
+    "-webPortalDatabases": "@@:",
+    "-webPortaldatabaseForCurrentThread": "@@:"
+   }
+  },
+  "WebPortalConnection": {
+   "kept": [
+    [
+     "STOWRSFilesToImport",
+     "-",
+     "STOWRSFilesToImport",
+     "@@:",
+     "setSTOWRSFilesToImport:",
+     "v@:@"
+    ],
+    [
+     "requestedURL",
+     "-",
+     "requestedURL",
+     "@@:",
+     "setRequestedURL:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+cleanHEXA:": "@@:@",
+    "+cleanSMSToken:": "@@:@",
+    "+cleanUsername:": "@@:@",
+    "+dontShowPDFForUser:study:": "B@:@@",
+    "+hideSeries:user:": "B@:@@",
+    "+makeArray:": "@@:@",
+    "+processOHIFJsonWithStudies:series:addCommentsAndStatus:": "@@:@@B",
+    "+processOHIFJsonWithStudies:series:baseURL:mobile:wadoSyntax:filesForInstanceUID:": "@@:@@@B@@",
+    "+processOHIFJsonWithStudies:series:baseURL:mobile:wadoSyntax:filesForInstanceUID:anonymized:": "@@:@@@B@@B",
+    "+sendTokenToPhone:domainName:error:errorString:": "@@:@@^i^@",
+    "+sendTokenToPhone:error:": "@@:@^i",
+    "+sendTokenToPhone:error:errorString:": "@@:@^i^@",
+    "+setLogHTTPRequest:": "v@:B",
+    "+tooMuchKeys": "@@:",
+    "+usersThatDidNotConnectSinceDays:database:": "@@:i@",
+    "-acceptHeader": "@@:",
+    "-addDoubleAuthenticationUserEvent:": "v@:@",
+    "-clientIPAddress": "@@:",
+    "-contentType": "@@:",
+    "-delayForDoubleAuthenticationUser:": "d@:@",
+    "-displaySessions": "v@:",
+    "-headerFields": "@@:",
+    "-independentDatabase": "@@:",
+    "-isLocalClient": "B@:",
+    "-isSeriesVisible:": "B@:@",
+    "-logout": "v@:",
+    "-objectWithXID:compareToDistant:checkUserAutorisation:": "@@:@BB",
+    "-objectWithXID:compareToDistant:checkUserAutorisation:timeoutOption:": "@@:@BBf",
+    "-objectWithXID:timeoutOption:": "@@:@f",
+    "-objectXID": "@@:",
+    "-partsFromPOSTData": "@@:",
+    "-portalURLScheme": "@@:",
+    "-processAdminPatientHtml": "v@:",
+    "-processAdminPatientsHtml": "v@:",
+    "-processAuditJson": "v@:",
+    "-processAuditReport": "v@:",
+    "-processDisplayMacOSLog": "v@:",
+    "-processDoubleAuthenticationLoginHtml": "v@:",
+    "-processHTMLReport": "v@:",
+    "-processHTMLReportFrontMost2DViewerImage": "v@:",
+    "-processHTMLReportTemplate": "v@:",
+    "-processLogHTTPRequest": "v@:",
+    "-processLogoutHtml": "v@:",
+    "-processNote": "v@:",
+    "-processOHIFJson": "v@:",
+    "-processPasswordCreateHtml": "v@:",
+    "-processSeriesDICOMSR_HTML": "v@:",
+    "-processStatisticalInformations": "v@:",
+    "-processVTI": "v@:",
+    "-publicURL": "@@:",
+    "-receiveReportHtmlAsPOST": "v@:",
+    "-requestIsMobile": "B@:",
+    "-requestMethod": "@@:",
+    "-resetDoubleAuthenticationEventsForUser:": "v@:@",
+    "-studyForStudyInstanceUID:server:timeoutOption:": "@@:@@f"
+   }
+  },
+  "WebPortalDatabase": {
+   "kept": [],
+   "neutral": {
+    "-patient2FAEntity": "@@:",
+    "-recentStudyEntity": "@@:"
+   }
+  },
+  "WebPortalResponse": {
+   "kept": [],
+   "neutral": {
+    "-nonce": "@@:"
+   }
+  },
+  "WebPortalServer": {
+   "kept": [],
+   "neutral": {
+    "-certBotCertificatesFolder": "@@:",
+    "-certBotDomainName": "@@:"
+   }
+  },
+  "WebPortalSession": {
+   "kept": [
+    [
+     "doubleAuthenticated",
+     "-",
+     "doubleAuthenticated",
+     "B@:",
+     "setDoubleAuthenticated:",
+     "v@:B"
+    ],
+    [
+     "doubleAuthenticationToken",
+     "-",
+     "doubleAuthenticationToken",
+     "@@:",
+     "setDoubleAuthenticationToken:",
+     "v@:@"
+    ],
+    [
+     "phoneForDoubleAthentication",
+     "-",
+     "phoneForDoubleAthentication",
+     "@@:",
+     "setPhoneForDoubleAthentication:",
+     "v@:@"
+    ],
+    [
+     "phoneForDoubleAthenticationToValidate",
+     "-",
+     "phoneForDoubleAthenticationToValidate",
+     "@@:",
+     "setPhoneForDoubleAthenticationToValidate:",
+     "v@:@"
+    ],
+    [
+     "requireDoubleAuthentication",
+     "-",
+     "requireDoubleAuthentication",
+     "B@:",
+     "setRequireDoubleAuthentication:",
+     "v@:B"
+    ],
+    [
+     "sessionCreationDateTimeInterval",
+     "-",
+     "sessionCreationDateTimeInterval",
+     "d@:",
+     "setSessionCreationDateTimeInterval:",
+     "v@:d"
+    ],
+    [
+     "timeStampForDoubleAuthentication",
+     "-",
+     "timeStampForDoubleAuthentication",
+     "d@:",
+     "setTimeStampForDoubleAuthentication:",
+     "v@:d"
+    ],
+    [
+     "usernameForDoubleAuthentication",
+     "-",
+     "usernameForDoubleAuthentication",
+     "@@:",
+     "setUsernameForDoubleAuthentication:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-consumeToken:user:": "B@:@^@",
+    "-containsToken:user:": "B@:@^@",
+    "-createTokenForUser:": "@@:@",
+    "-setDict:": "v@:@",
+    "-setSid:": "v@:@"
+   }
+  },
+  "WebPortalUser": {
+   "kept": [
+    [
+     "canDeleteStudy",
+     "-",
+     "canDeleteStudy",
+     "@@:",
+     "setCanDeleteStudy:",
+     "v@:@"
+    ],
+    [
+     "canEditField",
+     "-",
+     "canEditField",
+     "@@:",
+     "setCanEditField:",
+     "v@:@"
+    ],
+    [
+     "canUseWeasis",
+     "-",
+     "canUseWeasis",
+     "@@:",
+     "setCanUseWeasis:",
+     "v@:@"
+    ],
+    [
+     "cannotChangePassword",
+     "-",
+     "cannotChangePassword",
+     "@@:",
+     "setCannotChangePassword:",
+     "v@:@"
+    ],
+    [
+     "comment",
+     "-",
+     "comment",
+     "@@:",
+     "setComment:",
+     "v@:@"
+    ],
+    [
+     "dontAcceptExternalIPAddress",
+     "-",
+     "dontAcceptExternalIPAddress",
+     "@@:",
+     "setDontAcceptExternalIPAddress:",
+     "v@:@"
+    ],
+    [
+     "dontUseStudyPredicateForPACSOnDemand",
+     "-",
+     "dontUseStudyPredicateForPACSOnDemand",
+     "@@:",
+     "setDontUseStudyPredicateForPACSOnDemand:",
+     "v@:@"
+    ],
+    [
+     "downloadNote",
+     "-",
+     "downloadNote",
+     "@@:",
+     "setDownloadNote:",
+     "v@:@"
+    ],
+    [
+     "editReport",
+     "-",
+     "editReport",
+     "@@:",
+     "setEditReport:",
+     "v@:@"
+    ],
+    [
+     "iprestriction",
+     "-",
+     "iprestriction",
+     "@@:",
+     "setIprestriction:",
+     "v@:@"
+    ],
+    [
+     "lastConnectionDate",
+     "-",
+     "lastConnectionDate",
+     "@@:",
+     "setLastConnectionDate:",
+     "v@:@"
+    ],
+    [
+     "onePatientOnly",
+     "-",
+     "onePatientOnly",
+     "@@:",
+     "setOnePatientOnly:",
+     "v@:@"
+    ],
+    [
+     "patientID",
+     "-",
+     "patientID",
+     "@@:",
+     "setPatientID:",
+     "v@:@"
+    ],
+    [
+     "patientName",
+     "-",
+     "patientName",
+     "@@:",
+     "setPatientName:",
+     "v@:@"
+    ],
+    [
+     "patientTemporaryAccount",
+     "-",
+     "patientTemporaryAccount",
+     "@@:",
+     "setPatientTemporaryAccount:",
+     "v@:@"
+    ],
+    [
+     "patientUID",
+     "-",
+     "patientUID",
+     "@@:",
+     "setPatientUID:",
+     "v@:@"
+    ],
+    [
+     "phoneVerified",
+     "-",
+     "phoneVerified",
+     "@@:",
+     "setPhoneVerified:",
+     "v@:@"
+    ],
+    [
+     "requireDoubleAuthentication",
+     "-",
+     "requireDoubleAuthentication",
+     "@@:",
+     "setRequireDoubleAuthentication:",
+     "v@:@"
+    ],
+    [
+     "studyOldestDate",
+     "-",
+     "studyOldestDate",
+     "@@:",
+     "setStudyOldestDate:",
+     "v@:@"
+    ],
+    [
+     "studyOldestDateLimitation",
+     "-",
+     "studyOldestDateLimitation",
+     "@@:",
+     "setStudyOldestDateLimitation:",
+     "v@:@"
+    ],
+    [
+     "uploadDocumentToStudy",
+     "-",
+     "uploadDocumentToStudy",
+     "@@:",
+     "setUploadDocumentToStudy:",
+     "v@:@"
+    ],
+    [
+     "viewPDF",
+     "-",
+     "viewPDF",
+     "@@:",
+     "setViewPDF:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "+dontValidatePredicate": "B@:",
+    "+evaluePredicateForDICOMQuery:inDictionary:": "B@:@@",
+    "+purgeStudiesForUserCache": "v@:",
+    "+setDontValidatePredicate:": "v@:B",
+    "+studiesForUser:album:sortBy:sortOrder:fetchLimit:fetchOffset:numberOfStudies:": "@@:@@@qii^i",
+    "+studiesForUser:album:sortBy:sortOrder:fetchLimit:fetchOffset:numberOfStudies:dicomDatabase:": "@@:@@@qii^i@",
+    "+studiesForUser:predicate:dicomDatabase:": "@@:@@@",
+    "+studiesForUser:predicate:sortBy:fetchLimit:fetchOffset:numberOfStudies:dicomDatabase:": "@@:@@@ii^i@",
+    "+studiesForUser:predicate:sortBy:fetchLimit:fetchOffset:numberOfStudies:dicomDatabase:localStudiesOnly:": "@@:@@@ii^i@B",
+    "+validatePassword:name:error:": "B@:^@@^@",
+    "+validatePhone:": "@@:@",
+    "-applyDefaultSettings": "v@:",
+    "-isAuthorizedToAccessTo:": "B@:@",
+    "-studiesForPredicate:dicomDatabase:": "@@:@@"
+   }
+  },
+  "Window3DController": {
+   "kept": [
+    [
+     "windowName",
+     "-",
+     "windowName",
+     "@@:",
+     "setWindowName:",
+     "v@:@"
+    ]
+   ],
+   "neutral": {
+    "-fullScreenOn": "B@:"
+   }
+  },
+  "WindowLayoutManager": {
+   "kept": [],
+   "neutral": {
+    "+imageTilingForRows:columns:": "i@:ii",
+    "+windowsTilingForRows:columns:": "i@:ii"
+   }
+  },
+  "XMLController": {
+   "kept": [
+    [
+     "DICOMField",
+     "-",
+     "DICOMField",
+     "@@:",
+     "setDICOMField:",
+     "v@:@"
+    ],
+    [
+     "addDICOMFieldTextField",
+     "-",
+     "addDICOMFieldTextField",
+     "@@:",
+     "setAddDICOMFieldTextField:",
+     "v@:@"
+    ],
+    [
+     "currentSearchItem",
+     "-",
+     "currentSearchItem",
+     "@@:",
+     "setCurrentSearchItem:",
+     "v@:@"
+    ],
+    [
+     "searchCount",
+     "-",
+     "searchCount",
+     "i@:",
+     "setSearchCount:",
+     "v@:i"
+    ],
+    [
+     "searchIndex",
+     "-",
+     "searchIndex",
+     "i@:",
+     "setSearchIndex:",
+     "v@:i"
+    ]
+   ],
+   "neutral": {
+    "+DICOMDefitionsLinks": "@@:",
+    "+dcmFindNameOfUID:": "@@:@",
+    "+prepareDICOMDefitionsLinks": "v@:",
+    "-clickInDefinitionCell:event:": "v@:@@",
+    "-menuForRow:": "@@:i",
+    "-srcFile": "@@:"
+   }
+  }
+ }
+}

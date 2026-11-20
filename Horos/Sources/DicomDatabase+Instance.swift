@@ -242,69 +242,38 @@ public extension DicomDatabase {
 
     @objc(observeIndependentDatabaseNotification:)
     dynamic func observeIndependentDatabaseNotification(_ notification: Notification!) {
-        if !Thread.isMainThread {
-            // The independent database posts on the thread that owns its
-            // context, and may hold that context's queue while it waits for
-            // the main thread: a disc scan does so to ask whether to copy the
-            // disc or browse it. Reading the objects' IDs on the main thread
-            // entered that queue, and the scan and the main thread waited for
-            // each other. The IDs are read here, where the queue is ours.
-            self.performSelector(onMainThread: #selector(DicomDatabase.observeIndependentDatabaseNotification(_:)), with: DicomDatabase.replacingObjectsWithIDs(notification), waitUntilDone: false)
-        } else {
-            let userInfo = NSMutableDictionary()
+        // Answered on the main thread, with IDs where the independent database
+        // named its objects: this thread enters no queue but its own context's.
+        if IndependentDatabaseNotice.handsOver(notification, to: self) { return }
+        let userInfo = NSMutableDictionary()
 
-            let idatabase = (self.isMainDatabase() ? self : self.mainDatabase) as? DicomDatabase
-            N2ManagedObjectContextPerformAndWait(idatabase?.managedObjectContext) {
-            if let exception = HorosObjCException.caught({
+        let idatabase = (self.isMainDatabase() ? self : self.mainDatabase) as? DicomDatabase
+        N2ManagedObjectContextPerformAndWait(idatabase?.managedObjectContext) {
+        if let exception = HorosObjCException.caught({
 
-                let independentObjects = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesArray) as? NSArray
-                if let independentObjects {
-                    let selfObjects = idatabase?.objects(withIDs: independentObjects as? [Any]) as NSArray?
-                    if (selfObjects?.count ?? 0) != independentObjects.count {
-                        NSLog("Warning: independent database is notifying about %d new images, but the main database can only find %d.", Int32(truncatingIfNeeded: independentObjects.count), Int32(truncatingIfNeeded: selfObjects?.count ?? 0))
-                    }
-                    DicomDatabaseObjC.setObject(userInfo, selfObjects, OsirixAddToDBNotificationImagesArray) // We should NOT send a notification with objects, but objectsID instead...
+            let independentObjects = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesArray) as? NSArray
+            if let independentObjects {
+                let selfObjects = idatabase?.objects(withIDs: independentObjects as? [Any]) as NSArray?
+                if (selfObjects?.count ?? 0) != independentObjects.count {
+                    NSLog("Warning: independent database is notifying about %d new images, but the main database can only find %d.", Int32(truncatingIfNeeded: independentObjects.count), Int32(truncatingIfNeeded: selfObjects?.count ?? 0))
                 }
+                DicomDatabaseObjC.setObject(userInfo, selfObjects, OsirixAddToDBNotificationImagesArray) // We should NOT send a notification with objects, but objectsID instead...
+            }
 
-                let independentDictionary = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesPerAETDictionary) as? NSDictionary
-                if let independentDictionary {
-                    let selfDictionary = NSMutableDictionary()
-                    for key in independentDictionary.keyEnumerator() {
-                        DicomDatabaseObjC.setObject(selfDictionary, idatabase?.objects(withIDs: independentDictionary.object(forKey: key) as? [Any]) as NSArray?, key)
-                    }
-                    DicomDatabaseObjC.setObject(userInfo, selfDictionary, OsirixAddToDBNotificationImagesPerAETDictionary)
+            let independentDictionary = DicomDatabaseObjC.objectForKey(notification.userInfo as NSDictionary?, OsirixAddToDBNotificationImagesPerAETDictionary) as? NSDictionary
+            if let independentDictionary {
+                let selfDictionary = NSMutableDictionary()
+                for key in independentDictionary.keyEnumerator() {
+                    DicomDatabaseObjC.setObject(selfDictionary, idatabase?.objects(withIDs: independentDictionary.object(forKey: key) as? [Any]) as NSArray?, key)
                 }
-            }) {
-                DicomDatabaseObjC.log(exception, stack: false, "-[DicomDatabase observeIndependentDatabaseNotification:]")
+                DicomDatabaseObjC.setObject(userInfo, selfDictionary, OsirixAddToDBNotificationImagesPerAETDictionary)
             }
-            }
+        }) {
+            DicomDatabaseObjC.log(exception, stack: false, "-[DicomDatabase observeIndependentDatabaseNotification:]")
+        }
+        }
 
-            NotificationCenter.default.post(name: notification.name, object: self, userInfo: userInfo as? [AnyHashable: Any])
-        }
-    }
-
-    /// The notification with the managed objects of its image array and of
-    /// its per-AET dictionary replaced by their object IDs, read on the
-    /// posting database's context.
-    private static func replacingObjectsWithIDs(_ notification: Notification!) -> Notification! {
-        guard let notification, let userInfo = notification.userInfo,
-              let context = (notification.object as? N2ManagedDatabase)?.managedObjectContext else { return notification }
-        func identifiers(_ value: Any?) -> NSArray? {
-            guard let objects = value as? NSArray else { return nil }
-            return objects.map { ($0 as? NSManagedObject)?.objectID ?? $0 } as NSArray
-        }
-        var converted = userInfo
-        N2ManagedObjectContextPerformAndWait(context) {
-            if let images = identifiers(userInfo[OsirixAddToDBNotificationImagesArray]) {
-                converted[OsirixAddToDBNotificationImagesArray] = images
-            }
-            if let perAET = userInfo[OsirixAddToDBNotificationImagesPerAETDictionary] as? NSDictionary {
-                let dictionary = NSMutableDictionary()
-                for case let (key, value) in perAET { dictionary[key] = identifiers(value) ?? value }
-                converted[OsirixAddToDBNotificationImagesPerAETDictionary] = dictionary
-            }
-        }
-        return Notification(name: notification.name, object: notification.object, userInfo: converted)
+        NotificationCenter.default.post(name: notification.name, object: self, userInfo: userInfo as? [AnyHashable: Any])
     }
 
     @objc(isLocal)
@@ -582,9 +551,25 @@ enum DatabaseVersionRecord {
     /// stays on disk may be an index waiting for its upgrade.
     static func record(in context: NSManagedObjectContext, versionFile: String?) {
         guard context.persistentStoreCoordinator?.persistentStores.isEmpty == false else { return }
-        PreferencesSource.process.preferences.set(CurrentDatabaseVersion, for: DatabasePreferences.databaseVersion)
+        recordInPreferences()
         if let versionFile {
             try? (CurrentDatabaseVersion as NSString).write(toFile: versionFile, atomically: true, encoding: String.Encoding.utf8.rawValue)
+        }
+    }
+
+    /// The preference is written when it names another model, and never from
+    /// the queue of a context that is not the main thread's: a write tells its
+    /// observers before it returns, the same value included, and one of them
+    /// that answers on the main thread keeps the writer until that thread is
+    /// free, which it is not while it waits for this queue. Every save of an
+    /// import told them so, and an import and the main thread waited for each
+    /// other. Off the main thread the write is left to the main queue.
+    private static func recordInPreferences() {
+        guard PreferencesSource.process.preferences[DatabasePreferences.databaseVersion] != CurrentDatabaseVersion else { return }
+        onMainActor {
+            let preferences = PreferencesSource.process.preferences
+            guard preferences[DatabasePreferences.databaseVersion] != CurrentDatabaseVersion else { return }
+            preferences.set(CurrentDatabaseVersion, for: DatabasePreferences.databaseVersion)
         }
     }
 }

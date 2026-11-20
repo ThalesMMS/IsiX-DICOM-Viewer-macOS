@@ -411,15 +411,13 @@ public class OrthogonalMPRController: NSObject {
             xReslicedView?.setCrossPositionX(Float(Double(x) + 0.5))
             yReslicedView?.setCrossPositionX(Float(Double(y) + 0.5))
             // indexOfObject: is an NSUInteger, NSNotFound when the image is not
-            // in the list: the sum wraps as it did.
-            // The crossing is half the request past the slab's first image,
-            // inside the series: a request for more images than are left put
-            // it outside the image.
+            // in the list: the difference wraps as it did.
+            // The crossing is the image shown, which its slab is centred on
+            // and always holds, inside the series.
             let curDCM = originalView?.curDCM
             let count = originalView?.dcmPixList?.count ?? 0
-            let first = originalView?.pixList()?.index(of: curDCM as Any) ?? 0
-            let sliceIndex = first == NSNotFound ? first &+ Int(curDCM?.stack ?? 0) / 2
-                                                 : OrthogonalThickSlab.crossIndex(firstImage: first, requestedSlices: Int(curDCM?.stack ?? 0), count: count)
+            let shown = originalView?.pixList()?.index(of: curDCM as Any) ?? 0
+            let sliceIndex = shown == NSNotFound ? shown : OrthogonalThickSlab.crossIndex(image: shown, count: count)
             let h: Int = (_sign > 0) ? count &- sliceIndex &- 1 : sliceIndex
 
             xReslicedView?.setCrossPositionY(Float(Double(h) + 0.5))
@@ -431,9 +429,8 @@ public class OrthogonalMPRController: NSObject {
 //            stackCount *= 2;
 
             // slice index on axial view
+            // The image of the crossing: its slab is centred on it (ThickSlabSpan).
             var sliceIndex: Int32 = (_sign > 0) ? Int32(truncatingIfNeeded: Int(stackCount) &- 1 &- y) : Int32(truncatingIfNeeded: y)
-
-            sliceIndex = sliceIndex &- Int32(_thickSlab / 2)
 
             if sliceIndex < 0 { sliceIndex = 0 }
             if sliceIndex >= stackCount { sliceIndex = stackCount &- 1 }
@@ -1006,22 +1003,23 @@ public class OrthogonalMPRController: NSObject {
     }
 
     /// The scale of the slab at the image the original view shows: the
-    /// thicknesses its images make from there to the end of the series, two
-    /// images at least, since the window switches the slab off by a control
-    /// of its own. The window's slider and field show it, and the reformatted
-    /// views fuse its thickness. Nil for a view that shows nothing.
+    /// thicknesses the images around it make, as the 2D viewer's slab is
+    /// centred and kept inside the series, two images at least, since the
+    /// window switches the slab off by a control of its own. The window's
+    /// slider and field show it, and the reformatted views fuse its
+    /// thickness. Nil for a view that shows nothing.
     func slabScale() -> StackFusionScale? {
         guard let view = _originalView, let images = view.dcmPixList?.compactMap({ $0 as? DCMPix }), !images.isEmpty else { return nil }
         let current = Int(view.curImage)
         guard current >= 0, current < images.count else { return nil }
-        return StackFusionScale(positions: images.map(\.sliceLocation), current: current, towardsStart: false,
+        return StackFusionScale(positions: images.map(\.sliceLocation), current: current, towardsStart: view.flippedData,
                                 sliceThickness: images[current].sliceThickness, fallbackInterval: images[0].sliceInterval,
                                 capacity: images.count, minimumImages: 2)
     }
 
     /// The rows and the columns of the reformatted views that make the
     /// thickness the original view fuses: one of each, no slab, while the
-    /// slab is off, at the last image, or where no thickness is known.
+    /// slab is off, in a series of one image, or where no thickness is known.
     private func slabCounts() -> (rows: Int, columns: Int) {
         guard _thickSlab > 1, let scale = slabScale(), scale.isPhysical, scale.effectiveCount(requested: Int(_thickSlab)) > 1,
               let pix = _originalView?.curDCM else { return (1, 1) }
@@ -1031,7 +1029,7 @@ public class OrthogonalMPRController: NSObject {
     }
 
     /// Gives the three views one slab: the original view the images asked
-    /// for, which it cuts at the series' end itself, and each reformatted
+    /// for, which it keeps inside the series itself, and each reformatted
     /// view the rows or columns of that thickness. A band has the count of
     /// its own axis.
     private func applySlab(_ counts: (rows: Int, columns: Int)) {
@@ -1049,10 +1047,10 @@ public class OrthogonalMPRController: NSObject {
         _yReslicedView?.setThickSlabXY(band(counts.rows), Int(_thickSlab))
     }
 
-    /// After a reslice: where the image shown changed what the slab fuses
-    /// (near the series' end, or with irregular intervals), the reformatted
-    /// views are made again with their new counts; their horizontal bands
-    /// cover the images fused; and the window's slider and field are told.
+    /// After a reslice: where the image shown changed how thick the slab is
+    /// (a series with irregular intervals), the reformatted views are made
+    /// again with their new counts; their horizontal bands cover the images
+    /// fused; and the window's slider and field are told.
     private func followSlab() {
         if _thickSlab > 1, !isApplyingSlab {
             let counts = slabCounts()
@@ -1069,9 +1067,10 @@ public class OrthogonalMPRController: NSObject {
             }
         }
         var rows: ClosedRange<Int>?
-        if _thickSlab > 1, let scale = slabScale(), let view = _originalView {
-            let count = view.dcmPixList?.count ?? 0, first = Int(view.curImage)
-            let ends = [first, first + scale.effectiveCount(requested: Int(_thickSlab)) - 1]
+        if _thickSlab > 1, slabScale() != nil, let view = _originalView {
+            let count = view.dcmPixList?.count ?? 0
+            let slab = ThickSlabSpan(images: Int(_thickSlab), at: Int(view.curImage), of: count, towardsStart: view.flippedData)
+            let ends = [slab.first, slab.last]
                 .map { OrthogonalThickSlab.row(index: $0, count: count, ascending: _sign > 0) }
             rows = min(ends[0], ends[1])...max(ends[0], ends[1])
         }

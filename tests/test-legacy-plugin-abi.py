@@ -235,7 +235,6 @@ SYSTEM_FRAMEWORKS = ('Foundation', 'AppKit', 'CoreData', 'QuartzCore', 'CoreImag
 # The entries retired before the rule, frozen: an entry leaves this list when its item
 # comes back, and none enters.
 RETIRED_KEYS = frozenset((
-    'selectors AppController +resetThumbnailsList',
     'selectors AppController -UpdateCLUTMenu:',
     'selectors AppController -UpdateConvolutionMenu:',
     'selectors AppController -UpdateOpacityMenu:',
@@ -246,7 +245,6 @@ RETIRED_KEYS = frozenset((
     'selectors AppController -checkForUpdatesDisabled:',
     'selectors AppController -clutMenuTestLocalized:',
     'selectors AppController -convMenuTestLocalized:',
-    'selectors AppController -currentRowForViewer:',
     'selectors AppController -deliverNotificationTitle:description:name:sound:',
     'selectors AppController -displayUpdateMessage:',
     'selectors AppController -displayViewers:monitorIndex:screens:numberOfMonitors:rowsPerScreen:columnsPerScreen:',
@@ -506,6 +504,26 @@ def managed_properties(app):
     return found
 
 
+def installed_answers(app):
+    """{class: {'-selector' or '+selector'}} of the table of the bundle that the
+    application adds to its classes when it starts (LaterPluginSDKAnswers): the
+    selectors of later headers of the SDK that have nothing behind them. The
+    runtime adds them, so they are not in the Objective-C metadata of the
+    executable; tests/test-later-plugin-sdk-selectors.py sends each of them to
+    the running application."""
+    table = app / 'Contents/Resources/LaterPluginSDKAnswers.json'
+    if not table.is_file():
+        return {}
+    found = {}
+    for name, entry in json.loads(table.read_text())['classes'].items():
+        answers = found.setdefault(name, set())
+        answers.update(entry.get('neutral', {}))
+        answers.update(entry.get('answered', {}))
+        for _, sign, getter, _, setter, _ in entry.get('kept', []):
+            answers.update((sign + getter, sign + setter))
+    return found
+
+
 def managed_accessor(properties, selector):
     """Whether Core Data generates `selector` for one of `properties`: the getter,
     the setter, or the add/remove methods of a to-many relationship."""
@@ -608,6 +626,7 @@ class Surface:
                 merged['-'] |= entry['-']
                 merged['+'] |= entry['+']
         self.managed = managed_properties(self.app)
+        self.installed = installed_answers(self.app)
         self.runtime = runtime or SystemRuntime()
 
     def chain(self, name):
@@ -630,6 +649,8 @@ class Surface:
             if entry and selector in entry[kind]:
                 return True
             if kind == '-' and cls in self.managed and managed_accessor(self.managed[cls], selector):
+                return True
+            if kind + selector in self.installed.get(cls, ()):
                 return True
             if not own_only and not (entry and entry['defined']) and self.runtime.responds(cls, kind, selector):
                 return True

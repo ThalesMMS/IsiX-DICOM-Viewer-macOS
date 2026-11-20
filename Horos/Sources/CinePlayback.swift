@@ -152,14 +152,14 @@ import IsiXPreferences
 
     /// One tick of the "Browse" player's timer: shows the speed once a second
     /// and, at the slider's speed, the next image (looping, or bouncing off
-    /// the ends). It waits while less than half the series is loaded.
+    /// the ends). While the series loads it gives a moment to an image the
+    /// load has not reached (CineCadence.waitsForLoad).
     func advanceSlice() {
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
         defer { CineCadence.wake(viewer.horos_timer, lastFrame: viewer.horos_lastTime, rate: viewer.horos_speedSlider?.floatValue ?? 0) }
 
         if viewer.horos_windowWillClose { return }
-        if isLoadingFirstHalf() { return }
 
         let count = viewer.horos_pixList(at: Int(viewer.horos_curMovieIndex))?.count ?? 0
         if count <= 1 { return }
@@ -174,6 +174,7 @@ import IsiXPreferences
             guard let imageView = viewer.horos_imageView else { return }
             let step = SliceNavigation.browseStep(from: imageView.stackNavigation, direction: viewer.horos_direction, flipped: imageView.flippedData,
                                                   count: count, loops: viewer.horos_loopButton?.state == .on)
+            if waitsForLoad(ofImage: step.image, at: Int(viewer.horos_curMovieIndex), now: thisTime, lastFrame: viewer.horos_lastTime) { return }
             viewer.horos_direction = step.direction
 
             imageView.setIndex(step.image)
@@ -223,18 +224,20 @@ import IsiXPreferences
     // MARK: - The 4D player
 
     /// One tick of the 4D player's timer: the next time point at the 4D
-    /// speed, handed on to the other viewers. It waits while less than half
-    /// the series is loaded.
+    /// speed, handed on to the other viewers. While the series loads it gives
+    /// a moment to an image the load has not reached, as the "Browse" player
+    /// does.
     func advanceMovie() {
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
         defer { CineCadence.wake(viewer.horos_movieTimer, lastFrame: viewer.horos_lastMovieTime, rate: viewer.horos_movieRateSlider?.floatValue ?? 0) }
 
-        if isLoadingFirstHalf() { return }
-
         if thisTime - viewer.horos_lastMovieTime > 1.0 / Double(viewer.horos_movieRateSlider?.floatValue ?? 0) {
             let frames = SliceNavigation(movieIndex: Int(viewer.horos_curMovieIndex), movieCount: Int(viewer.horos_maxMovieIndex))
             let next = Int16(truncatingIfNeeded: frames.nextMovieIndex)
+            // The image the view shows of the next time point: the same slice.
+            if waitsForLoad(ofImage: Int(viewer.horos_imageView?.curImage ?? 0), at: Int(next), now: thisTime,
+                            lastFrame: viewer.horos_lastMovieTime) { return }
 
             viewer.horos_curMovieIndex = next
 
@@ -283,13 +286,16 @@ import IsiXPreferences
 
     // MARK: - The wait
 
-    /// Whether the series is still loading and less than half of it is there:
-    /// the players wait.
-    func isLoadingFirstHalf() -> Bool {
-        guard let thread = viewer.horos_loadingThread else { return false }
-        objc_sync_enter(thread)
-        defer { objc_sync_exit(thread) }
-        let percentage = (thread.threadDictionary.object(forKey: "loadingPercentage") as? NSNumber)?.floatValue ?? 0
-        return !thread.isFinished && percentage < 0.5
+    /// Whether a player waits before it shows the image at `index` of the
+    /// time point `movie`: the series is still loading and has not reached that image,
+    /// for a moment at most (CineCadence.waitsForLoad). The players waited
+    /// for half of the whole load, every time point of a 4D series included,
+    /// whatever image they were about to show: a player of a series whose
+    /// images were there stood still, and one whose load had stopped never
+    /// moved again, while the arrow keys went on.
+    func waitsForLoad(ofImage index: Int, at movie: Int, now: TimeInterval, lastFrame: TimeInterval) -> Bool {
+        guard let load = viewer.horos_loadingThread, !load.isFinished else { return false }
+        let image = viewer.horos_pixList(at: movie).flatMap { index >= 0 && index < $0.count ? $0.object(at: index) as? DCMPix : nil }
+        return CineCadence.waitsForLoad(loading: true, nextImageLoaded: image?.isLoaded() ?? true, now: now, lastFrame: lastFrame)
     }
 }

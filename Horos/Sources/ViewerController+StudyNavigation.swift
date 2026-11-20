@@ -246,6 +246,10 @@ extension ViewerController {
             var executing = true
             repeat {
                 Thread.sleep(forTimeInterval: 0.1)
+                // This wait runs no run loop, where the main thread hands back
+                // the lock of the parsed files when something left it held:
+                // the load waited for here would wait for that lock for good.
+                DCMPixParsedFileCache.leaveWhatTheMainThreadLeftHeld()
 
                 let thread = viewer.horos_loadingThread
                 if let thread { objc_sync_enter(thread) }

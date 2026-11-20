@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import isix_modules  # the navigation slider asks IsiXImaging which images a thick slab covers
 from sources import source_text
 
 root = Path(__file__).resolve().parents[1]
@@ -227,7 +228,7 @@ with tempfile.TemporaryDirectory(prefix='horos-toolbar-flat-') as folder:
     subprocess.run([
         'xcrun', 'swiftc', '-swift-version', '5',
         *[str(s) for s in sources], str(folder / 'main.swift'),
-        '-framework', 'AppKit',
+        '-framework', 'AppKit', *isix_modules.module_flags('IsiXImaging', folder / 'modules'),
         '-o', str(folder / 'test'),
     ], check=True)
     subprocess.run([str(folder / 'test')], check=True)

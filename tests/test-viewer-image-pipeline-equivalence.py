@@ -236,34 +236,25 @@ DELIBERATE = [
      "    [imageView setFusion:m :[sliderFusion intValue]];\n"),
     # The toolbar writes the thickness of the images the slab fuses at the
     # image shown, the text of the slider's bubble: one slice and the distance
-    # to the last image fused, of those the slider asks for that are left to
-    # the end of the series; one image while the slab is off. It wrote what
-    # -getThickSlabThickness:location: answered, whatever the slider said. The
-    # stand-in's images are axial, so the distance is the one between origins.
+    # between the two ends of the slab, which has the images the slider asks
+    # for, as many as the series has, centred on the image shown with the
+    # image more of an even slab on the side the slab goes, and moved back
+    # inside the series at an end; one image while the slab is off. It wrote
+    # what -getThickSlabThickness:location: answered, whatever the slider said.
+    # The stand-in's images are axial, so the distance is the one between
+    # origins. The arithmetic is written out here, apart from the viewer's.
     ("    return [NSString stringWithFormat: @\"%2.1f mm\", thickness];\n",
      "    NSArray *shown = imageView.dcmPixList;\n"
      "    NSInteger index = imageView.curImage, total = shown.count;\n"
      "    if (imageView.curDCM == nil || index < 0 || index >= total) return @\"\";\n"
-     "    NSInteger left = MAX(1, MIN(imageView.flippedData ? index + 1 : total - index, (NSInteger)sliderFusion.maxValue));\n"
-     "    NSInteger images = sliderFusion.isEnabled ? MAX(1, MIN(left, sliderFusion.integerValue)) : 1;\n"
-     "    DCMPix *near = shown[index], *far = shown[index + (imageView.flippedData ? -1 : 1) * (images - 1)];\n"
-     "    return [NSString localizedStringWithFormat: @\"%.1f mm\", near->sliceThickness + fabs(far->originZ - near->originZ)];\n"),
-    # A step of the wheel is an image of those left from the image shown to
-    # the end of the series: past them no step changes anything, a step down
-    # leaves from the images fused, and the last image has no step at all.
-    ("    BOOL active = activatedFusion.state == NSControlStateValueOn;\n"
-     "    NSInteger current = active ? sliderFusion.integerValue : 1;\n",
-     "    NSInteger requested = sliderFusion.integerValue;\n"
-     "    if (imageView)\n"
-     "    {\n"
-     "        NSInteger index = imageView.curImage, total = [imageView.dcmPixList count];\n"
-     "        NSInteger left = index < 0 || index >= total ? 1 : MAX(1, MIN(imageView.flippedData ? index + 1 : total - index, maximum));\n"
-     "        maximum = MIN(maximum, left);\n"
-     "        requested = MIN(MAX(1, requested), left);\n"
-     "        if (maximum < 2) return;\n"
-     "    }\n"
-     "    BOOL active = activatedFusion.state == NSControlStateValueOn;\n"
-     "    NSInteger current = active ? requested : 1;\n"),
+     "    NSInteger most = MAX(1, MIN(total, (NSInteger)sliderFusion.maxValue));\n"
+     "    NSInteger images = sliderFusion.isEnabled ? MAX(1, MIN(most, sliderFusion.integerValue)) : 1;\n"
+     "    NSInteger before = (images - 1) / 2;\n"
+     "    NSInteger first = MAX(0, MIN(imageView.flippedData ? index - (images - 1 - before) : index - before, total - images));\n"
+     "    DCMPix *low = shown[first], *high = shown[first + images - 1], *current = shown[index];\n"
+     "    return [NSString localizedStringWithFormat: @\"%.1f mm\", current->sliceThickness + fabs(high->originZ - low->originZ)];\n"),
+    # A step of the wheel is as it was: an image, within what the slider and
+    # every movie frame allow, wherever the image shown is.
     # OK in the "Set WL/WW" sheet names the level its fields left, a preset's
     # or «Other», where the menu kept the name of the level before; Cancel
     # leaves the name with the level it restores.
@@ -1432,7 +1423,8 @@ static void ThickSlab(void)
     for (int i = 0; i < 6; i++) [files addObject:ImageFile(@{@"name": @"f", @"width": @3, @"height": @2})];
     ViewerController *v = Viewer(@[Stack(@"ts", 6, 3, 2, AXIAL, 1, 0, NO, NULL), Stack(@"ts4D", 6, 3, 2, AXIAL, 1, 0, NO, NULL)],
                                  @[files, [[files mutableCopy] autorelease]]);
-    // Slices of 2 mm, 1 mm apart, the second of them shown: five are left from it to the end of the series.
+    // Slices of 2 mm, 1 mm apart, the second of them shown: a slab of more than three images is moved
+    // back to the first, and has its images all the same.
     for (NSArray *movie in @[v->pixList[0], v->pixList[1]]) for (DCMPix *p in movie) p->sliceThickness = 2;
     [v->imageView harnessShow:v->pixList[0][1]];
     void (^state)(NSString *) = ^(NSString *title) {

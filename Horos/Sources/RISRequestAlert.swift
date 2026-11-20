@@ -105,10 +105,18 @@ public final class RISRequestAlert: NSObject {
         return String(format: NSLocalizedString("No study matching %@ is in the database or on the PACS On-Demand nodes (%@).", comment: "RIS request: not found on demand"), filters, nodes.joined(separator: ", "))
     }
 
-    /// Added to the alert that offers to turn the URL support on.
+    /// A request that was dropped, named. The alert of a link no longer says
+    /// it, since the link is carried out once the user turns the links on;
+    /// the selector stays for the plugins that were given it.
     @objc(notCarriedOutMessage:)
     public static func notCarriedOut(_ request: String) -> String {
         return String(format: NSLocalizedString("The request %@ was not carried out.", comment: "RIS request: XML-RPC off"), request)
+    }
+
+    /// Added to the alert that offers to turn the URL support on: the
+    /// request of the link, carried out once the user turns it on there.
+    public static func waitsForActivation(_ request: String) -> String {
+        return String(format: NSLocalizedString("The link asks for the request %@, which is carried out once the links are activated.", comment: "RIS request: URL support off"), request)
     }
 
     static func refusedMessage(peer: String, reason: RISRefusal) -> String {

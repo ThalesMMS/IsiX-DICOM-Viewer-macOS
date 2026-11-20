@@ -26,7 +26,7 @@ extension DCMView {
         FormerSDKFacade.inert("DCMView", "-loadTextureIn:blending:colorBuf:…", because: Self.metal)
         return nil
     }
-    @objc(makeTextureFromImage:forTexture:buffer:textureUnit:) func legacyMakeTexture(from image: NSImage?, forTexture name: UnsafeMutablePointer<UInt32>?, buffer: UnsafeMutablePointer<UInt8>?, textureUnit: UInt32) { FormerSDKFacade.inert("DCMView", "-makeTextureFromImage:forTexture:buffer:textureUnit:", because: Self.metal) }
+    @objc(makeTextureFromImage:forTexture:buffer:textureUnit:) @discardableResult func legacyMakeTexture(from image: NSImage?, forTexture name: UnsafeMutablePointer<UInt32>?, buffer: UnsafeMutablePointer<UInt8>?, textureUnit: UInt32) -> NSSize { FormerSDKFacade.inert("DCMView", "-makeTextureFromImage:forTexture:buffer:textureUnit:", because: Self.metal); return .zero }
 
     /// The textures were loaded here under the drawing lock. The picture is
     /// uploaded when it is drawn: the view is asked to draw again.

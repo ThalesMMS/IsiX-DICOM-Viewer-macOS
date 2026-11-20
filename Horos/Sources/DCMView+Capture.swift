@@ -691,6 +691,7 @@ extension DCMView {
             }
 
             if ViewCaptureRequest.writesSpacingAndOrigin(asked: exportSpacingAndOrigin) {
+                SyncedSlab(shownIn: self).moveToCentre(&imOrigin, from: self.curDCM)
                 exportDCM?.setPosition(&imOrigin)
                 exportDCM?.setPixelSpacing(imSpacing[0], imSpacing[1])
             }

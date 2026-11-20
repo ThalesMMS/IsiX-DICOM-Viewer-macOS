@@ -88,14 +88,6 @@ public struct ROIPropagationPlan: Sendable, Equatable {
         return min(from, to)..<(max(from, to) + 1)
     }
 
-    /// The thick slab the viewer shows at `current`, from the current image
-    /// through its far end `farEnd` (HorosThickSlabRange: below the current
-    /// image when the data is flipped); empty without a slab (`farEnd` < 0).
-    public static func slabRange(current: Int, farEnd: Int) -> Range<Int> {
-        if farEnd < 0 { return 0..<0 }
-        return min(current, farEnd)..<(max(current, farEnd) + 1)
-    }
-
     /// The time point `index` clamped to the `movieCount` time points, and 0
     /// with none: the ROI lists have a first slot even then.
     public static func movieIndex(_ index: Int, movieCount: Int) -> Int {

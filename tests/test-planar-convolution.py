@@ -44,6 +44,7 @@ import subprocess
 import sys
 import tempfile
 import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
+import isix_modules  # the slices of a slab are IsiXImaging's rule
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -248,11 +249,14 @@ func texture(_ image: MTLTexture, bytesPerPixel: Int) -> Data {
                 "screenToPixel": [0.0, 0.0, Double(w), 0.0, 0.0, Double(h)], "viewSize": [w * scale, h * scale],
                 "softwareScale": scale]
             if mode > 0 {
-                // The slices computeThickSlab reduces with slice 2, three of them, direction 0, as the bridge asks.
-                let others = PlanarThickSlab.sliceIndices(position: 2, stack: 3, direction: 0, count: depth).map { $0.intValue }
+                // The slices computeThickSlab reduces at slice 2, three of them, direction 0, as the bridge asks:
+                // the slab centred on it, whose first slice is the frame's own pixels.
+                let slab = PlanarThickSlab.sliceIndices(position: 2, stack: 3, direction: 0, count: depth).map { $0.intValue }
+                precondition(slab == [1, 2, 3] && !colour, "a slab of three scalar slices around slice 2")
+                value["pixels"] = slices[slab[0]]
                 value["slabMode"] = mode
-                value["slabSlices"] = others.reduce(into: Data()) { $0.append(slices[$1]) }
-                value["slabCount"] = others.count + 1
+                value["slabSlices"] = slab.dropFirst().reduce(into: Data()) { $0.append(slices[$1]) }
+                value["slabCount"] = slab.count
             }
             if let filter {
                 var kernel = kernels[filter] + [Float](repeating: 0, count: 25 - kernels[filter].count)
@@ -391,12 +395,13 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-convolution-') as name:
 
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift', 'PlanarMetalRenderer.swift',
-               'PlanarMetal4Renderer.swift']
+               'PlanarThickSlabSlices.swift', 'PlanarMetal4Renderer.swift']
     for source in sources:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
+                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'),
+                            *isix_modules.module_flags('IsiXImaging', directory / 'isix'), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')])
     if build.returncode:
         print('FAIL: the planar renderer does not build with the convolution driver')

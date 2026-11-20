@@ -10,14 +10,17 @@ main thread waited for the scan, the scan waited for the main thread, and the
 application hung on every DICOM disc, with no dialog and nothing imported.
 
 The IDs are read on the posting thread, where the queue is the scan's own, and
-the main thread receives IDs. And the scan no longer holds its queue while it
+the main thread receives IDs. A notice posted on the main thread itself, as the
+indexer posts what an import added, is handed over from the posting database's
+queue, which the main thread does not wait for. And the scan no longer holds its queue while it
 asks: nothing that waits for the main thread runs on a context's queue, in the
 scan or in the copy it starts. What must stay true:
 
 - the bounce to the main thread hands over the notification with its objects
   replaced by their IDs;
 - the IDs are read on the posting database's context;
-- the main thread does not resolve the posted objects through their context;
+- the main thread does not resolve the posted objects through their context,
+  nor wait for it;
 - the disc scan runs outside its database's queue, which it enters only to
   index, to read its objects and to make thumbnails;
 - none of those blocks, and no function they call in the scan or the copy, waits
@@ -46,6 +49,7 @@ scan = source_text('MediaVolumeScan')
 job = source_text('MediaImportJob')
 ingest = source_text('DatabaseIngest')
 sources = source_text('BrowserController+Sources')
+notice = source_text('IndependentDatabaseNotice')
 
 
 def check(condition, message):
@@ -132,16 +136,29 @@ check('worker.performBlockAndWait' in adapter, 'a batch is not indexed on its ow
 
 observe = body(instance, 'func observeIndependentDatabaseNotification(')
 check(observe, 'observeIndependentDatabaseNotification not found')
-bounce = observe[:observe.find('} else {')] if '} else {' in observe else ''
-check('with: DicomDatabase.replacingObjectsWithIDs(notification), waitUntilDone: false' in bounce,
-      'the main thread receives the independent database\'s objects, and enters its queue to read their IDs')
+handed = observe.find('if IndependentDatabaseNotice.handsOver(notification, to: self) { return }')
+check(0 <= handed < observe.find('objects(withIDs:'),
+      'the main database resolves the notified objects before the notice was handed over with their IDs')
 
-replace = body(instance, 'func replacingObjectsWithIDs(')
-check(replace, 'replacingObjectsWithIDs not found')
+hands = body(notice, 'func handsOver(')
+check(hands, 'handsOver not found')
+off_main = hands[hands.find('if !Thread.isMainThread {'):hands.find('guard namesObjects(')]
+check('deliver(withObjectIDs(notification), to: database)' in off_main and 'return true' in off_main,
+      'the main thread receives the independent database\'s objects, and enters its queue to read their IDs')
+on_main = hands[hands.find('guard namesObjects('):]
+check('context.perform {' in on_main and 'deliver(withObjectIDs(handed.notification), to: handed.database)' in on_main,
+      'a notice posted on the main thread is not handed over from the posting database\'s queue')
+check('PerformAndWait' not in on_main and 'performAndWait' not in on_main,
+      'the main thread waits for the posting database\'s queue')
+check('waitUntilDone: false' in body(notice, 'func deliver('), 'the poster waits for the main thread to answer the notice')
+
+replace = body(notice, 'func withObjectIDs(')
+check(replace, 'withObjectIDs not found')
 check('(notification.object as? N2ManagedDatabase)?.managedObjectContext' in replace
       and 'N2ManagedObjectContextPerformAndWait(context)' in replace,
       'the IDs are not read on the posting database\'s context')
-check('.objectID' in replace and 'OsirixAddToDBNotificationImagesArray' in replace
+check('.objectID' in body(notice, 'func identifiers(') and replace.count('identifiers') == 2
+      and 'OsirixAddToDBNotificationImagesArray' in replace
       and 'OsirixAddToDBNotificationImagesPerAETDictionary' in replace,
       'the image array and the per-AET dictionary are not both turned into IDs')
 

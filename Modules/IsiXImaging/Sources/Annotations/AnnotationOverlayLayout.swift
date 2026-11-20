@@ -108,6 +108,15 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
         return start
     }
 
+    /// The edges the left lines start from and the right lines end at; nil in
+    /// a view narrower than its two margins, where the right edge falls left
+    /// of the left one: no side line has a place there. A view of no width is
+    /// still drawn, as the views a window shrinks beside the one it enlarges.
+    public var sideEdges: ClosedRange<Double>? {
+        let left = Double(start(of: "MiddleLeft").x), right = Double(start(of: "MiddleRight").x)
+        return left <= right ? left...right : nil
+    }
+
     /// How far each line of `position` moves from the previous one: down from
     /// the top and the middles, up from the bottom; 0 for a name that is not a position.
     public func increment(of position: String) -> Int32 {
@@ -383,11 +392,9 @@ struct AnnotationLineTexts {
         }
 
         if position.stack > 1 {
-            var last = flipped ? current - position.stack + 1 : current + position.stack
-            if last < 0 { last = 0 }
-            if last > count { last = count }
-            texts[0] += flipped ? String(format: phrases.imageRange, count - current, count &- last, count, direction)
-                                : String(format: phrases.imageRange, current + 1, last, count, direction)
+            // The images of the slab, as the user counts them, from 1.
+            let numbers = ThickSlabSpan(images: position.stack, at: current, of: count, towardsStart: flipped).userIndices(of: count)
+            texts[0] += String(format: phrases.imageRange, numbers.lowerBound + 1, numbers.upperBound + 1, count, direction)
         } else {
             texts[0] += flipped ? String(format: phrases.image, count - current, count, direction)
                                 : String(format: phrases.image, current + 1, count, direction)

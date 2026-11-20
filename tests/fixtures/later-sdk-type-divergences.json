@@ -1,0 +1,621 @@
+{
+ "about": "The selectors the application answers with other argument or return types than later headers of the plugin SDK declare, each with the type encoding the application's method has (answers) and the one the compiler gives the declaration of those headers (declares), on arm64 and without the frame offsets. The former SDK declares all but a few of them with the types the application has, and that surface is contract: where the two SDKs declare one selector with different types, the former declaration stands, and a plugin built with the later headers reads or passes another type there. -median and -setMedian: of ROI serve both: the double is answered with the float in its low half, and a float given is told from a double. The few the former SDK does not declare are outlets and actions the application's own nibs use with the types it has. tests/test-later-plugin-sdk-selectors.py checks that each still answers with the types recorded here, so that the list does not change unnoticed; tools/plugin-sdk-selector-sweep.py types finds it.",
+ "selectors": {
+  "AnonymizationTagsPopUpButton -selectedTag": {
+   "answers": "q@:",
+   "declares": "@@:"
+  },
+  "BrowserController +DefaultFolderSizeForDB": {
+   "answers": "i@:",
+   "declares": "q@:"
+  },
+  "BrowserController -setTimeIntervalType:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "BrowserController -timeIntervalType": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "BurnerWindowController -saveOnVolume": {
+   "answers": "B@:",
+   "declares": "v@:"
+  },
+  "CLUTOpacityView -setVolumePointer:width:height:numberOfSlices:": {
+   "answers": "v@:^fiii",
+   "declares": "v@:^fQQQ"
+  },
+  "CPRController -setROIToolTag:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "CPRController -setToolIndex:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "CPRMPRDCMView -setCrossReferenceLines:and:": {
+   "answers": "v@:^f^f",
+   "declares": "v@:[2[3f]][2[3f]]"
+  },
+  "CPRMPRDCMView -setDCMPixList:filesList:roiList:firstImage:type:reset:": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "CPRObliqueSliceGeneratorRequest -getOrientation:": {
+   "answers": "v@:^f",
+   "declares": "v@:[6f]"
+  },
+  "CPRObliqueSliceGeneratorRequest -getOrientationDouble:": {
+   "answers": "v@:^d",
+   "declares": "v@:[6d]"
+  },
+  "CPRObliqueSliceGeneratorRequest -setOrientation:": {
+   "answers": "v@:^f",
+   "declares": "v@:[6f]"
+  },
+  "CPRObliqueSliceGeneratorRequest -setOrientationDouble:": {
+   "answers": "v@:^d",
+   "declares": "v@:[6d]"
+  },
+  "CPRUnsignedInt16ImageRep -getOrientation:": {
+   "answers": "v@:^f",
+   "declares": "v@:[6f]"
+  },
+  "CPRUnsignedInt16ImageRep -getOrientationDouble:": {
+   "answers": "v@:^d",
+   "declares": "v@:[6d]"
+  },
+  "CPRView -curImage": {
+   "answers": "q@:",
+   "declares": "s@:"
+  },
+  "CPRView -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "CPRView -setIndex:": {
+   "answers": "v@:q",
+   "declares": "v@:s"
+  },
+  "CPRVolumeData -getOrientation:": {
+   "answers": "v@:^f",
+   "declares": "v@:[6f]"
+  },
+  "CPRVolumeData -getOrientationDouble:": {
+   "answers": "v@:^d",
+   "declares": "v@:[6d]"
+  },
+  "DCMCodeSequenceMacro -contextGroupExtensionFlag": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DCMCodeSequenceMacro -mappingResource": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DCMCodeSequenceMacro -setContextGroupExtensionFlag:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMCodeSequenceMacro -setMappingResource:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMPix -flipAngle": {
+   "answers": "@@:",
+   "declares": "f@:"
+  },
+  "DCMPix -pixPos": {
+   "answers": "q@:",
+   "declares": "s@:"
+  },
+  "DCMPix -prepareRestore": {
+   "answers": "B@:",
+   "declares": "v@:"
+  },
+  "DCMPix -setArrayPix::": {
+   "answers": "v@:@q",
+   "declares": "v@:@s"
+  },
+  "DCMPix -setPixPos:": {
+   "answers": "v@:q",
+   "declares": "v@:s"
+  },
+  "DCMView +setCLUTBARS:ANNOTATIONS:": {
+   "answers": "v@:ii",
+   "declares": "v@:II"
+  },
+  "DCMView -DrawCStringGL::::": {
+   "answers": "v@:*iqq",
+   "declares": "v@:*Iqq"
+  },
+  "DCMView -DrawCStringGL::::align:useStringTexture:": {
+   "answers": "v@:*iqqiB",
+   "declares": "v@:*IqqIB"
+  },
+  "DCMView -DrawCStringGL::::rightAlignment:useStringTexture:": {
+   "answers": "v@:*iqqBB",
+   "declares": "v@:*IqqBB"
+  },
+  "DCMView -DrawNSStringGL::::": {
+   "answers": "v@:@iqq",
+   "declares": "v@:@Iqq"
+  },
+  "DCMView -DrawNSStringGL::::align:useStringTexture:": {
+   "answers": "v@:@iqqiB",
+   "declares": "v@:@IqqIB"
+  },
+  "DCMView -DrawNSStringGL::::rightAlignment:useStringTexture:": {
+   "answers": "v@:@iqqBB",
+   "declares": "v@:@IqqBB"
+  },
+  "DCMView -annotationType": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DCMView -curImage": {
+   "answers": "q@:",
+   "declares": "s@:"
+  },
+  "DCMView -currentTool": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "DCMView -currentToolRight": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "DCMView -drawOrientation:": {
+   "answers": "v@:{CGRect={CGPoint=dd}{CGSize=dd}}",
+   "declares": "f@:{CGRect={CGPoint=dd}{CGSize=dd}}"
+  },
+  "DCMView -getTool:": {
+   "answers": "s@:@",
+   "declares": "i@:@"
+  },
+  "DCMView -makeTextureFromImage:forTexture:buffer:textureUnit:": {
+   "answers": "{CGSize=dd}@:@^I*I",
+   "declares": "{CGSize=dd}@:@^I^*I"
+  },
+  "DCMView -orientationCorrectedToView:": {
+   "answers": "v@:^f",
+   "declares": "B@:^f"
+  },
+  "DCMView -roiTool:": {
+   "answers": "B@:s",
+   "declares": "B@:i"
+  },
+  "DCMView -sendSyncMessage:": {
+   "answers": "v@:q",
+   "declares": "v@:s"
+  },
+  "DCMView -setAnnotationType:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMView -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "DCMView -setCursorForView:": {
+   "answers": "v@:s",
+   "declares": "v@:q"
+  },
+  "DCMView -setDCM::::::": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "DCMView -setIndex:": {
+   "answers": "v@:q",
+   "declares": "v@:s"
+  },
+  "DCMView -setIndexWithReset::": {
+   "answers": "v@:qB",
+   "declares": "v@:sB"
+  },
+  "DCMView -setPixels:files:rois:firstImage:level:reset:": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "DCMView -setRightTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "DCMWaveformChannelDefinition -channelStatus": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DCMWaveformChannelDefinition -setChannelMaximumValue:length:": {
+   "answers": "v@:^vq",
+   "declares": "v@:^vQ"
+  },
+  "DCMWaveformChannelDefinition -setChannelMinimumValue:length:": {
+   "answers": "v@:^vq",
+   "declares": "v@:^vQ"
+  },
+  "DCMWaveformChannelDefinition -setChannelStatus:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMWaveformSequence -setWaveformData:length:": {
+   "answers": "v@:^vq",
+   "declares": "v@:^vQ"
+  },
+  "DCMWaveformSequence -setWaveformOriginality:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMWaveformSequence -setWaveformPaddingValue:length:": {
+   "answers": "v@:^vq",
+   "declares": "v@:^vQ"
+  },
+  "DCMWaveformSequence -setWaveformSampleInterpretation:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "DCMWaveformSequence -waveformOriginality": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DCMWaveformSequence -waveformSampleInterpretation": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "DDKeychain +openCertificatePanelForLabel:": {
+   "answers": "v@:@",
+   "declares": "B@:@"
+  },
+  "HornRegistration -addModelPoint:": {
+   "answers": "v@:r^d",
+   "declares": "v@:^d"
+  },
+  "HornRegistration -addSensorPoint:": {
+   "answers": "v@:r^d",
+   "declares": "v@:^d"
+  },
+  "ITKSegmentation3D -regionGrowing3D::::::::::::::": {
+   "answers": "@@:@@q{CGPoint=dd}i@BfBfsq@B",
+   "declares": "@@:@@q{CGPoint=dd}i@BfBfiq@B"
+  },
+  "MPRController -setROIToolTag:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "MPRController -setToolIndex:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "MPRDCMView -setCrossReferenceLines:and:": {
+   "answers": "v@:^f^f",
+   "declares": "v@:[2[3f]][2[3f]]"
+  },
+  "MPRDCMView -setDCMPixList:filesList:roiList:firstImage:type:reset:": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "MyPoint -isNearToPoint:::": {
+   "answers": "B@:{CGPoint=dd}ff",
+   "declares": "B@:{CGPoint=dd}dd"
+  },
+  "MyPoint -move::": {
+   "answers": "v@:ff",
+   "declares": "v@:dd"
+  },
+  "MyPoint -x": {
+   "answers": "f@:",
+   "declares": "d@:"
+  },
+  "MyPoint -y": {
+   "answers": "f@:",
+   "declares": "d@:"
+  },
+  "N2DirectoryEnumerator -stat:": {
+   "answers": "i@:^{stat=iSSQIIi{timespec=qq}{timespec=qq}{timespec=qq}{timespec=qq}qqiIIi[2q]}",
+   "declares": "i@:^{stat=}"
+  },
+  "NSMutableArray -shuffle": {
+   "answers": "@@:",
+   "declares": "v@:"
+  },
+  "NSScreen -serialNumber": {
+   "answers": "@@:",
+   "declares": "Q@:"
+  },
+  "NSString -countCharacters": {
+   "answers": "q@:",
+   "declares": "I@:"
+  },
+  "OpenGLScreenReader -readPartialScreenToBuffer:bufferHeight:bufferBaseAddress:": {
+   "answers": "v@:qq^v",
+   "declares": "v@:QQ^v"
+  },
+  "OrthogonalMPRController -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRPETCTViewer -dcmFrom": {
+   "answers": "@@:",
+   "declares": "i@:"
+  },
+  "OrthogonalMPRPETCTViewer -dcmTo": {
+   "answers": "@@:",
+   "declares": "i@:"
+  },
+  "OrthogonalMPRPETCTViewer -setDcmFrom:": {
+   "answers": "v@:@",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRPETCTViewer -setDcmTo:": {
+   "answers": "v@:@",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRPETCTViewer -setSyncSeriesBehavior:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "OrthogonalMPRPETCTViewer -setSyncSeriesState:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "OrthogonalMPRPETCTViewer -syncSeriesBehavior": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "OrthogonalMPRPETCTViewer -syncSeriesState": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "OrthogonalMPRViewer +syncSeriesScope": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "OrthogonalMPRViewer +updateSyncSeriesBehavior::": {
+   "answers": "v@:@i",
+   "declares": "v@:@I"
+  },
+  "OrthogonalMPRViewer +updateSyncSeriesProperties::::": {
+   "answers": "v@:@iii",
+   "declares": "v@:@III"
+  },
+  "OrthogonalMPRViewer +updateSyncSeriesScope::": {
+   "answers": "v@:@i",
+   "declares": "v@:@I"
+  },
+  "OrthogonalMPRViewer +updateSyncSeriesState::": {
+   "answers": "v@:@i",
+   "declares": "v@:@I"
+  },
+  "OrthogonalMPRViewer -changeFromAndToBounds:": {
+   "answers": "v@:@",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRViewer -dcmFrom": {
+   "answers": "@@:",
+   "declares": "i@:"
+  },
+  "OrthogonalMPRViewer -dcmTo": {
+   "answers": "@@:",
+   "declares": "i@:"
+  },
+  "OrthogonalMPRViewer -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRViewer -setDcmFrom:": {
+   "answers": "v@:@",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRViewer -setDcmTo:": {
+   "answers": "v@:@",
+   "declares": "v@:i"
+  },
+  "OrthogonalMPRViewer -setSyncSeriesBehavior:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "OrthogonalMPRViewer -setSyncSeriesState:": {
+   "answers": "v@:i",
+   "declares": "v@:I"
+  },
+  "OrthogonalMPRViewer -syncSeriesBehavior": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "OrthogonalMPRViewer -syncSeriesState": {
+   "answers": "i@:",
+   "declares": "I@:"
+  },
+  "Point3D +pointWithX:y:z:": {
+   "answers": "@@:fff",
+   "declares": "@@:ddd"
+  },
+  "Point3D -initWithValues:::": {
+   "answers": "@@:fff",
+   "declares": "@@:ddd"
+  },
+  "Point3D -initWithX:y:z:": {
+   "answers": "@@:fff",
+   "declares": "@@:ddd"
+  },
+  "Point3D -multiply:": {
+   "answers": "v@:f",
+   "declares": "v@:d"
+  },
+  "Point3D -setX:": {
+   "answers": "v@:f",
+   "declares": "v@:d"
+  },
+  "Point3D -setY:": {
+   "answers": "v@:f",
+   "declares": "v@:d"
+  },
+  "Point3D -setZ:": {
+   "answers": "v@:f",
+   "declares": "v@:d"
+  },
+  "Point3D -x": {
+   "answers": "f@:",
+   "declares": "d@:"
+  },
+  "Point3D -y": {
+   "answers": "f@:",
+   "declares": "d@:"
+  },
+  "Point3D -z": {
+   "answers": "f@:",
+   "declares": "d@:"
+  },
+  "QueryController -queryWithDisplayingErrors:": {
+   "answers": "B@:B",
+   "declares": "@@:B"
+  },
+  "QueryController -queryWithDisplayingErrors:instance:index:": {
+   "answers": "B@:B@i",
+   "declares": "@@:B@i"
+  },
+  "ROI -ROImode": {
+   "answers": "q@:",
+   "declares": "I@:"
+  },
+  "ROI -initWithType:::": {
+   "answers": "@@:sf{CGPoint=dd}",
+   "declares": "@@:qf{CGPoint=dd}"
+  },
+  "ROI -initWithType::::": {
+   "answers": "@@:sff{CGPoint=dd}",
+   "declares": "@@:qff{CGPoint=dd}"
+  },
+  "ROI -median": {
+   "answers": "d@:",
+   "declares": "f@:"
+  },
+  "ROI -setMedian:": {
+   "answers": "v@:d",
+   "declares": "v@:f"
+  },
+  "ROI -setROIMode:": {
+   "answers": "v@:q",
+   "declares": "v@:I"
+  },
+  "ROI -setType:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "ROI -type": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "ROIWindow -setAllWithSameName:": {
+   "answers": "v@:@",
+   "declares": "v@:B"
+  },
+  "ROIWindow -setOpacity:": {
+   "answers": "v@:@",
+   "declares": "v@:f"
+  },
+  "ROIWindow -setThickness:": {
+   "answers": "v@:@",
+   "declares": "v@:f"
+  },
+  "SRView -getTool:": {
+   "answers": "s@:@",
+   "declares": "q@:@"
+  },
+  "SRView -setAnnotationWithPosition:for3DPointAtIndex:": {
+   "answers": "v@:qI",
+   "declares": "v@:iI"
+  },
+  "SRView -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "SRView -setCursorForView:": {
+   "answers": "v@:s",
+   "declares": "v@:q"
+  },
+  "SeriesView -setDCM::::::": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "SeriesView -setPixels:files:rois:firstImage:level:reset:": {
+   "answers": "v@:@@@qcB",
+   "declares": "v@:@@@scB"
+  },
+  "VRController -load3DState": {
+   "answers": "v@:",
+   "declares": "B@:"
+  },
+  "VRController -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "VRView -_tool": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "VRView -currentTool": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "VRView -getTool:": {
+   "answers": "s@:@",
+   "declares": "q@:@"
+  },
+  "VRView -setCurrentTool:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "VRView -setCursorForView:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "VRView -setViewAngle:": {
+   "answers": "v@:d",
+   "declares": "v@:f"
+  },
+  "VRView -viewAngle": {
+   "answers": "d@:",
+   "declares": "f@:"
+  },
+  "VTKView +VRAMSizeForDisplayID:": {
+   "answers": "Q@:I",
+   "declares": "q@:I"
+  },
+  "ViewerController +getHotKeyEquivalentToTool:": {
+   "answers": "i@:s",
+   "declares": "i@:i"
+  },
+  "ViewerController +getToolEquivalentToHotKey:": {
+   "answers": "s@:i",
+   "declares": "i@:I"
+  },
+  "ViewerController -getNumberOfImages": {
+   "answers": "q@:",
+   "declares": "s@:"
+  },
+  "ViewerController -newROI:": {
+   "answers": "@@:s",
+   "declares": "@@:q"
+  },
+  "ViewerController -orientationVector": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "ViewerController -orthogonalOrientation": {
+   "answers": "s@:",
+   "declares": "i@:"
+  },
+  "ViewerController -setROIToolTag:": {
+   "answers": "v@:s",
+   "declares": "v@:i"
+  },
+  "WebPortalConnection -processWado": {
+   "answers": "v@:",
+   "declares": "B@:"
+  },
+  "Window3DController -load3DState": {
+   "answers": "v@:",
+   "declares": "B@:"
+  }
+ }
+}

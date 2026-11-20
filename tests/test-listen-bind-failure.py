@@ -56,8 +56,8 @@ elif is_swift('N2ConnectionListener'):
         failures.append('the built Horos-Swift.h does not declare +lastBindErrno')
 else:
     listener_h = (root / 'Nitrogen/Sources/N2ConnectionListener.h').read_bytes().decode('latin1')
-# The XML-RPC interface is Swift.
-xmlrpc = (root / 'Horos/Sources/XMLRPCInterface.swift').read_text()
+# The XML-RPC server of the network opens the port; the interface opens none.
+xmlrpc = (root / 'Horos/Sources/XMLRPCNetworkServer.swift').read_text()
 # WebPortal is Swift.
 portal = source_text('WebPortal')
 # The DICOM listener is Swift; it opens its port through the DCMTK adapter,

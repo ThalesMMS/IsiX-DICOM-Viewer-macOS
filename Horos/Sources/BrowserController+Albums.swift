@@ -103,8 +103,8 @@ extension BrowserController {
         }
     }
 
-    @objc(selectAlbumWithName:)
-    func selectAlbum(withName name: String!) {
+    @objc(selectAlbumWithName:) @discardableResult
+    func selectAlbum(withName name: String!) -> Bool {
         studyList.selectAlbum(named: name)
     }
 

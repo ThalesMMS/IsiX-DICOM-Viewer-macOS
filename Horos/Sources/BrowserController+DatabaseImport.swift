@@ -60,8 +60,8 @@ extension BrowserController {
 
     // MARK: WADO, archives, files and folders (DroppedFilesImport, ArchiveImport)
 
-    @objc(asyncWADOXMLDownloadURL:)
-    nonisolated class func asyncWADOXMLDownloadURL(_ url: URL!) {
+    @objc(asyncWADOXMLDownloadURL:) @discardableResult
+    nonisolated class func asyncWADOXMLDownloadURL(_ url: URL!) -> Bool {
         DroppedFilesImport.downloadWADOManifest(url)
     }
 

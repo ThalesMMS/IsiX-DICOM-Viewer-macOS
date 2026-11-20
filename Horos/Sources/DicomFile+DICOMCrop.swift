@@ -46,7 +46,7 @@ import Foundation
     @objc(writeCropOfFile:toPath:column:row:width:height:seriesUID:seriesNumber:error:)
     class func writeCrop(ofFile source: String!, toPath destination: String!, column: Int32, row: Int32,
                          width: Int32, height: Int32, seriesUID: String!, seriesNumber: Int32) throws {
-        let file = HorosObjCException.locked(PapyrusLock) { try? IsiXDCMTKFile.file(atPath: source) }
+        let file = HorosObjCException.locked(DCMPixParsedFileCache.lock) { try? IsiXDCMTKFile.file(atPath: source) }
         guard let file else {
             throw cropFailure("\(((source ?? "") as NSString).lastPathComponent) could not be read")
         }
@@ -141,7 +141,7 @@ import Foundation
         put(newInstance, DicomFileTag.mediaStorageSOPInstanceUID, in: file.metaInfo)
 
         do {
-            try HorosObjCException.lockedThrowing(PapyrusLock) {
+            try HorosObjCException.lockedThrowing(DCMPixParsedFileCache.lock) {
                 try file.write(toPath: destination ?? "", transferSyntax: "1.2.840.10008.1.2.1", removingPadding: false)
             }
         } catch {

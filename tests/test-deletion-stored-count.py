@@ -280,7 +280,8 @@ with tempfile.TemporaryDirectory(prefix='horos-deletion-count-') as folder:
     (folder / 'main.swift').write_text(source, encoding='utf-8')
     # With the rules the deletion asks (StudyDeletion, ComparativeHistory), as the module has them.
     rules = root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift'
-    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-suppress-warnings', str(folder / 'main.swift'), str(rules), '-o', str(folder / 'test')],
+    titles = root / 'Modules/IsiXDatabase/Sources/StudyListColumnTitles.swift'
+    built = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-suppress-warnings', str(folder / 'main.swift'), str(rules), str(titles), '-o', str(folder / 'test')],
                            capture_output=True, text=True, timeout=200)
     if built.returncode:
         sys.exit('FAIL: does not compile:\n' + built.stderr[-2500:])

@@ -337,8 +337,10 @@ extension QueryController {
 
     /// Runs the query prepared in the query manager, on any thread; a query of
     /// the window cancels the ones still running.
+    /// Answers whether the query ran, as later headers of the plugin SDK declare it: not while another one runs.
     @objc(performQuery:)
-    public nonisolated func performQuery(_ showErrors: NSNumber!) {
+    @discardableResult
+    public nonisolated func performQuery(_ showErrors: NSNumber!) -> Bool {
         let controller = self
         onMainActor { controller.checkAndViewTry = -1 }
 
@@ -347,9 +349,8 @@ extension QueryController {
             showErrors = false
         }
 
+        var performQuery = false
         autoreleasepool {
-            var performQuery = false
-
             objc_sync_enter(self)
             workers.cancelQueryThreads()
 
@@ -370,6 +371,7 @@ extension QueryController {
                 objc_sync_exit(self)
             }
         }
+        return performQuery
     }
 
     nonisolated func startProgress() {

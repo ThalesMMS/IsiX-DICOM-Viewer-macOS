@@ -115,6 +115,26 @@ SELECTORS += [(key.split(' ', 1)[0], key.split(' ', 1)[1][0], key.split(' ', 1)[
               {(cls, kind, selector) for cls, kind, selector, _ in SELECTORS}]
 
 
+# Selectors the former SDK declares as answering nothing and later headers of
+# the SDK declare with an answer, which the application gives: a caller of the
+# former declaration ignores it. Each answer here comes back in registers on
+# arm64 and x86_64 (no hidden pointer to the result is passed), so the
+# arguments a caller of the former declaration passes are where the method
+# reads them. The arguments must still be the ones the former SDK declared.
+LATER_ANSWERS = {
+    'DCMView -makeTextureFromImage:forTexture:buffer:textureUnit:': '{CGSize=dd}',
+}
+
+
+def answers_as_declared(key, answered, declared):
+    """Whether `answered` has the types `declared`, or those of a later answer
+    of LATER_ANSWERS in place of the nothing the former SDK declared."""
+    if answered == declared:
+        return True
+    later = LATER_ANSWERS.get(key)
+    return bool(later) and declared.startswith('v') and answered == later + declared[1:]
+
+
 def without_offsets(encoding):
     """A method's type encoding without its frame offsets; the sizes of its C arrays stay."""
     return re.sub(r'\[\d+|\d+', lambda found: found.group(0) if found.group(0).startswith('[') else '', encoding)
@@ -678,7 +698,7 @@ def main():
         if declared is None or key not in answered:
             continue
         compared += 1
-        if without_offsets(answered[key]) != declared:
+        if not answers_as_declared(key, without_offsets(answered[key]), declared):
             failures.append(f'{key}: answers with the types {without_offsets(answered[key])}, the SDK declared {declared}')
     if 'unrecognized selector' in text:
         failures.append('the application logged an unrecognized selector')

@@ -376,24 +376,28 @@ int main(){@autoreleasepool{
  c->pixList[0]=@[v.curDCM];e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && v->curImage==10);
  c->pixList[0]=v->dcmPixList;c.refuse=YES;[v scrollWheel:(NSEvent*)e];check(c.appliedMode==0 && v->curImage==10);
  c.refuse=NO;c.selectedMode=3;[v scrollWheel:(NSEvent*)e];check(c.appliedMode==3 && c->sliderFusion.integerValue==2);
- // Bounded by the images left from the one shown to the end of the series,
- // towards its start here: 11 of 20 at image 10. Past them no step changes anything.
+ // A slab has its images on every image of the series, so the steps are
+ // bounded by the series, 20 images, wherever the image shown is. Past them
+ // no step changes anything.
  check(v->flippedData && v->curImage==10);
- [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==11);
- calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==11);
- // Where fewer images are left than were asked for, the request is kept, and
- // a step down leaves from the images fused, the next stop, not from the request.
- v->curImage=4;calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==11);
- e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==4 && c.projections==calls+1);
- // The last image in the slab's direction has one stop: no step changes,
- // stops or starts the slab, whichever way.
- v->curImage=0;calls=c.projections;[v scrollWheel:(NSEvent*)e];e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];
- check(c.projections==calls && c->sliderFusion.integerValue==4 && c->activatedFusion.state==NSOnState);
- [c setFusionMode:0];calls=c.projections;[v scrollWheel:(NSEvent*)e];e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];
- check(c.projections==calls && c->activatedFusion.state==NSOffState);
- // The other way the whole series is left from there.
- v->flippedData=NO;e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==2 && c->activatedFusion.state==NSOnState);
  [v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20);
+ calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==20);
+ // Near the end of the series in the slab's direction, and on its last
+ // image, a step is the step of any image: down from the request, up to the
+ // series.
+ v->curImage=4;calls=c.projections;[v scrollWheel:(NSEvent*)e];check(c.projections==calls && c->sliderFusion.integerValue==20);
+ e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==19 && c.projections==calls+1);
+ v->curImage=0;[v scrollWheel:(NSEvent*)e];
+ check(c->sliderFusion.integerValue==18 && c.projections==calls+2 && c->activatedFusion.state==NSOnState);
+ e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20 && c.projections==calls+3);
+ // Off, a step down changes nothing there, and a step up starts the slab at two images, as anywhere.
+ [c setFusionMode:0];calls=c.projections;e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];
+ check(c.projections==calls && c->activatedFusion.state==NSOffState);
+ e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==2 && c->activatedFusion.state==NSOnState);
+ // The other direction of the slab has the same steps.
+ v->flippedData=NO;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20);
+ v->curImage=19;e.scrollY=2.5;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==19);
+ e.scrollY=-1000;[v scrollWheel:(NSEvent*)e];check(c->sliderFusion.integerValue==20);
  v->flippedData=YES;v->curImage=10;
  // Fractions, natural scrolling and flipped order must preserve thickness intent.
  for(int natural=0;natural<2;natural++)for(int flipped=0;flipped<2;flipped++) {
@@ -461,10 +465,24 @@ int main(){@autoreleasepool{
  };
  c->sliderFusion.maxValue=128;
  v->dcmPixList=series(6,2,2,@[@0,@0,@1]);float mm,location;v->curImage=0;v->flippedData=NO;
+ // Three images of 2 mm every 2 mm are 6 mm on every image. On the first
+ // image the slab is images 0 to 2, and its location is the middle one's.
  [v getThickSlabThickness:&mm location:&location];check(mm==6 && location==2);
- v->curImage=5;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==10);
+ // In the series it is centred on the image shown: its location is the image's own.
+ for(int i=1;i<5;i++){v->curImage=i;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==2*i);}
+ // On the last image it is images 3 to 5, as on the image before.
+ v->curImage=5;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==8);
  v->flippedData=YES;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==8);
- v->curImage=0;[v getThickSlabThickness:&mm location:&location];check(mm==2 && location==0);
+ for(int i=1;i<5;i++){v->curImage=i;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==2*i);}
+ v->curImage=0;[v getThickSlabThickness:&mm location:&location];check(mm==6 && location==2);
+ // An even slab has its image more on the side it goes: half an interval further that way.
+ for(Frame *f in v->dcmPixList)f.stack=4;
+ v->curImage=2;[v getThickSlabThickness:&mm location:&location];check(mm==8 && location==3);
+ v->flippedData=NO;[v getThickSlabThickness:&mm location:&location];check(mm==8 && location==5);
+ // More images than the series has: all of it, around its middle.
+ for(Frame *f in v->dcmPixList)f.stack=9;
+ for(int i=0;i<6;i++){v->curImage=i;[v getThickSlabThickness:&mm location:&location];check(mm==12 && location==5);}
+ v->curImage=0;
  // Slices that overlap, 2 mm every 1 mm: three cover 4 mm.
  v->dcmPixList=series(6,2,1,@[@0,@0,@1]);v->flippedData=NO;
  [v getThickSlabThickness:&mm location:&location];check(mm==4 && location==1);

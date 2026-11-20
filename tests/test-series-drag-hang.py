@@ -163,7 +163,7 @@ check(not re.search(r'isDataVolumicIn4D\(\s*false\s*,\s*checkEverythingLoaded:\s
       'peer probe must not call the two-argument overload that still corrects')
 
 # --- do not import the other waits, and do not touch the other fronts --------
-# windowWillClose: closes the viewer's series load, which waits.
+# windowWillClose: closes the viewer's series load, which cancels it without waiting.
 series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
 cancel = series_load[series_load.find('    @objc public func cancel()'):series_load.find('    @objc public func requestCancel()')]
 retire = series_load[series_load.find('    private func retire('):]
@@ -173,9 +173,9 @@ check(finalize and '\n        cancel()\n' in finalize and 'retire(cancelling: tr
 check('sleepForTimeInterval' not in finalize and 'sleep(forTimeInterval' not in finalize,
       'do not join the cancelled load the way windowWillClose: does (hang 1 of the 3.1.2 pair)')
 close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
-check(close and ('horosSeriesLoad.close()' if close_swift else '[self.horosSeriesLoad close];') in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
-      and 'horos_loadingThread' in close_wait,
-      'windowWillClose: keeps its wait; the drop fix does not remove it')
+check(close and ('horosSeriesLoad.close()' if close_swift else '[self.horosSeriesLoad close];') in close and 'requestCancel()' in close_wait
+      and 'sleep' not in close_wait,
+      'windowWillClose: cancels the load of the series, and does not join it either')
 check(loaded and 'Thread.sleep(forTimeInterval:' in loaded,
       'checkEverythingLoaded still exists; do not pretend this issue removed it')
 check('NSFilePromiseProvider' not in drop and 'HorosDraggedImagePromise' not in drop,

@@ -58,6 +58,14 @@ public extension NSString {
         return NSString(cString: cString, dicomEncoding: encoding)
     }
 
+    /// The string of the bytes at `cString` in that DICOM character set: the
+    /// name later headers of the plugin SDK give this constructor.
+    @objc(stringWithCString:DICOMEncoding:)
+    class func string(withCString cString: UnsafePointer<CChar>?, dicomEncoding encoding: String!) -> NSString? {
+        guard let cString else { return nil }
+        return NSString(cString: cString, dicomEncoding: encoding)
+    }
+
     @objc(encodingForDICOMCharacterSet:)
     class func encoding(forDICOMCharacterSet characterSet: String!) -> UInt {
         // The same table used to be written out here as well as in DICOMCharacterSet,

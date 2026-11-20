@@ -61,10 +61,12 @@ struct PlanarTransfer: Equatable {
 }
 
 /// The 2D viewer's thick slab in mean, maximum or minimum mode: the
-/// current slice and the ones `-[DCMPix computeThickSlab]` reduces with it.
+/// slices `-[DCMPix computeThickSlab]` reduces, the first of them the frame's
+/// own pixels.
 ///
-/// The host keeps the current slice, then adds the next `stack - 1` slices in
-/// its stack direction, skipping any past either end of the series, and reduces
+/// The host takes the `stack` slices centred on the current one and kept
+/// inside the series, keeps the first of them in its stack direction, then
+/// adds the others, and reduces
 /// in that order: `vDSP_vmax`/`vDSP_vmin`, or `vDSP_vadd` and a multiplication by
 /// `1.0f / count`. `PlanarSlabProjection` reduces the same
 /// slices in the same order, with IEEE arithmetic, so the projected image equals
@@ -72,9 +74,9 @@ struct PlanarTransfer: Equatable {
 /// composite, not a reduction: `PlanarVolumeSlab`.
 struct PlanarSlab: Equatable {
     let projection: ResliceProjection
-    /// The other slices, after the current one, in the host's order.
+    /// The slices after the first one of the slab, in the host's order.
     let others: Data
-    /// All the slices reduced, the current one included.
+    /// All the slices reduced, the first one included.
     let count: Int
 
     /// DCMPix's `stackMode`: 1 mean, 2 maximum, 3 minimum.
@@ -88,47 +90,15 @@ struct PlanarSlab: Equatable {
     }
 }
 
-/// The slices a 2D thick slab reduces, asked by the host bridge so the rule is
-/// written once, here, and measured against `computeThickSlab` by
-/// `tests/test-planar-thick-slab.py`.
+/// What the host bridge asks of the planar renderer for a 2D thick slab: the
+/// composite of the volume-rendering slab, here, and the slices a slab is
+/// made of, which PlanarThickSlabSlices.swift answers from the rule
+/// `computeThickSlab` follows.
 @objc(HorosPlanarThickSlab)
 public final class PlanarThickSlab: NSObject {
-    /// The indices after `position`, in the host's order: `position ± i` for
-    /// `i` in `1..<stack`, minus toward the start when `direction` is non-zero,
-    /// and only those inside `0..<count`.
-    @objc public static func sliceIndices(position: Int, stack: Int, direction: Int, count: Int) -> [NSNumber] {
-        guard stack > 1 else { return [] }
-        return (1..<stack).compactMap { offset -> NSNumber? in
-            let index = direction != 0 ? position - offset : position + offset
-            return index >= 0 && index < count ? NSNumber(value: index) : nil
-        }
-    }
-
-    /// The slices the volume-rendering slab composes (modes 4 and 5), in
-    /// the order `-[ThickSlabVR renderSlab]` composes them. `-[DCMPix
-    /// computeThickSlab]` hands it `stack` slices, ending at `position` when
-    /// `direction` is non-zero and starting there otherwise, fewer at either
-    /// end of the series: `position` and the slices of `sliceIndices`. They
-    /// lie in memory in index order, and `setWLWW::` reverses them unless
-    /// `memoryOrder`.
-    @objc public static func volumeSliceIndices(position: Int, stack: Int, direction: Int, count: Int,
-                                                memoryOrder: Bool) -> [NSNumber] {
-        guard position >= 0, position < count, stack >= 1 else { return [] }
-        let first: Int, size: Int
-        if direction != 0 {
-            size = min(stack, position + 1)
-            first = position - size + 1
-        } else {
-            size = position + stack < count ? stack : count - position
-            first = position
-        }
-        let indices = (first..<(first + size)).map { NSNumber(value: $0) }
-        return memoryOrder ? indices : indices.reversed()
-    }
-
     /// The volume-rendering slab's ARGB bytes, composed on the GPU by
     /// `PlanarVolumeSlabPass`: `slices` holds `count` float slices of
-    /// `width * height`, in the order returned above, and `level` and
+    /// `width * height`, in the order of `volumeSliceIndices`, and `level` and
     /// `windowWidth` are the window `setWLWW::` gets. The bridge keeps the
     /// result with the image, as the host keeps its composite in `baseAddr`.
     /// nil when it cannot be composed.

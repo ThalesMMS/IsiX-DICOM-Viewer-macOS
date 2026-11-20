@@ -504,7 +504,6 @@
 "AcquisitionTime (0008,0032)" = "AcquisitionTime (0008,0032)";
 "Action" = "Aktion";
 "Activate" = "Aktivieren";
-"Activate & Restart" = "Aktivieren & neu starten";
 "Activate AutoRouting" = "Automatische Weiterleitung aktivieren";
 "Activate C-FIND SCP support" = "C-FIND-SCP-Unterstützung aktivieren";
 "Activate C-GET SCP support" = "C-GET-SCP-Unterstützung aktivieren";
@@ -517,7 +516,8 @@
 "Activate WADO Server at /wado" = "WADO-Server unter /wado aktivieren";
 "Activate search for following Smart Albums, with Q&R Date & Modality filters:" = "Suche für folgende intelligente Alben mit Q/R-Datums- und Modalitätsfiltern aktivieren:";
 "Activate the DICOM Listener only if this user session is active (user switching)" = "DICOM-Empfang nur bei aktiver Benutzersitzung aktivieren (Benutzerwechsel)";
-"Activate the URL support and HTTP XML-RPC Server on port:" = "URL-Unterstützung und HTTP-XML-RPC-Server auf Port:";
+"Activate the HTTP XML-RPC Server on port:" = "HTTP-XML-RPC-Server auf Port:";
+"Open [ isix:// , horos:// , osirix:// ] links" = "Links [ isix:// , horos:// , osirix:// ] öffnen";
 "Activate the built-in Web Server" = "Integrierten Webserver aktivieren";
 "Activate the edition" = "Bearbeitung aktivieren";
 "Activated" = "Aktiviert";
@@ -4512,6 +4512,7 @@
 "No study matching %@ is in the database, and no PACS On-Demand node is chosen in the preferences." = "Keine Studie zu %@ ist in der Datenbank, und in den Einstellungen ist kein PACS-On-Demand-Knoten gewählt.";
 "No study matching %@ is in the database or on the PACS On-Demand nodes (%@)." = "Keine Studie zu %@ ist in der Datenbank oder auf den PACS-On-Demand-Knoten (%@).";
 "The request %@ was not carried out." = "Die Anfrage %@ wurde nicht ausgeführt.";
+"The link asks for the request %@, which is carried out once the links are activated." = "Der Link verlangt die Anfrage %@, die ausgeführt wird, sobald die Links aktiviert sind.";
 "An XML-RPC request from %@ was refused because it carried no password." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt, weil sie kein Passwort enthielt.";
 "An XML-RPC request from %@ was refused because its password is wrong." = "Eine XML-RPC-Anfrage von %@ wurde abgelehnt, weil ihr Passwort falsch ist.";
 "Error code: %@" = "Fehlercode: %@";
@@ -5042,7 +5043,7 @@
 "Image Acquisition Date" = "Bildaufnahmedatum";
 "Mouse (px)" = "Maus (px)";
 "Mouse (mm)" = "Maus (mm)";
-"Activating it also turns on the XML-RPC server of this Mac, on port %ld. %@" = "Beim Aktivieren wird auch der XML-RPC-Server dieses Mac auf Port %ld eingeschaltet. %@";
+"Links run inside IsiX DICOM Viewer: activating them opens no network port and does not turn on the XML-RPC server." = "Links werden innerhalb von IsiX DICOM Viewer ausgeführt: Ihre Aktivierung öffnet keinen Netzwerkport und schaltet den XML-RPC-Server nicht ein.";
 "A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it." = "Ein Link fordert IsiX DICOM Viewer auf, die Anfrage %@ auszuführen.\r\rEin Link kann von jeder Webseite, E-Mail oder jedem Dokument stammen. Führen Sie sie nur aus, wenn Sie sie erwartet haben.";
 "Carry Out" = "Ausführen";
 "An XML-RPC request (FindObject with execute = Delete) asks to delete %ld studies from the database. This cannot be undone." = "Eine XML-RPC-Anfrage (FindObject mit execute = Delete) will %ld Studien aus der Datenbank löschen. Das kann nicht rückgängig gemacht werden.";
@@ -5132,7 +5133,7 @@
 "Done" = "Fertig";
 "Opened by %@" = "Geöffnet von: %@";
 "IsiX DICOM Viewer does not know which application opened %@:// links before it, so they stay with it. To have another application open them, make it the default in that application's own settings." = "IsiX DICOM Viewer weiß nicht, welches Programm %@://-Links zuvor geöffnet hat; sie bleiben daher bei ihm. Damit ein anderes Programm sie öffnet, legen Sie es in dessen eigenen Einstellungen als Standard fest.";
-"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary." = "Das IsiX DICOM Viewer-URL-Schema [isix:// , horos:// , osirix://] ist derzeit nicht aktiviert!\r\rSoll es jetzt aktiviert werden? Ein Neustart ist erforderlich.";
+"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now?" = "Das IsiX DICOM Viewer-URL-Schema [isix:// , horos:// , osirix://] ist derzeit nicht aktiviert!\r\rSoll es jetzt aktiviert werden?";
 "Choose a surgical log exported as CSV." = "Wählen Sie ein als CSV exportiertes Operationsprotokoll.";
 "Emails" = "E-Mails";
 "Last email: %1$@, to %2$@: handed to the Mail application." = "Letzte E-Mail: %1$@, an %2$@: an Mail übergeben.";

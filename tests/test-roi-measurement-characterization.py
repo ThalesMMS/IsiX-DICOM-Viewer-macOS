@@ -114,6 +114,16 @@ PROBE = r'''
 #import "MyPoint.h"
 // PIX_IVARS
 
+// The median as it was measured. The Swift class has it apart from -median,
+// which it answers for the plugins of two SDKs within one part in a million;
+// the Objective-C class of the reference has -median alone, which is exact.
+#import <objc/message.h>
+static double MeasuredMedian( ROI *roi)
+{
+    SEL measured = NSSelectorFromString( @"measuredMedian");
+    return [roi respondsToSelector: measured] ? ((double (*)( id, SEL)) objc_msgSend)( roi, measured) : roi.median;
+}
+
 // Methods ROI.m defines without declaring them in ROI.h.
 @interface ROI (Characterization)
 - (float) EllipseArea;
@@ -283,7 +293,7 @@ static NSMutableDictionary *measure( ROI *roi, ProbePix *pix)
     float mean = -1, total = -1, dev = -1, min = -1, max = -1, skewness = -1, kurtosis = -1;
     roi.median = -12345;
     [pix computeROI: roi :&mean :&total :&dev :&min :&max :&skewness :&kurtosis];
-    d[@"statistics"] = @[F( mean), F( total), F( dev), F( min), F( max), F( skewness), F( kurtosis), F( roi.median)];
+    d[@"statistics"] = @[F( mean), F( total), F( dev), F( min), F( max), F( skewness), F( kurtosis), F( MeasuredMedian( roi))];
     float mean2 = -1, total2 = -1, dev2 = -1, min2 = -1, max2 = -1;
     [pix computeROI: roi :&mean2 :&total2 :&dev2 :&min2 :&max2];
     d[@"statisticsShort"] = @[F( mean2), F( total2), F( dev2), F( min2), F( max2)];

@@ -7,12 +7,14 @@ from the thickness of one image to that of the series, in millimetres, on the
 linear or the logarithmic curve, and is the same at every image; its marks are
 stops; its bubble writes the scale's text, the toolbar's. Checked with series
 of 2 mm slices every 2 mm and every 1 mm, the two a user recorded: two images
-read 4.0 and 3.0 mm, a request for more images than are left reads what is
-fused and stands where the images left end, the track beyond them drawn faded
-and out of the knob's way, the last image has one stop that a click does not
-change, and a slab that is off reads one image at the thin end. A third
-recording: with the request still, the knob stays where it is from one image
-of the series to the next.
+read 4.0 and 3.0 mm, and a slab switched off reads one image at the thin end.
+A slab is centred on the image shown and kept inside the series, so it has
+the images asked for on every image: with the request still, the knob, the
+marks and the bubble stay where they are from the first image of the series
+to the last, in both directions of the slab and on both curves, the whole
+track is drawn in one strength, and the last image has every stop of it. Only
+a series of fewer images than the request fuses fewer, all of them, at the
+thick end of its track, where a click keeps the request.
 """
 import private_tmpdir  # noqa: F401
 import harness_defaults  # the harness's preferences stay in its own process
@@ -351,7 +353,7 @@ for (exponential, marks) in [(false, linearMarks), (true, exponentialMarks)] {
 // The two recordings, through the slider: the bubble writes what the scale does.
 slider.maxValue = 80
 slider.stackScale = stack(80, every: 1, thickness: 2, current: 40, towardsStart: true)
-for (images, text) in [(2, "3.0 mm"), (6, "7.0 mm"), (10, "11.0 mm"), (26, "27.0 mm"), (80, "42.0 mm")] {
+for (images, text) in [(2, "3.0 mm"), (6, "7.0 mm"), (10, "11.0 mm"), (26, "27.0 mm"), (80, "81.0 mm")] {
     slider.integerValue = images
     check(slider.stackScale!.text(requested: images, locale: english) == text && slider.valueText == slider.stackScale!.text(requested: images),
           "2 mm every 1 mm, \(images) images: \(slider.valueText)")
@@ -359,41 +361,44 @@ for (images, text) in [(2, "3.0 mm"), (6, "7.0 mm"), (10, "11.0 mm"), (26, "27.0
 slider.maxValue = 60
 let rest = stack(60, every: 2, thickness: 2, current: 34, towardsStart: true)
 slider.stackScale = rest
-for (images, text) in [(2, "4.0 mm"), (5, "10.0 mm"), (20, "40.0 mm"), (26, "52.0 mm"), (46, "70.0 mm"), (60, "70.0 mm")] {
+for (images, text) in [(2, "4.0 mm"), (5, "10.0 mm"), (20, "40.0 mm"), (26, "52.0 mm"), (46, "92.0 mm"), (60, "120.0 mm")] {
     slider.integerValue = images
     check(rest.text(requested: images, locale: english) == text && slider.valueText == rest.text(requested: images),
           "2 mm every 2 mm, \(images) images: \(slider.valueText)")
-    check((slider.fraction == slider.reachableFraction) == (images >= 35), "the knob is where the images left end from the 35 of them on")
+    for exponential in [false, true] {
+        defaults.set(exponential, forKey: key)
+        check(Double(slider.fraction) == rest.trackPosition(ofStop: images, exponential: exponential), "the knob stands on the stop of the \(images) images")
+    }
+    check((slider.fraction == 1) == (images == 60), "and at the thick end for the whole series only")
 }
 defaults.set(false, forKey: key)
-near(Double(slider.reachableFraction), (70.0 - 2) / (120 - 2), "35 images of 60 left: the knob goes as far as 70 of the 120 mm")
 
-// The series scrolls under a request that stays: the knob and the marks do
-// not move, in either direction of the slab, on either curve; the bubble
-// reads the same thickness while the series has the images.
+// The series scrolls under a request that stays: the knob, the marks and the
+// bubble do not move, from the first image to the last, in either direction
+// of the slab, on either curve. The video of the slider that moved by itself
+// had a slab of six images near the end of its series.
 for exponential in [false, true] {
     defaults.set(exponential, forKey: key)
     for towardsStart in [false, true] {
-        slider.integerValue = 5
-        slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? 59 : 0, towardsStart: towardsStart)
-        let still = (slider.fraction, slider.tickMarkFractions, slider.valueText)
-        check(slider.reachableFraction == 1, "the whole series before the image: the whole track")
-        var reach = CGFloat(2)
-        for left in stride(from: 59, through: 5, by: -1) {
-            slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? left - 1 : 60 - left, towardsStart: towardsStart)
-            check(slider.fraction == still.0 && slider.tickMarkFractions == still.1 && slider.valueText == still.2,
-                  "\(left) images left: the knob, the marks and the bubble stay")
-            check(slider.reachableFraction < reach && slider.reachableFraction >= slider.fraction, "the reach comes down to the knob, never under it")
-            reach = slider.reachableFraction
+        for request in [5, 6, 46] {
+            slider.integerValue = request
+            slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? 59 : 0, towardsStart: towardsStart)
+            let still = (slider.fraction, slider.tickMarkFractions, slider.valueText)
+            check(slider.fraction > 0 && slider.fraction < 1 && slider.stackScale!.text(requested: request, locale: english) == "\(2 * request).0 mm",
+                  "\(request) images: \(slider.valueText)")
+            let redraws = slider.redraws
+            for current in 0..<60 {
+                slider.stackScale = stack(60, every: 2, thickness: 2, current: current, towardsStart: towardsStart)
+                check(slider.fraction == still.0 && slider.tickMarkFractions == still.1 && slider.valueText == still.2,
+                      "image \(current): the knob, the marks and the bubble stay")
+                check(slider.integerValue == request && slider.stackScale!.effectiveCount(requested: request) == request,
+                      "image \(current): the \(request) images are fused")
+                // Every stop of the track is there to pick, the thick end included.
+                check(slider.value(at: point(1)) == 60 && slider.value(at: point(0)) == 1, "image \(current): both ends of the track")
+            }
+            // An evenly spaced series has one scale: the slider is not even drawn again.
+            check(slider.redraws == redraws, "the scale of a regular series does not change with the image")
         }
-        check(reach == slider.fraction, "five images left: the request is all of them")
-        // Fewer images left than asked for: the knob comes down with the reach, and the bubble reads what is fused.
-        slider.stackScale = stack(60, every: 2, thickness: 2, current: towardsStart ? 2 : 57, towardsStart: towardsStart)
-        check(slider.fraction == slider.reachableFraction && slider.fraction < still.0 && slider.fraction > 0 && slider.integerValue == 5,
-              "three images left: the knob at the reach, the request kept")
-        check(slider.stackScale!.text(requested: 5, locale: english) == "6.0 mm" && slider.valueText == slider.stackScale!.text(requested: 3),
-              "and the bubble reads the three: \(slider.valueText)")
-        check(slider.tickMarkFractions == still.1, "the marks of the series are still there")
     }
 }
 defaults.set(false, forKey: key)
@@ -422,44 +427,54 @@ func click(_ fraction: Double) {
                                  eventNumber: 0, clickCount: 1, pressure: 1)!
     slider.mouseDown(with: down)
 }
-// A request for more images than are left: the knob and the bubble show what
-// is fused, and the thick end keeps the request, for where the series has it.
+// A request has its stop on every image: the knob stands on it, the bubble
+// reads its thickness, and a click anywhere on the track takes the stop there.
 defaults.set(false, forKey: key)
 slider.integerValue = 46
-let limit = Double(slider.reachableFraction)
-check(slider.fraction == slider.reachableFraction && limit < 1 && slider.valueText == rest.text(requested: 35),
-      "a request beyond the images left stands at the reach and shows what is fused: \(slider.valueText)")
-check([limit, (limit + 1) / 2, 1, 2].allSatisfy { slider.value(at: point($0)) == 46 }, "the reach and the track beyond it keep a larger request")
-for place in [limit, (limit + 1) / 2, 1] { click(place) }
-check(target.counts.isEmpty && slider.integerValue == 46, "a click at the reach or beyond it sends no action and keeps the request")
-// A smaller request does not pass the reach either: beyond it, it takes the images left.
-slider.integerValue = 10
-check(slider.value(at: point((limit + 1) / 2)) == 35 && slider.value(at: point(1)) == 35, "the knob does not pass the reach")
-slider.integerValue = 46
-slider.stackScale = stack(60, every: 2, thickness: 2, current: 50, towardsStart: true)
-check(slider.fraction < 1 && slider.stackScale!.text(requested: slider.integerValue, locale: english) == "92.0 mm"
-      && slider.valueText == slider.stackScale!.text(requested: 46), "where the series has them, the request is whole again: \(slider.valueText)")
-slider.stackScale = rest
+check(slider.fraction < 1 && Double(slider.fraction) == rest.trackPosition(ofStop: 46, exponential: false) && slider.valueText == rest.text(requested: 46),
+      "a request stands on its stop and shows its thickness: \(slider.valueText)")
+check(slider.value(at: point(1)) == 60 && slider.value(at: point(2)) == 60, "the thick end of the track is the series")
 let below = Int(slider.value(at: point(0.5)))
-check(below > 1 && below < 35, "any other stop replaces the request: \(below)")
+check(below > 1 && below < 46, "any other stop replaces the request: \(below)")
 click(0.5)
 check(target.counts == [below] && slider.integerValue == below, "2D action receives the images of the stop, not a position")
 check(target.tracked == [true] && !slider.isTrackingMouse, "the action can tell the mouse's drag, which is over afterwards")
 
-// The last image in the slab's direction has one stop, its own thickness: the
-// knob at the thin end of the series' track, none of it within reach, and a
-// click changes nothing.
+// A series of fewer images than the request (another series of the viewer
+// holds it whole): all of them are fused, the knob is at the thick end of the
+// track of this series, and a click there keeps the request.
+let short = stack(35, every: 2, thickness: 2, current: 20)
+slider.integerValue = 46
+slider.stackScale = short
+check(slider.fraction == 1 && short.effectiveCount(requested: 46) == 35 && short.text(requested: 46, locale: english) == "70.0 mm"
+      && slider.valueText == short.text(requested: 35), "a request for more than the series has shows all of it: \(slider.valueText)")
+check([1, 2].allSatisfy { slider.value(at: point($0)) == 46 }, "the thick end keeps a larger request")
+click(1)
+check(target.counts == [below] && slider.integerValue == 46, "a click at the thick end sends no action and keeps the request")
+slider.integerValue = 10
+check(slider.value(at: point(1)) == 35, "a smaller request takes the images of the series there")
+slider.integerValue = 46
+slider.stackScale = stack(60, every: 2, thickness: 2, current: 50, towardsStart: true)
+check(slider.fraction < 1 && slider.stackScale!.text(requested: slider.integerValue, locale: english) == "92.0 mm"
+      && slider.valueText == slider.stackScale!.text(requested: 46), "where the series has them, the request is whole again: \(slider.valueText)")
+
+// The last image in the slab's direction has the slab of the images before
+// it: the knob where the request is, every stop within reach, and a click
+// that takes the stop under it.
 let lastImage = stack(60, every: 2, thickness: 2, current: 0, towardsStart: true)
 slider.integerValue = 10
 slider.stackScale = lastImage
-check(slider.fraction == 0 && slider.reachableFraction == 0 && slider.tickMarkFractions == linearMarks, "one stop: the thin end, on the track of the series")
-check(lastImage.text(requested: 10, locale: english) == "2.0 mm" && slider.valueText == lastImage.text(requested: 10), "one stop reads one slice: \(slider.valueText)")
-for place in [-1, 0, 0.4, 1, 2] { check(slider.value(at: point(place)) == 10, "one stop: a click changes nothing") }
+near(Double(slider.fraction), (20.0 - 2) / (120 - 2), "the last image: the knob stands where ten images are")
+check(slider.tickMarkFractions == linearMarks, "the last image: on the track of the series")
+check(lastImage.text(requested: 10, locale: english) == "20.0 mm" && slider.valueText == lastImage.text(requested: 10), "the last image reads ten slices: \(slider.valueText)")
+check(slider.value(at: point(-1)) == 1 && slider.value(at: point(2)) == 60, "the last image: both ends of the track")
+let picked = Int(slider.value(at: point(0.8)))
 click(0.8)
-check(target.counts == [below] && slider.integerValue == 10 && slider.isEnabled, "one stop: no action, the request kept and the slab left on")
+check(picked > 10 && target.counts == [below, picked] && slider.integerValue == picked && slider.isEnabled, "the last image: a click takes its stop")
+target.counts = [below]
 
-// The track beyond the images left is drawn faded, and whole up to them; a
-// knob at the reach is drawn whole on both sides of it.
+// The track is drawn in one strength all along, on the last image as on the
+// first: no part of it is out of reach.
 do {
     func drawn() -> NSBitmapImageRep {
         let bitmap = slider.bitmapImageRepForCachingDisplay(in: slider.bounds)!
@@ -474,23 +489,18 @@ do {
     slider.integerValue = 5
     slider.stackScale = whole
     let open = drawn()
-    slider.stackScale = rest
-    let cut = drawn()
-    let reach = Double(slider.reachableFraction)
-    check(slider.fraction < slider.reachableFraction && reach < 0.9, "the knob short of the reach, the reach short of the end")
-    let (before, beyond) = ((Double(slider.fraction) + reach) / 2, (reach + 1) / 2)
-    check(strength(open, at: before) > 0 && strength(open, at: before) == strength(open, at: beyond), "a track within reach is one strength all along")
-    check(strength(cut, at: before) == strength(open, at: before), "up to the reach the track is as it was")
-    let faded = strength(cut, at: beyond) / strength(open, at: beyond)
-    check(faded > 0.15 && faded < 0.6, "beyond the reach the track is there, faded: \(faded)")
-    check(strength(cut, at: reach, offset: -2) == strength(open, at: before) && strength(cut, at: reach, offset: 2) < strength(open, at: before),
-          "the track changes at the reach")
-    // The knob at the reach: as strong to the right of its centre as to the left.
-    slider.integerValue = 46
-    let stopped = drawn()
-    check(slider.fraction == slider.reachableFraction, "the knob at the reach")
-    check(strength(stopped, at: reach, offset: 3) > 0.9 && strength(stopped, at: reach, offset: -3) > 0.9, "a knob at the reach is whole")
-    check(strength(stopped, at: beyond) == strength(cut, at: beyond), "and the track after it is faded")
+    let knob = Double(slider.fraction)
+    let places = [(knob + 0.5) / 2, 0.58, 0.83, 0.97]
+    check(strength(open, at: places[0]) > 0 && places.allSatisfy { strength(open, at: $0) == strength(open, at: places[0]) },
+          "the track is one strength all along")
+    for (scale, name) in [(rest, "in the middle of the series"), (lastImage, "on the last image"),
+                          (stack(60, every: 2, thickness: 2, current: 59), "on the last image going forwards")] {
+        slider.stackScale = scale
+        let shown = drawn()
+        check(Double(slider.fraction) == knob, "\(name): the knob where it was")
+        check(places.allSatisfy { strength(shown, at: $0) == strength(open, at: $0) }, "\(name): the track as strong as on the first image")
+        check(open.tiffRepresentation == shown.tiffRepresentation, "\(name): the slider is drawn as on the first image")
+    }
 }
 
 // A slab switched off: the knob at the thin end and the thickness of one image, the request kept.
@@ -528,7 +538,7 @@ slider.maxValue = 60
 slider.stackScale = whole
 defaults.set(false, forKey: key)
 window.orderOut(nil)
-print("PASS: 2D track in millimetres on both curves, marks on stops, the two recordings, a kept request, the last image, a slab off, native click action and curve toggle")
+print("PASS: 2D track in millimetres on both curves, marks on stops, the two recordings, a request that stays through the series, the last image, a slab off, native click action and curve toggle")
 
 let mpr = HorosMPRThickSlabSlider(frame: NSRect(x: 0, y: 0, width: 114, height: 17))
 mpr.minValue = 0
@@ -609,8 +619,13 @@ slider.integerValue = 50
 check(slider.shownValueText == whole.text(requested: 50) && abs(slider.shownValueFrame.midX - knobOnScreen()) <= 1, "the value follows the knob")
 // Another image under a still pointer: the bubble says the new thickness at once.
 slider.stackScale = rest
-check(slider.shownValueText == rest.text(requested: 50) && rest.text(requested: 50, locale: english) == "70.0 mm"
-      && abs(slider.shownValueFrame.midX - knobOnScreen()) <= 1, "the bubble follows the image shown: \(slider.shownValueText ?? "nil")")
+check(slider.shownValueText == rest.text(requested: 50) && rest.text(requested: 50, locale: english) == "100.0 mm"
+      && abs(slider.shownValueFrame.midX - knobOnScreen()) <= 1, "the bubble stays with the image shown: \(slider.shownValueText ?? "nil")")
+// A series of other slices under a still pointer: the bubble says the new thickness at once.
+let overlapping = stack(60, every: 1, thickness: 2, current: 34)
+slider.stackScale = overlapping
+check(slider.shownValueText == overlapping.text(requested: 50) && overlapping.text(requested: 50, locale: english) == "51.0 mm"
+      && abs(slider.shownValueFrame.midX - knobOnScreen()) <= 1, "the bubble follows the scale: \(slider.shownValueText ?? "nil")")
 slider.stackScale = whole
 // One slice turns the slab off and the slider with it; past it both come back.
 slider.isEnabled = false

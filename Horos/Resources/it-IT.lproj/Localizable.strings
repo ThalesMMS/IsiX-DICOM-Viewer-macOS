@@ -285,7 +285,6 @@
 "Acquisition Time - Descending" = "Ora di acquisizione - Decrescente";
 "ACROMIAL" = "ACROMIALE";
 "Activate" = "Attiva";
-"Activate & Restart" = "Attivare e riavviare";
 "Activate DICOM editing to change the values." = "Attivare la modifica DICOM per modificare i valori.";
 "Activity" = "Attività";
 "Actual Size" = "Dimensione reale";
@@ -3160,6 +3159,7 @@
 "No study matching %@ is in the database, and no PACS On-Demand node is chosen in the preferences." = "Nessuno studio corrispondente a %@ è nel database, e nessun nodo PACS On-Demand è scelto nelle preferenze.";
 "No study matching %@ is in the database or on the PACS On-Demand nodes (%@)." = "Nessuno studio corrispondente a %@ è nel database né sui nodi PACS On-Demand (%@).";
 "The request %@ was not carried out." = "La richiesta %@ non è stata eseguita.";
+"The link asks for the request %@, which is carried out once the links are activated." = "Il link chiede la richiesta %@, che viene eseguita non appena i link sono attivati.";
 "An XML-RPC request from %@ was refused because it carried no password." = "Una richiesta XML-RPC da %@ è stata rifiutata perché non conteneva una password.";
 "An XML-RPC request from %@ was refused because its password is wrong." = "Una richiesta XML-RPC da %@ è stata rifiutata perché la password è errata.";
 "Error code: %@" = "Codice di errore: %@";
@@ -4014,7 +4014,8 @@
 "Activate C-FIND SCP support" = "Attiva il supporto C-FIND SCP";
 "Activate IsiX DICOM Viewer database sharing, and publish it using the name:" = "Condividi il database di IsiX DICOM Viewer e pubblicalo con il nome:";
 "Protect it with a password:" = "Con password:";
-"Activate the URL support and HTTP XML-RPC Server on port:" = "Attiva gli URL e il server HTTP XML-RPC sulla porta:";
+"Activate the HTTP XML-RPC Server on port:" = "Attiva il server HTTP XML-RPC sulla porta:";
+"Open [ isix:// , horos:// , osirix:// ] links" = "Apri i link [ isix:// , horos:// , osirix:// ]";
 "Also search on PACS-On-Demand servers for [ isix:// , horos:// , osirix:// ] URLs and XML-RPC orders" = "Cerca anche sui server PACS su richiesta per gli URL [isix://, horos://, osirix://] e i comandi XML-RPC";
 "Automatically close all 2D Viewers before displaying studies with XML-RPC orders" = "Chiudi tutti i visori 2D prima di mostrare studi da comandi XML-RPC";
 "Identification" = "Identificazione";
@@ -4285,7 +4286,7 @@
 "Put IsiX Data folder where you want." = "Metti la cartella IsiX Data dove vuoi.";
 "Scan the media to find all DICOM images." = "Scansiona il supporto per trovare tutte le immagini DICOM.";
 "Use DICOMDIR on the media to load the images." = "Usa il DICOMDIR sul supporto per caricare le immagini.";
-"Activating it also turns on the XML-RPC server of this Mac, on port %ld. %@" = "L’attivazione avvia anche il server XML-RPC di questo Mac, sulla porta %ld. %@";
+"Links run inside IsiX DICOM Viewer: activating them opens no network port and does not turn on the XML-RPC server." = "I link vengono eseguiti all'interno di IsiX DICOM Viewer: attivarli non apre alcuna porta di rete e non accende il server XML-RPC.";
 "A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it." = "Un link chiede a IsiX DICOM Viewer di eseguire la richiesta %@.\r\rUn link può arrivare da qualsiasi pagina web, e-mail o documento. Eseguila solo se te l’aspettavi.";
 "Carry Out" = "Esegui";
 "An XML-RPC request (FindObject with execute = Delete) asks to delete %ld studies from the database. This cannot be undone." = "Una richiesta XML-RPC (FindObject con execute = Delete) chiede di eliminare %ld studi dal database. L’operazione non può essere annullata.";
@@ -4376,7 +4377,7 @@
 "Done" = "Fine";
 "Opened by %@" = "Aperto da %@";
 "IsiX DICOM Viewer does not know which application opened %@:// links before it, so they stay with it. To have another application open them, make it the default in that application's own settings." = "IsiX DICOM Viewer non sa quale applicazione apriva prima i link %@://, quindi restano a lui. Per farli aprire da un'altra applicazione, impostala come predefinita nelle impostazioni di quell'applicazione.";
-"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary." = "Lo schema URL di IsiX DICOM Viewer [isix://, horos://, osirix://] non è attualmente attivato! Devo attivarlo adesso? Riavvio necessario.";
+"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now?" = "Lo schema URL di IsiX DICOM Viewer [isix://, horos://, osirix://] non è attualmente attivato!\r\rDevo attivarlo adesso?";
 "Choose a surgical log exported as CSV." = "Scegli un registro chirurgico esportato come CSV.";
 "Emails" = "Email";
 "Last email: %1$@, to %2$@: handed to the Mail application." = "Ultima email: %1$@, a %2$@: consegnata all'app Mail.";

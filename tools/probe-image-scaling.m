@@ -109,6 +109,24 @@ static NSBitmapImageRep *bitmap(NSImage *image) {
 // representation's layout - AppKit hands back alpha first or last depending on
 // where the bitmap came from, and a TIFF round trip changes it.
 static NSInteger canonicalPixel(NSBitmapImageRep *rep, NSInteger x, NSInteger y, NSUInteger *out) {
+    // An image drawn by a handler can come back with floating-point samples
+    // (16 bits each on a wide-colour display), which -getPixel:atX:y: hands
+    // back as bit patterns, not as integers to scale: read its colour instead,
+    // in the representation's own colour space. The colour is not
+    // premultiplied; the samples -getPixel:atX:y: reads are, unless the format
+    // says otherwise, so the colour is multiplied by its alpha to read the same.
+    if (rep.bitmapFormat & NSBitmapFormatFloatingPointSamples) {
+        NSColor *color = [rep colorAtX:x y:y];
+        CGFloat components[8] = {0};
+        NSInteger count = MIN((NSInteger)8, color.numberOfComponents);
+        [color getComponents:components];
+        NSInteger colours = count - 1;
+        CGFloat alpha = rep.hasAlpha ? MAX(0.0, MIN(1.0, components[colours])) : 1.0;
+        CGFloat premultiplied = rep.hasAlpha && !(rep.bitmapFormat & NSBitmapFormatAlphaNonpremultiplied) ? alpha : 1.0;
+        for (NSInteger c = 0; c < colours; c++) out[c] = (NSUInteger)lround(MAX(0.0, MIN(1.0, components[c])) * premultiplied * 255);
+        out[colours] = (NSUInteger)lround(alpha * 255);
+        return colours;
+    }
     NSUInteger raw[8] = {0};
     [rep getPixel:raw atX:x y:y];
     BOOL alpha = rep.hasAlpha, first = (rep.bitmapFormat & NSBitmapFormatAlphaFirst) != 0;

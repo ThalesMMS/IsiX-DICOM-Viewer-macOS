@@ -7,12 +7,14 @@ series is of (the current one, a previous one), so a blue band over a series
 of a previous study contradicted them. The band says nothing of the study:
 a dark grey for the images not shown yet, a light grey for those shown.
 
-ImageNavigationSlider, compiled with HorosCellSlider, drawn into a bitmap in
+ImageNavigationSlider, compiled with HorosCellSlider and the module that says
+which images a thick slab covers, drawn into a bitmap in
 a light and in a dark appearance: the part shown and the part not shown are
 neutral (no hue), the first clearly lighter than the second, and both the
 same in the two appearances; the marker of the current image stays red.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import isix_modules
 import subprocess
 import sys
 import tempfile
@@ -71,7 +73,8 @@ with tempfile.TemporaryDirectory(prefix='horos-strip-colours-') as folder:
     (folder / 'main.swift').write_text(driver)
     binary = folder / 'driver'
     build = subprocess.run(['xcrun', 'swiftc', '-o', str(binary), str(root / 'Horos/Sources/HorosCellSlider.swift'),
-                            str(root / 'Horos/Sources/ImageNavigationSlider.swift'), str(folder / 'main.swift')],
+                            str(root / 'Horos/Sources/ImageNavigationSlider.swift'), str(folder / 'main.swift'),
+                            *isix_modules.module_flags('IsiXImaging', folder / 'modules')],
                            capture_output=True, text=True)
     if build.returncode:
         print(build.stdout[-3000:], build.stderr[-3000:])

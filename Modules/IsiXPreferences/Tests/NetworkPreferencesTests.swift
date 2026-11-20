@@ -65,6 +65,11 @@ import Testing
             (NetworkPreferences.syncOsiriXDBURL, "syncOsiriXDBURL", String?.self, "http://list.dicom.dcm/OsiriXDB.plist"),
             (NetworkPreferences.progressiveRetrieveViewing, "HorosProgressiveRetrieveViewing", Bool.self, "YES"),
             (NetworkPreferences.xmlrpcServerPort, "httpXMLRPCServerPort", Int.self, "8080"),
+            // The server is off, and once turned on it answers this Mac only; the links are off, with a switch of their own.
+            (NetworkPreferences.xmlrpcServer, "httpXMLRPCServer", Bool.self, "0"),
+            (NetworkPreferences.xmlrpcServerAccessScope, "httpXMLRPCServerAccessScope", Int.self, "0"),
+            (NetworkPreferences.xmlrpcServerRequiresPassword, "httpXMLRPCServerRequirePassword", Bool.self, "0"),
+            (NetworkPreferences.linkSchemeSupport, "LinkSchemeSupport", Bool.self, "0"),
             (NetworkPreferences.xmlrpcServerHTTPS, "httpXMLRPCServerHTTPS", Bool.self, "0"),
             (NetworkPreferences.xmlrpcServerDoesNotRespond, "httpXMLRPCServerDoNotRespond", Bool.self, "0"),
             (NetworkPreferences.closeAllWindowsBeforeXMLRPCOpen, "CloseAllWindowsBeforeXMLRPCOpen", Bool.self, "1"),

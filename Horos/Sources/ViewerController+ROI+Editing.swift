@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import AppKit
+import IsiXImaging
 import IsiXROI
 
 // The ROI editing of the 2D viewer: volume, set pixels, rename, propagation,
@@ -574,13 +575,13 @@ public extension ViewerController {
         }
         viewer.add(toUndoQueue: "roi")
         let selected = shown.selected
-        let farEnd = ThickSlabRange.farEndIndex(currentIndex: shown.index, stack: stack, count: count,
-                                                flippedData: viewer.horos_imageView?.flippedData ?? false)
+        // The images the slab shown is made of: centred on this one and kept inside the series.
+        let slab = ThickSlabSpan(images: stack, at: shown.index, of: count,
+                                 towardsStart: viewer.horos_imageView?.flippedData ?? false)
         guard !selected.isEmpty else {
             return viewerROIAlert("ROIs Propagate Error", "No ROI(s) selected to propagate on the series!")
         }
-        apply(.slab(movie: movie, current: shown.index, range: ROIPropagationPlan.slabRange(current: shown.index, farEnd: farEnd)),
-              selected, in: viewer)
+        apply(.slab(movie: movie, current: shown.index, range: slab.first..<(slab.last + 1)), selected, in: viewer)
     }
 
     /// Adds `rois`, or copies of them, to the images of `plan`, and shows the
@@ -1071,10 +1072,16 @@ struct ViewerROIPixelFill: @unchecked Sendable {
     }
 
     /// Deletes the unlocked ROIs of every image and time point, each
-    /// announced, as one undo step.
+    /// announced, as one undo step, and the pending endpoint of a two-click
+    /// Length.
     static func deleteAllUnlocked(in viewer: ViewerController) {
         viewer.add(toUndoQueue: "roi")
         viewer.horos_imageView?.stopROIEditingForce(true)
+        // The first point of a two-click Length is in no list of ROIs: it
+        // goes with them, in whichever view of the viewer it is pending.
+        for case let view as DCMView in viewer.imageViews() ?? [] {
+            view.cancelLengthPlacement()
+        }
 
         for movie in 0..<Int(viewer.horos_maxMovieIndex) {
             guard let slices = ViewerROISlices(viewer, movie: movie) else { continue }

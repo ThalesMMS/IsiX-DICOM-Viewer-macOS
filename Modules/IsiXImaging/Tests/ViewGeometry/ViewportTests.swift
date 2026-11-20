@@ -436,29 +436,34 @@ private func restoration(image: [String: NSNumber], series: [String: NSNumber], 
         func z(_ current: Int, of count: Int, _ stack: Int, flipped: Bool, at place: (Int) -> Float = { -2 * Float($0) }) -> Float {
             ViewTransform.thickSlabMidpoint(current: current, count: count, stack: stack, flipped: flipped) { SIMD3(1, 2, place($0)) }.z
         }
-        #expect(z(10, of: 60, 3, flipped: false) == -22)
-        // An even slab: half an interval further than the image the former middle took.
+        // A slab of as many images on either side of the image shown: the image itself.
+        #expect(z(10, of: 60, 3, flipped: false) == -20)
+        #expect(z(10, of: 60, 3, flipped: true) == -20)
+        // An even slab has an image more the way it goes: half an interval further.
         #expect(z(10, of: 60, 2, flipped: false) == -21)
-        // Cut at the series' start (flipped) and at its end.
-        #expect(z(34, of: 60, 46, flipped: true) == -34)
-        #expect(z(50, of: 60, 20, flipped: false) == -109)
+        #expect(z(10, of: 60, 2, flipped: true) == -19)
+        #expect(z(10, of: 60, 6, flipped: false) == -21)
+        // Pulled back at the series' start and at its end, the middle is that of the slab kept, not the image.
+        #expect(z(1, of: 60, 7, flipped: false) == -6)
+        #expect(z(0, of: 60, 7, flipped: true) == -6)
+        #expect(z(58, of: 60, 20, flipped: false) == -99)
+        #expect(z(59, of: 60, 20, flipped: false) == -99)
+        // More images than the series has: the middle of the series.
+        #expect(z(34, of: 60, 80, flipped: true) == -59)
         #expect(z(10, of: 60, 1, flipped: false) == -20)
         #expect(z(10, of: 60, 0, flipped: true) == -20)
         // Irregular intervals: the mean of the ends, as the Location is.
         let places: [Float] = [0, -1, -3, -6, -10]
-        #expect(z(1, of: 5, 3, flipped: false) { places[$0] } == -3.5)
+        #expect(z(1, of: 5, 3, flipped: false) { places[$0] } == -1.5)
+        #expect(z(3, of: 5, 3, flipped: false) { places[$0] } == -6.5)
         // The other coordinates are the point's own, and the Location of an axial series is the Z.
         let middle = ViewTransform.thickSlabMidpoint(current: 34, count: 60, stack: 46, flipped: true) { SIMD3(1, 2, 2 * Float($0) - 118) }
-        #expect(middle == SIMD3(1, 2, -84))
-        #expect(ViewTransform.thickSlab(thickness: 2, location: 2 * 34 - 118, endLocation: -118).location == middle.z)
+        // 46 images, 22 of them after image 34 and 23 before it: images 11 to 56.
+        #expect(middle == SIMD3(1, 2, -51))
+        #expect(ViewTransform.thickSlab(thickness: 2, location: 2 * 56 - 118, endLocation: 2 * 11 - 118).location == middle.z)
     }
 
-    @Test func theThickSlabIsTheFormerOne() {
-        // Ten images from location 0, 2 mm apart: a slab of 4 from image 2 ends at image 5, towards 0 at image 0.
-        #expect(ViewTransform.thickSlabLastIndex(current: 2, count: 10, stack: 4, flipped: false) == 5)
-        #expect(ViewTransform.thickSlabLastIndex(current: 2, count: 10, stack: 4, flipped: true) == 0)
-        #expect(ViewTransform.thickSlabLastIndex(current: 8, count: 10, stack: 4, flipped: false) == 9)
-        #expect(ViewTransform.thickSlabLastIndex(current: 5, count: 10, stack: 4, flipped: true) == 2)
+    @Test func aSlabIsAsThickAsItsTwoEndsAreApart() {
         let slab = ViewTransform.thickSlab(thickness: 2, location: 4, endLocation: 10)
         #expect(slab.thickness == 8 && slab.location == 7)
         let unknown = ViewTransform.thickSlab(thickness: 2, location: .nan, endLocation: 10)

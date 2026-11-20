@@ -290,30 +290,22 @@ extension ViewTransform {
 
     // MARK: - Thick slab
 
-    /// The last image of a thick slab of `stack` images from `current` in a
-    /// series of `count`, towards the start when the data is flipped: the
-    /// slab stops at the series' end.
-    public static func thickSlabLastIndex(current: Int, count: Int, stack: Int, flipped: Bool) -> Int {
-        let available = flipped ? current + 1 : count - current
-        let slab = stack < available ? stack : available
-        return current + (flipped ? -1 : 1) * (slab - 1)
-    }
-
-    /// The point midway through a thick slab: the mean of `point` on the current
-    /// image and on the slab's last one (thickSlabLastIndex), as the slab's
-    /// location is the mean of their locations.
+    /// The point midway through a thick slab of `stack` images at `current` in
+    /// a series of `count`: the mean of `point` on the two ends of the slab
+    /// (ThickSlabSpan), as the slab's location is the mean of their
+    /// locations. It is the point on the image shown, but for the rounding,
+    /// when the slab has as many images on either side of it.
     public static func thickSlabMidpoint(current: Int, count: Int, stack: Int, flipped: Bool,
                                          point: (Int) -> SIMD3<Float>) -> SIMD3<Float> {
-        let here = point(current)
-        guard stack > 1, current >= 0, current < count else { return here }
-        let last = thickSlabLastIndex(current: current, count: count, stack: stack, flipped: flipped)
-        return last == current ? here : (here + point(last)) / 2
+        guard stack > 1, current >= 0, current < count else { return point(current) }
+        let span = ThickSlabSpan(images: stack, at: current, of: count, towardsStart: flipped)
+        return span.first == span.last ? point(current) : (point(span.first) + point(span.last)) / 2
     }
 
-    /// The thickness and the location of a thick slab whose first image is
-    /// `thickness` thick at `location` and whose last one is at
-    /// `endLocation`: both ends included, the location in the middle. Kept
-    /// as they are when a location is not finite. A first image that does not
+    /// The thickness and the location of a thick slab whose image at one end
+    /// is `thickness` thick at `location` and whose image at the other end is
+    /// at `endLocation`: both ends included, the location in the middle. Kept
+    /// as they are when a location is not finite. An image that does not
     /// say its thickness counts the distance to the next one fused, at
     /// `nextLocation`, as the slab's scale does (StackFusionScale).
     ///

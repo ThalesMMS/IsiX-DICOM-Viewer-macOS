@@ -217,12 +217,15 @@ struct AnnotationFrameLines {
     var signature: Command? { signed ? groups.last?.first : nil }
 
     /// Cuts the side lines to the room of their rows, around `fixed`, the letters and the notices of the frame.
+    /// A view narrower than its two margins draws none of them, whatever its font.
     mutating func fit(around fixed: [Command], layout: AnnotationOverlayLayout, font: NSFont?, scale: Float) {
+        guard layout.sideEdges != nil else {
+            groups = AnnotationRowFit.withoutSideLines(groups)
+            return
+        }
         guard let font else { return }
         let measure = AnnotationTextMeasure.table(font: font, scale: CGFloat(scale))
-        groups = AnnotationRowFit.fit(groups, fixed: fixed,
-                                      bounds: Double(layout.start(of: "MiddleLeft").x)...Double(layout.start(of: "MiddleRight").x),
-                                      lineHeight: layout.lineHeight, gap: layout.characterWidth, widestCharacter: measure.widestCharacter,
+        groups = AnnotationRowFit.fit(groups, fixed: fixed, in: layout, widestCharacter: measure.widestCharacter,
                                       width: { measure.width(of: $0) },
                                       cut: { measure.cut($0, to: $1, by: AnnotationRowFit.cut) })
     }
@@ -308,7 +311,7 @@ private struct ViewAnnotationValues: @MainActor AnnotationValueSource {
             locationTuple.withMemoryRebound(to: Float.self, capacity: 3) { locationPointer in
                 let stack = Int(pix?.stack ?? 0)
                 if stack > 1 {
-                    // Midway through the slab as it is fused, cut at the series' end: where its Location is.
+                    // Midway through the slab as it is fused, kept inside the series: where its Location is.
                     let list = view.horos_dcmPixList
                     let middle = ViewTransform.thickSlabMidpoint(current: Int(view.horos_curImage), count: list?.count ?? 0, stack: stack,
                                                                  flipped: view.horos_flippedData) { index in
@@ -652,14 +655,13 @@ extension DCMView {
             return
         }
 
-        // Location zero is a valid physical plane. Clip the slab to available
-        // slices in its actual projection direction, including both end slices.
+        // Location zero is a valid physical plane. The slab is the one fused
+        // (ThickSlabSpan), measured between its two end slices, both included.
         // A 2D viewer's slab is as thick as its scale says, the toolbar's own.
         guard let pixList = dcmPixList else { return }
-        let last = ViewTransform.thickSlabLastIndex(current: curImage, count: pixList.count, stack: Int(self.curDCM?.stack ?? 0),
-                                                    flipped: self.horos_flippedData)
-        let endLocation: Double = objcObject(pixList.object(at: last), DCMPix.self).sliceLocation
-        let slab = ViewTransform.thickSlab(thickness: thickness.pointee, location: location.pointee, endLocation: endLocation, nextLocation: last == curImage ? nil : objcObject(pixList.object(at: curImage + (last > curImage ? 1 : -1)), DCMPix.self).sliceLocation)
+        let span = ThickSlabSpan(images: Int(self.curDCM?.stack ?? 0), at: curImage, of: pixList.count, towardsStart: self.horos_flippedData)
+        func place(_ index: Int) -> Double { objcObject(pixList.object(at: index), DCMPix.self).sliceLocation }
+        let slab = ViewTransform.thickSlab(thickness: thickness.pointee, location: Float(place(span.nearEnd)), endLocation: place(span.farEnd), nextLocation: span.count > 1 ? place(span.nearEnd + span.step) : nil)
         thickness.pointee = ViewerThickSlab.fusedThickness(in: self) ?? slab.thickness
         location.pointee = slab.location
     }

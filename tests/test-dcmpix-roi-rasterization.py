@@ -266,7 +266,7 @@ static NSDictionary *statisticsOf( DCMPix *pix, ROI *roi)
         [[NSUserDefaults standardUserDefaults] setBool: moments.boolValue forKey: @"ROIComputeSkewnessAndKurtosis"];
         float mean = -1, total = -1, dev = -1, min = -1, max = -1, skewness = -1, kurtosis = -1;
         [pix computeROI: roi :&mean :&total :&dev :&min :&max :&skewness :&kurtosis];
-        d[ moments.boolValue ? @"moments" : @"plain"] = @[F( mean), F( total), F( dev), F( min), F( max), F( skewness), F( kurtosis), F( roi.median)];
+        d[ moments.boolValue ? @"moments" : @"plain"] = @[F( mean), F( total), F( dev), F( min), F( max), F( skewness), F( kurtosis), F( roi.measuredMedian)];
         float mean2 = -1, total2 = -1, dev2 = -1, min2 = -1, max2 = -1;
         [pix computeROI: roi :&mean2 :&total2 :&dev2 :&min2 :&max2];
         expect( mean2 == mean && total2 == total && min2 == min && max2 == max,

@@ -27,10 +27,10 @@ ROINameCatalog (IsiXPreferences), and the layer's bounds are ROIFromMask's
   to image number:", counted from 1 as the viewer shows it, from the other end
   when the data is flipped) in both directions, where it was left out after the
   current image and one more image was taken before it;
-- the range of -roiPropagateSlab: is the thick slab the viewer shows, the
-  current image and the next stack - 1, or the previous stack - 1 when the data
-  is flipped, where flipped data took the stack images before the current one,
-  one past the slab; ThickSlabRange.swift is compiled with it;
+- the range of -roiPropagateSlab: is the thick slab the viewer shows, which
+  is centred on the current image and kept inside the series (IsiXImaging's
+  ThickSlabSpan, compiled with it): the ROIs go to the images the slab is made
+  of, where they went to the stack images from the current one on;
 - -roiList: and -setRoiList:array: stay inside the C array when the viewer has
   no movie frame, where maxMovieIndex - 1 made the index -1;
 - -roiLoadFromFiles: gives each file to the importer of its own extension
@@ -143,9 +143,9 @@ if 'ViewerROICreation.layer(from: roi, in: self)' not in method(first_half, 'cre
     failures.append('-createLayerROIFromROI: must take its bounds from the finite points')
 if not re.search(r'guard let bitmap = NSBitmapImageRep\(.*?\n\s*let pixels = bitmap\.bitmapData else \{ return nil \}', layer, re.S):
     failures.append('-createLayerROIFromROI: must not write when the bitmap has no buffer')
-# The ranges of the propagations are ROIPropagationPlan's (IsiXROI): the
-# façades hand them the image number typed in the panel and the far end of the
-# slab the viewer shows.
+# The range of the propagation to an image is ROIPropagationPlan's (IsiXROI),
+# over the image number typed in the panel; the range of the propagation
+# through the slab is the slab the viewer shows (ThickSlabSpan, IsiXImaging).
 propagate = method(editing, 'roiPropagate:')
 propagate_sheet = static(editing, r'endSheet(?=\(_ tag: Int, sender: Any\?, in viewer: ViewerController\) \{\n        viewer\.horos_roiPropaWindow)')
 if 'ViewerROIPropagation.endSheet(' not in propagate \
@@ -156,10 +156,11 @@ if 'ViewerROIPropagation.endSheet(' not in propagate \
 propagate_slab = method(editing, 'roiPropagateSlab:')
 slab = static(editing, 'propagateThroughSlab')
 if 'ViewerROIPropagation.propagateThroughSlab(in: self)' not in propagate_slab \
-        or not re.search(r'ThickSlabRange\.farEndIndex\(currentIndex: shown\.index, stack: stack, count: count,\s*'
-                         r'flippedData: viewer\.horos_imageView\?\.flippedData \?\? false\)', slab) \
-        or 'ROIPropagationPlan.slabRange(current: shown.index, farEnd: farEnd)' not in slab:
-    failures.append('-roiPropagateSlab: must take its range from the slab the viewer shows with ROIPropagationPlan.slabRange')
+        or not re.search(r'ThickSlabSpan\(images: stack, at: shown\.index, of: count,\s*'
+                         r'towardsStart: viewer\.horos_imageView\?\.flippedData \?\? false\)', slab) \
+        or 'range: slab.first..<(slab.last + 1)' not in slab \
+        or not 0 < slab.find('guard stack >= 2 else') < slab.find('ThickSlabSpan('):
+    failures.append('-roiPropagateSlab: must take its range from the slab the viewer shows (ThickSlabSpan), once it knows there is one')
 
 # -setRoiList:array: stores the array through the retaining setter, which
 # retains the new array before it releases the old one. Released first, the
@@ -231,8 +232,8 @@ func probePropagationRange(_ pos: Int, _ imageNumber: Int, _ count: Int, _ flipp
 @_cdecl("probe_slab_range")
 func probeSlabRange(_ pos: Int, _ stack: Int, _ count: Int, _ flipped: Bool,
                     _ start: UnsafeMutablePointer<Int>, _ upTo: UnsafeMutablePointer<Int>) {
-    let far = ThickSlabRange.farEndIndex(currentIndex: pos, stack: stack, count: count, flippedData: flipped)
-    let range = ROIPropagationPlan.slabRange(current: pos, farEnd: far)
+    let slab = ThickSlabSpan(images: stack, at: pos, of: count, towardsStart: flipped)
+    let range = slab.first..<(slab.last + 1)
     start.pointee = range.lowerBound
     upTo.pointee = range.upperBound
 }
@@ -560,20 +561,21 @@ int main(void) { @autoreleasepool {
     // The range of -roiPropagateSlab:, the slab DCMPix draws at index 5 of 10:
     // 5 ... 5 + (stack - 1), or 5 - (stack - 1) ... 5 when the data is flipped.
     probe_slab_range(5, 3, 10, NO, &start, &upTo);
-    CHECK(start == 5 && upTo == 8, "a slab of 3 covers the current image and the next 2");
+    CHECK(start == 4 && upTo == 7, "a slab of 3 covers the current image, the one before and the one after");
     probe_slab_range(5, 3, 10, YES, &start, &upTo);
-    CHECK(start == 3 && upTo == 6, "flipped, a slab of 3 covers the current image and the previous 2");
-    NSInteger slab = upTo - start;
-    probe_slab_range(5, 3, 10, NO, &start, &upTo);
-    CHECK(upTo - start == slab && slab == 3, "both orientations cover the stack images of the slab");
+    CHECK(start == 4 && upTo == 7, "flipped, a slab of 3 covers the same images");
+    probe_slab_range(5, 4, 10, NO, &start, &upTo);
+    CHECK(start == 4 && upTo == 8, "an even slab has its image more after the current one");
+    probe_slab_range(5, 4, 10, YES, &start, &upTo);
+    CHECK(start == 3 && upTo == 7, "flipped, an even slab has its image more before the current one, where the slab goes");
     probe_slab_range(8, 5, 10, NO, &start, &upTo);
-    CHECK(start == 8 && upTo == 10, "a slab past the last image stops at the last image");
+    CHECK(start == 5 && upTo == 10, "near the last image the slab is pulled back and keeps its 5 images");
     probe_slab_range(1, 5, 10, YES, &start, &upTo);
-    CHECK(start == 0 && upTo == 2, "flipped, a slab past the first image stops at the first image");
+    CHECK(start == 0 && upTo == 5, "flipped, near the first image the slab is pulled back and keeps its 5 images");
     probe_slab_range(0, 4, 10, YES, &start, &upTo);
-    CHECK(start == 0 && upTo == 1, "flipped, at the first image the slab is the first image");
-    probe_slab_range(5, 1, 10, YES, &start, &upTo);
-    CHECK(start == upTo, "without a slab nothing is propagated");
+    CHECK(start == 0 && upTo == 4, "at the first image the slab is the first 4 images");
+    probe_slab_range(2, 8, 5, NO, &start, &upTo);
+    CHECK(start == 0 && upTo == 5, "a slab thicker than the series is the series");
 
     failures += probe_first_half_helpers();
     if (failures) return 1;
@@ -591,7 +593,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-defects-') as director
     (folder / 'test.m').write_text(DRIVER)
     (folder / 'Editing.swift').write_text(editing_swift)
     (folder / 'FirstHalf.swift').write_text(first_half_swift)
-    (folder / 'ThickSlabRange.swift').write_text(read('ThickSlabRange.swift'))
+    (folder / 'ThickSlabSpan.swift').write_text(read_module('IsiXImaging/Sources/ViewGeometry/ThickSlabSpan.swift'))
     (folder / 'ROIFromMask.swift').write_text(read_module('IsiXROI/Sources/ROIFromMask.swift'))
     (folder / 'ROIGroups.swift').write_text(read_module('IsiXROI/Sources/ROIGroups.swift'))
     (folder / 'ROISelection.swift').write_text(read_module('IsiXROI/Sources/ROISelection.swift'))
@@ -604,7 +606,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-roi-defects-') as director
                         '-o', str(folder / 'HorosObjCException.o')], check=True)
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *include,
                         '-import-objc-header', str(folder / 'Harness.h'),
-                        str(folder / 'Editing.swift'), str(folder / 'FirstHalf.swift'), str(folder / 'ThickSlabRange.swift'),
+                        str(folder / 'Editing.swift'), str(folder / 'FirstHalf.swift'), str(folder / 'ThickSlabSpan.swift'),
                         str(folder / 'ROIFromMask.swift'), str(folder / 'ROIGroups.swift'), str(folder / 'ROIPropagationPlan.swift'),
                         str(folder / 'ROISelection.swift'),
                         str(folder / 'test.o'), str(folder / 'HorosObjCException.o'),

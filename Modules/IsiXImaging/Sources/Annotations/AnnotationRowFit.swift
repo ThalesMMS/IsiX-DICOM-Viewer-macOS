@@ -88,6 +88,28 @@ public enum AnnotationRowFit {
         let right: Bool
     }
 
+    /// The commands of `groups` fitted between the side edges of `layout`, a
+    /// line and a character of its font apart, as `fit(_:fixed:bounds:…)`
+    /// does. A view narrower than its two margins has no such edges: its side
+    /// lines are not drawn, and nothing is measured.
+    public static func fit(_ groups: [[Command]], fixed: [Command] = [], in layout: AnnotationOverlayLayout, widestCharacter: Double = 0,
+                           width: (String) -> Double, cut: (String, Double) -> String) -> [[Command]] {
+        guard let bounds = layout.sideEdges else { return withoutSideLines(groups) }
+        return fit(groups, fixed: fixed, bounds: bounds, lineHeight: layout.lineHeight, gap: layout.characterWidth,
+                   widestCharacter: widestCharacter, width: width, cut: cut)
+    }
+
+    /// `groups` without the lines aligned on a side: what is centred, the
+    /// lines of plugins and the orientation letters stay.
+    public static func withoutSideLines(_ groups: [[Command]]) -> [[Command]] {
+        groups.map { commands in
+            commands.filter { command in
+                if case let .text(_, _, _, alignment) = command { return alignment == .center }
+                return true
+            }
+        }
+    }
+
     /// The commands of `groups`, each group the lines of a position, with the
     /// side lines that have no room in their row cut to it; the same groups
     /// when every line has its room. `fixed` are the texts that keep their

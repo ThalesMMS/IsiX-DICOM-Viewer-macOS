@@ -38,6 +38,8 @@ listing=read(LIST)
 if listing is not None and 'func databaseList(onlySelected: Bool) -> String {' not in listing:
  listing=None
 RULES='Modules/IsiXDatabase/Sources/StudyListRowRules.swift'
+# The rules read the former titles of the columns from this file of the same module.
+TITLES='Modules/IsiXDatabase/Sources/StudyListColumnTitles.swift'
 SWITCH='        switch ( [[NSUserDefaults standardUserDefaults] integerForKey: @"yearOldDatabaseDisplay"])'
 if SWITCH in s:
  a=s.index(SWITCH);b=s.index('\n    if( [[tableColumn identifier] isEqualToString:@"noSeries"])',a);display=s[a:b].rsplit('    }',1)[0]
@@ -125,10 +127,11 @@ print("PASS: actual export matches actual age display for all three preferences,
   (p/'Harness.h').write_text(header);(p/'Harness.m').write_text(code + harness_defaults.OBJC)
   (p/'Export.swift').write_text(extension);(p/'main.swift').write_text(main)
   (p/'Rules.swift').write_text(read(RULES));(p/'List.swift').write_text(read('Modules/IsiXDatabase/Sources/StudyMetadataCSV.swift'))
+  (p/'Titles.swift').write_text(read(TITLES))
   include=['-I',str(p),'-I',str(root/'Horos/Sources')]
   subprocess.run(['xcrun','clang','-c','-fsanitize=address',*include,str(p/'Harness.m'),'-o',str(p/'Harness.o')],check=True)
   subprocess.run(['xcrun','clang','-c','-fobjc-arc','-fsanitize=address',*include,str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(p/'HorosObjCException.o')],check=True)
-  subprocess.run(['xcrun','swiftc','-sanitize=address',*include,'-import-objc-header',str(p/'Harness.h'),str(p/'Export.swift'),str(p/'main.swift'),str(p/'Rules.swift'),str(p/'List.swift'),str(p/'Harness.o'),str(p/'HorosObjCException.o'),'-o',str(p/'test')],check=True)
+  subprocess.run(['xcrun','swiftc','-sanitize=address',*include,'-import-objc-header',str(p/'Harness.h'),str(p/'Export.swift'),str(p/'main.swift'),str(p/'Rules.swift'),str(p/'Titles.swift'),str(p/'List.swift'),str(p/'Harness.o'),str(p/'HorosObjCException.o'),'-o',str(p/'test')],check=True)
   subprocess.run([str(p/'test')],check=True)
  sys.exit(0)
 
@@ -199,7 +202,8 @@ print("PASS: actual export matches actual age display for all three preferences,
   (p/'Export.swift').write_text(extension);(p/'main.swift').write_text(main)
   rules_files=[]
   if not display:
-   (p/'Rules.swift').write_text(rules);rules_files=[str(p/'Rules.swift')]
+   (p/'Rules.swift').write_text(rules);(p/'Titles.swift').write_text(read(TITLES))
+   rules_files=[str(p/'Rules.swift'),str(p/'Titles.swift')]
   include=['-I',str(p),'-I',str(root/'Horos/Sources')]
   subprocess.run(['xcrun','clang','-c','-fsanitize=address',*include,str(p/'Harness.m'),'-o',str(p/'Harness.o')],check=True)
   subprocess.run(['xcrun','clang','-c','-fobjc-arc','-fsanitize=address',*include,str(root/'Horos/Sources/HorosObjCException.m'),'-o',str(p/'HorosObjCException.o')],check=True)

@@ -1,34 +1,34 @@
 # IsiX DICOM Viewer
 
-[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiX-DICOM-Viewer-6.0.6-Apple-Silicon-Macs.zip)
-[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiX-DICOM-Viewer-6.0.6-Intel-Macs.zip)
+[![Download for Apple Silicon Macs](https://img.shields.io/badge/Download_for_Apple_Silicon_Macs-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.7/IsiX-DICOM-Viewer-6.0.7-Apple-Silicon-Macs.zip)
+[![Download for Intel Macs](https://img.shields.io/badge/Download_for_Intel_Macs-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.7/IsiX-DICOM-Viewer-6.0.7-Intel-Macs.zip)
 [![Get it from App Store](https://img.shields.io/badge/Get_it_from_App_Store-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/app/isix-dicom-viewer/id6792369880)
 
 <p align="center"><b>macOS</b></p>
 <p align="center">
-  <img src="screenshots/macOS.png" alt="IsiX DICOM Viewer on Mac: the study database with a CT series preview" width="80%">
+  <img src="screenshots/macOS.png" alt="IsiX DICOM Viewer on Mac: 2D viewer with an abdominal CT image and the series list" width="80%">
 </p>
 <p align="center"><b>iPhone and iPad</b></p>
 <p align="center">
-  <img src="screenshots/iPhone1.png" alt="IsiX DICOM Viewer on iPhone: 2D viewer with a CT image" width="18.5%">
-  <img src="screenshots/iPhone2.png" alt="IsiX DICOM Viewer on iPhone: the details and series of a study" width="18.5%">
-  <img src="screenshots/iPad.png" alt="IsiX DICOM Viewer on iPad: 3D reconstruction of a head CT" width="58.4%">
+  <img src="screenshots/iPhone1.png" alt="IsiX DICOM Viewer on iPhone: the list of studies" width="19.5%">
+  <img src="screenshots/iPhone2.png" alt="IsiX DICOM Viewer on iPhone: multiplanar reconstruction of an abdominal CT" width="19.5%">
+  <img src="screenshots/iPad.png" alt="IsiX DICOM Viewer on iPad: 3D reconstruction of an abdominal CT" width="56.4%">
 </p>
 <p align="center"><b>Apple Watch and Apple TV companions</b></p>
 <p align="center">
-  <img src="screenshots/AppleWatch1.png" alt="IsiX DICOM Viewer on Apple Watch: the list of series of a study" width="21%">
-  <img src="screenshots/AppleWatch2.png" alt="IsiX DICOM Viewer on Apple Watch: a CT image" width="21%">
-  <img src="screenshots/AppleTV.png" alt="IsiX DICOM Viewer on Apple TV: a CT series with its image slider" width="44.5%">
+  <img src="screenshots/AppleWatch1.png" alt="IsiX DICOM Viewer on Apple Watch: the series of a study" width="21%">
+  <img src="screenshots/AppleWatch2.png" alt="IsiX DICOM Viewer on Apple Watch: a chest CT image" width="21%">
+  <img src="screenshots/AppleTV.png" alt="IsiX DICOM Viewer on Apple TV: the list of cases" width="44.5%">
 </p>
 <p align="center"><b>Apple Vision Pro</b></p>
 <p align="center">
-  <img src="screenshots/VisionPro.jpg" alt="IsiX DICOM Viewer on Apple Vision Pro: multiplanar reconstruction of a head CT" width="80%">
+  <img src="screenshots/VisionPro.jpg" alt="IsiX DICOM Viewer on Apple Vision Pro: the studies and the details and series of a study" width="80%">
 </p>
 <p align="center">
   <sub>This repository holds the macOS version.</sub>
 </p>
 
-**6.0.6 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.6) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.6/IsiXPluginKit-SDK-6.0.6.zip).
+**6.0.7 stable release:** [release notes](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/tag/v6.0.7) · [IsiXPluginKit SDK](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/download/v6.0.7/IsiXPluginKit-SDK-6.0.7.zip).
 This release supports IsiXPluginKit v1 and compatible Horos and OsiriX plugins built for the running architecture.
 
 Browse the [latest release](https://github.com/ThalesMMS/IsiX-DICOM-Viewer-macOS/releases/latest)
@@ -98,9 +98,9 @@ differ, and once upgraded by IsiX DICOM Viewer a Horos database may no longer
 open in Horos. On the first start the application says where it found one and
 leaves it unchanged. The Horos settings themselves (DICOM nodes, listener,
 presets and the rest) are carried over, except the database location. A
-Horos whose URL support and XML-RPC server were on arrives with them on,
-answering any address without a password: see "Who the XML-RPC server
-answers" under RIS integration.
+Horos whose URL support and XML-RPC server were on arrives with the links
+and the server on, the server answering any address without a password as
+it did there: see "Who the XML-RPC server answers" under RIS integration.
 
 To bring the studies over, choose **File > Import > Import Files...** and
 select the `DATABASE.noindex` folder inside `Horos Data`. Depending on
@@ -241,12 +241,24 @@ windows have been removed.
 
 ### RIS integration: `horos://` links and XML-RPC
 
-A RIS opens or retrieves studies through `horos://` (or `osirix://`) links,
-or through XML-RPC calls on the port set in **Settings > Listener**. Both are
-off until **Activate the URL support and HTTP XML-RPC Server on port** is
-checked there; the port is 8080 by default. The one box turns on both: the
-links, and a server that by default answers **any address without a
-password** (see "Who the XML-RPC server answers" below).
+A RIS opens or retrieves studies through `horos://` (or `osirix://`,
+`isix://`) links, or through XML-RPC calls on the port set in
+**Settings > Listener**. Each has its own box there, and both are off until
+checked:
+
+- **Open [ isix:// , horos:// , osirix:// ] links** turns on the links
+  alone. A link reaches the application on the Mac where it is clicked and
+  runs inside it: no network port is opened. It applies at once, without a
+  restart.
+- **Activate the HTTP XML-RPC Server on port** turns on the server, on port
+  8080 by default, after a restart. Once on, it answers **this Mac only**
+  until another choice is made (see "Who the XML-RPC server answers" below).
+
+A PACS or RIS whose button opens the viewer through a link on the same Mac
+needs only the first box. Settings kept from an earlier version, or carried
+over from Horos, in which the one former box was checked keep both on, and
+the server keeps answering who it answered: any address without a password,
+unless that had been changed.
 
 - `horos://?methodName=retrieve&serverName=Main%20PACS&filterKey=PatientID&filterValue=12345`
   queries a node and retrieves what it finds in the background; up to nine
@@ -280,9 +292,9 @@ password** (see "Who the XML-RPC server answers" below).
   finds nothing or cannot be queried, `-1` when `DisplayStudy` finds no study.
   With **Show an alert when an XML-RPC or URL order fails** checked in the
   Listener settings (off by default), an alert also gives the reason and what
-  was asked for. A link that arrives while URL support is off says that the
-  request was not carried out, and that activating the support also turns on
-  the XML-RPC server.
+  was asked for. A link that arrives while the links are off names its
+  request and offers to activate them; **Activate** turns on the links alone,
+  opens no port, and carries the request out without a restart.
 - A link runs unasked only what a RIS puts in its links: showing, finding,
   retrieving and closing. Any other method (quitting the application, opening
   another database, downloading a URL, a method a plugin added) and a search
@@ -292,8 +304,8 @@ password** (see "Who the XML-RPC server answers" below).
 
 **Who the XML-RPC server answers.** The server listens on every network
 interface. **Answer messages from** in the Listener settings chooses who is
-answered: **This Mac only**, **Computers on the local network** (private and
-link-local addresses) or **Any address**, the default. With **Require a user
+answered: **This Mac only**, the default, **Computers on the local network**
+(private and link-local addresses) or **Any address**. With **Require a user
 name and password from other computers** checked, other computers send HTTP
 Basic authentication with the user name and password of **Set Password…**
 (kept in the Keychain), and are refused until a password is set. Without
@@ -304,8 +316,8 @@ Basic authentication with the user name and password of **Set Password…**
   asked for a password.
 - A change of who is answered applies to the next request, without a restart;
   only the port and **HTTPS** need one.
-- For links alone, choose **This Mac only**: a link reaches the application
-  as an Apple Event and runs inside it, without going through the server.
+- Links need no server: a link reaches the application as an Apple Event and
+  runs inside it. Leave the server off when nothing calls XML-RPC.
 - A request a web page sends (it carries `Origin`, `Sec-Fetch-…` or a page's
   `Referer`), a request that is not a POST, and a request made on this Mac to
   a host name that is not this Mac's are refused, whoever is answered.
@@ -316,8 +328,9 @@ Basic authentication with the user name and password of **Set Password…**
 computer where it is clicked, so a RIS that runs elsewhere has to call
 XML-RPC:
 
-1. In **Settings > Listener**, choose **Computers on the local network** or
-   **Any address** under **Answer messages from**.
+1. In **Settings > Listener**, check **Activate the HTTP XML-RPC Server on
+   port**, and choose **Computers on the local network** or **Any address**
+   under **Answer messages from**.
 2. Check **Require a user name and password from other computers**, click
    **Set Password…** and enter a user name (without a colon) and a password.
 3. Configure the RIS to send HTTP Basic authentication with that user name and

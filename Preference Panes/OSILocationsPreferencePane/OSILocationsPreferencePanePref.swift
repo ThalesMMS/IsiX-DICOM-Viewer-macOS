@@ -39,6 +39,7 @@
 
 import Cocoa
 import IsiXKeychain
+import IsiXStorage
 import UniformTypeIdentifiers
 import PreferencePanes
 import SecurityInterface
@@ -855,36 +856,42 @@ public final class OSILocationsPreferencePanePref: NSPreferencePane {
 
     @IBAction public func addPath(_ sender: Any?) {
         let oPanel = NSOpenPanel()
+        #if MACAPPSTORE
+        let choice = LocalDatabasePathChoice(sandboxed: true)
+        #else
+        let choice = LocalDatabasePathChoice(sandboxed: false)
+        #endif
 
-        oPanel.canChooseFiles = true
-        oPanel.canChooseDirectories = true
-
-        oPanel.allowedContentTypes = [UTType(filenameExtension: "sql")!]
+        // The types first: a panel given its types of file stops taking
+        // folders, whatever it was told before, and its Open button stays off
+        // on every folder. What can be chosen is said after them.
+        if !choice.fileExtensions.isEmpty {
+            oPanel.allowedContentTypes = choice.fileExtensions.compactMap { UTType(filenameExtension: $0) }
+        }
+        oPanel.canChooseFiles = choice.canChooseFiles
+        oPanel.canChooseDirectories = choice.canChooseDirectories
 
         oPanel.begin { result in
             if result != .OK {
                 return
             }
 
-            if var location = oPanel.url?.path {
-                if DatabaseLocation.isDataDirectoryName((location as NSString).lastPathComponent) {
-                    location = (location as NSString).deletingLastPathComponent
-                }
-
-                if (location as NSString).lastPathComponent == "DATABASE" && DatabaseLocation.isDataDirectoryName(((location as NSString).deletingLastPathComponent as NSString).lastPathComponent) {
-                    location = ((location as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent
-                }
-
+            if let chosen = oPanel.url {
+                var chosenIsDirectory: ObjCBool = false
+                let exists = FileManager.default.fileExists(atPath: chosen.path, isDirectory: &chosenIsDirectory)
+                let location = exists ? choice.folder(forChosenPath: chosen.path, isDirectory: chosenIsDirectory.boolValue,
+                                                      isDataDirectoryName: { DatabaseLocation.isDataDirectoryName($0) }) : nil
                 var isDirectory: ObjCBool = false
 
-                if FileManager.default.fileExists(atPath: location, isDirectory: &isDirectory) {
-                    if isDirectory.boolValue {
-                        let dict = NSDictionary(objects: [location, (location as NSString).lastPathComponent + NSLocalizedString(" DB", comment: "DB = DataBase")], forKeys: ["Path" as NSString, "Description" as NSString])
+                // The access the panel gave is kept for the next launches: without
+                // it the entry would open nothing once the application is reopened.
+                if let location, FileManager.default.fileExists(atPath: location, isDirectory: &isDirectory), isDirectory.boolValue,
+                   SandboxFileAccess.remember(chosen) {
+                    let dict = NSDictionary(objects: [location, (location as NSString).lastPathComponent + NSLocalizedString(" DB", comment: "DB = DataBase")], forKeys: ["Path" as NSString, "Description" as NSString])
 
-                        self.localPaths?.addObject(dict)
+                    self.localPaths?.addObject(dict)
 
-                        self.localPaths?.tableView()?.scrollRowToVisible(self.selectedRow(self.localPaths))
-                    }
+                    self.localPaths?.tableView()?.scrollRowToVisible(self.selectedRow(self.localPaths))
                 }
             }
 

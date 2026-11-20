@@ -4,18 +4,22 @@
 The red marker of the current image on the strip above the 2D viewport was
 3 pt wide whatever the viewer showed; with a MIP, MinIP, mean or volume
 rendering slab of N images the current image stands for N of them, and the
-marker now covers them: from the current image towards the end of the strip,
-as many as the series still has. The strip is flipped with the data, and so
-is the slab (DCMPix folds the images below the current one when the data is
-flipped), so in the strip's own order the slab always runs forward.
+marker covers them: the slab is centred on the current image, with the image
+more of an even slab towards the end of the strip, and is kept inside the
+series at both ends, so the marker is as wide on every image and stops where
+the slab does. The strip is flipped with the data, and so is the slab (DCMPix
+turns it the other way when the data is flipped), so in the strip's own order
+the slab always goes forward.
 
-ImageNavigationSlider, compiled with HorosCellSlider: the marker's span for
-one image, a slab, a slab at the end of the series and a single-image series.
-In the sources: the controller gives the strip the slab's size whenever it
-moves the strip, and DCMView's setFusion, where every change of thick slab
-mode or thickness ends, moves it.
+ImageNavigationSlider, compiled with HorosCellSlider and IsiXImaging, whose
+ThickSlabSpan is the rule: the marker's span for one image, an odd and an
+even slab, a slab at either end of the series, a slab of more images than the
+series and a single-image series. In the sources: the controller gives the
+strip the slab's size whenever it moves the strip, and DCMView's setFusion,
+where every change of thick slab mode or thickness ends, moves it.
 """
 import private_tmpdir  # noqa: F401  - its own TMPDIR for the tools it runs
+import isix_modules
 import re
 import subprocess
 import sys
@@ -34,9 +38,25 @@ let bar = NSRect(x: 1, y: 0, width: 200, height: 6)
 let one = ImageNavigationSlider.markerSpan(index: 10, slab: 1, count: 100, bar: bar)
 check(near(one.lowerBound, 20.5) && near(one.upperBound, 23.5), "one image: \(one), not 3 pt centred on the image")
 let slab = ImageNavigationSlider.markerSpan(index: 10, slab: 5, count: 100, bar: bar)
-check(near(slab.lowerBound, 21) && near(slab.upperBound, 31), "a slab of 5: \(slab), not images 10 to 14")
-let last = ImageNavigationSlider.markerSpan(index: 98, slab: 5, count: 100, bar: bar)
-check(near(last.lowerBound, 197) && near(last.upperBound, 201), "at the end: \(last), not images 98 and 99")
+check(near(slab.lowerBound, 17) && near(slab.upperBound, 27), "a slab of 5: \(slab), not images 8 to 12")
+let even = ImageNavigationSlider.markerSpan(index: 10, slab: 4, count: 100, bar: bar)
+check(near(even.lowerBound, 19) && near(even.upperBound, 27), "a slab of 4: \(even), not images 9 to 12")
+// At either end the slab is kept inside the series: as wide as anywhere, and still while the image goes on.
+for index in 97...99 {
+    let last = ImageNavigationSlider.markerSpan(index: index, slab: 5, count: 100, bar: bar)
+    check(near(last.lowerBound, 191) && near(last.upperBound, 201), "at the end, image \(index): \(last), not images 95 to 99")
+}
+for index in 0...2 {
+    let first = ImageNavigationSlider.markerSpan(index: index, slab: 5, count: 100, bar: bar)
+    check(near(first.lowerBound, 1) && near(first.upperBound, 11), "at the start, image \(index): \(first), not images 0 to 4")
+}
+let widths = (0..<100).map { index -> CGFloat in
+    let span = ImageNavigationSlider.markerSpan(index: index, slab: 7, count: 100, bar: bar)
+    return span.upperBound - span.lowerBound
+}
+check(widths.allSatisfy { near($0, 14) }, "a slab of 7 is seven images wide on every image")
+let all = ImageNavigationSlider.markerSpan(index: 40, slab: 250, count: 100, bar: bar)
+check(near(all.lowerBound, 1) && near(all.upperBound, 201), "more images than the series has: \(all), not the whole strip")
 let narrow = ImageNavigationSlider.markerSpan(index: 0, slab: 2, count: 400, bar: bar)
 check(near(narrow.upperBound - narrow.lowerBound, 3), "a slab narrower than the marker: \(narrow)")
 let single = ImageNavigationSlider.markerSpan(index: 0, slab: 4, count: 1, bar: bar)
@@ -47,7 +67,7 @@ let slider = ImageNavigationSlider(frame: NSRect(x: 0, y: 0, width: 202, height:
 check(slider.slabImageCount == 1, "a new strip has a slab")
 slider.slabImageCount = 7
 check(slider.slabImageCount == 7, "the strip keeps its slab")
-print("PASS: one image, a slab, the end of the series, a narrow slab and a single image")
+print("PASS: one image, an odd and an even slab around it, both ends of the series, the whole series, a narrow slab and a single image")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-slab-marker-') as folder:
@@ -55,11 +75,12 @@ with tempfile.TemporaryDirectory(prefix='horos-slab-marker-') as folder:
     (folder / 'main.swift').write_text(driver)
     binary = folder / 'driver'
     build = subprocess.run(['xcrun', 'swiftc', '-o', str(binary), str(root / 'Horos/Sources/HorosCellSlider.swift'),
-                            str(root / 'Horos/Sources/ImageNavigationSlider.swift'), str(folder / 'main.swift')],
+                            str(root / 'Horos/Sources/ImageNavigationSlider.swift'), str(folder / 'main.swift'),
+                            *isix_modules.module_flags('IsiXImaging', folder / 'modules')],
                            capture_output=True, text=True)
     if build.returncode:
         print(build.stdout + build.stderr)
-        failures.append('ImageNavigationSlider does not compile on its own')
+        failures.append('ImageNavigationSlider does not compile with HorosCellSlider and IsiXImaging')
     else:
         run = subprocess.run([str(binary)], capture_output=True, text=True)
         print(run.stdout.strip())
@@ -69,6 +90,8 @@ with tempfile.TemporaryDirectory(prefix='horos-slab-marker-') as folder:
 slider = (root / 'Horos/Sources/ImageNavigationSlider.swift').read_text(encoding='utf-8')
 if not re.search(r'Self\.markerSpan\(index: Int\(doubleValue\.rounded\(\)\), slab: slabImageCount,', slider):
     failures.append('the strip does not draw its marker from markerSpan')
+if 'ThickSlabSpan(images: slab, at: min(max(index, 0), count - 1), of: count, towardsStart: false)' not in slider:
+    failures.append("the marker does not cover the images of the slab's own rule, going forward on the strip")
 # -adjustSlider is Swift, a façade in ViewerController+SeriesNavigation.swift of
 # ViewerSlices.adjustSlider() there; the slab's count is IsiXImaging's
 # SliceNavigation.slabImageCount(stack:), at least one image.

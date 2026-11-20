@@ -31,15 +31,15 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <window title="&lt;&lt; не локализовать &gt;&gt;" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" deferred="NO" oneShot="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="default" id="12" userLabel="PrefPane">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES"/>
-            <rect key="contentRect" x="0.0" y="0.0" width="632" height="927"/>
+            <rect key="contentRect" x="0.0" y="0.0" width="632" height="947"/>
             <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="224.66300000000001" height="10"/>
             <view key="contentView" horizontalCompressionResistancePriority="1000" misplaced="YES" id="6">
-                <rect key="frame" x="0.0" y="0.0" width="632" height="927"/>
+                <rect key="frame" x="0.0" y="0.0" width="632" height="947"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <button id="101">
-                        <rect key="frame" x="24" y="892" width="502" height="18"/>
+                        <rect key="frame" x="24" y="912" width="502" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Активировать прослушиватель DICOM, когда IsiX DICOM Viewer работает" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" state="on" inset="2" id="309">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -50,7 +50,7 @@
                         </connections>
                     </button>
                     <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" titlePosition="noTitle" id="867">
-                        <rect key="frame" x="17" y="689" width="589" height="202"/>
+                        <rect key="frame" x="17" y="709" width="589" height="202"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="P2Y-0c-0gg">
                             <rect key="frame" x="1" y="1" width="587" height="200"/>
@@ -326,7 +326,7 @@
                         </view>
                     </box>
                     <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" misplaced="YES" borderType="line" title="Входящие файлы" id="908">
-                        <rect key="frame" x="17" y="477" width="589" height="183"/>
+                        <rect key="frame" x="17" y="497" width="589" height="183"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="e7K-KN-xeX">
                             <rect key="frame" x="1" y="1" width="587" height="167"/>
@@ -421,7 +421,7 @@
                         </view>
                     </box>
                     <button id="782">
-                        <rect key="frame" x="24" y="666" width="194" height="18"/>
+                        <rect key="frame" x="24" y="686" width="194" height="18"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="check" title="Включить приём DICOM TLS" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="783">
                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
@@ -432,7 +432,7 @@
                         </connections>
                     </button>
                     <button verticalHuggingPriority="750" id="724">
-                        <rect key="frame" x="222" y="666" width="100" height="17"/>
+                        <rect key="frame" x="222" y="686" width="100" height="17"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <buttonCell key="cell" type="roundRect" title="Настройки TLS" bezelStyle="roundedRect" alignment="center" controlSize="mini" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="725">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
@@ -443,7 +443,7 @@
                         </connections>
                     </button>
                     <textField verticalHuggingPriority="750" id="810">
-                        <rect key="frame" x="326" y="674" width="46" height="11"/>
+                        <rect key="frame" x="326" y="694" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="AETitle:" id="811">
                             <font key="font" metaFont="miniSystem"/>
@@ -459,7 +459,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="812">
-                        <rect key="frame" x="326" y="664" width="46" height="11"/>
+                        <rect key="frame" x="326" y="684" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Порт:" id="813">
                             <font key="font" metaFont="miniSystem"/>
@@ -475,7 +475,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="814">
-                        <rect key="frame" x="374" y="674" width="58" height="11"/>
+                        <rect key="frame" x="374" y="694" width="58" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="AETitleValue" id="815">
                             <font key="font" metaFont="miniSystem"/>
@@ -492,7 +492,7 @@
                         </connections>
                     </textField>
                     <textField verticalHuggingPriority="750" id="816">
-                        <rect key="frame" x="374" y="664" width="46" height="11"/>
+                        <rect key="frame" x="374" y="684" width="46" height="11"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <textFieldCell key="cell" controlSize="mini" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="Значение порта" id="817">
                             <font key="font" metaFont="miniSystem"/>
@@ -509,7 +509,7 @@
                         </connections>
                     </textField>
                     <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" misplaced="YES" borderType="line" title="Другие варианты" id="956">
-                        <rect key="frame" x="17" y="300" width="589" height="173"/>
+                        <rect key="frame" x="17" y="320" width="589" height="173"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="yuI-PZ-Lpe">
                             <rect key="frame" x="1" y="1" width="587" height="157"/>
@@ -676,16 +676,27 @@
                         </view>
                     </box>
                     <box autoresizesSubviews="NO" horizontalCompressionResistancePriority="1000" borderType="line" title="Сообщения XML-RPC и схемы URL" id="XRP-bx-box">
-                        <rect key="frame" x="17" y="16" width="589" height="280"/>
+                        <rect key="frame" x="17" y="16" width="589" height="300"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                         <view key="contentView" id="XRP-bx-cvw">
-                            <rect key="frame" x="1" y="1" width="587" height="264"/>
+                            <rect key="frame" x="1" y="1" width="587" height="284"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
+                                <button id="LNK-sp-btn">
+                                    <rect key="frame" x="15" y="258" width="555" height="18"/>
+                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                    <buttonCell key="cell" type="check" title="Открывать ссылки [ isix:// , horos:// , osirix:// ]" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="LNK-sp-cel">
+                                        <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                        <font key="font" metaFont="smallSystem"/>
+                                    </buttonCell>
+                                    <connections>
+                                        <binding destination="296" name="value" keyPath="values.LinkSchemeSupport" id="LNK-sp-val"/>
+                                    </connections>
+                                </button>
                                 <button id="332">
                                     <rect key="frame" x="15" y="238" width="399" height="18"/>
                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                    <buttonCell key="cell" type="check" title="Включить поддержку URL и XML-RPC по HTTP на порту:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
+                                    <buttonCell key="cell" type="check" title="Включить XML-RPC по HTTP на порту:" bezelStyle="regularSquare" imagePosition="left" alignment="left" controlSize="small" inset="2" id="333">
                                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                         <font key="font" metaFont="smallSystem"/>
                                     </buttonCell>
@@ -815,7 +826,6 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="296" name="value" keyPath="values.XMLRPCWithPOD" id="1059"/>
-                                        <binding destination="296" name="enabled" keyPath="values.httpXMLRPCServer" id="8MG-Ff-uBh"/>
                                     </connections>
                                 </button>
                                 <button id="wbP-vz-45S">
@@ -827,7 +837,6 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="296" name="value" keyPath="values.CloseAllWindowsBeforeXMLRPCOpen" id="dra-CQ-94c"/>
-                                        <binding destination="296" name="enabled" keyPath="values.httpXMLRPCServer" id="PzW-gj-n3h"/>
                                     </connections>
                                 </button>
                                 <button id="XRP-nr-btn">
@@ -851,7 +860,6 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="296" name="value" keyPath="values.bringOsiriXToFrontAfterReceivingMessage" id="XRP-bf-btn-v"/>
-                                        <binding destination="296" name="enabled" keyPath="values.httpXMLRPCServer" id="XRP-bf-btn-e"/>
                                     </connections>
                                 </button>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="XRP-wt-lbl">
@@ -877,7 +885,6 @@
                                     </textFieldCell>
                                     <connections>
                                         <binding destination="296" name="value" keyPath="values.httpXMLRPCServerWaitForStudy" id="XRP-wt-bnd"/>
-                                        <binding destination="296" name="enabled" keyPath="values.httpXMLRPCServer" id="XRP-wt-enb"/>
                                     </connections>
                                 </textField>
                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" id="XRP-ws-lbl">
@@ -898,7 +905,6 @@
                                     </buttonCell>
                                     <connections>
                                         <binding destination="296" name="value" keyPath="values.httpXMLRPCServerShowFailureAlerts" id="XRP-al-bv"/>
-                                        <binding destination="296" name="enabled" keyPath="values.httpXMLRPCServer" id="XRP-al-be"/>
                                     </connections>
                                 </button>
                             </subviews>

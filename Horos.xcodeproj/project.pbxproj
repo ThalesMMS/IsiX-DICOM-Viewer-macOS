@@ -191,6 +191,7 @@
 		7A1C0E5B9D2F4A63B8E4C1D7 /* LegacyPluginZlibExports.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F8B2D6A1E9C4F57A0D3B6E2 /* LegacyPluginZlibExports.c */; };
 		DC4978392CFF40CDB732EBC9 /* AsyncSocket+CAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = AB7C907540AE4BA2AB40BBFB /* AsyncSocket+CAPI.m */; };
 		A37302000000000000000002 /* PlanarMetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A37302000000000000000001 /* PlanarMetalRenderer.swift */; };
+		7C5E1A9D4B3F4E02A6D18F38 /* PlanarThickSlabSlices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C5E1A9D4B3F4E02A6D18F37 /* PlanarThickSlabSlices.swift */; };
 		A1410B010000000000000001 /* FinderPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1410F010000000000000001 /* FinderPreview.swift */; };
 		A1410B020000000000000002 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1410F020000000000000002 /* PreviewViewController.swift */; };
 		A1410B030000000000000003 /* FinderPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1410F010000000000000001 /* FinderPreview.swift */; };
@@ -264,6 +265,15 @@
 		BD4B21F979F9459381AB1FF2 /* DCMTKQueryNode+LegacyPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 777BC8DFCA2D4DDA89FA235A /* DCMTKQueryNode+LegacyPluginSDK.swift */; };
 		EC020389F7994FE1BF95FEB6 /* BrowserController+LegacyPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F4941140194229A36EDD37 /* BrowserController+LegacyPluginSDK.swift */; };
 		69ED464376C4406E80624FBB /* Wait+LegacyPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 620499C59CD649528E829469 /* Wait+LegacyPluginSDK.swift */; };
+		6FD8B669324CC829FD4DFEBE /* DCMPix+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F482A55AF92D05FAE8DE1AB /* DCMPix+LaterPluginSDK.swift */; };
+		416C9681F74FE30DB74E11F9 /* DicomDatabaseObjects+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = D183012BF8F059A8C9D03DD3 /* DicomDatabaseObjects+LaterPluginSDK.swift */; };
+		2D0F2A18650EF40F7F8A6B9D /* LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB6F09E2EB688A6C294A3C1 /* LaterPluginSDK.swift */; };
+		DC7E77CA04512E7E813699B2 /* AppKitCategories+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4397C41B55F9FEC2CA9E972E /* AppKitCategories+LaterPluginSDK.swift */; };
+		8F2237346051651DD99D8B32 /* FoundationCategories+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972496261DA2233E74BCF154 /* FoundationCategories+LaterPluginSDK.swift */; };
+		97F9A15271978486CC732662 /* LaterPluginSDKViewerAnswers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AEF9A35A06C217DCFC4EAE0 /* LaterPluginSDKViewerAnswers.swift */; };
+		F54AE502696B086E432F732D /* LaterPluginSDKAnswers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635D5CE851006725C10771CB /* LaterPluginSDKAnswers.swift */; };
+		2F61C122BE1247D1B46AFCD1 /* PluginFilter+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5BAC739705934AAD108378 /* PluginFilter+LaterPluginSDK.swift */; };
+		39EEE34A533B0605012C47CC /* ROI+LaterPluginSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEADC9E96FF653DF7A6E0A7C /* ROI+LaterPluginSDK.swift */; };
 		DB65D48FFE4846F392799159 /* WaitProgressIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04C954B0B2204EF4B57AD2C5 /* WaitProgressIndicator.swift */; };
 		BB96495434464A35AA315FC1 /* WaitIndeterminateBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B7D5B171D774510ABCB8DCC /* WaitIndeterminateBar.swift */; };
 		8267F9067F674F54B2C8C70E /* RelatedStudies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB5133F846C47ACA4BA529A /* RelatedStudies.swift */; };
@@ -417,6 +427,7 @@
 		0915F12E7EBE4A778BB131FE /* ITKVolumeImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C680F5905F4394B7F7B9B9 /* ITKVolumeImport.swift */; };
 		F252C57A07BF4819A8C0C40C /* KeychainCertificatePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B962AA48904048DA8B1F9B91 /* KeychainCertificatePresentation.swift */; };
 		55310E93C1274B37B8708E12 /* XMLRPCListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C03FDDFF9904CDCB726B8FD /* XMLRPCListener.swift */; };
+		8689D999B92841C48C52D1B6 /* XMLRPCNetworkServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95D8D58AC1244F03B22D9987 /* XMLRPCNetworkServer.swift */; };
 		E273AA6EF7F24E8BBB530281 /* HTTPConnectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017FBD8662CA4B9FAD238A6D /* HTTPConnectionEngine.swift */; };
 		7211B2026CE34D26B79E67E8 /* HTTPServerListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4CC9C0295B445BA0E7A803 /* HTTPServerListener.swift */; };
 		C28A2D2249764014B5D825D8 /* DICOMBonjourDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA0AC838FD14FF4BF623580 /* DICOMBonjourDiscovery.swift */; };
@@ -502,6 +513,7 @@
 		ABC078FDB975458FA91AA710 /* MediaImportJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 704060F3B0DB493E93A17CF9 /* MediaImportJob.swift */; };
 		043D4E4D77CE42728CA48B4F /* DatabaseFileConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25377BC20678460EBCD7E94A /* DatabaseFileConversion.swift */; };
 		EFE5097BAC444552BD44B9E7 /* IncomingAdmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEB6CBACD74407D8D2BF113 /* IncomingAdmission.swift */; };
+		52280C5EBFCABAFFEB8BCB49 /* IndependentDatabaseNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139A0362C536DE2007179F50 /* IndependentDatabaseNotice.swift */; };
 		24E2C1F3FAD44D5B84629809 /* DicomFileIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2281914FDAA249F18C0C4B01 /* DicomFileIndexer.swift */; };
 		47E9CF4C146E43CA939628F4 /* DicomDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DACB7DBDE8483FB6391455 /* DicomDatabase.swift */; };
 		4215FBE29B06419B825B14C3 /* MoveDestinations.swift in Sources */ = {isa = PBXBuildFile; fileRef = E891A555056640D8AAADAF90 /* MoveDestinations.swift */; };
@@ -1872,6 +1884,7 @@
 		CEC0BFA015A597DB0012D879 /* ComparativeCell.h in Headers */ = {isa = PBXBuildFile; fileRef = CEC0BF9E15A597DB0012D879 /* ComparativeCell.h */; };
 		CEC4B5C10C7DF2D600AF5A76 /* 3DPRESETS in Resources */ = {isa = PBXBuildFile; fileRef = CEC4B5A20C7DF2D600AF5A76 /* 3DPRESETS */; };
 		CECDBE6A0C95467B006B11A5 /* AnnotationsDefault.plist in Resources */ = {isa = PBXBuildFile; fileRef = CECDBE690C95467B006B11A5 /* AnnotationsDefault.plist */; };
+		6159FC1CA518E88B67EDE9C0 /* LaterPluginSDKAnswers.json in Resources */ = {isa = PBXBuildFile; fileRef = 7C8A25158BE8C7AAF71EA88C /* LaterPluginSDKAnswers.json */; };
 		CECEF72E081BB265002ECC99 /* DICOMExport.h in Headers */ = {isa = PBXBuildFile; fileRef = CECEF72C081BB265002ECC99 /* DICOMExport.h */; };
 		CED1FD1B1035E9BB0076AB33 /* SetPixelValue.pdf in Resources */ = {isa = PBXBuildFile; fileRef = CED1FD191035E9BB0076AB33 /* SetPixelValue.pdf */; };
 		CED1FD1C1035E9BB0076AB33 /* GrowingRegion.png in Resources */ = {isa = PBXBuildFile; fileRef = CED1FD1A1035E9BB0076AB33 /* GrowingRegion.png */; };
@@ -2608,6 +2621,7 @@
 		3F8B2D6A1E9C4F57A0D3B6E2 /* LegacyPluginZlibExports.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = LegacyPluginZlibExports.c; sourceTree = "<group>"; };
 		AB7C907540AE4BA2AB40BBFB /* AsyncSocket+CAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "AsyncSocket+CAPI.m"; sourceTree = "<group>"; };
 		A37302000000000000000001 /* PlanarMetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanarMetalRenderer.swift; sourceTree = "<group>"; };
+		7C5E1A9D4B3F4E02A6D18F37 /* PlanarThickSlabSlices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanarThickSlabSlices.swift; sourceTree = "<group>"; };
 		A1410F010000000000000001 /* FinderPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderPreview.swift; sourceTree = "<group>"; };
 		A1410F020000000000000002 /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
 		A1410F030000000000000003 /* ThumbnailProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailProvider.swift; sourceTree = "<group>"; };
@@ -2684,6 +2698,15 @@
 		777BC8DFCA2D4DDA89FA235A /* DCMTKQueryNode+LegacyPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMTKQueryNode+LegacyPluginSDK.swift"; sourceTree = "<group>"; };
 		93F4941140194229A36EDD37 /* BrowserController+LegacyPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrowserController+LegacyPluginSDK.swift"; sourceTree = "<group>"; };
 		620499C59CD649528E829469 /* Wait+LegacyPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Wait+LegacyPluginSDK.swift"; sourceTree = "<group>"; };
+		4F482A55AF92D05FAE8DE1AB /* DCMPix+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DCMPix+LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		D183012BF8F059A8C9D03DD3 /* DicomDatabaseObjects+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabaseObjects+LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		ACB6F09E2EB688A6C294A3C1 /* LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		4397C41B55F9FEC2CA9E972E /* AppKitCategories+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppKitCategories+LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		972496261DA2233E74BCF154 /* FoundationCategories+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FoundationCategories+LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		9AEF9A35A06C217DCFC4EAE0 /* LaterPluginSDKViewerAnswers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LaterPluginSDKViewerAnswers.swift"; sourceTree = "<group>"; };
+		635D5CE851006725C10771CB /* LaterPluginSDKAnswers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LaterPluginSDKAnswers.swift"; sourceTree = "<group>"; };
+		FA5BAC739705934AAD108378 /* PluginFilter+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PluginFilter+LaterPluginSDK.swift"; sourceTree = "<group>"; };
+		CEADC9E96FF653DF7A6E0A7C /* ROI+LaterPluginSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ROI+LaterPluginSDK.swift"; sourceTree = "<group>"; };
 		04C954B0B2204EF4B57AD2C5 /* WaitProgressIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitProgressIndicator.swift; sourceTree = "<group>"; };
 		4B7D5B171D774510ABCB8DCC /* WaitIndeterminateBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitIndeterminateBar.swift; sourceTree = "<group>"; };
 		FEB5133F846C47ACA4BA529A /* RelatedStudies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RelatedStudies.swift"; sourceTree = "<group>"; };
@@ -2837,6 +2860,7 @@
 		A6C680F5905F4394B7F7B9B9 /* ITKVolumeImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ITKVolumeImport.swift"; sourceTree = "<group>"; };
 		B962AA48904048DA8B1F9B91 /* KeychainCertificatePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeychainCertificatePresentation.swift"; sourceTree = "<group>"; };
 		3C03FDDFF9904CDCB726B8FD /* XMLRPCListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XMLRPCListener.swift"; sourceTree = "<group>"; };
+		95D8D58AC1244F03B22D9987 /* XMLRPCNetworkServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XMLRPCNetworkServer.swift"; sourceTree = "<group>"; };
 		017FBD8662CA4B9FAD238A6D /* HTTPConnectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPConnectionEngine.swift"; sourceTree = "<group>"; };
 		FF4CC9C0295B445BA0E7A803 /* HTTPServerListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPServerListener.swift"; sourceTree = "<group>"; };
 		0FA0AC838FD14FF4BF623580 /* DICOMBonjourDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DICOMBonjourDiscovery.swift"; sourceTree = "<group>"; };
@@ -2918,6 +2942,7 @@
 		704060F3B0DB493E93A17CF9 /* MediaImportJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaImportJob.swift; sourceTree = "<group>"; };
 		25377BC20678460EBCD7E94A /* DatabaseFileConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DatabaseFileConversion.swift"; sourceTree = "<group>"; };
 		EAEB6CBACD74407D8D2BF113 /* IncomingAdmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IncomingAdmission.swift"; sourceTree = "<group>"; };
+		139A0362C536DE2007179F50 /* IndependentDatabaseNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndependentDatabaseNotice.swift; sourceTree = "<group>"; };
 		2281914FDAA249F18C0C4B01 /* DicomFileIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomFileIndexer.swift"; sourceTree = "<group>"; };
 		57DACB7DBDE8483FB6391455 /* DicomDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DicomDatabase.swift"; sourceTree = "<group>"; };
 		E891A555056640D8AAADAF90 /* MoveDestinations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MoveDestinations.swift"; sourceTree = "<group>"; };
@@ -4349,6 +4374,7 @@
 		CEC0BF9E15A597DB0012D879 /* ComparativeCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ComparativeCell.h; sourceTree = "<group>"; };
 		CEC4B5A20C7DF2D600AF5A76 /* 3DPRESETS */ = {isa = PBXFileReference; lastKnownFileType = folder; path = 3DPRESETS; sourceTree = "<group>"; };
 		CECDBE690C95467B006B11A5 /* AnnotationsDefault.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = AnnotationsDefault.plist; sourceTree = "<group>"; };
+		7C8A25158BE8C7AAF71EA88C /* LaterPluginSDKAnswers.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LaterPluginSDKAnswers.json; sourceTree = "<group>"; };
 		CECEF72C081BB265002ECC99 /* DICOMExport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DICOMExport.h; sourceTree = "<group>"; };
 		CED1FD191035E9BB0076AB33 /* SetPixelValue.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = SetPixelValue.pdf; sourceTree = "<group>"; };
 		CED1FD1A1035E9BB0076AB33 /* GrowingRegion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = GrowingRegion.png; sourceTree = "<group>"; };
@@ -6056,6 +6082,7 @@
 				59FB652912312D8900EBA136 /* weasis */,
 				7183153D1610651E0098576F /* weasis-ext-config.properties */,
 				CECDBE690C95467B006B11A5 /* AnnotationsDefault.plist */,
+				7C8A25158BE8C7AAF71EA88C /* LaterPluginSDKAnswers.json */,
 				CE897DD30C21D951005C669E /* texture.tif */,
 				844003990E8CF99500A00EBD /* dciodvfy */,
 				105EAFE9FCBF4A388D23A320 /* dciodvfy.lock.json */,
@@ -7336,6 +7363,15 @@
 				777BC8DFCA2D4DDA89FA235A /* DCMTKQueryNode+LegacyPluginSDK.swift */,
 				93F4941140194229A36EDD37 /* BrowserController+LegacyPluginSDK.swift */,
 				620499C59CD649528E829469 /* Wait+LegacyPluginSDK.swift */,
+				4F482A55AF92D05FAE8DE1AB /* DCMPix+LaterPluginSDK.swift */,
+				D183012BF8F059A8C9D03DD3 /* DicomDatabaseObjects+LaterPluginSDK.swift */,
+				ACB6F09E2EB688A6C294A3C1 /* LaterPluginSDK.swift */,
+				4397C41B55F9FEC2CA9E972E /* AppKitCategories+LaterPluginSDK.swift */,
+				972496261DA2233E74BCF154 /* FoundationCategories+LaterPluginSDK.swift */,
+				9AEF9A35A06C217DCFC4EAE0 /* LaterPluginSDKViewerAnswers.swift */,
+				635D5CE851006725C10771CB /* LaterPluginSDKAnswers.swift */,
+				FA5BAC739705934AAD108378 /* PluginFilter+LaterPluginSDK.swift */,
+				CEADC9E96FF653DF7A6E0A7C /* ROI+LaterPluginSDK.swift */,
 				04C954B0B2204EF4B57AD2C5 /* WaitProgressIndicator.swift */,
 				4B7D5B171D774510ABCB8DCC /* WaitIndeterminateBar.swift */,
 				FEB5133F846C47ACA4BA529A /* RelatedStudies.swift */,
@@ -7489,6 +7525,7 @@
 				A6C680F5905F4394B7F7B9B9 /* ITKVolumeImport.swift */,
 				B962AA48904048DA8B1F9B91 /* KeychainCertificatePresentation.swift */,
 				3C03FDDFF9904CDCB726B8FD /* XMLRPCListener.swift */,
+				95D8D58AC1244F03B22D9987 /* XMLRPCNetworkServer.swift */,
 				017FBD8662CA4B9FAD238A6D /* HTTPConnectionEngine.swift */,
 				FF4CC9C0295B445BA0E7A803 /* HTTPServerListener.swift */,
 				0FA0AC838FD14FF4BF623580 /* DICOMBonjourDiscovery.swift */,
@@ -7574,6 +7611,7 @@
 				704060F3B0DB493E93A17CF9 /* MediaImportJob.swift */,
 				25377BC20678460EBCD7E94A /* DatabaseFileConversion.swift */,
 				EAEB6CBACD74407D8D2BF113 /* IncomingAdmission.swift */,
+				139A0362C536DE2007179F50 /* IndependentDatabaseNotice.swift */,
 				2281914FDAA249F18C0C4B01 /* DicomFileIndexer.swift */,
 				57DACB7DBDE8483FB6391455 /* DicomDatabase.swift */,
 				E891A555056640D8AAADAF90 /* MoveDestinations.swift */,
@@ -7885,6 +7923,7 @@
 				A37306000000000000000001 /* SeriesListLayout.swift */,
 				A37303000000000000000001 /* PlanarHostRenderer.swift */,
 				A37302000000000000000001 /* PlanarMetalRenderer.swift */,
+				7C5E1A9D4B3F4E02A6D18F37 /* PlanarThickSlabSlices.swift */,
 				A37301000000000000000001 /* ROIMenuEnablement.swift */,
 				A37301000000000000000005 /* ToolModeCapability.swift */,
 				A37301000000000000000007 /* ThickSlabRange.swift */,
@@ -9458,6 +9497,7 @@
 				CE3F99710C84724B00CB38F1 /* XMLViewer.xib in Resources */,
 				CE3F99720C84724B00CB38F1 /* AYDicomPrint.xib in Resources */,
 				CECDBE6A0C95467B006B11A5 /* AnnotationsDefault.plist in Resources */,
+				6159FC1CA518E88B67EDE9C0 /* LaterPluginSDKAnswers.json in Resources */,
 				A97B73980CB380EF00E5348D /* horosplugin.png in Resources */,
 				CEEB5CCC0CCDD161008803E2 /* Centerline.tif in Resources */,
 				A977ECAD0CD1F7E500C418D8 /* QRpartiallyInDatabase.tif in Resources */,
@@ -10409,6 +10449,15 @@
 				BD4B21F979F9459381AB1FF2 /* DCMTKQueryNode+LegacyPluginSDK.swift in Sources */,
 				EC020389F7994FE1BF95FEB6 /* BrowserController+LegacyPluginSDK.swift in Sources */,
 				69ED464376C4406E80624FBB /* Wait+LegacyPluginSDK.swift in Sources */,
+				6FD8B669324CC829FD4DFEBE /* DCMPix+LaterPluginSDK.swift in Sources */,
+				416C9681F74FE30DB74E11F9 /* DicomDatabaseObjects+LaterPluginSDK.swift in Sources */,
+				2D0F2A18650EF40F7F8A6B9D /* LaterPluginSDK.swift in Sources */,
+				DC7E77CA04512E7E813699B2 /* AppKitCategories+LaterPluginSDK.swift in Sources */,
+				8F2237346051651DD99D8B32 /* FoundationCategories+LaterPluginSDK.swift in Sources */,
+				97F9A15271978486CC732662 /* LaterPluginSDKViewerAnswers.swift in Sources */,
+				F54AE502696B086E432F732D /* LaterPluginSDKAnswers.swift in Sources */,
+				2F61C122BE1247D1B46AFCD1 /* PluginFilter+LaterPluginSDK.swift in Sources */,
+				39EEE34A533B0605012C47CC /* ROI+LaterPluginSDK.swift in Sources */,
 				DB65D48FFE4846F392799159 /* WaitProgressIndicator.swift in Sources */,
 				BB96495434464A35AA315FC1 /* WaitIndeterminateBar.swift in Sources */,
 				8267F9067F674F54B2C8C70E /* RelatedStudies.swift in Sources */,
@@ -10562,6 +10611,7 @@
 				0915F12E7EBE4A778BB131FE /* ITKVolumeImport.swift in Sources */,
 				F252C57A07BF4819A8C0C40C /* KeychainCertificatePresentation.swift in Sources */,
 				55310E93C1274B37B8708E12 /* XMLRPCListener.swift in Sources */,
+				8689D999B92841C48C52D1B6 /* XMLRPCNetworkServer.swift in Sources */,
 				E273AA6EF7F24E8BBB530281 /* HTTPConnectionEngine.swift in Sources */,
 				7211B2026CE34D26B79E67E8 /* HTTPServerListener.swift in Sources */,
 				C28A2D2249764014B5D825D8 /* DICOMBonjourDiscovery.swift in Sources */,
@@ -10647,6 +10697,7 @@
 				ABC078FDB975458FA91AA710 /* MediaImportJob.swift in Sources */,
 				043D4E4D77CE42728CA48B4F /* DatabaseFileConversion.swift in Sources */,
 				EFE5097BAC444552BD44B9E7 /* IncomingAdmission.swift in Sources */,
+				52280C5EBFCABAFFEB8BCB49 /* IndependentDatabaseNotice.swift in Sources */,
 				24E2C1F3FAD44D5B84629809 /* DicomFileIndexer.swift in Sources */,
 				47E9CF4C146E43CA939628F4 /* DicomDatabase.swift in Sources */,
 				4215FBE29B06419B825B14C3 /* MoveDestinations.swift in Sources */,
@@ -10963,6 +11014,7 @@
 				7A1C0E5B9D2F4A63B8E4C1D7 /* LegacyPluginZlibExports.c in Sources */,
 				DC4978392CFF40CDB732EBC9 /* AsyncSocket+CAPI.m in Sources */,
 				A37302000000000000000002 /* PlanarMetalRenderer.swift in Sources */,
+				7C5E1A9D4B3F4E02A6D18F38 /* PlanarThickSlabSlices.swift in Sources */,
 				A37301000000000000000002 /* ROIMenuEnablement.swift in Sources */,
 				A37301000000000000000006 /* ToolModeCapability.swift in Sources */,
 				A37301000000000000000008 /* ThickSlabRange.swift in Sources */,

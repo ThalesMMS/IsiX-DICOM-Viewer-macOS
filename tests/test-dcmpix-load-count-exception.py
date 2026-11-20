@@ -26,8 +26,8 @@ calls -loadDICOMWithDCMTK
     and the count is back to zero;
   * with an entry of the parsed-file cache that raises when the load counts
     its new user, which is inside the counted scope and inside a region of
-    PapyrusLock: the exception reaches the caller with its reason, the count
-    is zero, another thread takes PapyrusLock, and +purgeCachedDictionaries
+    the lock of the cache: the exception reaches the caller with its reason,
+    the count is zero, another thread takes the lock, and +purgeCachedDictionaries
     on the main thread returns at once with the cache empty;
   * and again after the purge: the count still works.
 
@@ -157,8 +157,8 @@ extern "C" NSMutableDictionary **ProbeParsedFiles( void) __asm__( "PARSED_FILES"
 - (NSInteger) inProgress;
 @end
 extern "C" id *ProbeLoads( void) __asm__( "LOADS");
-// The application defines the lock beside its controller, which is not linked here.
-NSRecursiveLock *PapyrusLock = nil;
+// The lock of the cache, the application's own.
+extern "C" id<NSLocking> *ProbeLock( void) __asm__( "CACHE_LOCK");
 
 // An entry of the cache that raises when the load counts its new user.
 @interface RaisingGroup : NSMutableDictionary { NSMutableDictionary *backing; }
@@ -184,17 +184,17 @@ static long loads( void)
     return (long) ([count respondsToSelector: @selector(inProgress)] ? [count inProgress] : [(NSConditionLock*) count condition]);
 }
 
-static bool anotherThreadTakesPapyrusLock( void)
+// Whether another thread takes the lock of the cache within two seconds; it leaves it at once.
+static bool anotherThreadTakesTheLock( void)
 {
-    __block BOOL taken = NO;
+    id<NSLocking> lock = *ProbeLock();
     dispatch_semaphore_t done = dispatch_semaphore_create( 0);
     [NSThread detachNewThreadWithBlock: ^{
-        taken = [PapyrusLock tryLock];
-        if( taken) [PapyrusLock unlock];
+        [lock lock];
+        [lock unlock];
         dispatch_semaphore_signal( done);
     }];
-    dispatch_semaphore_wait( done, DISPATCH_TIME_FOREVER);
-    return taken;
+    return dispatch_semaphore_wait( done, dispatch_time( DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0;
 }
 
 static DCMPix *pixOf( NSString *path)
@@ -206,7 +206,6 @@ static DCMPix *pixOf( NSString *path)
 
 int main( int argc, char *argv[]) {
     @autoreleasepool {
-        PapyrusLock = [[NSRecursiveLock alloc] init];
         NSString *folder = [NSString stringWithUTF8String: argv[1]];
         NSString *unreadable = [folder stringByAppendingPathComponent: @"unreadable.dcm"];
         NSString *cached = [folder stringByAppendingPathComponent: @"cached.dcm"];
@@ -242,7 +241,7 @@ int main( int argc, char *argv[]) {
             expect( [raised.reason isEqualToString: @"the entry of the cache raised"], "the exception lost its reason");
             if( loads() != 0) fprintf( stderr, "the count of loads is %ld\n", loads());
             expect( loads() == 0, "a load that raised is still counted");
-            expect( anotherThreadTakesPapyrusLock(), "a load that raised inside a region of PapyrusLock left the lock with its thread");
+            expect( anotherThreadTakesTheLock(), "a load that raised inside a region of the lock of the cache left the lock with its thread");
 
             NSDate *start = [NSDate date];
             [DCMPix purgeCachedDictionaries];
@@ -251,12 +250,12 @@ int main( int argc, char *argv[]) {
             expect( waited < 3, "the purge that follows a load that raised waited for it");
             expect( (*ProbeParsedFiles()).count == 0, "the purge that follows a load that raised dropped nothing");
             expect( loads() == 0, "the purge left the count of loads taken");
-            expect( anotherThreadTakesPapyrusLock(), "the purge left PapyrusLock taken");
+            expect( anotherThreadTakesTheLock(), "the purge left the lock of the cache taken");
             [pix release];
         }
     }
     if( failures) { fprintf( stderr, "FAIL: %d check%s\n", failures, failures == 1 ? "" : "s"); return 1; }
-    printf( "a load that returns early and two that raise inside the counted scope leave no load counted, PapyrusLock free "
+    printf( "a load that returns early and two that raise inside the counted scope leave no load counted, the lock of the cache free "
             "and the purge immediate");
     return 0;
 }
@@ -272,7 +271,7 @@ if loading is None or not obj.is_file() or not loading.is_file():
     raise SystemExit(2)
 listing = subprocess.run(['nm', '-g', '--defined-only', '-j', str(loading)], capture_output=True, text=True, check=True).stdout
 probe = PROBE
-for placeholder, member in (('PARSED_FILES', '11parsedFiles'), ('LOADS', '5loads')):
+for placeholder, member in (('PARSED_FILES', '11parsedFiles'), ('LOADS', '5loads'), ('CACHE_LOCK', '4lock')):
     addressor = re.search(r'^(_\$s\w*DCMPixParsedFileCache\w*%s\w*vau)$' % member, listing, re.M)
     if addressor is None:
         print('FAIL: DCMPix+Loading.o has no DCMPixParsedFileCache.%s' % member.lstrip('0123456789'))

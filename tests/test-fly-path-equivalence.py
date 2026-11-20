@@ -222,9 +222,13 @@ for name, (w, h, d, spacing, vsize, _) in VOLUMES.items():
     PLAN.append(f'volume {name}.raw {w} {h} {d} {point(spacing)} {vsize!r}')
     # Values inside the volume's range: FlyAssistant+Histo.mm read outside its
     # histogram for the others (undefined; the module's bins there are empty).
+    # It reads the bins 10 on either side of the value's, so a value is also
+    # kept 10 bins from either end: the peaks of 'sliced' (-900 and 40, with
+    # noise of 10) are the ends of its histogram, and its values are taken at
+    # their inner edges, where the search goes inward.
     PLAN.append('thresholds ' + {'straight': '1000 0 500 12.5 980 30', 'curved': '300 -900 0 1200 600 -500',
                                  'short': '200 -200 0 100 -150', 'contrast': '350 352.5 40 -500 200',
-                                 'sliced': '-900 40 -400'}[name])
+                                 'sliced': '-890 30 -400'}[name])
     if name == 'straight':
         PLAN.append('unfinished 10 10 60 0 0 1 6')
         PLAN.append('step 1.5')

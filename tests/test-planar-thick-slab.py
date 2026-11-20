@@ -11,10 +11,14 @@ The reference is the application's own `computeThickSlab`, linked from the
 built `DCMPix.o` as `tests/test-thick-slab-cpu-reference.py` does: a 17 x 13
 series of nine slices whose values are not integers, so the mean's rounding
 depends on the order of the sum and on how the count divides it. For mean,
-maximum and minimum, thickness 1 to 6, both directions and every position
-(slabs that run off either end included), the Metal path must give the host's
-floats bit for bit, through `PlanarThickSlab.sliceIndices` (the rule the bridge
-asks), `PlanarFrame.uploadPixels`, the Metal 3 texture and the Metal 4 pilot's.
+maximum and minimum, thickness 1 to 6, 9 and 12 (all the slices, and more than
+there are), both directions and every position, the Metal path must give the
+host's floats bit for bit, through `PlanarThickSlab.sliceIndices` (the rule the
+bridge asks), `PlanarFrame.uploadPixels`, the Metal 3 texture and the Metal 4
+pilot's. A slab is centred on the slice shown and pulled back inside the series
+at either end: the rule's slices are compared with that arithmetic written out
+here, they start at the near end of the slab whichever slice is shown, and the
+slabs pulled back from an end are part of the comparison.
 At the high-quality interpolation's 2x and 3x the slab goes up as it is, for
 the fragment's bounded cubic, and an opacity table must be applied to the
 slab, not to the current slice.
@@ -39,6 +43,7 @@ import subprocess
 import sys
 import tempfile
 import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
+import isix_modules  # the slices of a slab are IsiXImaging's rule
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -78,11 +83,17 @@ if 'scalarSlab = !colour && !eightBit && stackMode >= 1 && stackMode <= 3 && sta
 reduction = read('Modules/IsiXImaging/Sources/Display/ThickSlabReduction.swift')
 made = reduction[reduction.index('public static func slab(of current'):]
 made = made[:made.index('\n    }\n')]
-if 'reduced = ThickSlabReduction.slab(of: pixels, count: width * height, slices: slices, mode: Int(pix.stackMode)' not in snapshot \
+if not re.search(r'reduced = ThickSlabReduction\.slab\(of: slices\[0\], count: width \* height, slices: Array\(slices\.dropFirst\(\)\),\s*'
+                 r'mode: Int\(pix\.stackMode\)', snapshot) \
         or 'snapshot["pixels"] = reduced' not in snapshot \
         or 'fold(into: result, count: count, slices: slices, mode: mode, workers: workers)' not in made \
         or 'if mode == mean { divide(result, count: count, by: Float(slices.count + 1)) }' not in made:
-    failures.append('the bridge does not reduce the slab by the reduction of computeThickSlab')
+    failures.append('the bridge does not reduce the slab by the reduction of computeThickSlab, from its first slice on')
+slices_rule = read('Horos/Sources/PlanarThickSlabSlices.swift')
+if 'ThickSlabSpan(images: stack, at: position, of: count, towardsStart: direction != 0).ordered' not in slices_rule \
+        or 'ThickSlabSpan(images: stack, at: Int(pixPos), of: horos_pixArray?.count ?? 0, towardsStart: stackDirection != 0)' \
+        not in read('Horos/Sources/DCMPix+DisplaySource.swift'):
+    failures.append('the bridge and computeThickSlab do not ask one rule for the slices of a slab')
 if 'slabSlices' in snapshot or 'others.append(' in snapshot:
     failures.append('the bridge copies the other slices of a scalar slab')
 if 'memcmp(kept.bytes, pixels, count) == 0' not in snapshot or '(state.slabData, state.slabCurrent) = (nil, nil)' not in read('Horos/Sources/DCMView+PlanarHost.swift'):
@@ -111,8 +122,8 @@ if not reduces:
     failures.append('the host no longer reduces a colour slab inside its 8-bit representation')
 if 'PlanarThickSlab.sliceIndices(position: pix.pixPos' not in snapshot:
     failures.append('the bridge does not ask the Swift rule for the slab slices')
-if 'guard let slice = series[index.intValue] as? DCMPix, let samples = slice.fImage else { continue }' not in snapshot:
-    failures.append('the bridge does not skip a slice without pixels, as computeMax does')
+if 'guard let slice = shown ? pix : series[index.intValue] as? DCMPix, let samples = shown ? pixels : slice.fImage else { continue }' not in snapshot:
+    failures.append('the bridge does not skip a slice without pixels, as computeMax does, or does not read the slice shown where the frame has it')
 if 'identity.generation' not in snapshot or 'state.slabKey == key' not in snapshot:
     failures.append('the slab kept between draws is not keyed by the volume generation')
 if 'accumulated * (1.0f / float(counted))' not in reslicer:
@@ -192,11 +203,14 @@ int main( int argc, char **argv) { @autoreleasepool {
     int header[ 3] = { kWidth, kHeight, kSlices };
     fwrite( header, sizeof header, 1, out);
     for( ProbePix *pix in slices) fwrite( [pix fImage], sizeof( float), kWidth * kHeight, out);
+    // Odd and even slabs, one of all the slices and one of more than there are.
+    const int thicknesses[] = { 1, 2, 3, 4, 5, 6, kSlices, kSlices + 3 };
     for( int mode = 1; mode <= 3; mode++)
-        for( int thickness = 1; thickness <= 6; thickness++)
+        for( int t = 0; t < 8; t++)
             for( int direction = 0; direction <= 1; direction++)
                 for( int position = 0; position < kSlices; position++)
                 {
+                    const int thickness = thicknesses[ t];
                     ProbePix *pix = [slices objectAtIndex: position];
                     [pix setSlab: thickness direction: direction mode: mode position: position array: slices];
                     float *got = [pix computeThickSlab];
@@ -246,7 +260,7 @@ func texture(_ image: MTLTexture) -> [Float] {
         for i in 0..<256 { gray += [UInt8(i), UInt8(i), UInt8(i), 255] }
         let curve = (0..<4096).map { Float(log10(1 + Double($0) / 4095 * 9)) }
         let table = curve.withUnsafeBytes { Data($0) }
-        var cases = 0, pixels = 0, clamped = 0, enlarged = 0, tabled = 0, fastDiffers = 0
+        var cases = 0, pixels = 0, pulledBack = 0, whole = 0, enlarged = 0, tabled = 0, fastDiffers = 0
         let fast = try MPRMetalReslicer(device: device)
 
         while offset < file.count {
@@ -259,16 +273,26 @@ func texture(_ image: MTLTexture) -> [Float] {
 
             let indices = PlanarThickSlab.sliceIndices(position: position, stack: thickness, direction: direction, count: depth)
                 .map { $0.intValue }
-            if indices.count + 1 < thickness { clamped += 1 }
+            // The slices of the slab, written here apart from the rule: as many as asked for, or all there are,
+            // (n - 1) / 2 of them before the one shown in the slab's direction, moved back inside the series at
+            // an end, and told from the near end of the slab on.
+            let fused = min(thickness, depth), before = (fused - 1) / 2
+            let centred = position - (direction != 0 ? fused - 1 - before : before)
+            let low = min(max(centred, 0), depth - fused)
+            let centredSlab = Array(low..<(low + fused))
+            expect(indices == (thickness > 1 ? (direction != 0 ? centredSlab.reversed() : centredSlab) : []),
+                   "\(label): the rule gives slices \(indices), not \(centredSlab)")
+            if thickness > depth { whole += 1 } else if thickness > 1, low != centred { pulledBack += 1 }
+            // The frame's own pixels are the first slice of the slab, the others follow in the host's order.
             func snapshot(scale: Int = 1, transfer: Bool = false) -> NSMutableDictionary {
-                let value: NSMutableDictionary = ["width": w, "height": h, "pixels": slices[position], "clut": Data(gray),
+                let value: NSMutableDictionary = ["width": w, "height": h, "pixels": slices[indices.first ?? position], "clut": Data(gray),
                     "frameIdentity": "slab-\(mode)-\(thickness)-\(direction)-\(position)", "level": 0.0, "widthWindow": 2000.0,
                     "screenToPixel": [0.0, 0.0, Double(w), 0.0, 0.0, Double(h)], "viewSize": [w * scale, h * scale],
                     "softwareScale": scale]
-                if !indices.isEmpty {
+                if indices.count > 1 {
                     value["slabMode"] = mode
-                    value["slabSlices"] = indices.reduce(into: Data()) { $0.append(slices[$1]) }
-                    value["slabCount"] = indices.count + 1
+                    value["slabSlices"] = indices.dropFirst().reduce(into: Data()) { $0.append(slices[$1]) }
+                    value["slabCount"] = indices.count
                 }
                 if transfer {
                     value["transferFunction"] = table; value["transferLevel"] = 0.0; value["transferWidth"] = 2000.0
@@ -277,7 +301,7 @@ func texture(_ image: MTLTexture) -> [Float] {
             }
 
             let frame = try PlanarFrame(snapshot())
-            expect((frame.slab == nil) == indices.isEmpty, "\(label): a slab frame for \(indices.count + 1) slices")
+            expect((frame.slab == nil) == (indices.count < 2), "\(label): a slab frame for \(max(indices.count, 1)) slices")
             let (uploaded, format, _) = try frame.uploadPixels(device: device)
             expect(format == .r32Float, "\(label): the slab is not uploaded as floats")
             let expected = floats(host), got = floats(uploaded)
@@ -293,7 +317,7 @@ func texture(_ image: MTLTexture) -> [Float] {
             }
             if let slab = frame.slab, slab.projection == .mean {
                 // For the record: the MPR's fast-math kernel on the same slices.
-                var voxels = slices[position]; voxels.append(slab.others)
+                var voxels = slices[indices[0]]; voxels.append(slab.others)
                 try fast.upload(ResliceVolume(width: w, height: h, depth: slab.count, voxels: voxels,
                                               voxelToWorld: matrix_identity_float4x4))
                 let reduced = floats(try fast.reslice(ReslicePlane(origin: SIMD3(0, 0, Float(slab.count - 1) * 0.5),
@@ -353,9 +377,10 @@ func texture(_ image: MTLTexture) -> [Float] {
                 expect(floats(result).allSatisfy { $0 == expected }, "concurrent slab output crossed requests")
             }
         }
-        expect(cases == 3 * 6 * 2 * depth, "only \(cases) cases were read")
-        expect(clamped > 0 && enlarged > 0 && tabled > 0, "the comparison missed clamped, enlarged or tabled slabs")
-        print("PASS: \(cases) slabs, \(pixels) pixels equal to computeThickSlab bit for bit through the Swift rule, the upload, the Metal 3 texture\(pilot == nil ? "" : " and the Metal 4 pilot's"); \(clamped) clamped at an end; \(enlarged) high-quality uploads and \(tabled) tabled slabs; the MPR's fast-math mean would differ in \(fastDiffers) pixels")
+        expect(cases == 3 * 8 * 2 * depth, "only \(cases) cases were read")
+        expect(pulledBack > 0 && whole == 3 * 2 * depth && enlarged > 0 && tabled > 0,
+               "the comparison missed slabs pulled back from an end, of the whole series, enlarged or tabled")
+        print("PASS: \(cases) slabs, \(pixels) pixels equal to computeThickSlab bit for bit through the Swift rule, the upload, the Metal 3 texture\(pilot == nil ? "" : " and the Metal 4 pilot's"); \(pulledBack) pulled back from an end and \(whole) of the whole series; \(enlarged) high-quality uploads and \(tabled) tabled slabs; the MPR's fast-math mean would differ in \(fastDiffers) pixels")
     }
 }
 '''
@@ -376,12 +401,13 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-slab-') as name:
 
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift', 'PlanarMetalRenderer.swift',
-               'PlanarMetal4Renderer.swift']
+               'PlanarThickSlabSlices.swift', 'PlanarMetal4Renderer.swift']
     for source in sources:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
+                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'),
+                            *isix_modules.module_flags('IsiXImaging', directory / 'isix'), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')])
     if build.returncode:
         print('FAIL: the planar renderer does not build with the thick-slab driver')

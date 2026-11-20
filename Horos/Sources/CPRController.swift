@@ -4458,11 +4458,11 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         return cost
     }
 
-    @objc(removeNode)
-    public dynamic func removeNode() {
-        if self.removeCheapestNode() {
-            self.showChangedCurvedPath()
-        }
+    @objc(removeNode) @discardableResult
+    public dynamic func removeNode() -> Bool {
+        let removed = self.removeCheapestNode()
+        if removed { self.showChangedCurvedPath() }
+        return removed
     }
 
     /// -removeNode without the views: whether a node went. The slider
@@ -4504,11 +4504,11 @@ public final class CPRController: Window3DController, @MainActor CPRViewDelegate
         return false
     }
 
-    @objc(undoLastNodeRemoval)
-    public dynamic func undoLastNodeRemoval() {
-        if self.restoreLastRemovedNode() {
-            self.showChangedCurvedPath()
-        }
+    @objc(undoLastNodeRemoval) @discardableResult
+    public dynamic func undoLastNodeRemoval() -> Bool {
+        let restored = self.restoreLastRemovedNode()
+        if restored { self.showChangedCurvedPath() }
+        return restored
     }
 
     /// -undoLastNodeRemoval without the views: whether a node came back.

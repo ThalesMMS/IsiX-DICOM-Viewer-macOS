@@ -16,8 +16,17 @@ orientation.
 current slice and the far end of the slab, so the receiver can draw the band
 rather than one line. `-syncMessage:` honoured `flippedData` when picking that
 far end and `-sync3DPosition` — the one that carries the crosshair — did not, so
-a reversed series sent the band from the wrong side. `HorosThickSlabRange` is now
-the single answer, and this requires both senders to ask it.
+a reversed series sent the band from the wrong side. A slab is centred on the
+slice shown and kept inside its series, and one rule says which slices it is
+made of, IsiXImaging's `ThickSlabSpan`: both senders, and the receiver, take the
+slab from `SyncedSlab`, which asks it with the direction of the view, and the
+rule is run here for both directions, an even slab and a slab pulled back from
+an end of the series.
+
+**The slab stands where its middle is.** The slice in the middle of the slab is
+the slice shown, except within half a slab of an end of the series. The point
+of the crosshair is told on that plane, the location the other viewers follow
+is its location, the receiver follows it, and draws the two ends of the slab.
 """
 from pathlib import Path
 import re
@@ -28,6 +37,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'tests'))
 import app_object_probe  # noqa: E402
+import isix_modules  # noqa: E402
 import roi_harness  # noqa: E402
 
 obj = app_object_probe.built_object('DCMPix')
@@ -39,49 +49,56 @@ failures = []
 
 # -------------------------------------------------------------- the slab rule
 
-rule = root / 'Horos/Sources/ThickSlabRange.swift'
-if not rule.is_file():
-    failures.append('Horos/Sources/ThickSlabRange.swift is missing')
-else:
-    driver = r'''
+driver = r'''
 import Foundation
+import IsiXImaging
 
 @main struct Check {
     static func main() {
-        typealias R = ThickSlabRange
-        // No slab: nothing to send as a second end.
-        precondition(R.farEndIndex(currentIndex: 4, stack: 1, count: 16, flippedData: false) == -1)
-        precondition(R.farEndIndex(currentIndex: 4, stack: 0, count: 16, flippedData: false) == -1)
-        precondition(R.farEndIndex(currentIndex: 0, stack: 4, count: 0, flippedData: false) == -1)
+        func slab(_ images: Int, at current: Int, of count: Int, reversed: Bool) -> ThickSlabSpan {
+            ThickSlabSpan(images: images, at: current, of: count, towardsStart: reversed)
+        }
+        // No slab: the slice alone, which has no second end to send.
+        for images in [1, 0] {
+            let alone = slab(images, at: 4, of: 16, reversed: false)
+            precondition(alone.nearEnd == 4 && alone.farEnd == 4 && alone.middle == 4 && alone.count == 1)
+        }
 
-        // The slab runs forward, or backward when the series is reversed. This
-        // is the difference -sync3DPosition did not make.
-        precondition(R.farEndIndex(currentIndex: 4, stack: 5, count: 16, flippedData: false) == 8)
-        precondition(R.farEndIndex(currentIndex: 8, stack: 5, count: 16, flippedData: true) == 4)
-        precondition(R.farEndIndex(currentIndex: 4, stack: 5, count: 16, flippedData: false)
-                     != R.farEndIndex(currentIndex: 4, stack: 5, count: 16, flippedData: true))
+        // The slab is around the slice shown, and goes forward, or backward when
+        // the series is reversed. This is the difference -sync3DPosition did not make.
+        let forward = slab(5, at: 8, of: 16, reversed: false), backward = slab(5, at: 8, of: 16, reversed: true)
+        precondition(forward.nearEnd == 6 && forward.farEnd == 10 && forward.middle == 8)
+        precondition(backward.nearEnd == 10 && backward.farEnd == 6 && backward.middle == 8)
+        precondition(forward.farEnd != backward.farEnd)
+        // An even slab has its slice more on the side it goes.
+        precondition(slab(4, at: 8, of: 16, reversed: false).indices == 7...10 && slab(4, at: 8, of: 16, reversed: false).farEnd == 10)
+        precondition(slab(4, at: 8, of: 16, reversed: true).indices == 6...9 && slab(4, at: 8, of: 16, reversed: true).farEnd == 6)
 
-        // A slab may reach past either end; the index still has to be one.
-        precondition(R.farEndIndex(currentIndex: 14, stack: 8, count: 16, flippedData: false) == 15)
-        precondition(R.farEndIndex(currentIndex: 1, stack: 8, count: 16, flippedData: true) == 0)
-        precondition(R.farEndIndex(currentIndex: 0, stack: 2, count: 1, flippedData: false) == 0)
+        // A slab that would reach past an end is pulled back: its ends are slices
+        // of the series, it keeps its slices, and its middle is not the slice shown.
+        let last = slab(8, at: 14, of: 16, reversed: false)
+        precondition(last.nearEnd == 8 && last.farEnd == 15 && last.middle == 11 && last.count == 8)
+        let first = slab(8, at: 1, of: 16, reversed: true)
+        precondition(first.nearEnd == 7 && first.farEnd == 0 && first.middle == 4 && first.count == 8)
+        precondition(slab(8, at: 15, of: 16, reversed: false) == last && slab(8, at: 11, of: 16, reversed: false) == last)
+        precondition(slab(2, at: 0, of: 1, reversed: false).indices == 0...0)
         print("rule ok")
     }
 }
 '''
-    with tempfile.TemporaryDirectory(prefix='horos-thick-slab-') as folder:
-        path = Path(folder)
-        (path / 'Check.swift').write_text(driver)
-        build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(rule),
-                                str(path / 'Check.swift'), '-o', str(path / 'check')],
-                               capture_output=True, text=True)
-        if build.returncode:
-            failures.append('the slab rule does not compile: %s'
-                            % build.stderr.strip().splitlines()[-3:])
-        else:
-            run = subprocess.run([str(path / 'check')], capture_output=True, text=True)
-            if run.returncode:
-                failures.append('the slab rule does not answer: %s' % run.stderr.strip())
+with tempfile.TemporaryDirectory(prefix='horos-thick-slab-') as folder:
+    path = Path(folder)
+    (path / 'Check.swift').write_text(driver)
+    build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(path / 'Check.swift'),
+                            *isix_modules.module_flags('IsiXImaging', path / 'modules'), '-o', str(path / 'check')],
+                           capture_output=True, text=True)
+    if build.returncode:
+        failures.append('the slab rule does not compile: %s'
+                        % build.stderr.strip().splitlines()[-3:])
+    else:
+        run = subprocess.run([str(path / 'check')], capture_output=True, text=True)
+        if run.returncode:
+            failures.append('the slab rule does not answer: %s' % run.stderr.strip())
 
 # ----------------------------------------------------- both senders ask for it
 
@@ -119,8 +136,10 @@ if not sender:
     failures.append('-[DCMView sync3DPosition] is gone')
 else:
     text = sender
-    if not re.search(r'\bThickSlabRange\.farEndIndex\(', text):
-        failures.append('sync3DPosition must ask HorosThickSlabRange for the far end of the slab')
+    if 'let slab = SyncedSlab(shownIn: self)' not in text or 'let thickDCM = slab.farEnd' not in text:
+        failures.append('sync3DPosition must ask SyncedSlab for the far end of the slab')
+    if 'location: Float((slab.middle ?? dcmPixList.object(at: current) as? DCMPix)?.sliceLocation ?? 0)' not in text:
+        failures.append('sync3DPosition does not send the location of the middle of the slab')
     if re.search(r'stack\s*-\s*1\)', text):
         failures.append('sync3DPosition still computes the slab end itself')
     if 'farEndImage: thickDCM' not in text:
@@ -132,13 +151,43 @@ message = swift_method(windowLevel, '@objc(syncMessage:)')
 if message is None:
     failures.append('-[DCMView syncMessage:] is gone')
 else:
-    if not re.search(r'\bThickSlabRange\.farEndIndex\(', message):
-        failures.append('syncMessage: must ask HorosThickSlabRange for the far end of the slab')
+    if 'let slab = SyncedSlab(shownIn: self)' not in message or 'let thickDCM = slab.farEnd' not in message:
+        failures.append('syncMessage: must ask SyncedSlab for the far end of the slab')
+    if 'let p = slab.middle ?? self.horos_dcmPixList?.object(at: current) as? DCMPix' not in message \
+            or 'location: Float(p?.sliceLocation ?? 0)' not in message or 'image: self.curDCM, farEndImage: thickDCM' not in message:
+        failures.append('syncMessage: does not send the image shown with the location of the middle of the slab')
     # stack -1), in Swift also through the optional chain: stack ?? 0) - 1).
     if re.search(r'stack(?:\s*\?\?\s*0\s*\))?\s*-\s*1\)', message):
         failures.append('syncMessage: still computes the slab end itself')
     if 'farEndImage: thickDCM' not in message or keys.get('farEndImage') != 'DCMPix2':
         failures.append('syncMessage: no longer sends the far end at all')
+
+# One answer for the slab: the rule, asked with the direction of the view
+# (flipped data) or of the image's own slab, never an end computed in place.
+shared = windowLevel[windowLevel.index('@MainActor struct SyncedSlab {'):]
+shared = shared[:shared.index('\n}\n')]
+if 'ThickSlabSpan(images: stack, at: current, of: count, towardsStart: flipped)' not in shared \
+        or '(nearEnd, farEnd, middle) = (image(span.nearEnd), image(span.farEnd), image(span.middle))' not in shared \
+        or 'flipped: view.horos_flippedData' not in shared or "flipped: (pix?.stackDirection ?? 0) != 0" not in shared:
+    failures.append('SyncedSlab does not take the ends and the middle of the slab from ThickSlabSpan, in the direction of the slab')
+if re.search(r'stack\s*-\s*1\)', shared):
+    failures.append('SyncedSlab computes a slab end itself')
+# A picture of the slab is written where the slab is: its position is moved
+# from the image shown to the plane midway between the slab's ends, where the
+# slice location written beside it is.
+move = shared[shared.find('func moveToCentre('):]
+if '(horosPlaneOrigin(nearEnd) + horosPlaneOrigin(farEnd)) / 2 - horosPlaneOrigin(shown)' not in move \
+        or 'guard let nearEnd, let farEnd, let shown' not in move:
+    failures.append('SyncedSlab does not move an origin from the image shown to the plane midway between the ends of the slab')
+capture = (root / 'Horos/Sources/DCMView+Capture.swift').read_text()
+written = capture[capture.find('self.getThickSlabThickness(&thickness, location: &location)'):]
+moved, set_position = written.find('SyncedSlab(shownIn: self).moveToCentre(&imOrigin, from: self.curDCM)'), written.find('exportDCM?.setPosition(&imOrigin)')
+if not 0 < written.find('exportDCM?.setSlicePosition(location)') < moved < set_position:
+    failures.append('the exported picture of a slab says the location of the slab and the position of the image shown')
+slices = swift_method(windowLevel, '@objc(computeSlice::)')
+if slices is None or 'cut(oPix2 != nil ? SyncedSlab(of: oPix).nearEnd ?? oPix : oPix, self.horos_sliceFromTo)' not in slices \
+        or 'cut(oPix2, self.horos_sliceFromTo2)' not in slices:
+    failures.append('the reference lines of a slab are not its two ends')
 
 # The receiver has to consume patient coordinates, and only inside the same-world
 # guard -- otherwise the crosshair would cross frames of reference.
@@ -153,6 +202,8 @@ else:
     for key in ('point3DX', 'point3DY', 'point3DZ'):
         if not any('Key.%s' % name in reader for name, value in keys.items() if value == key):
             failures.append('sync: no longer reads %s' % key)
+    if 'let oPix = SyncedSlab(of: received.image).middle ?? received.image' not in text:
+        failures.append('sync: does not follow the plane in the middle of the slab')
     if 'ReceivedSync(note)' not in text or 'message.patientPoint' not in text:
         failures.append('sync: no longer reads the patient point of the message')
     if 'findPlaneAndPoint(' not in text:
@@ -164,8 +215,8 @@ else:
     if world < 0 or point < 0 or not world < point:
         failures.append('the patient-coordinate crosshair must stay inside the same-world guard')
 
-if sender and 'curDCM.convertX(' not in sender:
-    failures.append('sync3DPosition no longer converts the mouse position to patient coordinates')
+if sender and '(slab.middle ?? curDCM).convertX(self.horos_mouseXPos, pixY: self.horos_mouseYPos, toDICOMCoords: &location' not in sender:
+    failures.append('sync3DPosition no longer converts the mouse position to patient coordinates, on the plane in the middle of the slab')
 
 # -convertDICOMCoords:toSliceCoords: answers in millimetres; the drawing turns
 # that into pixels. Both halves have to stay, or the crosshair moves by the
@@ -179,10 +230,6 @@ if not handed or 'var x = Float(Double(point.0) / pixelSpacingX)' not in geometr
     failures.append('the crosshair is no longer divided by pixelSpacingX before being drawn')
 if not handed or 'var y = Float(Double(point.1) / pixelSpacingY)' not in geometry:
     failures.append('the crosshair is no longer divided by pixelSpacingY before being drawn')
-
-project = (root / 'Horos.xcodeproj/project.pbxproj').read_text()
-if 'ThickSlabRange.swift in Sources' not in project:
-    failures.append('ThickSlabRange.swift is not compiled into the Horos target')
 
 # ------------------------------------------------------ the coordinate round trip
 
@@ -302,4 +349,4 @@ if failures:
         print(' ', item)
     raise SystemExit(1)
 
-print('PASS: %s; both senders agree on the far end of a thick slab' % roundTrip)
+print('PASS: %s; both senders and the receiver take the ends and the middle of a thick slab from one rule' % roundTrip)

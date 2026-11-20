@@ -41,8 +41,9 @@ import Foundation
 
 /// Where another viewer's slice cuts the receiver's, in the coordinates of
 /// its slice: the cut, the two ends of the source's series when its images
-/// share one orientation, the far end of a thick slab, the slab's thickness
-/// and the direction of the cut. The view keeps them as float[2][3] arrays,
+/// share one orientation, the far end of a thick slab, whose near end is then
+/// the cut, the slice's thickness and the direction of the cut. The view
+/// keeps them as float[2][3] arrays,
 /// which its drawing and the subclasses' -drawCrossLines: read.
 public struct ReferenceLines: Sendable, Equatable {
 

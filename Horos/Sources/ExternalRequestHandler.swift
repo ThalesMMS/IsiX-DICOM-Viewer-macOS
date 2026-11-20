@@ -59,8 +59,9 @@ struct LinkRequest: Sendable {
     let methodName: String
     let parameters: [String: String]
 
-    /// Runs the method, as the XML-RPC server would, and logs its answer: a
-    /// link has no caller to answer.
+    /// Runs the method in this process, as the XML-RPC server would for a
+    /// call of the network, and logs its answer: a link has no caller to
+    /// answer. Without an interface (protected mode) nothing runs.
     func run() {
         do {
             let response = try server?.methodCall(methodName, parameters: parameters)
@@ -122,38 +123,29 @@ struct LinkRequest: Sendable {
 
         guard let invocation = parsed.invocation else { return }
 
-        if !preferences[NetworkPreferences.xmlrpcServer] {
-            // The request is named, since it is dropped: a link from a RIS
-            // otherwise only brings the app to the front.
+        if !preferences[NetworkPreferences.linkSchemeSupport] {
+            // The request is named, since it waits for an answer: a link from
+            // a RIS otherwise only brings the app to the front.
             let request = RISRequestAlert.describe(method: invocation.methodName, parameters: invocation.parameters)
             // The alert names the request with its values; the log, the method and which parameters it had.
-            NSLog("horos URL not carried out, URL support is off: %@ with %@", (invocation.methodName ?? "image") as NSString,
+            NSLog("horos URL held, URL support is off: %@ with %@", (invocation.methodName ?? "image") as NSString,
                   invocation.parameters.keys.filter { $0 != "methodName" }.sorted().joined(separator: ", ") as NSString)
-            // URL support and the XML-RPC server are one preference: turning it
-            // on opens the server's port, to whoever the Listener settings let
-            // in. The alert says so, with the access as it will be.
-            let access = XMLRPCAccessPolicy.policy(from: PreferencesSource.process.preferences)
-                .summary(hasCredential: XMLRPCServerCredential.isConfigured).text
-            let message = NSLocalizedString("IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary.", comment: "")
-                + "\r\r" + String(format: NSLocalizedString("Activating it also turns on the XML-RPC server of this Mac, on port %ld. %@", comment: "URL scheme activation: what it opens, then who can send messages"),
-                                  preferences[NetworkPreferences.xmlrpcServerPort], access)
-                + "\r\r" + RISRequestAlert.notCarriedOut(request)
-            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: message, defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate & Restart", comment: ""), otherButton: nil)
+            // The links have a switch of their own: a link runs inside the
+            // application, so turning them on opens no port and leaves the
+            // XML-RPC server as it is. The alert says so, and nothing has to
+            // start again.
+            let message = NSLocalizedString("IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now?", comment: "")
+                + "\r\r" + NSLocalizedString("Links run inside IsiX DICOM Viewer: activating them opens no network port and does not turn on the XML-RPC server.", comment: "URL scheme activation: what it does not open")
+                + "\r\r" + RISRequestAlert.waitsForActivation(request)
+            let result = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""), message: message, defaultButton: NSLocalizedString("No", comment: ""), alternateButton: NSLocalizedString("Activate", comment: "URL scheme: turns the links on"), otherButton: nil)
 
-            if result == HorosAlertPanel.alternateResponse {
-                preferences.set(true, for: NetworkPreferences.xmlrpcServer)
-                processGraph.preferences.synchronize()
-                // The button promises a restart: the application opens again
-                // by itself. When that cannot be arranged it stays open and
-                // says what is left to do, instead of only disappearing.
-                if case .notScheduled(let reason) = controller.lifecycle.restart(controller) {
-                    NSLog("URL scheme turned on, but the application could not be scheduled to reopen: %@", reason as NSString)
-                    _ = HorosAlertPanel.runInformational(title: NSLocalizedString("URL scheme", comment: ""),
-                                                         message: NSLocalizedString("Restart IsiX DICOM Viewer to apply this change.", comment: ""),
-                                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
-                }
+            guard result == HorosAlertPanel.alternateResponse else {
+                NSLog("horos URL not carried out: the user left URL support off")
+                return
             }
-            return
+            preferences.set(true, for: NetworkPreferences.linkSchemeSupport)
+            processGraph.preferences.synchronize()
+            NSLog("URL support turned on from the alert of a link")
         }
 
         if let methodName = invocation.methodName, !methodName.isEmpty {
@@ -163,7 +155,7 @@ struct LinkRequest: Sendable {
             // PACS and wait up to 20 s for the study, which froze the app, the
             // Activity panel and the Dock progress. One queue keeps the links
             // in the order they came.
-            let request = LinkRequest(server: controller.xmlrpcServer, methodName: methodName, parameters: invocation.parameters)
+            let request = LinkRequest(server: controller.lifecycle.requestInterface(), methodName: methodName, parameters: invocation.parameters)
             // Whoever can put a link in front of the user can have it opened: a
             // method that changes or ends what the user is doing runs only
             // after the user agrees to the request, named with its values.

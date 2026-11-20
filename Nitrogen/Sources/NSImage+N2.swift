@@ -148,7 +148,11 @@ public final class N2Image: NSImage {
         }
     }
 
+    /// -crop:, which NSImage also answers for any image: this class answers
+    /// it with an image of its own kind, which keeps its size in inches.
     @objc(crop:)
+    override func laterSDKCropped(to cropRect: NSRect) -> NSImage? { crop(cropRect) }
+
     public func crop(_ cropRect: NSRect) -> N2Image {
         let size = self.size
 

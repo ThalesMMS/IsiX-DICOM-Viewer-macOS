@@ -60,11 +60,14 @@ extension ITKSegmentation3D {
     /// the outside value.
     @MainActor
     @objc(regionGrowing3D::::::::::::::)
+    @discardableResult
     public func regionGrowing3D(_ srcViewer: ViewerController!, _ destViewer: ViewerController?, _ slice: Int,
                                 _ startingPoint: NSPoint, _ algorithmNumber: Int32, _ parameters: [Any]?, _ setIn: Bool,
                                 _ inValue: Float, _ setOut: Bool, _ outValue: Float, _ roiType: ToolMode,
-                                _ roiResolution: Int, _ newname: String?, _ mergeWithExistingROIs: Bool) {
-        guard let srcViewer else { return }
+                                _ roiResolution: Int, _ newname: String?, _ mergeWithExistingROIs: Bool) -> AnyObject? {
+        // Later headers of the plugin SDK declare an object for an answer and
+        // do not say which: nil, where the former declaration answered nothing.
+        guard let srcViewer else { return nil }
 
         let seed = RegionGrowingFilter.seed(x: Double(startingPoint.x), y: Double(startingPoint.y), slice: slice,
                                             currentImage: srcViewer.imageView()?.curImage ?? 0)
@@ -109,6 +112,7 @@ extension ITKSegmentation3D {
         }
 
         wait?.close()
+        return nil
     }
 
     /// Parameter `index` of the region growing, a number (or a numeric string).

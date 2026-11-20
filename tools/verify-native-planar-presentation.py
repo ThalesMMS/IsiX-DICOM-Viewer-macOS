@@ -295,11 +295,13 @@ def verify(path, case=None, current=False):
         else:
             assert texture_format in float_formats  # scalar float32
             minimum, span = layer['level']-layer['widthWindow']/2, layer['widthWindow']
-            start, count = layer['curImage'], layer['stack']
-            if layer['stackDirection']:
-                slab = expected[max(0,start-count+1):start+1]
-            else:
-                slab = expected[start:min(start+count,len(expected))]
+            # The slab is centred on the image shown, with the image more of
+            # an even slab on the side it goes, and kept inside the series.
+            start, count = layer['curImage'], max(1, min(layer['stack'], len(expected)))
+            before = (count-1)//2
+            first = start-(count-1-before) if layer['stackDirection'] else start-before
+            first = max(0, min(first, len(expected)-count))
+            slab = expected[first:first+count]
             mode = layer['stackMode']
             source = ({1:np.mean,2:np.max,3:np.min}[mode](slab,axis=0)
                       if mode in (1,2,3) else raw)

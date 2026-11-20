@@ -1043,10 +1043,24 @@ public class ROI: NSObject, NSCoding {
         set { rmean = newValue }
     }
 
-    @objc public dynamic var median: Double {
+    /// The median, as the application reads and sets it. Objective-C and the
+    /// plugins go through -median and -setMedian:, below.
+    public final var median: Double {
         get { _median }
         set { _median = newValue }
     }
+
+    /// The median as it was measured, for the Objective-C of the application
+    /// and of its tests: -median answers the plugins of two SDKs, and the
+    /// double it answers is the median within one part in a million.
+    @objc public final var measuredMedian: Double { _median }
+
+    /// The median for a plugin, which the former SDK declares a double and
+    /// later headers of the SDK a float: answered so that both readings find
+    /// it, the float exactly and the double within one part in a million,
+    /// and taken from whichever of the two a caller passes (RealOfBothWidths).
+    @objc(median) public dynamic func medianOfBothWidths() -> Double { RealOfBothWidths.answered(_median) }
+    @objc(setMedian:) public dynamic func setMedianOfEitherWidth(_ value: Double) { _median = RealOfBothWidths.taken(value) }
 
     /// The colour with the opacity, calibrated.
     @objc(NSColor)

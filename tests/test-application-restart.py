@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""A restart asks, schedules the reopening, then quits, and the URL scheme alert restarts.
+"""A restart asks, schedules the reopening, then quits; the URL scheme alert needs none.
 
 ApplicationRestart.swift is compiled alone with stand-ins for the three steps:
-no application is quit or opened. The wiring of the lifecycle and of the
-"Activate & Restart" button is read from the sources.
+no application is quit or opened. The wiring of the lifecycle is read from the
+sources, and so is the "Activate" button of a link's alert, which turns the
+links on and carries the request out without a restart.
 """
 from pathlib import Path
 import subprocess
@@ -91,10 +92,7 @@ def body(source, signature):
     return block[:block.index('\n    }\n')]
 
 
-# The Quit command's question; the database window that agreed before its folder
-# was moved is not asked again. Both are the one sequence.
-check("restart(sender, agree: { self.quit.agreeNow() }, droppingArgumentsFor: [])"
-      in body(lifecycle, '@discardableResult func restart(_ sender: Any?)'), 'the restart no longer asks as the Quit command does')
+# The database window that agreed before its folder was moved is not asked again.
 check('restart(sender, agree: { true }, droppingArgumentsFor: stale)'
       in body(lifecycle, '@discardableResult func restartAlreadyAgreed(_ sender: Any?, droppingArgumentsFor stale: Set<String>)'),
       'a restart agreed to beforehand asks again, or no longer is the same sequence')
@@ -125,22 +123,25 @@ check(detector.count('self.relaunch(databaseMoved: false)') == 2 and detector.co
       < detector.index('self.relaunch(databaseMoved: true)'),
       'the detector no longer tells a moved database from one left in place')
 
+# The links have a switch of their own and run inside the application: the
+# alert of a link that finds them off turns that switch on, saves it and goes
+# on to the request. Nothing restarts, and the XML-RPC server is left alone.
 handler = source_text('ExternalRequestHandler')
-branch = handler[handler.index('if result == HorosAlertPanel.alternateResponse {'):]
-branch = branch[:branch.index('            return\n')]
-turned_on = 'preferences.set(true, for: NetworkPreferences.xmlrpcServer)'
+branch = handler[handler.index('if !preferences[NetworkPreferences.linkSchemeSupport] {'):]
+branch = branch[:branch.index('        if let methodName = invocation.methodName')]
+declined = 'guard result == HorosAlertPanel.alternateResponse else {'
+turned_on = 'preferences.set(true, for: NetworkPreferences.linkSchemeSupport)'
 saved = 'processGraph.preferences.synchronize()'
-restarted = 'controller.lifecycle.restart(controller)'
-check(turned_on in branch and saved in branch and restarted in branch,
-      '"Activate & Restart" no longer turns the scheme on, saves it and restarts')
-check(turned_on in branch and restarted in branch and branch.index(turned_on) < branch.index(saved) < branch.index(restarted),
-      'the scheme is not saved before the application restarts')
-check('controller.terminate(controller)' not in branch, '"Activate & Restart" only quits again')
-check('case .notScheduled(let reason)' in branch and 'Restart IsiX DICOM Viewer to apply this change.' in branch,
-      'a restart that cannot be scheduled no longer tells the user what is left to do')
+check(declined in branch and turned_on in branch and saved in branch
+      and branch.index(declined) < branch.index(turned_on) < branch.index(saved),
+      '"Activate" no longer turns the links on and saves them, once the user agreed')
+check('lifecycle.restart' not in handler and 'terminate(' not in handler, 'turning the links on restarts or quits the application')
+check('NetworkPreferences.xmlrpcServer)' not in handler and 'NetworkPreferences.xmlrpcServer]' not in handler,
+      'a link reads or turns on the XML-RPC server')
+check("@discardableResult func restart(_ sender: Any?)" not in lifecycle, 'the restart only the alert of a link asked for is back')
 
 if failures:
     for failure in failures:
         print('FAIL:', failure)
     sys.exit(1)
-print('PASS: the lifecycle restarts through the reopening shell and "Activate & Restart" uses it')
+print('PASS: the lifecycle restarts through the reopening shell, and "Activate" of a link turns the links on without one')

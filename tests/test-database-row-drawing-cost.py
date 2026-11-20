@@ -42,6 +42,8 @@ outline = (root / 'Horos/Sources/BrowserController+OutlineDataSource.swift').rea
 cells = (root / 'Horos/Sources/StudyListCellStyler.swift').read_text()
 federated = (root / 'Horos/Sources/FederatedStudySearch.swift').read_text()
 rules = (root / 'Modules/IsiXDatabase/Sources/StudyListRowRules.swift').read_text()
+# The rules read the former titles of the columns from this file of the same module.
+titles = (root / 'Modules/IsiXDatabase/Sources/StudyListColumnTitles.swift').read_text()
 
 
 def between(text, start, end):
@@ -226,7 +228,8 @@ print("report ok")
     with tempfile.TemporaryDirectory(prefix='horos-row-drawing-') as folder:
         (Path(folder) / 'main.swift').write_text(REPORT)
         (Path(folder) / 'Rules.swift').write_text(rules)
-        built = subprocess.run(['xcrun', 'swiftc', str(Path(folder) / 'Rules.swift'), str(Path(folder) / 'main.swift'),
+        (Path(folder) / 'Titles.swift').write_text(titles)
+        built = subprocess.run(['xcrun', 'swiftc', str(Path(folder) / 'Rules.swift'), str(Path(folder) / 'Titles.swift'), str(Path(folder) / 'main.swift'),
                                 '-o', str(Path(folder) / 'report')], capture_output=True, text=True)
         if built.returncode != 0:
             failures.append('report does not compile:\n%s' % built.stderr[-2000:])

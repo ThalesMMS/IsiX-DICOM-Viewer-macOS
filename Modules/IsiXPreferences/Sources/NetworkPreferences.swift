@@ -85,11 +85,13 @@ public enum NetworkPreferences {
     public static let progressiveRetrieveViewing = PreferenceKey<Bool>("HorosProgressiveRetrieveViewing", registered: "YES")
     public static let webServer = PreferenceKey<Bool>("httpWebServer", registered: "0")
     public static let webServerPort = PreferenceKey<Int>("httpWebServerPort", registered: "3333")
+    /// The XML-RPC server of the network: a port of this Mac that answers calls. The links need none of it
+    /// (`linkSchemeSupport`).
     public static let xmlrpcServer = PreferenceKey<Bool>("httpXMLRPCServer", registered: "0")
-    /// Once the server is turned on, any address is answered without a password (scope
-    /// 2). The Listener pane says so in red and offers this Mac only, the local network and a password
-    /// instead.
-    public static let xmlrpcServerAccessScope = PreferenceKey<Int>("httpXMLRPCServerAccessScope", registered: "2")
+    /// Who the server answers once it is turned on: this Mac only (scope 0) until the Listener pane is told
+    /// the local network or any address. A server that was on before the links had a switch of their own
+    /// keeps the scope it had (LinkSupportMigration).
+    public static let xmlrpcServerAccessScope = PreferenceKey<Int>("httpXMLRPCServerAccessScope", registered: "0")
     public static let xmlrpcServerAllowedAddresses = PreferenceKey<String?>("httpXMLRPCServerAllowedAddresses", registered: "")
     public static let xmlrpcServerDoesNotRespond = PreferenceKey<Bool>("httpXMLRPCServerDoNotRespond", registered: "0")
     public static let xmlrpcServerHTTPS = PreferenceKey<Bool>("httpXMLRPCServerHTTPS", registered: "0")
@@ -256,6 +258,9 @@ public enum NetworkPreferences {
     public static let xmlrpcRetrieveOpenWaitSeconds = PreferenceKey<Int>("XMLRPCRetrieveOpenWaitSeconds", registered: "30")
 
     // The schemes of the links.
+    /// The isix://, horos:// and osirix:// links are carried out. They reach the application as Apple
+    /// Events and run inside it: no port is opened, and the XML-RPC server stays as `xmlrpcServer` says.
+    public static let linkSchemeSupport = PreferenceKey<Bool>("LinkSchemeSupport", registered: "0")
     /// What is done at launch when another application opens a scheme of the links this one declares:
     /// 0 or absent tells the user, 1 takes the scheme back without asking, 2 does nothing.
     public static let linkSchemeStartupPolicy = PreferenceKey<Int>("LinkSchemeStartupPolicy")
@@ -302,7 +307,7 @@ public enum NetworkPreferences {
         autoQueryRefreshSetting, keepsQueryWindowOnTop, betweenDatesMode, customIntervalWithHoursAndMinutes,
         searchesComparativeStudiesOnDICOMNodes, pacsOnDemandNodes, searchesSmartAlbumStudiesOnDICOMNodes, sendsROIs,
         sendTransferSyntax, lastSendServer, lastSendWhat, xmlrpcWithPACSOnDemand, xmlrpcServerShowsFailureAlerts, xmlrpcServerWaitForStudy,
-        xmlrpcRetrieveOpenWaitSeconds, linkSchemeStartupPolicy, linkSchemePreviousHandlers,
+        xmlrpcRetrieveOpenWaitSeconds, linkSchemeSupport, linkSchemeStartupPolicy, linkSchemePreviousHandlers,
     ]
 
     /// The key path of `key` in NSUserDefaultsController, whose observers and bindings hear a change of the key.

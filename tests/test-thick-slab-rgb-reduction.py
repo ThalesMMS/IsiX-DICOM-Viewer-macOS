@@ -17,9 +17,14 @@ defects made its result wrong:
     freshly allocated result were never written.
 
 The fix folds each slice into the running result (`reduced` starts at the
-current slice and becomes `fResult` once a slice has been compared), copies the
-current slice when no other slice has pixels, and gives the helpers a scalar
-tail for the pixels the vectors do not cover. The vector loop is unchanged.
+first slice of the slab that has pixels and becomes `fResult` once a slice has
+been compared), copies that slice when no other slice has pixels, and gives the
+helpers a scalar tail for the pixels the vectors do not cover. The vector loop
+is unchanged.
+
+The slab itself is the one of the grey projections: centred on the slice shown,
+with the slice more of an even slab on the side the slab goes, and pulled back
+inside the series at either end, where it keeps its slices.
 
 Two halves, both built from the sources under test:
 
@@ -35,7 +40,7 @@ Two halves, both built from the sources under test:
      nine RGB slices of 13 x 7 pixels (91, not a multiple of four), whose channel
      values put each channel's maximum and minimum in different, often middle,
      slices. For MIP and MinIP, thickness 1 to 6, both directions and every
-     position (slabs that run off an end included), and again with one slice
+     position (slabs pulled back from an end included), and again with one slice
      that has no pixels, the result must equal a scalar reference byte for byte.
      The probe runs twice under AddressSanitizer with the allocator filling new
      memory with 0x00 and with 0xFF, so an unwritten pixel cannot pass both.
@@ -191,21 +196,43 @@ static const long kBytes = kWidth * kHeight * 4;
 static int failures = 0;
 static void fail( const char *what) { fprintf( stderr, "FAIL: %s\n", what); failures++; }
 
-// The reference: the slab's slices, the current one first, reduced byte by byte.
-// A slice without pixels is skipped; the slab stops at either end of the series.
-static void reference( NSArray *slices, int position, int thickness, int direction, int mode,
-                       unsigned char *out, int *lastUsed)
+// The slices of a slab, written here apart from the application's rule:
+// `thickness` of them, (thickness - 1) / 2 before `position` in the slab's
+// direction and the rest after it, moved back inside the series at an end, and
+// all the series when it has fewer.
+static void slabRange( int position, int thickness, int direction, int count, int *first, int *last)
 {
-    memcpy( out, [[slices objectAtIndex: position] fImage], kBytes);
-    *lastUsed = position;
-    for( int i = 1; i < thickness; i++)
+    int slices = thickness < count ? thickness : count;
+    if( slices < 1) slices = 1;
+    int before = (slices - 1) / 2, after = slices - 1 - before;
+    int low = direction ? position - after : position - before;
+    if( low < 0) low = 0;
+    if( low > count - slices) low = count - slices;
+    *first = low;
+    *last = low + slices - 1;
+}
+
+// The reference: the slab's slices, from its near end to its far end, reduced
+// byte by byte. A slice without pixels is skipped.
+static void reference( NSArray *slices, int position, int thickness, int direction, int mode,
+                       unsigned char *out, int *firstUsed, int *lastUsed)
+{
+    int low, high;
+    slabRange( position, thickness, direction, (int) slices.count, &low, &high);
+    const int step = direction ? -1 : 1;
+    *firstUsed = *lastUsed = -1;
+    for( int index = direction ? high : low; index >= low && index <= high; index += step)
     {
-        int index = direction ? position - i : position + i;
-        if( index < 0 || index >= (int) slices.count) break;
         const unsigned char *next = (const unsigned char*) [[slices objectAtIndex: index] fImage];
         if( next == NULL) continue;
-        for( long b = 0; b < kBytes; b++)
-            out[ b] = mode == 2 ? MAX( out[ b], next[ b]) : MIN( out[ b], next[ b]);
+        if( *firstUsed < 0)
+        {
+            memcpy( out, next, kBytes);
+            *firstUsed = index;
+        }
+        else
+            for( long b = 0; b < kBytes; b++)
+                out[ b] = mode == 2 ? MAX( out[ b], next[ b]) : MIN( out[ b], next[ b]);
         *lastUsed = index;
     }
 }
@@ -221,12 +248,12 @@ int main(){ @autoreleasepool {
 
     unsigned char *expected = (unsigned char*) malloc( kBytes);
     unsigned char *naive = (unsigned char*) malloc( kBytes);
-    long compared = 0, clamped = 0, middle = 0, tails = 0;
+    long compared = 0, pulledBack = 0, middle = 0, tails = 0;
 
     for( int pass = 0; pass < 2; pass++)
     {
-        // The second pass takes the pixels away from one slice, which is the
-        // first neighbour of slices 3 and 5.
+        // The second pass takes the pixels away from one slice, which is then
+        // the first, a middle or the last slice of the slabs around it.
         if( pass == 1) [[slices objectAtIndex: 4] dropPixels];
 
         for( int mode = 2; mode <= 3; mode++)
@@ -241,21 +268,21 @@ int main(){ @autoreleasepool {
                         unsigned char *got = (unsigned char*) [pix computeThickSlabRGB];
                         if( got == NULL) { fail( "computeThickSlabRGB returned nothing"); continue; }
 
-                        int last;
-                        reference( slices, position, thickness, direction, mode, expected, &last);
+                        int first, last;
+                        reference( slices, position, thickness, direction, mode, expected, &first, &last);
 
-                        // What the arm64 branch used to give: the current slice against the last one.
-                        memcpy( naive, [pix fImage], kBytes);
+                        // What the arm64 branch used to give: the first slice against the last one.
+                        memcpy( naive, [[slices objectAtIndex: first] fImage], kBytes);
                         const unsigned char *lastBytes = (const unsigned char*) [[slices objectAtIndex: last] fImage];
                         for( long b = 0; b < kBytes; b++)
                             naive[ b] = mode == 2 ? MAX( naive[ b], lastBytes[ b]) : MIN( naive[ b], lastBytes[ b]);
                         if( memcmp( naive, expected, kBytes)) middle++;
 
-                        long differing = 0, tail = 0, first = -1;
+                        long differing = 0, tail = 0, firstByte = -1;
                         for( long b = 0; b < kBytes; b++)
                             if( got[ b] != expected[ b])
                             {
-                                if( first < 0) first = b;
+                                if( firstByte < 0) firstByte = b;
                                 differing++;
                                 if( b >= (kWidth * kHeight / 4) * 16) tail++;
                             }
@@ -266,12 +293,15 @@ int main(){ @autoreleasepool {
                                       "%s slab of %d at slice %d, direction %d%s: %ld of %ld bytes differ "
                                       "(%ld in the last pixels a vector does not cover), first at byte %ld",
                                       mode == 2 ? "maximum" : "minimum", thickness, position, direction,
-                                      pass ? ", slice 4 without pixels" : "", differing, kBytes, tail, first);
+                                      pass ? ", slice 4 without pixels" : "", differing, kBytes, tail, firstByte);
                             fail( message);
                             if( tail) tails++;
                         }
-                        int far = direction ? position - (thickness - 1) : position + (thickness - 1);
-                        if( far < 0 || far >= kSlices) clamped++;
+                        // A slab that would run off an end is pulled back: the slice shown is not its middle.
+                        int low, high;
+                        slabRange( position, thickness, direction, kSlices, &low, &high);
+                        const int before = (thickness - 1) / 2;
+                        if( low != (direction ? position - (thickness - 1 - before) : position - before)) pulledBack++;
                         compared++;
                         free( got);
                     }
@@ -279,12 +309,12 @@ int main(){ @autoreleasepool {
 
     // The data must be able to tell the two defects apart from a correct slab.
     if( middle == 0) fail( "no slab had its extremum in a middle slice; the data proves nothing");
-    if( clamped == 0) fail( "no slab ran off an end of the series");
+    if( pulledBack == 0) fail( "no slab was pulled back from an end of the series");
 
     if( failures) { fprintf( stderr, "FAIL: %d check%s (%ld with wrong trailing pixels)\n",
                              failures, failures == 1 ? "" : "s", tails); return 1; }
     printf( "%ld RGB slabs matched the reference byte for byte (%ld with an extremum in a middle slice, "
-            "%ld clamped at an end)", compared, middle, clamped);
+            "%ld pulled back from an end)", compared, middle, pulledBack);
     return 0;
 }}
 '''

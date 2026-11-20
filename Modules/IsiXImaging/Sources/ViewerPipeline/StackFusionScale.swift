@@ -11,53 +11,51 @@
 import Foundation
 
 /// The scale of a 2D viewer's thick slab at the image it shows: the
-/// thicknesses the slab can have there, in millimetres, where the slider's
-/// knob stands for each, the marks along its track and the text written for
-/// it.
+/// thicknesses the slab can have, in millimetres, where the slider's knob
+/// stands for each, the marks along its track and the text written for it.
 ///
-/// The slab fuses the image shown with those after it, towards the end of the
-/// series, or towards its start when the data is flipped, and stops where the
-/// series does. So the thicknesses it can have depend on the image: from the
-/// one of a single slice, S0, to that of the `available` images left, and
-/// each image more adds the distance to it along the normal of the slices.
-/// With slices that overlap (2 mm every 1 mm) two images cover 3 mm, and with
-/// slices that touch (2 mm every 2 mm) they cover 4.
+/// The slab fuses the image shown with those around it (ThickSlabSpan): it is
+/// centred on that image and pulled back inside the series at either end, so
+/// it has the images asked for on every image of the series. Its thicknesses
+/// go from the one of a single slice, S0, to that of the `available` images,
+/// and each image more adds the distance to it along the normal of the
+/// slices. With slices that overlap (2 mm every 1 mm) two images cover 3 mm,
+/// and with slices that touch (2 mm every 2 mm) they cover 4. In a series of
+/// evenly spaced images a slab is as thick on every image.
 ///
 /// The slider's track does not depend on the image. It is the ruler of the
 /// series in the slab's direction (`trackStops`): from S0 to the thickness of
 /// all the images the slider can ask for, or of the whole series when it has
 /// fewer, counted from the end of the series the slab runs away from. A
-/// request has one place on it wherever the image shown is, so the knob
-/// stays still while the series scrolls under it. What changes with the image
-/// is how far along the track the slab can go (`reach`): the track beyond is
-/// of images the series does not have from there, the knob does not pass it,
-/// and a request for more stands at the reach.
+/// request has one place on it wherever the image shown is, and every image
+/// reaches the whole track, so the knob stays still while the series scrolls
+/// under it.
 ///
 /// The slider keeps what the user asked for, in images. This scale says what
-/// that request is at the image shown: the images really fused
-/// (`effectiveCount`), their thickness, and one text for the slider's bubble
-/// and the toolbar. A request for more images than are left shows the
-/// thickness of those left, and comes back whole where the series has them.
-/// In a series whose images are not evenly spaced a request keeps its place
-/// on the track too, and the text says what its images make where they are.
+/// that request is at the image shown: the images fused (`effectiveCount`),
+/// their thickness, and one text for the slider's bubble and the toolbar.
+/// Only a request for more images than the series has fuses fewer, all of
+/// them. In a series whose images are not evenly spaced a request keeps its
+/// place on the track too, and the text says what its images make where they
+/// are.
 ///
 /// A series that says neither how thick its slices are nor where they are
 /// counts images: there are no millimetres to show.
 public struct StackFusionScale: Sendable, Equatable {
-    /// The images the slab can fuse from the current one, itself included:
-    /// those left to the end of the series in the slab's direction, within
-    /// the slider's capacity; one at least.
+    /// The most images the slab can fuse: those of the series, within the
+    /// slider's capacity; one at least. The same on every image of a series.
     public let available: Int
     /// The fewest images of a slab at the image shown: one in the 2D viewer,
     /// whose slider also switches the slab off; two where a control of its
     /// own does that (the orthogonal MPR). Never more than `available`.
     public let floor: Int
-    /// The thickness of a slab of 1 … `available` images, never decreasing:
-    /// millimetres, or the counts themselves when the scale is not physical.
+    /// The thickness of a slab of 1 … `available` images at the image shown,
+    /// never decreasing: millimetres, or the counts themselves when the scale
+    /// is not physical.
     public let stops: [Double]
     /// Whether the stops are millimetres.
     public let isPhysical: Bool
-    /// The ruler of the track: the thickness of a slab of 1 … n images from
+    /// The ruler of the track: the thickness of a slab of 1 … n images at
     /// the end of the series the slab runs away from, n being the slider's
     /// capacity or the images of the series when they are fewer. The same at
     /// every image of a series, in one direction.
@@ -74,7 +72,7 @@ public struct StackFusionScale: Sendable, Equatable {
     ///   - positions: where each image of the movie frame stands along one
     ///     normal, in millimetres, in the viewer's order; NaN where unknown.
     ///   - current: the index of the image shown.
-    ///   - towardsStart: the slab runs towards index 0 (flipped data).
+    ///   - towardsStart: the slab goes towards index 0 (flipped data).
     ///   - sliceThickness: the SliceThickness of the image shown; none when
     ///     not above zero. A series has one for all its images, and the
     ///     track is measured with it.
@@ -85,16 +83,16 @@ public struct StackFusionScale: Sendable, Equatable {
     public init(positions: [Double], current: Int, towardsStart: Bool, sliceThickness: Double, fallbackInterval: Double, capacity: Int,
                 minimumImages: Int = 1) {
         let count = positions.count
-        let available = Self.available(current: current, count: count, towardsStart: towardsStart, capacity: capacity)
-        let direction = towardsStart ? -1 : 1
+        let extent = Self.available(count: count, capacity: capacity)
+        // An image that is not of the series has itself alone.
+        let available = current >= 0 && current < count ? extent : 1
         let interval = fallbackInterval.isFinite ? abs(fallbackInterval) : 0
-        let shown = Self.ruler(positions: positions, from: current, direction: direction, images: available,
+        let shown = Self.ruler(positions: positions, at: current, towardsStart: towardsStart, images: available,
                                sliceThickness: sliceThickness, interval: interval)
-        // The track starts where the slab has the whole series before it.
+        // The track is the ruler of the image that has the whole series before it.
         let origin = towardsStart ? count - 1 : 0
-        let extent = max(1, min(count, capacity))
         let track = current == origin && available == extent ? shown
-            : Self.ruler(positions: positions, from: origin, direction: direction, images: extent,
+            : Self.ruler(positions: positions, at: origin, towardsStart: towardsStart, images: extent,
                          sliceThickness: sliceThickness, interval: interval)
 
         self.available = available
@@ -112,26 +110,36 @@ public struct StackFusionScale: Sendable, Equatable {
         decimals = finest < 0.1 ? 2 : 1
     }
 
-    /// The thicknesses of a slab of 1 … `images` images that starts at the
-    /// image `start` and goes on by `direction`, and whether they are
-    /// millimetres.
-    private static func ruler(positions: [Double], from start: Int, direction: Int, images: Int, sliceThickness: Double,
+    /// The thicknesses of the slabs of 1 … `images` images at the image
+    /// `shown` (ThickSlabSpan), and whether they are millimetres.
+    private static func ruler(positions: [Double], at shown: Int, towardsStart: Bool, images: Int, sliceThickness: Double,
                               interval: Double) -> (stops: [Double], isPhysical: Bool) {
         let count = positions.count
-        func position(_ offset: Int) -> Double {
-            let index = start + direction * offset
-            return index >= 0 && index < count ? positions[index] : .nan
-        }
+        func position(_ index: Int) -> Double { index >= 0 && index < count ? positions[index] : .nan }
+        func span(_ images: Int) -> ThickSlabSpan { ThickSlabSpan(images: images, at: shown, of: count, towardsStart: towardsStart) }
 
         // How far the slab reaches with each image more: the span of the
         // positions fused, whichever their order; nil when one is unknown.
+        // The slab of an image more holds the slab before it, so only the
+        // images it adds are read.
         var extents: [Double]? = []
         var low = Double.infinity, high = -Double.infinity
-        for offset in 0..<images {
-            let place = position(offset)
-            guard place.isFinite else { extents = nil; break }
-            low = min(low, place)
-            high = max(high, place)
+        var fused = shown..<shown
+        var known = true
+        func read(_ added: Range<Int>) {
+            for index in added {
+                let place = position(index)
+                known = known && place.isFinite
+                low = min(low, place)
+                high = max(high, place)
+            }
+        }
+        for number in 1...images {
+            let slab = span(number)
+            read(slab.first..<fused.lowerBound)
+            read(fused.upperBound..<(slab.last + 1))
+            guard known else { extents = nil; break }
+            fused = slab.first..<(slab.last + 1)
             extents?.append(high - low)
         }
         // Images that all stand at one place say nothing of a thickness.
@@ -142,11 +150,13 @@ public struct StackFusionScale: Sendable, Equatable {
             if flat { extents = nil }
         }
 
-        // One slice: its thickness, else the distance to its neighbour in
-        // the slab's direction, or to the other one at the series' end.
+        // One slice: its thickness, else the distance to the other image of
+        // a slab of two, its neighbour in the slab's direction, or the other
+        // one at the series' end.
         var first = sliceThickness.isFinite && sliceThickness > 0 ? sliceThickness : 0
         if first == 0, !flat {
-            let apart = abs(position(images > 1 ? 1 : -1) - position(0))
+            let pair = span(2)
+            let apart = abs(position(pair.last) - position(pair.first))
             if apart.isFinite, apart > 0 { first = apart }
         }
         if first == 0 { first = interval }
@@ -162,11 +172,12 @@ public struct StackFusionScale: Sendable, Equatable {
         return ((1...images).map(Double.init), false)
     }
 
-    /// The images left from `current` to the end of a series of `count` in
-    /// the slab's direction, the current one included, within `capacity`.
-    public static func available(current: Int, count: Int, towardsStart: Bool, capacity: Int) -> Int {
-        guard current >= 0, current < count else { return 1 }
-        return max(1, min(towardsStart ? current + 1 : count - current, capacity))
+    /// The most images a slab can fuse in a series of `count` with a slider
+    /// that asks for `capacity` at most: one at least. It does not depend on
+    /// the image shown, since a slab is pulled back inside the series at
+    /// either end.
+    public static func available(count: Int, capacity: Int) -> Int {
+        max(1, min(count, capacity))
     }
 
     /// The thickness a request for `count` images has in a series of slices
@@ -207,10 +218,11 @@ public struct StackFusionScale: Sendable, Equatable {
 
     /// The thinnest slab at the image shown: one image, or the fewest of a slab here.
     public var minimum: Double { stops[floor - 1] }
-    /// The thickest slab at the image shown: every image left.
+    /// The thickest slab at the image shown: every image the slab can fuse.
     public var maximum: Double { stops[stops.count - 1] }
 
-    /// The images a request for `requested` fuses at this image.
+    /// The images a request for `requested` fuses: the request, within the
+    /// fewest and the most of a slab.
     public func effectiveCount(requested: Int) -> Int { min(max(floor, requested), available) }
 
     /// The thickness a request for `requested` images has at this image.
@@ -221,29 +233,22 @@ public struct StackFusionScale: Sendable, Equatable {
         ThickSlabSliderScale(minimum: trackStops[trackFloor - 1], maximum: trackStops[trackStops.count - 1], exponential: exponential)
     }
 
-    /// Where the stop of `count` images stands on the track, 0 … 1, whether
-    /// the image shown reaches it or not: the place of a mark.
+    /// Where the stop of `count` images stands on the track, 0 … 1: the
+    /// place of a mark.
     public func trackPosition(ofStop count: Int, exponential: Bool) -> Double {
         curve(exponential).position(for: trackStops[min(max(1, count), trackStops.count) - 1])
     }
 
-    /// How far along the track the slab can go at the image shown, 0 … 1: the
-    /// place of the stop of the images left. The whole track where the image
-    /// has every image of it before it.
-    public func reach(exponential: Bool) -> Double {
-        available >= trackStops.count ? 1 : trackPosition(ofStop: available, exponential: exponential)
-    }
-
     /// Where the knob stands on the track, 0 … 1, for a request for `count`
-    /// images: at the stop of the images fused, the same at every image that
-    /// has them, and at the reach for a request the image cannot hold whole.
+    /// images: at the stop of the images fused, the same at every image of
+    /// the series, and at the thick end for a request for more images than
+    /// the slab can fuse.
     public func position(ofCount count: Int, exponential: Bool) -> Double {
         trackPosition(ofStop: effectiveCount(requested: count), exponential: exponential)
     }
 
-    /// The images of the stop nearest to a place on the track, among those
-    /// the image shown reaches; the fewest of those that make the same
-    /// thickness.
+    /// The images of the stop nearest to a place on the track; the fewest of
+    /// those that make the same thickness.
     public func count(at position: Double, exponential: Bool) -> Int {
         nearestStop(to: position, exponential: exponential, from: floor, through: available)
     }
@@ -279,7 +284,7 @@ public struct StackFusionScale: Sendable, Equatable {
 
     /// Where the marks stand along the track, 0 … 1, both ends included; none
     /// for a single stop. They are the marks of the series, the same at every
-    /// image, those beyond the reach included.
+    /// image.
     ///
     /// On the linear curve they are the stops of `tickCounts`, evenly spaced:
     /// the knob stops on each. On the exponential curve they draw the curve

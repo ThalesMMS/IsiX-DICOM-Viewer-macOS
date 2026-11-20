@@ -150,6 +150,19 @@ public struct TwoClickLengthPlacement<Reference: Equatable>: Equatable {
         clickCount == 2 && hasHotKeyAction
     }
 
+    /// Whether a key pressed while an endpoint is pending puts that endpoint
+    /// away and does nothing else: Escape, and the keys that delete the
+    /// selected ROIs. The point just placed is what the person means to take
+    /// back, and it is in no list of ROIs for the deletion to find; pressed
+    /// again, the key does what it does without one. `character` is the first
+    /// the key gives.
+    public static func keyCancels(keyCode: UInt16, character: UInt16?) -> Bool {
+        let escape: UInt16 = 53
+        // Backspace, Delete, and the two forms of the forward Delete key.
+        let deleting: [UInt16] = [0x08, 0x7F, 0xF728, 0xF73E]
+        return keyCode == escape || character.map(deleting.contains) ?? false
+    }
+
     /// What the mouse-up of a click at `endpoint` does. `viewDistance`
     /// measures two image points in view points. A slab takes both clicks on
     /// the image it shows, as it takes a drag; a point of a slab has no depth,

@@ -119,8 +119,8 @@ extension HorosObjCException {
     /// when `lock` is nil. An exception raised inside is caught, the lock is
     /// left, and the exception is raised again for the caller. A Swift `defer`
     /// does not run when an NSException unwinds through it, so a lock other
-    /// threads wait on (PapyrusLock, shared with plugins) is taken here: a
-    /// leaked one hangs every image load behind it.
+    /// threads wait on (the one of the parsed files, which every image load
+    /// takes) is taken here: a leaked one hangs every image load behind it.
     @inline(__always)
     @discardableResult
     static func locked<T>(_ lock: NSLocking?, _ body: () -> T) -> T {

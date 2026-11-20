@@ -3,7 +3,8 @@
 
 Only the pixels, the viewer and its UI callbacks are doubles. The series load
 (ViewerSeriesLoad.swift: the loading state, the start, the acceptance and
-delivery of a result, the cancellation and the close), the loader
+delivery of a result, the cancellation and the close, which does not wait
+for the loader), the loader
 (SeriesImageLoader.swift: the actor on its own queue, the in-order and the
 concurrent decode, the opening content bounds) and the waits of
 ViewerController+StudyNavigation.swift (the façades -isEverythingLoaded and
@@ -131,6 +132,10 @@ enum BrowserController {
     static func isItCD(_ path: String?) -> Bool { false }
 }
 func _N2LogExceptionImpl(_ exception: NSException, _ logStack: Bool, _ place: UnsafePointer<CChar>) { NSLog("%@", exception) }
+// The lock of the parsed files, which the wait for a whole series hands back when the main thread was left holding it.
+enum DCMPixParsedFileCache {
+    static func leaveWhatTheMainThreadLeftHeld() {}
+}
 // The viewer's notifications, posted as ViewerController+RetrieveAndView.swift posts them.
 func postViewerNotification(_ name: Notification.Name, _ object: Any?, _ userInfo: [AnyHashable: Any]? = nil) {
     NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
@@ -355,22 +360,43 @@ extension SeriesLoadRequest {
     NotificationCenter.default.removeObserver(observer)
 }
 
-/// Closing while a decode is in flight waits for the loader, delivers
-/// nothing, and no load starts after.
+/// Closing while a decode is held, as by something the main thread itself
+/// holds: the close returns at once, the request keeps the pixels and the
+/// volume until the loader has left them, nothing is delivered, and no load
+/// starts after.
 @MainActor func closeCase() {
     let v = ViewerController(); let p = Probe()
     v.pixLists[0] = pixels(p, 8)
+    final class Volume: NSObject {}
+    weak var volume: NSObject?
+    weak var list: NSMutableArray?
+    autoreleasepool {
+        let made = Volume()
+        v.volumes[0] = made
+        volume = made
+        list = v.pixLists[0]
+    }
     v.horosSeriesLoad.start()
     let load = v.loadingState.load!
     check(v.horosSeriesLoad.state == .loading, "the started load is not loading")
     p.waitForEntry()
-    resumeLater(p, after: 100)
+    let asked = Date()
     v.horosSeriesLoad.requestCancel()
     v.horosSeriesLoad.close()
-    check(load.isCancelled && !load.isExecuting && load.isFinished, "close returned before the loader left")
+    check(-asked.timeIntervalSinceNow < 1, "the close waited for a decode that nothing lets go on")
+    check(load.isCancelled && !load.isFinished, "the held decode ended before it was let go")
     check(v.loadingState.load == nil && v.horosSeriesLoad.state == .closed, "close left a pending load")
-    drainMain()
+    // The viewer releases its series, as -finalizeSeriesViewing does next.
+    autoreleasepool {
+        v.pixLists[0] = nil
+        v.volumes[0] = nil
+    }
+    check(volume != nil && list != nil, "the buffers were released while the loader was still in them")
+    p.resume(); waitFinished(load); drainMain()
     check(notices == 0 && v.orientations == 0, "a closed viewer received its load")
+    let deadline = Date(timeIntervalSinceNow: 5)
+    while (volume != nil || list != nil) && Date() < deadline { drainMain() }
+    check(volume == nil && list == nil, "the buffers were not released once the loader had left them")
     v.horosSeriesLoad.start()
     check(v.loadingState.load == nil, "a load started after the close")
 }

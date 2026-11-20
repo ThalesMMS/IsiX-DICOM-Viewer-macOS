@@ -43,7 +43,12 @@ def module_key(name, folder, extra=()):
     of the modules it depends on, by their contents, the flags (the folder it
     is built in aside, which they may name), the compiler, and this file,
     which says how."""
-    sources = [[each, [[str(path.relative_to(ROOT)), path.read_bytes()] for path in module_sources(each)]]
+    def named(path):
+        # A test may build a module with a source of its own put in place of
+        # one of the tree, outside the repository: its name and its contents
+        # are what make it, wherever it is.
+        return str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else f'<outside>/{path.name}'
+    sources = [[each, [[named(path), path.read_bytes()] for path in module_sources(each)]]
                for each in dependencies(name) + [name]]
     return harness_cache.digest('module', name, [str(flag).replace(str(folder), '<folder>') for flag in extra], sources,
                                 harness_cache.toolchain(), harness_cache.source_digest(__file__))

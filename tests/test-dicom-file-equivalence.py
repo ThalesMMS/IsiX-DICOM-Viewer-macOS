@@ -555,6 +555,13 @@ __attribute__((constructor)) static void IsiXEquivalenceStart(void)
         @autoreleasepool {
             NSDictionary *manifest = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:go] options:0 error:NULL];
             NSMutableDictionary *answers = [NSMutableDictionary dictionary];
+            // The first structured report starts the Decompress service and its
+            // renderer, which under load takes longer than the ten seconds either
+            // side gives a rendering: read the files once, answers discarded, so
+            // that neither side is the one that starts it.
+            for (NSString *path in manifest[@"files"]) {
+                @autoreleasepool { (void)ReadFile(NSClassFromString(@"DicomFile"), path); }
+            }
             for (NSString *side in @[@"legacy", @"current"]) {
                 Class cls = NSClassFromString([side isEqualToString:@"legacy"] ? @"IsiXLegacyDicomFile" : @"DicomFile");
                 // Both sides keep a structured report's rendering (XML, then PDF) in the

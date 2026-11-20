@@ -41,14 +41,15 @@ import Accelerate
 import Foundation
 
 /// The thick slab of a series (-[DCMPix computeThickSlab], -computeThickSlabRGB,
-/// -getPixelValueX:Y:): the current image folded with its neighbours by mean,
-/// maximum or minimum, element by element.
+/// -getPixelValueX:Y:): the images of the slab (ThickSlabSpan), the first of
+/// them folded with those after it by mean, maximum or minimum, element by
+/// element.
 public enum ThickSlabReduction {
     /// The modes of a slab, as DCMPix numbers them.
     public static let mean = 1, maximum = 2, minimum = 3
 
-    /// Folds `slices`, in order, into `result` (which holds the current image,
-    /// `count` floats): added for the mean, kept the larger for the maximum,
+    /// Folds `slices`, in order, into `result` (which holds the first image of
+    /// the slab, `count` floats): added for the mean, kept the larger for the maximum,
     /// the smaller otherwise. The pixels are shared out among `workers`, each
     /// a contiguous run of them. The result of the mean is the sum; the count
     /// to divide it by is `slices.count + 1`.
@@ -80,7 +81,7 @@ public enum ThickSlabReduction {
         vDSP_vsmul(result, 1, &inverse, result, 1, vDSP_Length(count))
     }
 
-    /// The slab of `current` (`count` floats) and `slices`, as a new buffer:
+    /// The slab of `current`, its first image (`count` floats), and `slices`, as a new buffer:
     /// what -[DCMPix computeThickSlab] makes of them, by `fold` and, for the
     /// mean, `divide`. The slices are read where they are: nothing but the
     /// result is allocated, whatever the thickness of the slab.
@@ -115,9 +116,10 @@ public enum ThickSlabReduction {
     }
 
     /// The value -getPixelValueX:Y: reads at `index`: through the slab when
-    /// `mode` is a slab mode, with the neighbours that have pixels; a colour
-    /// pixel is the mean of its red, green and blue. In a colour slab the
-    /// current image's value is its four bytes read as a float, as it always was.
+    /// `mode` is a slab mode, `current` being the first image of the slab
+    /// that has pixels and `neighbours` those after it; a colour pixel is the
+    /// mean of its red, green and blue. In a colour slab the first image's
+    /// value is its four bytes read as a float, as it always was.
     public static func value(at index: Int, current: UnsafePointer<Float>, neighbours: [UnsafePointer<Float>]?, mode: Int,
                              isRGB: Bool) -> Float {
         func meanOfColour(_ pointer: UnsafePointer<Float>) -> Float {

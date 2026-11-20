@@ -45,7 +45,9 @@ import IsiXROI
 // Length tool, which hits no ROI, keeps its point pending, shown by a marker;
 // the second click, on this image, measures as a drag between the two would,
 // and on another slice of the series measures through the volume, in patient
-// space. A drag from the first click is a drag, Escape cancels.
+// space. A drag from the first click is a drag. Escape cancels the pending
+// point, and so do Delete and Backspace, which delete nothing else on that
+// press; deleting every ROI of the series takes it away with them.
 //
 // The event, the endpoint and the marker are stored properties of the view,
 // which own them. What each click does is IsiXROI's TwoClickLengthPlacement.

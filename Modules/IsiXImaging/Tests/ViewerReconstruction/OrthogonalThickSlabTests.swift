@@ -13,25 +13,18 @@ import Testing
 @testable import IsiXImaging
 
 struct OrthogonalThickSlabTests {
-    @Test func theSlabStartsHalfTheRequestBeforeTheCrossing() {
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 30, requestedSlices: 20, count: 60) == 20)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 30, requestedSlices: 21, count: 60) == 20)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 5, requestedSlices: 20, count: 60) == 0)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 80, requestedSlices: 20, count: 60) == 59)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 30, requestedSlices: 0, count: 60) == 30)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 55, requestedSlices: 40, count: 60) == 35)
-        #expect(OrthogonalThickSlab.firstImage(crossIndex: 3, requestedSlices: 2, count: 0) == 0)
-    }
-
-    @Test func theCrossingStaysInsideTheSeries() {
-        #expect(OrthogonalThickSlab.crossIndex(firstImage: 30, requestedSlices: 128, count: 60) == 59)
-        #expect(OrthogonalThickSlab.crossIndex(firstImage: 30, requestedSlices: 46, count: 60) == 53)
-        #expect(OrthogonalThickSlab.crossIndex(firstImage: 30, requestedSlices: 20, count: 60) == 40)
-        #expect(OrthogonalThickSlab.crossIndex(firstImage: 0, requestedSlices: 0, count: 60) == 0)
-        // Where the slab was not cut at the start, the crossing is the one it came from.
-        for cross in 10..<60 {
-            let first = OrthogonalThickSlab.firstImage(crossIndex: cross, requestedSlices: 20, count: 60)
-            #expect(OrthogonalThickSlab.crossIndex(firstImage: first, requestedSlices: 20, count: 60) == cross)
+    @Test func theCrossingIsTheImageShownInsideTheSeries() {
+        for image in 0..<60 { #expect(OrthogonalThickSlab.crossIndex(image: image, count: 60) == image) }
+        #expect(OrthogonalThickSlab.crossIndex(image: 80, count: 60) == 59)
+        #expect(OrthogonalThickSlab.crossIndex(image: -4, count: 60) == 0)
+        #expect(OrthogonalThickSlab.crossIndex(image: 3, count: 0) == 0)
+        // The image shown is one of the images its slab fuses, at the ends of the series too.
+        for images in [2, 3, 20, 46, 128] {
+            for image in 0..<60 {
+                let slab = ThickSlabSpan(images: images, at: image, of: 60, towardsStart: false)
+                #expect(slab.indices.contains(OrthogonalThickSlab.crossIndex(image: image, count: 60)))
+                #expect(slab.count == min(images, 60))
+            }
         }
     }
 
@@ -65,32 +58,33 @@ struct OrthogonalThickSlabTests {
         let overlapping = scale(regular(80, every: 1), at: 40, thickness: 2)
         check(overlapping, 2, 3, rows: 3, spacing: 1, "2 images of 2 mm every 1 mm")
         check(overlapping, 10, 11, rows: 11, spacing: 1, "10 images of 2 mm every 1 mm")
-        #expect(overlapping.minimum == 3 && overlapping.maximum == 41 && overlapping.available == 40)
+        #expect(overlapping.minimum == 3 && overlapping.maximum == 81 && overlapping.available == 80)
         // 2 mm every 2 mm, the 31st of 60.
         let touching = scale(regular(60, every: 2), at: 30, thickness: 2)
         check(touching, 2, 4, rows: 4, spacing: 1, "2 images of 2 mm")
         check(touching, 20, 40, rows: 40, spacing: 1, "20 images of 2 mm")
-        // A request the series does not hold here fuses what is left; from an earlier image it is whole.
-        check(touching, 46, 60, rows: 60, spacing: 1, "46 asked for, 30 left")
-        #expect(touching.effectiveCount(requested: 46) == 30 && touching.maximum == 60)
-        check(scale(regular(60, every: 2), at: 14, thickness: 2), 46, 92, rows: 92, spacing: 1, "46 images from the 15th")
+        // A request for more images than follow the image shown is whole: the slab is pulled back inside the series.
+        check(touching, 46, 92, rows: 92, spacing: 1, "46 asked for at the 31st of 60")
+        #expect(touching.effectiveCount(requested: 46) == 46 && touching.maximum == 120)
+        check(scale(regular(60, every: 2), at: 14, thickness: 2), 46, 92, rows: 92, spacing: 1, "46 images at the 15th")
+        check(scale(regular(60, every: 2), at: 59, thickness: 2), 46, 92, rows: 92, spacing: 1, "46 images at the last")
         // 0.625 mm slices, pixels of 0.7 mm.
         let fine = scale(regular(160, every: 0.625), at: 80, thickness: 0.625)
         check(fine, 2, 1.25, rows: 2, spacing: 0.7, "2 images of 0.625 mm")
         check(fine, 16, 10, rows: 14, spacing: 0.7, "16 images of 0.625 mm")
-        #expect(abs(fine.maximum - 50) < 1e-9)
+        #expect(abs(fine.maximum - 100) < 1e-9)
         // Pixels that are not square: each axis its count.
         #expect(OrthogonalThickSlab.reslicedCount(thickness: 40, pixelSpacing: 1) == 40)
         #expect(OrthogonalThickSlab.reslicedCount(thickness: 40, pixelSpacing: 0.5) == 80)
         // No slice thickness: the distance to the next image stands for it.
         let unmeasured = scale(regular(60, every: 2), at: 30, thickness: 0)
         check(unmeasured, 20, 40, rows: 40, spacing: 1, "20 images that do not say their thickness")
-        // Irregular intervals: the thicknesses there are from the image shown.
+        // Irregular intervals: the thicknesses there are around the image shown.
         let irregular = scale([0, 1, 2, 4, 5, 8], at: 1, thickness: 2)
-        #expect((2...5).map { irregular.thickness(requested: $0) } == [3, 5, 6, 9])
-        // The last image has no slab.
+        #expect((2...6).map { irregular.thickness(requested: $0) } == [3, 4, 6, 7, 10])
+        // The last image has the slab of the images before it.
         let last = scale(regular(60, every: 2), at: 59, thickness: 2)
-        #expect(last.available == 1 && last.floor == 1 && last.effectiveCount(requested: 20) == 1 && last.thickness(requested: 20) == 2)
+        #expect(last.available == 60 && last.floor == 2 && last.effectiveCount(requested: 20) == 20 && last.thickness(requested: 20) == 40)
     }
 
     @Test func noSpacingNoSlab() {
@@ -104,10 +98,10 @@ struct OrthogonalThickSlabTests {
         let track = scale(regular(60, every: 2), at: 30, thickness: 2)
         for exponential in [false, true] {
             #expect(track.count(at: 0, exponential: exponential) == 2)
-            #expect(track.count(at: 1, exponential: exponential) == 30)
+            #expect(track.count(at: 1, exponential: exponential) == 60)
             #expect(track.position(ofCount: 2, exponential: exponential) == 0)
             #expect(track.position(ofCount: 1, exponential: exponential) == 0)
-            // The marks are those of the series, from two images to all of them; the knob goes as far as the images left.
+            // The marks are those of the series, from two images to all of them, and the knob goes to each.
             let marks = track.tickCounts(minimumSpacing: 0.05)
             #expect(marks.first == 2 && marks.last == 60)
             #expect(marks == marks.sorted() && Set(marks).count == marks.count)
@@ -117,12 +111,11 @@ struct OrthogonalThickSlabTests {
             #expect(places == scale(regular(60, every: 2), at: 0, thickness: 2).tickPlaces(minimumSpacing: 0.05, exponential: exponential))
             for mark in marks {
                 let place = track.trackPosition(ofStop: mark, exponential: exponential)
-                #expect(track.count(at: place, exponential: exponential) == min(mark, 30))
-                #expect(track.position(ofCount: mark, exponential: exponential) == min(place, track.reach(exponential: exponential)))
+                #expect(track.count(at: place, exponential: exponential) == mark)
+                #expect(track.position(ofCount: mark, exponential: exponential) == place)
             }
-            #expect(track.reach(exponential: exponential) == track.trackPosition(ofStop: 30, exponential: exponential))
         }
         #expect(track.text(requested: 1, locale: Locale(identifier: "en_US")) == "4.0 mm")
-        #expect(track.text(requested: 46, locale: Locale(identifier: "it_IT")) == "60,0 mm")
+        #expect(track.text(requested: 46, locale: Locale(identifier: "it_IT")) == "92,0 mm")
     }
 }

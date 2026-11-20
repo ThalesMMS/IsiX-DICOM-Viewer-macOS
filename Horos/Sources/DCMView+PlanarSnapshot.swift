@@ -253,28 +253,30 @@ extension DCMView {
         // A colour slab is already in the host's bytes; only a scalar one is
         // reduced here, where its slices are and in computeThickSlab's order,
         // by its own reduction: copying them for the renderer moved the whole
-        // slab twice at each change. A slice with no pixels is skipped.
+        // slab twice at each change. A slice with no pixels is skipped. The
+        // image shown is one of the slices, read where this frame has it.
         var reduced: NSData?, slabKey: String?
         if source.scalarSlab && hostBytes == nil {
             var slices: [UnsafePointer<Float>] = []
             var key = String(format: "%ld/%ld/%ld/%ld/%ld", session?.sessionID ?? 0, session?.identity.generation ?? 0, width, height,
-                             Int(pix.stackMode)) + Self.address(pix, pixels)
+                             Int(pix.stackMode))
             for index in PlanarThickSlab.sliceIndices(position: pix.pixPos, stack: Int(pix.stack),
                                                       direction: Int(pix.stackDirection), count: series.count) {
-                guard let slice = series[index.intValue] as? DCMPix, let samples = slice.fImage else { continue }
+                let shown = index.intValue == pix.pixPos
+                guard let slice = shown ? pix : series[index.intValue] as? DCMPix, let samples = shown ? pixels : slice.fImage else { continue }
                 if slice.pwidth != width || slice.pheight != height { return refused }
                 slices.append(UnsafePointer(samples))
                 key += Self.address(slice, samples)
             }
-            if !slices.isEmpty {
+            if slices.count > 1 {
                 // Reduced again only when the mode, the slices or the volume's
                 // generation change, or the image shown was edited in place.
                 slabKey = key
                 if state.slabKey == key, let kept = state.slabCurrent, kept.length == count, memcmp(kept.bytes, pixels, count) == 0 {
                     reduced = state.slabData
                 } else {
-                    reduced = ThickSlabReduction.slab(of: pixels, count: width * height, slices: slices, mode: Int(pix.stackMode),
-                                                      workers: Int(DCMPix.maxProcessors()))
+                    reduced = ThickSlabReduction.slab(of: slices[0], count: width * height, slices: Array(slices.dropFirst()),
+                                                      mode: Int(pix.stackMode), workers: Int(DCMPix.maxProcessors()))
                     state.slabCurrent = NSData(bytes: pixels, length: count)
                 }
                 snapshot["pixels"] = reduced

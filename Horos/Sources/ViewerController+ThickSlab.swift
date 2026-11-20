@@ -130,8 +130,7 @@ public extension ViewerController {
     /// The slider can ask for the whole series, whatever its length: its
     /// capacity is the number of slices of the series, and a request the
     /// series no longer has comes down to it. Its track is that of the
-    /// series, by the scale of the image shown (`refreshScale`), which says
-    /// how far along it the images left let the knob go.
+    /// series, by the scale of the image shown (`refreshScale`).
     func fitSliderToSeries() {
         guard let slider = viewer.horos_sliderFusion else { return }
         let counts = (0..<viewer.horos_movieCount).map { viewer.horos_pixList(at: $0)?.count ?? 0 }
@@ -209,17 +208,10 @@ public extension ViewerController {
             maximum = min(maximum, viewer.horos_pixList(at: movie)?.count ?? 0)
         }
 
-        // A step is a stop of the slider: an image, of those left from the
-        // image shown to the end of the series. Past them no step changes
-        // anything, and the request stays for where the series has more.
-        let requested = viewer.horos_sliderFusion?.integerValue ?? 0
-        var current = requested
-        if let view = viewer.horos_imageView {
-            let left = StackFusionScale.available(current: Int(view.horos_curImage), count: view.horos_dcmPixList?.count ?? 0,
-                                                  towardsStart: view.horos_flippedData, capacity: maximum)
-            maximum = min(maximum, left)
-            current = min(max(1, requested), left)
-        }
+        // A step is a stop of the slider: an image, of those the slider and
+        // every movie frame allow. A slab has them on every image of the
+        // series, so the image shown does not limit a step.
+        let current = viewer.horos_sliderFusion?.integerValue ?? 0
 
         let active = viewer.horos_activatedFusion?.state == .on
         guard let next = StackFusion.thickness(afterSteps: steps, active: active, current: current, maximum: maximum) else { return }
@@ -328,10 +320,9 @@ public extension ViewerController {
 
     // MARK: - The scale of the slab at the image shown
 
-    /// The scale of the slab at the image `view` shows: the thicknesses its
-    /// images make from there to the end of the series, within what the
-    /// slider can ask for, on the track of the whole series. Nil for a view
-    /// that shows nothing.
+    /// The scale of the slab at the image `view` shows: the thicknesses the
+    /// images around it make, within what the slider can ask for, on the
+    /// track of the whole series. Nil for a view that shows nothing.
     ///
     /// The images are placed along the normal of the one shown, once the
     /// series is loaded: before that, asking an image where it is would

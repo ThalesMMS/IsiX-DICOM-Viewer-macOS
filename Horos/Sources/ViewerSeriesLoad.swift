@@ -320,19 +320,16 @@ public final class ViewerSeriesLoad: NSObject {
         if state == .loading { state = .cancelled }
     }
 
-    /// The viewer closes: the pending load is cancelled, and awaited until the
-    /// loader has left it - its request holds the pixels and volumes the
-    /// viewer is about to release - and nothing starts or is delivered after.
+    /// The viewer closes: the pending load is cancelled and forgotten, and
+    /// nothing starts or is delivered after. The close does not wait for the
+    /// loader to leave the load. The request keeps the pixel lists and the
+    /// volume storage until every decode it started has finished, so the
+    /// viewer releases its own references at once, as it does when it changes
+    /// series; and a decode that waits for something the main thread holds
+    /// would keep the window, and the application with it, from ever closing.
     @objc public func close() {
         requestCancel()
         state = .closed
-        while true {
-            let load = viewer.horos_loadingThread
-            // isFinished, not isExecuting: a load that has just been started is
-            // not executing yet, and the loader had not left it.
-            if load?.isFinished ?? true { break }
-            Thread.sleep(forTimeInterval: 0.01)
-        }
         retire(cancelling: false)
     }
 

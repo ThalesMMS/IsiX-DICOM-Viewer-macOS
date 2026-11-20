@@ -26,7 +26,7 @@ struct LinkSchemeStartupCheck {
     let preferences: any PreferenceStore
 
     func run() {
-        let urlSupportOn = preferences[NetworkPreferences.xmlrpcServer]
+        let urlSupportOn = preferences[NetworkPreferences.linkSchemeSupport]
         // The system is asked only when the answer can matter.
         let handlers = urlSupportOn ? LinkSchemeRegistry.handlers() : []
         let policy = LinkSchemeHandlers.StartupPolicy(stored: preferences[NetworkPreferences.linkSchemeStartupPolicy])

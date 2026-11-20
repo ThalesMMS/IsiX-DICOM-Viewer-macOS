@@ -145,12 +145,14 @@ browser_selection = (root / 'Horos/Sources/BrowserController+DatabaseDragExport+
 # -openViewerFromImages:… is Swift too (BrowserController+ViewerOpening.swift).
 viewer_opening = (root / 'Horos/Sources/BrowserController+ViewerOpening.swift').read_text()
 
-# windowWillClose: closes the viewer's series load, which waits.
+# windowWillClose: closes the viewer's series load, which cancels it and does
+# not wait for it: the wait was a hang of its own whenever the load waited for
+# something the main thread held (tests/test-viewer-loading-lifetime.py runs it).
 series_load = (root / 'Horos/Sources/ViewerSeriesLoad.swift').read_text()
 close_wait = series_load[series_load.find('    @objc public func close()'):series_load.find('    private func retire(')]
-check(close and ('horosSeriesLoad.close()' if close_swift else '[self.horosSeriesLoad close];') in close and 'Thread.sleep(forTimeInterval: 0.01)' in close_wait
-      and 'horos_loadingThread' in close_wait,
-      'windowWillClose: must still wait for the loading thread')
+check(close and ('horosSeriesLoad.close()' if close_swift else '[self.horosSeriesLoad close];') in close and 'requestCancel()' in close_wait
+      and 'sleep' not in close_wait and 'while ' not in close_wait,
+      'windowWillClose: must cancel the load of the series and not wait for it')
 check(loaded and 'Thread.sleep(forTimeInterval: 0.1)' in loaded and '!(thread?.isFinished ?? true)' in loaded,
       'checkEverythingLoaded must still spin until loading finishes')
 check(volumic and 'checkEverythingLoaded' in volumic,
@@ -160,9 +162,9 @@ check('Load Image Data' in load_image and ('DicomFile.isDICOMFile(' if loader_sw
 check(('mayTranscode:NULL' in isdicom or 'mayTranscode: nil' in isdicom)
       and ('HorosDICOMProbe::inspect(path)' in probe_source or 'HorosDICOMProbe::inspect(fileSystemPath)' in probe_source),
       'DICOM identification must use the independent lazy probe')
-check('lockedFile(atPath: path)' in field and 'HorosObjCException.locked(PapyrusLock)' in locked
+check('lockedFile(atPath: path)' in field and 'HorosObjCException.locked(DCMPixParsedFileCache.lock)' in locked
       and 'IsiXDCMTKFile.file(atPath: path)' in locked,
-      'getDicomField must still take PapyrusLock around loadFile')
+      'getDicomField must still take the lock of the parsed files around loadFile')
 # -loadSelectedSeries:rightClick: is Swift, in ViewerController+SeriesPopup.swift.
 check('loadSelectedSeries:' in (((root / 'Horos/Sources/ViewerController.m').read_bytes()) if (root / 'Horos/Sources/ViewerController.m').exists() else b'').decode('latin1')
       or '@objc(loadSelectedSeries:rightClick:)' in source_path('ViewerController+SeriesPopup').read_text(),

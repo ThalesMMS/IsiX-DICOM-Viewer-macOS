@@ -662,6 +662,15 @@ extension SeriesMenuPresenter {
 
 extension SeriesMenuPresenter {
 
+    /// loadSelectedSeries(_:rightClick:) for -loadSelectedSeries:rightClick:,
+    /// which later headers of the plugin SDK declare with an object for an
+    /// answer and do not say which: nil, where the former declaration
+    /// answered nothing.
+    func loadSelectedSeriesAnswering(_ chosen: Any?, rightClick: Bool) -> AnyObject? {
+        loadSelectedSeries(chosen, rightClick: rightClick)
+        return nil
+    }
+
     /// Shows `series` (a study stands for its first series with pixels): in a
     /// new viewer with Command or a right click, else in this one, in another
     /// window that already shows it, or at its time point here.
@@ -853,9 +862,9 @@ public extension ViewerController {
         seriesMenuPresenter.build()
     }
 
-    @objc(loadSelectedSeries:rightClick:)
-    func loadSelectedSeries(_ series: Any!, rightClick: Bool) {
-        seriesMenuPresenter.loadSelectedSeries(series, rightClick: rightClick)
+    @objc(loadSelectedSeries:rightClick:) @discardableResult
+    func loadSelectedSeries(_ series: Any!, rightClick: Bool) -> AnyObject? {
+        seriesMenuPresenter.loadSelectedSeriesAnswering(series, rightClick: rightClick)
     }
 
     @objc(seriesPopupSelect:)

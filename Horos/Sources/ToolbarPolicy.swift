@@ -438,20 +438,28 @@ public final class ToolPaletteCell: NSButtonCell {
     private static var lastDrawsFramedSegments = true
     private static let styleObserver: Void = {
         lastDrawsFramedSegments = drawsFramedSegments
+        // Told on the thread that wrote the preference, which may hold what the
+        // main thread waits for: an observer of the main queue would keep it
+        // waiting. A write off the main thread is answered from the main queue.
         NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
                                                object: nil,
-                                               queue: .main) { _ in
-            // Delivered on the main queue, as asked above.
-            MainActor.assumeIsolated {
-                let framed = drawsFramedSegments
-                guard framed != lastDrawsFramedSegments else { return }
-                lastDrawsFramedSegments = framed
-                for matrix in palettes.allObjects {
-                    matrix.needsDisplay = true
-                }
+                                               queue: nil) { _ in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { followSelectionStyle() }
+            } else {
+                DispatchQueue.main.async { followSelectionStyle() }
             }
         }
     }()
+
+    private static func followSelectionStyle() {
+        let framed = drawsFramedSegments
+        guard framed != lastDrawsFramedSegments else { return }
+        lastDrawsFramedSegments = framed
+        for matrix in palettes.allObjects {
+            matrix.needsDisplay = true
+        }
+    }
 
     /// Makes every tool palette under `view` draw as segments. Called for
     /// each toolbar item's view; a palette already adopted is left alone.

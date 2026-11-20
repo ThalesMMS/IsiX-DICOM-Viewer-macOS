@@ -48,22 +48,25 @@ extension VRController {
     // MARK: - 3D points
 
     @objc(add2DPoint::::)
-    public final func add2DPoint(_ x: Float, _ y: Float, _ z: Float, _ mm: UnsafeMutablePointer<Float>!) {
+    @discardableResult
+    public final func add2DPoint(_ x: Float, _ y: Float, _ z: Float, _ mm: UnsafeMutablePointer<Float>!) -> Bool {
         // The default colour: a ROI keeps its own when given (0, 1, 2).
-        add2DPoint(x, y, z, mm, RGBColor(red: 0, green: 1, blue: 2))
+        return add2DPoint(x, y, z, mm, RGBColor(red: 0, green: 1, blue: 2))
     }
 
     /// A point ROI on the slice nearest to `z`, at (x, y), whose position in
     /// millimetres is `mm`; `rgb` its colour unless it is (0, 1, 2).
+    /// Answers whether the point was added, as later headers of the plugin SDK declare it.
     @objc(add2DPoint:::::)
-    public final func add2DPoint(_ x: Float, _ y: Float, _ z: Float, _ mm: UnsafeMutablePointer<Float>!, _ rgb: RGBColor) {
-        guard let viewer2D = viewer2DStorage, let firstDCMPix = viewer2D.pixList()?.object(at: 0) as? DCMPix else { return }
+    @discardableResult
+    public final func add2DPoint(_ x: Float, _ y: Float, _ z: Float, _ mm: UnsafeMutablePointer<Float>!, _ rgb: RGBColor) -> Bool {
+        guard let viewer2D = viewer2DStorage, let firstDCMPix = viewer2D.pixList()?.object(at: 0) as? DCMPix else { return false }
         // find the slice where we want to add the point
         let sliceNumber = Int(Double(z) + 0.5)
-        guard sliceNumber >= 0 && sliceNumber < (viewer2D.pixList()?.count ?? 0) else { return }
+        guard sliceNumber >= 0 && sliceNumber < (viewer2D.pixList()?.count ?? 0) else { return false }
         // Create the new 2D Point ROI
         guard let new2DPointROI = ROI(type: .t2DPoint, Float(firstDCMPix.pixelSpacingX), Float(firstDCMPix.pixelSpacingY),
-                                      DCMPix.originCorrected(accordingToOrientation: firstDCMPix)) else { return }
+                                      DCMPix.originCorrected(accordingToOrientation: firstDCMPix)) else { return false }
         if rgb.red != 0 && rgb.green != 1 && rgb.blue != 2 {
             new2DPointROI.rgbcolor = rgb
         }
@@ -79,6 +82,7 @@ extension VRController {
         z2DPointsArray?.add(NSNumber(value: mm?[2] ?? 0))
         // notify the change
         NotificationCenter.default.post(name: .OsirixROIChange, object: new2DPointROI, userInfo: nil)
+        return true
     }
 
     /// The point ROI within a pixel (and a slice interval) of the position in

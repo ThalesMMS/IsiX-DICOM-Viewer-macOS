@@ -473,6 +473,26 @@ int main( int argc, const char **argv) { @autoreleasepool {
     // Reversed slab clips by actual endpoint positions, not average slice spacing.
     ProbePix *last = pix( axial, 2); v.dcmPixList = [NSMutableArray arrayWithObjects: last, pix( axial, 3), p, nil]; v.curImage = 2; v.flippedData = YES; [p lengthStack: 3];
     pr = project( r); check( pr.visible); [p lengthStack: 1];
+    // A slab is centred on the image shown: it reaches the length on either
+    // side of that image, as far as its two end images, and no further. The
+    // length ends at z = 12; the image shown is at z = 14, of images 2 mm apart.
+    NSMutableArray *apart = [NSMutableArray array];
+    for( int i = 0; i < 5; i++) [apart addObject: pix( axial, 10 + 2 * i)];
+    ProbePix *shown = apart[ 2];
+    v.dcmPixList = apart; v.curDCM = shown; v.curImage = 2; v.flippedData = NO;
+    check( !project( r).visible);
+    // Three images, 12 to 16: the one before the image shown holds the end of the length.
+    [shown lengthStack: 3]; check( project( r).visible);
+    v.flippedData = YES; check( project( r).visible);
+    // Two images: the image more is after the image shown, or before it when the data is flipped.
+    [shown lengthStack: 2]; check( project( r).visible);
+    v.flippedData = NO; check( !project( r).visible);
+    // On the last image a slab of three is pulled back to images 14 to 18, short of the length; one of five is the whole series.
+    shown = apart[ 4]; v.curDCM = shown; v.curImage = 4;
+    [shown lengthStack: 3]; check( !project( r).visible);
+    [shown lengthStack: 5]; check( project( r).visible);
+    [shown lengthStack: 1];
+    v.dcmPixList = [NSMutableArray arrayWithObjects: last, pix( axial, 3), p, nil]; v.curDCM = p; v.curImage = 2; v.flippedData = YES;
     // Same-plane and oblique endpoints; orientation transforms never change length.
     double c = sqrt( .5); [p lengthOrientation: @[@(c),@(c),@0,@0,@0,@1,@(c),@(-c),@0]]; [p lengthZ: 0];
     check( [HorosVolumeLengthROI validGeometry: p]); a = [HorosVolumeLengthROI patientPoint: NSMakePoint( 4, 3) pix: p];

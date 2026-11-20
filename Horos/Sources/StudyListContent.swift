@@ -194,10 +194,15 @@ final class AlbumCountsAccess: Sendable {
     }
 
     /// Selects the albums of that name.
-    func selectAlbum(named name: String?) {
+    /// Answers whether an album has that name.
+    @discardableResult
+    func selectAlbum(named name: String?) -> Bool {
+        var found = false
         for album in database.map({ CoreDataAlbumStore(database: $0).fetchAlbums() }) ?? [] where BrowserObjC.literallyEqual(album.name, name) {
             selectAlbumRow(album)
+            found = true
         }
+        return found
     }
 
     /// Adds the default albums the database lacks.

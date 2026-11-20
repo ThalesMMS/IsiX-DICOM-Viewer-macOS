@@ -31,8 +31,8 @@
       "consumer": "Release AppController bootstrap via HorosApplicationInstaller.moveToApplicationsFolderIfNecessary; independent database aliases",
       "files": {
         "Horos/Sources/HorosApplicationInstaller.swift": {
-          "size": 20040,
-          "sha256": "2a291fb5e9d713311da62868be1914d9d0cfc9d30513ad654473ba828c425627"
+          "size": 20580,
+          "sha256": "09feb6b76ebcdca689fd8676ea74f25a502a42cd1aafb85f95859843a3df658e"
         },
         "Horos/Sources/HorosApplicationInstaller+Move.swift": {
           "size": 3727,
@@ -116,8 +116,8 @@
           "sha256": "c3d29e887f7c02f91d82c0deb0d53d1b718248acde8d56d8fda5c7df2396941b"
         },
         "Horos/Sources/FlyAssistant.swift": {
-          "size": 16148,
-          "sha256": "95e3c3b0fd4c879e77bdde3c70e0b6cb28358ebea1ce12eb46f6444b9a15f090"
+          "size": 16298,
+          "sha256": "2511d67ba4fa1d083d20a8249f0031b227e1e6ed7c128b0d733112a748e83cad"
         },
         "Horos/Sources/KFSplitView.h": {
           "size": 3382,

@@ -50,10 +50,12 @@ extension SRController {
     // MARK: 3D points
 
     /// A 3D point added in the view: its 2D point ROI on the slice it falls in.
+    /// Answers whether the point was added, as later headers of the plugin SDK declare it.
     @objc(add2DPoint:::)
-    func add2DPoint(_ x: Float, _ y: Float, _ z: Float) {
+    @discardableResult
+    func add2DPoint(_ x: Float, _ y: Float, _ z: Float) -> Bool {
         guard let viewer2D = viewer2DStorage, let pixList = viewer2D.pixList(), pixList.count > 1,
-              let firstDCMPix = pixList.object(at: 0) as? DCMPix else { return }
+              let firstDCMPix = pixList.object(at: 0) as? DCMPix else { return false }
         // compute 2D Coordinates
         var dc = [Double(x), Double(y), Double(z)]
         var sc = [Double](repeating: 0, count: 3)
@@ -63,7 +65,7 @@ extension SRController {
         let sliceNumber = Int(sc[2] + 0.5)
 
         guard sliceNumber >= 0 && sliceNumber < pixList.count,
-              let sliceROIs = viewer2D.roiList()?.object(at: sliceNumber) as? NSMutableArray else { return }
+              let sliceROIs = viewer2D.roiList()?.object(at: sliceNumber) as? NSMutableArray else { return false }
         // Create the new 2D Point ROI
         let new2DPointROI: ROI = ROI(type: .t2DPoint, Float(firstDCMPix.pixelSpacingX), Float(firstDCMPix.pixelSpacingY),
                                 DCMPix.originCorrected(accordingToOrientation: firstDCMPix))
@@ -75,6 +77,7 @@ extension SRController {
         record2DPoint(new2DPointROI, slice: sliceNumber, (x, y, z))
         // notify the change
         NotificationCenter.default.post(name: .OsirixROIChange, object: new2DPointROI, userInfo: nil)
+        return true
     }
 
     /// A 3D point removed in the view: its 2D point ROI leaves the 2D viewer.

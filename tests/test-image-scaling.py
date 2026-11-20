@@ -86,7 +86,9 @@ else:
                                    ROOT / "Horos/Sources/PieChartImage.swift",
                                    ROOT / "Nitrogen/Sources/N2ImageButtonCell.swift",
                                    ROOT / "Nitrogen/Sources/N2HighlightImageButtonCell.swift",
-                                   ROOT / "Nitrogen/Sources/N2Debug.swift", ROOT / "Nitrogen/Sources/NSException+N2.swift"],
+                                   ROOT / "Nitrogen/Sources/N2Debug.swift", ROOT / "Nitrogen/Sources/NSException+N2.swift",
+                                   # The crop: of every image, which N2Image answers with an image of its own kind.
+                                   ROOT / "Horos/Sources/AppKitCategories+LaterPluginSDK.swift"],
                                    # The typesetter behaviour the Geometrics header declares extern is defined beside
                                    # callbacks that call the N3 geometry, which is not here.
                                    helpers + [Path(former_sdk_objects.nitrogen(work)), Path(former_sdk_objects.bezier_stubs(work))],

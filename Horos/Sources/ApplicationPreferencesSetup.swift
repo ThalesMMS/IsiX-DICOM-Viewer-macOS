@@ -92,6 +92,7 @@ enum ApplicationPreferencesSetup {
         LaunchPreferenceMigrations.applyFixedValues(in: preferences)
         LaunchPreferenceMigrations.migrateAutoClean(in: preferences)
         LaunchPreferenceMigrations.correctQueryCharacterSet(in: preferences)
+        migrateLinkSupport()
 
         // DICOMweb nodes of the pilot, stored in SERVERS with retrieveMode 3, move to
         // DICOMWEB_SERVERS before anything reads SERVERS as a list of DIMSE nodes.
@@ -115,6 +116,26 @@ enum ApplicationPreferencesSetup {
         let defaultDatabasePath = NSLocalizedString("(Current User Documents folder)", comment: "")
         #endif
         LaunchPreferenceMigrations.applySessionValues(in: preferences, defaultDatabasePath: defaultDatabasePath)
+    }
+
+    /// Who the XML-RPC server answers, in the one key later versions keep it
+    /// in, and then the switch of the links, stored the first time a launch
+    /// finds none: settings whose XML-RPC server was on, of an earlier version
+    /// or carried over from Horos, keep the links on and the scope the server
+    /// answered (LinkSupportMigration). Only the user's own values count, not
+    /// what this launch was given as an argument. Before a link that launched
+    /// the application is read.
+    private static func migrateLinkSupport() {
+        XMLRPCServerAccess.migrateLegacyPreferences(in: preferences)
+        let stored = Bundle.main.bundleIdentifier.flatMap { preferences.persistentDomain(forName: $0) } ?? [:]
+        guard let writes = LinkSupportMigration.writes(storedLinkSupport: stored[NetworkPreferences.linkSchemeSupport.name],
+                                                       storedServer: stored[NetworkPreferences.xmlrpcServer.name],
+                                                       storedAccessScope: stored[NetworkPreferences.xmlrpcServerAccessScope.name]) else { return }
+        preferences.set(writes.linkSupport, forKey: NetworkPreferences.linkSchemeSupport.name)
+        if let scope = writes.accessScope {
+            preferences.set(scope, forKey: NetworkPreferences.xmlrpcServerAccessScope.name)
+            NSLog("XML-RPC server: it was on before the links had a switch of their own, and keeps answering any address")
+        }
     }
 
     /// The default database is the one opened: the one chosen at first use,

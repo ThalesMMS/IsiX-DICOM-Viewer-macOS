@@ -145,8 +145,8 @@ public struct SliceNavigation: Sendable, Equatable {
         SeriesBrowsing.sliderValue(forViewImage: stack.current, count: count, flipped: flipped)
     }
 
-    /// The images a thick slab spans on the strip, from the image shown
-    /// towards its end: at least one.
+    /// The images a thick slab spans on the strip, around the image shown
+    /// (ThickSlabSpan): at least one.
     public static func slabImageCount(stack: Int) -> Int {
         max(stack, 1)
     }

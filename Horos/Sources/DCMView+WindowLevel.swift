@@ -166,6 +166,55 @@ func horosPlaneOrigin(_ pix: DCMPix) -> SIMD3<Float> {
     }
 }
 
+/// The thick slab an image is shown through, as the viewers tell each other
+/// of it: its two ends, which the reference lines draw, and the image in its
+/// middle, which stands for the slab where one plane is asked for: the plane
+/// the other viewers follow and the plane a point of the crosshair is on.
+///
+/// The middle is the image shown, except within half a slab of an end of the
+/// series: there the slab is pulled back inside the series (ThickSlabSpan)
+/// and stays the same, with its middle, while the image shown goes on.
+/// Without a slab there are no ends and no middle: the image stands for itself.
+@MainActor struct SyncedSlab {
+    let nearEnd: DCMPix?, farEnd: DCMPix?, middle: DCMPix?
+
+    /// The slab of the image `view` shows, in the list and the direction of the view.
+    init(shownIn view: DCMView) {
+        let list = view.horos_dcmPixList
+        self.init(stack: Int(view.curDCM?.stack ?? 0), current: Int(view.horos_curImage), count: list?.count ?? 0,
+                  flipped: view.horos_flippedData) { list?.object(at: $0) as? DCMPix }
+    }
+
+    /// The slab `pix` is shown through, in its own series: the one its pixels are reduced from.
+    init(of pix: DCMPix?) {
+        let series = pix?.seriesList
+        self.init(stack: Int(pix?.stack ?? 0), current: pix?.pixPos ?? -1, count: series?.count ?? 0,
+                  flipped: (pix?.stackDirection ?? 0) != 0) { series?.object(at: $0) as? DCMPix }
+    }
+
+    private init(stack: Int, current: Int, count: Int, flipped: Bool, image: (Int) -> DCMPix?) {
+        guard stack > 1, current >= 0, current < count else {
+            (nearEnd, farEnd, middle) = (nil, nil, nil)
+            return
+        }
+        let span = ThickSlabSpan(images: stack, at: current, of: count, towardsStart: flipped)
+        (nearEnd, farEnd, middle) = (image(span.nearEnd), image(span.farEnd), image(span.middle))
+    }
+
+    /// Moves `origin`, the origin of a picture drawn from the image `shown`,
+    /// to where the picture of the slab is: the plane midway between the two
+    /// ends of the slab, as the slab's location is midway between theirs. The
+    /// picture goes by the way from the image shown to that plane, which is
+    /// nothing for a slab with as many images on either side of the image,
+    /// half an interval for an even one, and more where the slab was pulled
+    /// back from an end of the series. Without a slab the origin stays.
+    func moveToCentre(_ origin: inout [Float], from shown: DCMPix?) {
+        guard let nearEnd, let farEnd, let shown, origin.count >= 3 else { return }
+        let way = (horosPlaneOrigin(nearEnd) + horosPlaneOrigin(farEnd)) / 2 - horosPlaneOrigin(shown)
+        for axis in 0..<3 { origin[axis] += way[axis] }
+    }
+}
+
 /// The presentation state of the series and of the image, which -setWLWW:: and
 /// -discretelySetWLWW:: record the same way: the window in the image's values
 /// (an SUV window of the 2D viewer converted back), on the series, and on the
@@ -434,11 +483,11 @@ extension DCMView {
         let current = Int(self.horos_curImage)
         let count = self.horos_dcmPixList?.count ?? 0
 
-        let farEnd = ThickSlabRange.farEndIndex(currentIndex: current, stack: Int(self.curDCM?.stack ?? 0), count: count,
-                                                flippedData: self.horos_flippedData)
-        let thickDCM = farEnd >= 0 ? self.horos_dcmPixList?.object(at: farEnd) as? DCMPix : nil
+        // A thick slab is told by its far end and by the plane in its middle; the image sent is the one shown.
+        let slab = SyncedSlab(shownIn: self)
+        let thickDCM = slab.farEnd
 
-        let p = self.horos_dcmPixList?.object(at: current) as? DCMPix
+        let p = slab.middle ?? self.horos_dcmPixList?.object(at: current) as? DCMPix
         let direction = self.horos_flippedData ? 0 &- inc : inc
         let message = ViewerSyncMessage(position: ViewerSyncMessage.position(current: current, count: count, flippedData: self.horos_flippedData),
                                         direction: Int32(clamping: direction),
@@ -548,9 +597,9 @@ extension DCMView {
         self.referenceLines = lines
     }
 
-    /// The lines where the slice of `oPix` (and the far end of its slab,
-    /// `oPix2`) cut this view's image, kept for the drawing; whether they
-    /// changed.
+    /// The lines where the slice of `oPix`, or the two ends of the slab it is
+    /// shown through (`oPix2` its far end), cut this view's image, kept for
+    /// the drawing; whether they changed.
     @objc(computeSlice::)
     dynamic func computeSlice(_ oPix: DCMPix!, _ oPix2: DCMPix!) -> Bool {
         let before = self.referenceLines
@@ -572,7 +621,7 @@ extension DCMView {
                         self.computeSliceIntersection(pix, sliceFromTo: sft, vector: vectorB, origin: originB)
                     }
                 }
-                cut(oPix, self.horos_sliceFromTo)
+                cut(oPix2 != nil ? SyncedSlab(of: oPix).nearEnd ?? oPix : oPix, self.horos_sliceFromTo)
                 self.horos_sliceFromToThickness = Float(oPix?.sliceThickness ?? 0)
 
                 // The two ends of the source's series, when its images share one orientation.
@@ -649,7 +698,7 @@ extension DCMView {
                 let oStudyId = message.studyInstanceUID
                 let oFrameofReferenceUIDObject = message.frameOfReferenceUID as NSString?
                 let oFrameofReferenceUID = message.frameOfReferenceUID
-                let oPix = received.image
+                let oPix = SyncedSlab(of: received.image).middle ?? received.image
                 let oPix2 = received.farEndImage
                 let otherView = received.view
                 let point3D = message.patientPoint != nil

@@ -321,26 +321,22 @@ extension DCMView {
               let dcmPixList = self.horos_dcmPixList else { return }
         var location: [Float] = [0, 0, 0]
 
-        curDCM.convertX(self.horos_mouseXPos, pixY: self.horos_mouseYPos, toDICOMCoords: &location, pixelCenter: true)
+        // The point of a thick slab is on the plane in its middle, the one the other viewers follow.
+        let slab = SyncedSlab(shownIn: self)
+        (slab.middle ?? curDCM).convertX(self.horos_mouseXPos, pixY: self.horos_mouseYPos, toDICOMCoords: &location, pixelCenter: true)
 
         // The shared controller moves native consumers once. Keep the established
         // OsirixSyncNotification payload below for plugins and reference lines.
         let sharedPoint = self.is2DViewer() &&
             PatientCrosshairController.shared.publish(location, viewer: self.windowController() as? ViewerController, owner: self.windowController().map { $0 as AnyObject })
 
-        // This used to ignore flippedData, while -syncMessage: right below honoured
-        // it: a reversed series sent the far end of the slab from the wrong side of
-        // the current slice, and the receiver drew the band there.
+        // The far end of the slab is the one -syncMessage: sends, flipped data or not.
         let current = Int(self.horos_curImage)
-        let farEnd = ThickSlabRange.farEndIndex(currentIndex: current,
-                                                stack: Int(curDCM.stack),
-                                                count: dcmPixList.count,
-                                                flippedData: self.horos_flippedData)
-        let thickDCM = farEnd >= 0 ? dcmPixList.object(at: farEnd) as? DCMPix : nil
+        let thickDCM = slab.farEnd
 
         let message = ViewerSyncMessage(position: ViewerSyncMessage.position(current: current, count: dcmPixList.count, flippedData: self.horos_flippedData),
                                         direction: nil,
-                                        location: Float((dcmPixList.object(at: current) as? DCMPix)?.sliceLocation ?? 0),
+                                        location: Float((slab.middle ?? dcmPixList.object(at: current) as? DCMPix)?.sliceLocation ?? 0),
                                         offset: self.horos_syncRelativeDiff,
                                         frameOfReferenceUID: curDCM.frameofReferenceUID,
                                         studyInstanceUID: self.horosStudyInstanceUID(at: current),

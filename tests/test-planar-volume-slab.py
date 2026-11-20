@@ -24,8 +24,13 @@ does not depend on the machine. A 64 x 48 series runs on 4 threads; a 37 x 23
 one, 851 pixels, on 7: the host composes four pixels a step, and its ranges,
 not multiples of four, read and wrote past its buffers - the original renderer
 crashed in the allocator - until they were aligned, with the remainder composed
-a pixel at a time. Over slabs in both modes and directions, cut at
-either end of the series, windowed, inverted, fixed and saturated, Metal's
+a pixel at a time. The slab handed over is the 2D viewer's: centred on the
+image shown and pulled back inside the series at either end, where it keeps
+its slices, and the whole series when it asks for more slices than there are;
+the host's case is written here with that arithmetic, apart from the
+application's rule. Over slabs in both modes and directions, centred, pulled
+back at either end and of the whole series, windowed, inverted, fixed and
+saturated, Metal's
 bytes must equal the host's bit for bit, as must the Metal 4 pilot's, a 2x
 enlargement must be vImageScale_ARGB8888 of the host's bytes, and fused over
 another series the composite, whose alpha is opaque, must cover it.
@@ -44,6 +49,7 @@ import subprocess
 import sys
 import tempfile
 import process_graph_stand_in  # the Metal sources read their development switches through PreferencesSource
+import isix_modules  # the slices of a slab are IsiXImaging's rule
 
 root = Path(__file__).resolve().parents[1]
 revision = sys.argv[1] if len(sys.argv) > 1 else None
@@ -138,24 +144,34 @@ elif '- (float*) computeThickSlab' not in pix:
     swift_class = '- (void) horos_renderThickSlab' not in source and 'HorosDCMPixRenderThickSlab(' in source
     helper = read('Horos/Sources/DCMPix+CAPI.m' if swift_class else 'Horos/Sources/DCMPix+SwiftIvars.m')
     swift_case = source[source.index('case 4, 5:'):source.index('case 1, 2, 3:')]
-    expected = ['let last = ViewTransform.thickSlabLastIndex(current: position, count: count, stack: stack, flipped: stackDirection != 0)',
-                'let stackSize = abs(last - position) + 1',
-                'stackDirection != 0 ? horos_fImage.map { $0 - (stackSize - 1) * height * width } : horos_fImage',
-                'HorosDCMPixRenderThickSlab(horos_thickSlab, source, stackSize, iwl, displayInverted ? -iww : iww)' if swift_class else
-                'horos_renderThickSlab(from: source, count: stackSize, level: iwl, width: displayInverted ? -iww : iww)',
+    expected = ['let span = slabSpan(stack: stack)',
+                'let source = horos_fImage.map { $0 - (position - span.first) * height * width }',
+                'HorosDCMPixRenderThickSlab(horos_thickSlab, source, span.count, iwl, displayInverted ? -iww : iww)' if swift_class else
+                'horos_renderThickSlab(from: source, count: span.count, level: iwl, width: displayInverted ? -iww : iww)',
                 'horos_thickSlabVRActivated = true', 'baseAddr = rgba']
+    span = source[source.index('private func slabSpan(stack: Int) -> ThickSlabSpan {'):]
+    span = span[:span.index('\n    }\n')]
+    if 'ThickSlabSpan(images: stack, at: Int(pixPos), of: horos_pixArray?.count ?? 0, towardsStart: stackDirection != 0)' not in span:
+        print('FAIL: the volume-rendering slab is not the slab of the other projections')
+        raise SystemExit(1)
     slab = 'slab' if swift_class else 'thickSlab'
     steps = ['[%s setImageSource: source :count];' % slab, '[%s setWLWW: level :width];' % slab, 'return [%s renderSlab];' % slab]
     if any(e not in swift_case for e in expected) or any(s not in helper for s in steps):
         print('FAIL: computeThickSlab no longer has the volume-rendering case this test cuts out')
         raise SystemExit(1)
+    # The slices of the slab, written apart from the application's rule: as many
+    # as asked for, or all the series has, (n - 1) / 2 of them before the image
+    # in the slab's direction, moved back inside the series at an end.
     case = '''if( thickSlab)
             {
-                if( stackDirection)
-                    stacksize = pixPos+1 < stack ? pixPos+1 : stack;
-                else
-                    stacksize = pixPos+stack < (long) [pixArray count] ? stack : [pixArray count] - pixPos;
-                float *source = stackDirection ? fImage - (stacksize-1)*height * width : fImage;
+                long total = [pixArray count];
+                stacksize = stack < total ? stack : total;
+                if( stacksize < 1) stacksize = 1;
+                long before = (stacksize - 1) / 2;
+                long first = stackDirection ? pixPos - (stacksize - 1 - before) : pixPos - before;
+                if( first < 0) first = 0;
+                if( first > total - stacksize) first = total - stacksize;
+                float *source = fImage - (pixPos - first) * height * width;
                 [thickSlab setImageSource: source :stacksize];
                 [thickSlab setWLWW: iwl: self.displayInverted ? -iww : iww];
                 rgbaImage = [thickSlab renderSlab];
@@ -260,13 +276,18 @@ func texture(_ image: MTLTexture) -> [UInt8] {
 
 @main struct Check {
     static func main() throws {
-        // The volume rendering composes the images the other projections fuse: the one shown and those of sliceIndices.
+        // The volume rendering composes the images the other projections fuse, those of sliceIndices, the one shown
+        // among them: as many as asked for on every image of the series.
         for position in 0..<16 {
             for stack in 1...17 {
                 for direction in 0...1 {
                     let composed = Set(PlanarThickSlab.volumeSliceIndices(position: position, stack: stack, direction: direction, count: 16,
                                                                          memoryOrder: true).map(\.intValue))
                     let fused = Set(PlanarThickSlab.sliceIndices(position: position, stack: stack, direction: direction, count: 16).map(\.intValue))
+                    if fused.count != (stack > 1 ? min(stack, 16) : 0) || (stack > 1 && !fused.contains(position)) {
+                        print("FAIL: at image \(position), \(stack) images, direction \(direction): the projections fuse \(fused.sorted())")
+                        exit(1)
+                    }
                     if composed != fused.union([position]) {
                         print("FAIL: at image \(position), \(stack) images, direction \(direction): the volume rendering composes \(composed.sorted()), the projections fuse \(fused.union([position]).sorted())")
                         exit(1)
@@ -368,6 +389,14 @@ cases = [  # mode, position, stack, direction, inverted, level, width
     (4, 8, 7, 0, 1, 350.0, 1500.0), (5, 8, 7, 1, 1, 350.0, 1500.0),
     (4, 5, 9, 0, 0, 127.0, 256.0), (5, 12, 3, 1, 0, 100.0, 60.0),
     (4, 7, 1, 0, 0, 200.0, 800.0), (4, 7, 1, 1, 0, 200.0, 800.0),
+    # On the first and the last image, and next to them: the slab pulled back inside the series.
+    (4, 0, 6, 0, 0, 200.0, 800.0), (5, 0, 5, 1, 0, 200.0, 800.0),
+    (4, 15, 5, 1, 0, 200.0, 800.0), (5, 15, 6, 0, 0, 200.0, 800.0),
+    (4, 1, 8, 0, 0, 200.0, 800.0), (5, 14, 8, 1, 1, 350.0, 1500.0),
+    # An even slab in the middle: its image more on the side it goes.
+    (4, 8, 4, 0, 0, 200.0, 800.0), (5, 8, 4, 1, 0, 200.0, 800.0),
+    # More images than the series has: all of them.
+    (4, 9, 20, 0, 0, 200.0, 800.0), (5, 3, 16, 1, 0, 200.0, 800.0),
 ]
 
 with tempfile.TemporaryDirectory(prefix='horos-planar-volume-slab-') as name:
@@ -377,12 +406,13 @@ with tempfile.TemporaryDirectory(prefix='horos-planar-volume-slab-') as name:
     (directory / 'host.m').write_text(HOST)
     sources = ['VolumeAllocation.swift', 'VolumeSession.swift', 'MPRMetalReslicer.swift', 'MetalPerformanceTrace.swift',
                'MetalComputePipelineCache.swift', 'Metal4ComputeSubmitter.swift', 'PlanarMetalRenderer.swift',
-               'PlanarMetal4Renderer.swift']
+               'PlanarThickSlabSlices.swift', 'PlanarMetal4Renderer.swift']
     for source in sources:
         (directory / source).write_text(read('Horos/Sources/' + source))
     (directory / 'Check.swift').write_text(DRIVER)
     build = subprocess.run(['xcrun', 'swiftc', '-O', '-parse-as-library', '-suppress-warnings',
-                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'), str(directory / 'Check.swift'),
+                            *[str(directory / source) for source in sources], *process_graph_stand_in.swift_flags(directory / 'isix'),
+                            *isix_modules.module_flags('IsiXImaging', directory / 'isix'), str(directory / 'Check.swift'),
                             '-o', str(directory / 'check')])
     if build.returncode:
         print('FAIL: the planar renderer does not build with the volume-slab driver')

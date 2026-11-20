@@ -14,8 +14,12 @@ Source-level contract:
   rows or columns of that thickness (OrthogonalThickSlab.reslicedCount); it
   neither uses -thickSlabDistance nor writes the preference;
 - the reslicer has a count for each axis, and -setThickSlab: still sets both;
-- the crossing after a change of thickness goes through
-  OrthogonalThickSlab.crossIndex, which keeps it inside the series;
+- the slab of the original view is the 2D viewer's, centred on the image
+  shown and kept inside the series (ThickSlabSpan): the reformatted views
+  cross at the image shown (OrthogonalThickSlab.crossIndex, which keeps it
+  inside the series), a crossing put on a row shows the image of that row,
+  with no half slab taken off, the scale goes the way the view's slab does,
+  and the bands of the reformatted views cover the rows of the span;
 - the reslicer's slab ends past the last row or column, and the Y
   reformation's slices are a column apart;
 - the window keeps the images asked for, writes them (never 0, never the
@@ -80,8 +84,18 @@ check('setXThickSlab(Int16(truncatingIfNeeded: counts.rows), yThickSlab: Int16(t
       'the reslicer is not given a count for each axis')
 check('_originalView?.setThickSlabXY(band(counts.columns), band(counts.rows))' in apply, "the original view's bands do not have the count of their axis")
 reslice = block(controller, 'public dynamic func reslice(_ x: Int, _ y: Int, _ sender: OrthogonalMPRView!)')
-check('OrthogonalThickSlab.crossIndex(firstImage: first, requestedSlices: Int(curDCM?.stack ?? 0), count: count)' in reslice,
-      'the crossing after a change of thickness is not kept inside the series')
+check('OrthogonalThickSlab.crossIndex(image: shown, count: count)' in reslice,
+      'the crossing after a change of thickness is not the image shown, kept inside the series')
+check('_thickSlab / 2' not in reslice and 'stack ?? 0) / 2' not in reslice,
+      'a crossing still puts the original view half a slab before its image: the slab is centred on the image shown')
+check('towardsStart: view.flippedData' in scale, "the scale does not go the way the original view's slab does")
+follow = block(controller, 'private func followSlab()')
+check('ThickSlabSpan(images: Int(_thickSlab), at: Int(view.curImage), of: count, towardsStart: view.flippedData)' in follow
+      and '[slab.first, slab.last]' in follow and 'effectiveCount' not in follow,
+      'the bands of the reformatted views do not cover the images of the centred slab')
+middle = block(view, 'public dynamic func convertPixX(_ x: Float, pixY y: Float, toDICOMCoords location: UnsafeMutablePointer<Float>!)')
+check('ThickSlabSpan(images: Int(curDCM?.stack ?? 0), at: Int(self.horos_curImage)' in middle and 'slab.middle' in middle
+      and '(stack - 1) / 2' not in middle, 'a point of a slab is not told on the image in the middle of the span')
 check('followSlab()' in reslice, 'a reslice does not follow the slab of the image shown')
 
 check('@objc(setXThickSlab:yThickSlab:)' in reslicer and '@objc public var yThickSlab: Int16' in reslicer, 'the reslicer has no count for each axis')
@@ -117,5 +131,5 @@ for failure in failures:
     print('FAIL:', failure)
 if failures:
     sys.exit(1)
-print('PASS: the orthogonal MPR fuses one thickness by a count for each axis, keeps its crossing inside the series, '
-      'takes the last row and column, and shows the images asked for in millimeters')
+print('PASS: the orthogonal MPR fuses one thickness by a count for each axis, centres the slab of its original view on the '
+      'image of the crossing, takes the last row and column, and shows the images asked for in millimeters')

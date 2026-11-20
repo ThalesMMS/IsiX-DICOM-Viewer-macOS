@@ -248,8 +248,9 @@ extension ViewerSessionGraph {
         viewer.horos_splitView?.subviews.first?.postsFrameChangedNotifications = false
 
         // The series load: this viewer's and the fused one's are asked to
-        // stop, then this one waits for its worker, which holds the buffers the
-        // viewer releases, and refuses any later start or delivery.
+        // stop, and this one refuses any later start or delivery. Its worker
+        // is not waited for: the request it decodes keeps the buffers the
+        // viewer releases below until it has left them.
         viewer.horosSeriesLoad.requestCancel()
         if let blending = viewer.horos_blending {
             blending.horosSeriesLoad.requestCancel()

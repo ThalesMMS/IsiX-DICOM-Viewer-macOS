@@ -128,20 +128,24 @@ extension DCMPix {
     @objc(horosPlanarThickSlab)
     public dynamic func horosPlanarThickSlab() -> ThickSlabController? { horos_thickSlab }
 
-    /// The images of the slab after this one, or before it (`stackDirection`),
-    /// that have pixels, up to `stack` images in all.
-    private func slabNeighbours(stack: Int) -> [UnsafePointer<Float>] {
+    /// The slab this image is shown through: `stack` images of its series,
+    /// centred on it and kept inside the series (ThickSlabSpan), going
+    /// towards the start of the series with `stackDirection`.
+    private func slabSpan(stack: Int) -> ThickSlabSpan {
+        ThickSlabSpan(images: stack, at: Int(pixPos), of: horos_pixArray?.count ?? 0, towardsStart: stackDirection != 0)
+    }
+
+    /// The pixels of the images of the slab that have them, this image's
+    /// among them, in the order the slab reduces them: the same for every
+    /// image that shows the same slab.
+    private func slabSlices(stack: Int) -> [UnsafePointer<Float>] {
         let list = horos_pixArray ?? []
-        var neighbours: [UnsafePointer<Float>] = []
-        var i = 1
-        while i < stack {
-            let next = stackDirection != 0 ? Int(pixPos) - i : Int(pixPos) + i
-            if next >= 0 && next < list.count, let pix = list[next] as? DCMPix, let pixels = pix.fImage {
-                neighbours.append(UnsafePointer(pixels))
-            }
-            i += 1
+        let position = Int(pixPos)
+        return slabSpan(stack: stack).ordered.compactMap { index in
+            if index == position { return horos_fImage.map { UnsafePointer($0) } }
+            guard index >= 0 && index < list.count, let pixels = (list[index] as? DCMPix)?.fImage else { return nil }
+            return UnsafePointer(pixels)
         }
-        return neighbours
     }
 
     /// The thick slab of a grey image: a new buffer with the mean, maximum or
@@ -158,13 +162,13 @@ extension DCMPix {
         switch stackMode {
         case 4, 5:    // Volume Rendering
             guard horos_thickSlab != nil else { return nil }
-            let count = horos_pixArray?.count ?? 0
-            // The images the label and the other projections count: the slab stops at the series' end.
-            let last = ViewTransform.thickSlabLastIndex(current: position, count: count, stack: stack, flipped: stackDirection != 0)
-            let stackSize = abs(last - position) + 1
-            // Backwards, the slab starts at the first of its images, before this one.
-            let source = stackDirection != 0 ? horos_fImage.map { $0 - (stackSize - 1) * height * width } : horos_fImage
-            let rgba = HorosDCMPixRenderThickSlab(horos_thickSlab, source, stackSize, iwl, displayInverted ? -iww : iww)
+            // The images of the slab lie one after the other in the volume,
+            // in the order of the series: the slab starts at the first of
+            // them, which is before this one unless the slab was pulled back
+            // to the start of the series.
+            let span = slabSpan(stack: stack)
+            let source = horos_fImage.map { $0 - (position - span.first) * height * width }
+            let rgba = HorosDCMPixRenderThickSlab(horos_thickSlab, source, span.count, iwl, displayInverted ? -iww : iww)
             horos_thickSlabVRActivated = true
             baseAddr = rgba.map { UnsafeMutableRawPointer($0).assumingMemoryBound(to: CChar.self) }
             return nil
@@ -173,11 +177,17 @@ extension DCMPix {
             countstackMean = 1
             let count = height * width
             guard let result = malloc(count * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else { return nil }
-            if let pixels = horos_fImage { memcpy(result, pixels, count * MemoryLayout<Float>.size) }
-            let neighbours = slabNeighbours(stack: stack)
-            ThickSlabReduction.fold(into: result, count: count, slices: neighbours, mode: Int(stackMode),
+            // The first image of the slab that has pixels, then the others folded into it.
+            let slices = slabSlices(stack: stack)
+            // With no pixels in any image of the slab, a slab of zeros and not what the memory held.
+            if let first = slices.first {
+                memcpy(result, first, count * MemoryLayout<Float>.size)
+            } else {
+                memset(result, 0, count * MemoryLayout<Float>.size)
+            }
+            ThickSlabReduction.fold(into: result, count: count, slices: Array(slices.dropFirst()), mode: Int(stackMode),
                                     workers: Int(DCMPix.maxProcessors()))
-            if stackMode == Int16(ThickSlabReduction.mean) { countstackMean = Float(1 + neighbours.count) }
+            if stackMode == Int16(ThickSlabReduction.mean) { countstackMean = Float(max(1, slices.count)) }
             ThickSlabReduction.divide(result, count: count, by: countstackMean)
             return result
 
@@ -194,24 +204,18 @@ extension DCMPix {
         guard let result = malloc(count * MemoryLayout<Float>.size)?.assumingMemoryBound(to: Float.self) else { return nil }
         guard let pixels = horos_fImage else { return result }
         if stackMode == Int16(ThickSlabReduction.maximum) || stackMode == Int16(ThickSlabReduction.minimum) {
-            // Every channel byte of the slab is reduced into the result. The first
-            // slice that has pixels is compared with the current one; each later
-            // slice is compared with what has been reduced so far.
-            let list = horos_pixArray ?? []
-            var reduced = UnsafeMutableRawPointer(pixels)
-            var i = 1
-            while i < Int(horos_stack) {
-                let next = stackDirection != 0 ? Int(pixPos) - i : Int(pixPos) + i
-                if next < 0 || next >= list.count { break }
-                if let pix = list[next] as? DCMPix, let slice = pix.fImage {
-                    ThickSlabReduction.foldBytes(reduced, UnsafeRawPointer(slice), into: UnsafeMutableRawPointer(result), pixels: count,
-                                                 keepLarger: stackMode == Int16(ThickSlabReduction.maximum))
-                    reduced = UnsafeMutableRawPointer(result)
-                }
-                i += 1
+            // Every channel byte of the slab is reduced into the result. The
+            // first two slices that have pixels are compared with each other;
+            // each later slice is compared with what has been reduced so far.
+            let slices = slabSlices(stack: Int(horos_stack))
+            var reduced = UnsafeRawPointer(slices.first ?? UnsafePointer(pixels))
+            for slice in slices.dropFirst() {
+                ThickSlabReduction.foldBytes(reduced, UnsafeRawPointer(slice), into: UnsafeMutableRawPointer(result), pixels: count,
+                                             keepLarger: stackMode == Int16(ThickSlabReduction.maximum))
+                reduced = UnsafeRawPointer(result)
             }
-            // No other slice had pixels: the slab is the current slice.
-            if reduced != UnsafeMutableRawPointer(result) { memcpy(result, pixels, count * MemoryLayout<Float>.size) }
+            // One slice alone had pixels: the slab is that slice.
+            if reduced != UnsafeRawPointer(result) { memcpy(result, reduced, count * MemoryLayout<Float>.size) }
         } else {
             memcpy(result, pixels, count * MemoryLayout<Float>.size)
         }
@@ -226,9 +230,10 @@ extension DCMPix {
         if x < 0 || x >= width || y < 0 || y >= horos_height { return 0 }
         guard let pixels = horos_fImage else { return 0 }
         let slab = (stackMode == 1 || stackMode == 2 || stackMode == 3) && horos_stack >= 1
-        return ThickSlabReduction.value(at: x + y * width, current: pixels,
-                                        neighbours: slab ? slabNeighbours(stack: Int(horos_stack)) : nil,
-                                        mode: Int(stackMode), isRGB: horos_isRGB)
+        // The images of the slab in the order they are reduced in, as the picture is.
+        let slices = slab ? slabSlices(stack: Int(horos_stack)) : []
+        return ThickSlabReduction.value(at: x + y * width, current: slices.first ?? UnsafePointer(pixels),
+                                        neighbours: slab ? Array(slices.dropFirst()) : nil, mode: Int(stackMode), isRGB: horos_isRGB)
     }
 
     // MARK: - Convolution

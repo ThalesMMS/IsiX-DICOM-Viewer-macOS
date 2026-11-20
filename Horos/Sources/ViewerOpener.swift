@@ -296,6 +296,14 @@ private struct ComparativeOpeningRules: Sendable {
     /// sub-series, chosen in a sheet; any other single series held in
     /// several multi-frame files, a volume each, goes to the 4D player
     /// unasked, a file a time.
+    /// open(lists:movie:viewer:) for -processOpenViewerDICOMFromArray:movie:viewer:,
+    /// which later headers of the plugin SDK declare with an answer: whether a
+    /// 2D viewer is on screen once it is done.
+    func opened(lists: [[Any]], movie: Bool, viewer: ViewerController?) -> Bool {
+        open(lists: lists, movie: movie, viewer: viewer)
+        return ViewerController.numberOf2DViewer() > 0
+    }
+
     func open(lists toOpenArrayIn: [[Any]], movie movieViewerIn: Bool, viewer: ViewerController?) {
         var toOpenArray: [[Any]]? = toOpenArrayIn
         var movieViewer = movieViewerIn

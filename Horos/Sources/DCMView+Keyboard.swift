@@ -44,7 +44,8 @@ import IsiXPreferences
 // The keyboard and the first responder of DCMView are implemented in Swift: an
 // extension of DCMView, with the same selectors. The
 // arrows and the page keys move through the stack (the other way in a series
-// shown in reverse order), Delete removes the selected ROIs, Tab steps the
+// shown in reverse order), Delete removes the selected ROIs (or, first, the
+// pending endpoint of a two-click Length, as Escape does), Tab steps the
 // annotations, the modifiers show the labels, the large description and the
 // magnifier; the view that becomes first responder becomes the key view its
 // viewer synchronizes the others from.
@@ -55,7 +56,7 @@ extension DCMView {
 
     @objc(keyDown:)
     public override dynamic func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 && (self.horos_lengthFirstEndpoint != nil || self.horos_lengthClickEvent != nil) {
+        if (self.horos_lengthFirstEndpoint != nil || self.horos_lengthClickEvent != nil) && ViewROIEditing.LengthPlacement.keyCancels(keyCode: event.keyCode, character: event.characters?.utf16.first) {
             self.cancelLengthPlacement(); return
         }
         self.cancelOpeningScaleToFitForInteraction()

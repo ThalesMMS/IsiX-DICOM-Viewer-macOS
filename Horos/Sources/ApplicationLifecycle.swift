@@ -113,6 +113,8 @@ import IsiXStorage
     /// Whether the system is ending the session, which a quit asked for then
     /// must not answer with a question.
     private let sessionEndNotice = SessionEndNotice()
+    /// The XML-RPC server of the network, while it is turned on.
+    private var xmlrpcNetworkServer: XMLRPCNetworkServer?
 
     init(controller: AppController, processGraph: ProcessGraph,
          preferences: any PreferenceStore = PreferencesSource.process.preferences) {
@@ -307,7 +309,12 @@ import IsiXStorage
                 N2Debug.setActive(true)
             }
 
+            // The lock the plugin SDK exports: plugins take it around their own
+            // reading of files. The application waits for it nowhere.
             PapyrusLock = NSRecursiveLock()
+            DCMPixParsedFileCache.watchTheMainRunLoop()
+            // Before a plugin loads: what a plugin built with later headers of the SDK sends.
+            LaterPluginSDKAnswers.install()
             STORESCP = NSRecursiveLock()
             STORESCPTLS = NSRecursiveLock()
 
@@ -379,10 +386,15 @@ import IsiXStorage
         WebPortal.initializeWebPortalClass()
         controller.adoptBonjourPublisher(BonjourPublisher())
 
-        XMLRPCServerAccess.migrateLegacyPreferences(in: processGraph.preferences)
+        // The interface the links and AppleScript call in this process, with
+        // either turned on; the port of the network only with the server.
         if preferences[NetworkPreferences.xmlrpcServer] {
             if ProtectedMode.isActive { ProtectedMode.skip("XML-RPC server") }
-            else if controller.xmlrpcServer == nil { controller.xmlrpcServer = XMLRPCInterface() }
+            else if let interface = requestInterface() {
+                xmlrpcNetworkServer = XMLRPCNetworkServer(interface: interface, processGraph: processGraph)
+            }
+        } else if preferences[NetworkPreferences.linkSchemeSupport] {
+            _ = requestInterface()
         }
 
         processGraph.applicationMenus.observePresetChanges()
@@ -582,18 +594,27 @@ import IsiXStorage
         finishTermination(sender)
     }
 
-    /// The Quit command, with the application opening again once this process
-    /// has ended: for a setting that takes effect only at launch. The copy
-    /// that runs is the one reopened, by the shell that waits for the process
-    /// as it does after an update, and with the arguments this launch was
-    /// given: a copy opened on a database of its own for one launch would
-    /// otherwise come back on the database of the Documents folder.
-    @discardableResult func restart(_ sender: Any?) -> ApplicationRestart.Outcome {
-        restart(sender, agree: { self.quit.agreeNow() }, droppingArgumentsFor: [])
+    // MARK: - Links and XML-RPC
+
+    /// The interface whose methods a link, AppleScript and the XML-RPC server
+    /// call, made when it is first asked for: turning the links on needs no
+    /// restart. It opens no port. Nil in protected mode, which carries out no
+    /// request from outside.
+    func requestInterface() -> XMLRPCInterface? {
+        if controller.xmlrpcServer == nil && !ProtectedMode.isActive {
+            controller.xmlrpcServer = XMLRPCInterface()
+        }
+        return controller.xmlrpcServer
     }
 
-    /// The same restart once the database window has agreed to quit, as it
-    /// does before its folder is moved: it is not asked a second time.
+    /// The application quits and opens again once this process has ended, for
+    /// a setting that takes effect only at launch, once the database window
+    /// has agreed to quit, as it does before its folder is moved: it is not
+    /// asked a second time. The copy that runs is the one reopened, by the
+    /// shell that waits for the process as it does after an update, and with
+    /// the arguments this launch was given: a copy opened on a database of
+    /// its own for one launch would otherwise come back on the database of
+    /// the Documents folder.
     /// `stale` names the preferences whose launch arguments no longer hold,
     /// which the copy that opens is not given again.
     @discardableResult func restartAlreadyAgreed(_ sender: Any?, droppingArgumentsFor stale: Set<String>) -> ApplicationRestart.Outcome {
@@ -708,6 +729,7 @@ import IsiXStorage
 
         DICOMTLS.eraseKeys()
 
+        xmlrpcNetworkServer = nil
         controller.xmlrpcServer = nil
 
         controller.closeAllViewers(controller)

@@ -174,8 +174,11 @@ int main( int argc, const char **argv) { @autoreleasepool {
     showAlone( r);
     r.rect = NSMakeRect( 10, 10, 4, 4);
     NSDictionary *summary = [r dataString];
-    double m = r.median;
+    // As measured; -median answers the same within one part in a million, for
+    // the plugins that read it as a double and those that read it as a float.
+    double m = r.measuredMedian;
     check( isfinite( m));
+    check( fabs( r.median - m) <= fabs( m) * 1e-6);
     check( [summary[@"MedianUnit"] isEqual: @"HU"] && [summary[@"Median"] doubleValue] == m && [summary[@"MedianAvailable"] boolValue]);
     NSArray *fields = [[r description] componentsSeparatedByString: @"\t"];
     check( fields.count == 8 && [fields[ 6] isEqual: [NSString stringWithFormat: @"%.3f", m]] && [fields[ 7] isEqual: @"HU"]);

@@ -36,6 +36,22 @@ public enum CineCadence {
         max(lastFrame + frameInterval(rate: rate) - now, 0)
     }
 
+    /// How long a player waits for an image the load of the series has not
+    /// reached yet, in seconds.
+    public static let loadPatience: TimeInterval = 1
+
+    /// Whether a player waits before it shows its next image: while the
+    /// series is `loading`, that image is not loaded yet, and less than the
+    /// patience has passed since the last frame. The load decodes the images
+    /// in order, so a player that follows it finds each image there; one that
+    /// reaches an image the load has not decoded gives it a moment, then
+    /// shows it all the same, and the image is loaded as it is shown, as a
+    /// step with the arrow keys loads it. A load that has stopped slows the
+    /// player down and never stops it.
+    public static func waitsForLoad(loading: Bool, nextImageLoaded: Bool, now: TimeInterval, lastFrame: TimeInterval) -> Bool {
+        loading && !nextImageLoaded && now - lastFrame < loadPatience
+    }
+
     /// Wakes `timer` when the frame after `lastFrame` is due.
     public static func wake(_ timer: Timer?, lastFrame: TimeInterval, rate: Float) {
         guard let timer, timer.isValid else { return }

@@ -12,7 +12,14 @@ did it in Objective-C, running the same probe against both:
 * the source of the display: -computefImage, -computefImageForMeasurement,
   -computefImageForDisplay (with the MPR's plane), the thick slab (mean, maximum
   and minimum, both directions, grey and colour), -getPixelValueX:Y: through a
-  slab, the convolution kernel and -applyConvolutionOnSourceImage;
+  slab, the convolution kernel and -applyConvolutionOnSourceImage. The
+  Objective-C class made a slab of an image and those after it, cut at the
+  end of the series; a slab is now centred on its image and kept inside the
+  series (tests/test-thick-slab-cpu-reference.py measures which images it is
+  made of). The records are of what a slab makes of its images, so each slab
+  of the records is asked as it is found now: with the images it had, from
+  the image in their middle. They are reduced in the same order, from the
+  near end of the slab on, and give the same floats;
 * the shutter: rectangle, circle and polygon, grey and colour;
 * -ConvertToBW: and -ConvertToRGB::: in every mode;
 * the pictures: -image, -generateThumbnailImageWithWW:WL:, the icon's size and
@@ -251,8 +258,15 @@ static void thickSlab( void)
     for( int mode = 1; mode <= 3; mode++) for( int direction = 0; direction < 2; direction++) for( int stack = 1; stack <= 4; stack += 3)
         for( int index = 1; index < 7; index += 4)
         {
-            DCMPix *p = list[ index];
-            [p setFusion: mode :stack :direction];
+            // The slab of the records: `stack` images from `index` on, towards
+            // the start of the series with `direction`, as many as the series
+            // has that way. The same images are the slab of the image in
+            // their middle, with the image more of an even slab the way the
+            // slab goes.
+            int images = direction ? MIN( stack, index + 1) : MIN( stack, 7 - index);
+            int middle = direction ? index - (images - 1) / 2 : index + (images - 1) / 2;
+            DCMPix *p = list[ middle];
+            [p setFusion: mode :images :direction];
             float *f = [p computefImage];
             float *m = [p computefImageForMeasurement];
             NSMutableArray *values = [NSMutableArray array];
@@ -270,19 +284,25 @@ static void thickSlab( void)
     NSArray *colours = series( 5, YES);
     for( int mode = 1; mode <= 3; mode++) for( int direction = 0; direction < 2; direction++)
     {
-        DCMPix *p = colours[ 2];
+        // The slab of the records: three images from image 2 on, which are
+        // the slab of the image in their middle. The mean of a colour slab is
+        // the image itself, image 2, while a pixel is read through the slab.
+        DCMPix *middle = colours[ direction ? 1 : 3];
+        DCMPix *p = mode == 1 ? colours[ 2] : middle;
         [p setFusion: mode :3 :direction];
+        [middle setFusion: mode :3 :direction];
         float *f = [p computeThickSlabRGB];
         NSMutableArray *values = [NSMutableArray array];
-        for( int i = 0; i < 4; i++) [values addObject: hd( [p getPixelValueX: points[ i][ 0] Y: points[ i][ 1]])];
+        for( int i = 0; i < 4; i++) [values addObject: hd( [middle getPixelValueX: points[ i][ 0] Y: points[ i][ 1]])];
         [p changeWLWW: 127 :256];
         [rgb addObject: @[floats( p, f), values, eightBit( p)]];
         free( f);
         [p setFusion: 0 :-1 :-1];
+        [middle setFusion: 0 :-1 :-1];
     }
-    // The last slices: the slab stops at the end of the series.
+    // The last image alone: a slab of one image is that image.
     DCMPix *last = colours[ 4];
-    [last setFusion: 2 :3 :0];
+    [last setFusion: 2 :1 :0];
     float *f = [last computeThickSlabRGB];
     [rgb addObject: floats( last, f)];
     free( f);

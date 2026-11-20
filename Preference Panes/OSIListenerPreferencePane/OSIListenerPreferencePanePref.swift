@@ -246,12 +246,38 @@ public final class OSIListenerPreferencePanePref: NSPreferencePane {
         DispatchQueue.main.async { pane?.refreshXMLRPCAccess() }
     }
 
+    /// The options a link's request reads as a call of the server does:
+    /// whether it also asks the PACS On-Demand nodes, closes the viewers,
+    /// brings the application to the front, waits for a study and tells of a
+    /// failure. Each is the key its control is bound to.
+    static let requestOptionKeyPaths: Set<String> = [
+        NetworkPreferences.controllerKeyPath(NetworkPreferences.xmlrpcWithPACSOnDemand),
+        NetworkPreferences.controllerKeyPath(NetworkPreferences.closeAllWindowsBeforeXMLRPCOpen),
+        NetworkPreferences.controllerKeyPath(NetworkPreferences.bringOsiriXToFrontAfterReceivingMessage),
+        NetworkPreferences.controllerKeyPath(NetworkPreferences.xmlrpcServerWaitForStudy),
+        NetworkPreferences.controllerKeyPath(NetworkPreferences.xmlrpcServerShowsFailureAlerts),
+    ]
+
+    /// Enables the controls of `view` bound to an option of the requests, or dims them.
+    private func setRequestOptions(enabled: Bool, in view: NSView) {
+        if let control = view as? NSControl,
+           let key = control.infoForBinding(.value)?[.observedKeyPath] as? String, Self.requestOptionKeyPaths.contains(key) {
+            control.isEnabled = enabled
+        }
+        for child in view.subviews { setRequestOptions(enabled: enabled, in: child) }
+    }
+
     /// Says who can send messages, in the colour of the risk, and enables the
-    /// password controls only where they apply.
+    /// password controls only where they apply. The links and the server are
+    /// two switches: what only the server reads follows the server, in the
+    /// nib; what a link's request reads too is enabled here, with either.
     func refreshXMLRPCAccess() {
         let defaults = UserDefaults.standard
         let policy = XMLRPCAccessPolicy.policy(from: defaults)
-        let serverOn = defaults.bool(forKey: "httpXMLRPCServer")
+        let serverOn = defaults.bool(forKey: NetworkPreferences.xmlrpcServer.name)
+        if let view = mainWindow?.contentView {
+            setRequestOptions(enabled: serverOn || defaults.bool(forKey: NetworkPreferences.linkSchemeSupport.name), in: view)
+        }
         let othersAnswered = policy.scope != .thisMac
         xmlrpcPasswordCheckbox?.isEnabled = serverOn && othersAnswered
         xmlrpcPasswordButton?.isEnabled = serverOn && othersAnswered && policy.requirePassword

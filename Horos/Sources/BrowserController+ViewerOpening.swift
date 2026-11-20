@@ -68,9 +68,9 @@ extension BrowserController {
 
     // MARK: Selection
 
-    @objc(processOpenViewerDICOMFromArray:movie:viewer:)
-    func processOpenViewerDICOM(from toOpenArray: [Any]!, movie movieViewer: Bool, viewer: ViewerController!) {
-        viewerOpener.open(lists: (toOpenArray ?? []).map { $0 as? [Any] ?? [] }, movie: movieViewer, viewer: viewer)
+    @objc(processOpenViewerDICOMFromArray:movie:viewer:) @discardableResult
+    func processOpenViewerDICOM(from toOpenArray: [Any]!, movie movieViewer: Bool, viewer: ViewerController!) -> Bool {
+        viewerOpener.opened(lists: (toOpenArray ?? []).map { $0 as? [Any] ?? [] }, movie: movieViewer, viewer: viewer)
     }
 
     @objc(viewerDICOMInt:dcmFile:viewer:)

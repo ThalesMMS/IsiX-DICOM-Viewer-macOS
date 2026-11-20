@@ -261,7 +261,7 @@ SHOWN = (
     ('DCMTKQueryNode+WADO.swift', 'Self.postNotice(NSLocalizedString("WADO Retrieve Failed", comment: ""), error.localizedDescription)'),
     ('WADODownload.swift', 'with: [NSLocalizedString("WADO Retrieve Incomplete", comment: ""), manifest.summary, NSLocalizedString("Continue", comment: "")],'),
     ('RISRequestAlert.swift', 'show(text(message, code: code))'),
-    ('ExternalRequestHandler.swift', '+ "\\r\\r" + RISRequestAlert.notCarriedOut(request)'),
+    ('ExternalRequestHandler.swift', '+ "\\r\\r" + RISRequestAlert.waitsForActivation(request)'),
     ('URLImportOperation.swift', 'return URLImportResult(entries: ordered, report: summary,'),
     ('ModalityWorklistService.swift', 'failures.append(.init(node: name, reason: IsiXUserMessage(for: error)))'),
 )

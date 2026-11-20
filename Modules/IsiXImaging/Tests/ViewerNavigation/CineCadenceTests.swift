@@ -40,4 +40,15 @@ final class CineCadenceTests: XCTestCase {
         XCTAssertEqual(CineCadence.delay(now: 100.01, lastFrame: 100, rate: 50), 0.01, accuracy: 1e-9)
         XCTAssertEqual(CineCadence.delay(now: 101, lastFrame: 100, rate: 10), 0)
     }
+
+    func testAPlayerFollowsTheLoadAndIsNeverStoppedByIt() {
+        // Nothing loading, or the next image there: the player goes on.
+        XCTAssertFalse(CineCadence.waitsForLoad(loading: false, nextImageLoaded: false, now: 10, lastFrame: 9.99))
+        XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: true, now: 10, lastFrame: 9.99))
+        // The load has not reached the next image: a moment for it.
+        XCTAssertTrue(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, now: 10, lastFrame: 9.5))
+        // The moment has passed: the image is shown, and loaded as it is shown.
+        XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, now: 10, lastFrame: 10 - CineCadence.loadPatience))
+        XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, now: 100, lastFrame: 10))
+    }
 }

@@ -32,13 +32,6 @@ struct ROIPropagationPlanTests {
         #expect(range(0, 1, 0).isEmpty)
     }
 
-    @Test func theSlabRunsFromTheCurrentImageToItsFarEnd() {
-        #expect(ROIPropagationPlan.slabRange(current: 5, farEnd: 7) == 5..<8)
-        #expect(ROIPropagationPlan.slabRange(current: 5, farEnd: 3) == 3..<6)
-        #expect(ROIPropagationPlan.slabRange(current: 0, farEnd: 0) == 0..<1)
-        #expect(ROIPropagationPlan.slabRange(current: 5, farEnd: -1).isEmpty)
-    }
-
     @Test func theTimePointStaysInsideTheListsAndTheirFirstSlot() {
         #expect(ROIPropagationPlan.movieIndex(2, movieCount: 0) == 0)
         #expect(ROIPropagationPlan.movieIndex(7, movieCount: 3) == 2)

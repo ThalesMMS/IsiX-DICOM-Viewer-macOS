@@ -113,6 +113,12 @@ final class HarnessProcessGraph: Sendable {
     @MainActor var appController: AppController? { AppController.shared() }
 }
 
+// The lock of the parsed files, which the wait for a whole series hands back
+// when the main thread was left holding it: nothing holds it here.
+enum DCMPixParsedFileCache {
+    static func leaveWhatTheMainThreadLeftHeld() {}
+}
+
 extension AppController {
     @MainActor var windowArranger: HarnessWindowArranger { HarnessWindowArranger() }
 }
@@ -1751,6 +1757,48 @@ reference_vc = read(reference, VC)
 if reference_vc is None or MARK.encode() not in reference_vc:
     sys.exit('FAIL: %s has no Objective-C synchronization block in %s' % (reference, VC))
 reference_vc = reference_vc.decode('latin1')
+
+# Where the Swift does not do what the Objective-C did, on purpose: the text of
+# the reference that does it and the text it is compiled with instead, so that
+# the records compared are those of the corrected reference. Each must be found
+# exactly once, and is printed with the results.
+REFERENCE_CORRECTIONS = [
+    ('the 4D player waits at most a second for an image the load has not reached',
+     # -performMovieAnimation: waited while less than half of the whole load
+     # was decoded, every time point included, whatever image it was about to
+     # show: a player whose images were there stood still, and one whose load
+     # had stopped never moved again. The Swift (CinePlayback.advanceMovie,
+     # CineCadence.waitsForLoad) waits only for the image of the next time
+     # point at the slice shown, while the load has not reached it, and for
+     # one second since the last frame at most.
+     '- (void) performMovieAnimation:(id) sender\n'
+     '{\n'
+     '    @synchronized( loadingThread)\n'
+     '    {\n'
+     '        if( loadingThread && loadingThread.isFinished == NO && [[loadingThread.threadDictionary objectForKey: @"loadingPercentage"] floatValue] < 0.5)\n'
+     '            return;\n'
+     '    }\n',
+     '- (void) performMovieAnimation:(id) sender\n'
+     '{\n'
+     '    @synchronized( loadingThread)\n'
+     '    {\n'
+     '        if( loadingThread && loadingThread.isFinished == NO)\n'
+     '        {\n'
+     '            short nextMovie = curMovieIndex + 1;\n'
+     '            if( nextMovie >= maxMovieIndex) nextMovie = 0;\n'
+     '            NSArray *nextPix = pixList[ nextMovie];\n'
+     '            long image = [imageView curImage];\n'
+     '            DCMPix *pix = image >= 0 && image < (long) [nextPix count] ? [nextPix objectAtIndex: image] : nil;\n'
+     '            if( pix && [pix isLoaded] == NO && [NSProcessInfo processInfo].systemUptime - lastMovieTime < 1.0)\n'
+     '                return;\n'
+     '        }\n'
+     '    }\n'),
+]
+for what, wrong, right in REFERENCE_CORRECTIONS:
+    if reference_vc.count(wrong) != 1:
+        sys.exit('FAIL: the Objective-C has %d of the text corrected so that %s, not one' % (reference_vc.count(wrong), what))
+    reference_vc = reference_vc.replace(wrong, right)
+    print('reference corrected: %s' % what)
 current_vc = (read(args.current, VC) or b'').decode('latin1')  # empty once ViewerController.m is gone
 current_is_objc = MARK in current_vc
 

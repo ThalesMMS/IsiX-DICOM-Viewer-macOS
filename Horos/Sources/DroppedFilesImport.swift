@@ -185,7 +185,9 @@ private final class URLImportJob: @unchecked Sendable {
     /// Downloads the images of a WADO XML manifest (as Weasis writes them).
     /// Called on the XML-RPC connection threads too: it reads the manifest and
     /// hands the download to a thread of its own.
-    nonisolated static func downloadWADOManifest(_ url: URL?) {
+    /// Answers whether the manifest gave anything to download.
+    @discardableResult
+    nonisolated static func downloadWADOManifest(_ url: URL?) -> Bool {
         let manifest = WADOXML()
         manifest.parseURL(url)
         let urls = manifest.getWADOUrls().compactMap { $0 as? URL }
@@ -194,6 +196,7 @@ private final class URLImportJob: @unchecked Sendable {
         }) {
             WADODownload().WADODownload(urls)
         }
+        return !urls.isEmpty
     }
 
     /// A thread that downloads the URLs of a `.dcmURLs` list, then deletes the list.

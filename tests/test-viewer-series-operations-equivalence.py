@@ -1292,6 +1292,28 @@ REFERENCE_CORRECTIONS = [
      '                    double distance = matrix[ 9] * vectorModel[ 6] + matrix[ 10] * vectorModel[ 7] + matrix[ 11] * vectorModel[ 8];\n',
      '                    double distance = offsetToModel[ 0] * vectorModel[ 6] + offsetToModel[ 1] * vectorModel[ 7]'
      ' + offsetToModel[ 2] * vectorModel[ 8];\n'),
+    # +correctGangtryTilt: left every corrected slice without its interval, to
+    # be worked out from the corrected origins, and did not work it out: a 3D
+    # window made right after the correction found none, said so in an alert
+    # and took the slice thickness for it. The Swift works it out once the
+    # slices are corrected, after the wait window closes. Three texts: the
+    # flag, set where the correction is recorded, and the interval.
+    ('the gantry tilt correction works out the interval of the corrected slices (flag)',
+     '    id w = [viewerController startWaitProgressWindow: NSLocalizedString( @"Gantry Tilt Correction", nil) :pixList.count];\n',
+     '    id w = [viewerController startWaitProgressWindow: NSLocalizedString( @"Gantry Tilt Correction", nil) :pixList.count];\n'
+     '    BOOL corrected = NO;\n'),
+    ('the gantry tilt correction works out the interval of the corrected slices (set)',
+     '            [HorosGantryTiltPolicy setCorrectedDegrees: viewerController->titledGantryDegrees forViewer: viewerController];\n',
+     '            [HorosGantryTiltPolicy setCorrectedDegrees: viewerController->titledGantryDegrees forViewer: viewerController];\n'
+     '            corrected = YES;\n'),
+    ('the gantry tilt correction works out the interval of the corrected slices',
+     '    [viewerController endWaitWindow: w];\n'
+     '    \n'
+     '    // We modified the view: OsiriX please update the display!\n',
+     '    [viewerController endWaitWindow: w];\n'
+     '    if (corrected) [viewerController computeInterval];\n'
+     '    \n'
+     '    // We modified the view: OsiriX please update the display!\n'),
 ]
 
 

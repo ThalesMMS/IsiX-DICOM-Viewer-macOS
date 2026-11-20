@@ -285,10 +285,9 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
     private func startObserving() {
         guard observers.isEmpty else { return }
         let center = NotificationCenter.default
-        // A change of Settings > Locations' interval takes effect at once.
-        observers.append(center.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.scheduleTimer() }
-        })
+        // A change of Settings > Locations' interval takes effect at once,
+        // without the thread that wrote the preference waiting for this one.
+        observers.append(PreferenceChangeNotice.observe(in: center) { [weak self] in self?.scheduleTimer() })
         // Studies added to the database may be steps of the worklist.
         observers.append(center.addObserver(forName: .OsirixAddToDBComplete, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.updateMatches() }

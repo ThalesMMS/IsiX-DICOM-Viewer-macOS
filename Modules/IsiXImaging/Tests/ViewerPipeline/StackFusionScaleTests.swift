@@ -26,76 +26,99 @@ import Testing
     /// The first recording: slices of 2 mm every 1 mm, where two images read 3.0 mm under a bubble that said 2.
     @Test func overlappingSlicesCoverTheirThicknessAndTheDistancesBetweenThem() {
         let scale = regular(80, every: 1, thickness: 2, current: 40)
-        #expect(scale.available == 40)
+        #expect(scale.available == 80)
         #expect([2, 6, 10, 26].map { scale.thickness(requested: $0) } == [3, 7, 11, 27])
         #expect(scale.minimum == 2)
-        #expect(scale.maximum == 41)
+        #expect(scale.maximum == 81)
         #expect(scale.text(requested: 2, locale: english) == "3.0 mm")
         let flipped = regular(80, every: 1, thickness: 2, current: 40, towardsStart: true)
-        #expect(flipped.available == 41)
-        #expect(flipped.maximum == 42)
-        #expect([2, 6, 10, 26, 80].map { flipped.text(requested: $0, locale: english) } == ["3.0 mm", "7.0 mm", "11.0 mm", "27.0 mm", "42.0 mm"])
+        #expect(flipped.available == 80)
+        #expect(flipped.maximum == 81)
+        #expect([2, 6, 10, 26, 80].map { flipped.text(requested: $0, locale: english) } == ["3.0 mm", "7.0 mm", "11.0 mm", "27.0 mm", "81.0 mm"])
     }
 
     /// The second recording: slices of 2 mm every 2 mm, where every number
     /// was doubled and the knob went on after the slab had stopped at 52 mm.
-    @Test func theThickEndIsWhatIsLeftOfTheSeries() {
+    /// A slab is centred on the image and pulled back at the ends of the
+    /// series, so it no longer stops: it has its images on every image.
+    @Test func aSlabHasTheImagesAskedForOnEveryImage() {
         let flipped = regular(60, every: 2, thickness: 2, current: 34, towardsStart: true)
-        #expect(flipped.available == 35)
-        #expect(flipped.maximum == 70)
-        #expect([2, 5, 20, 26, 46, 60].map { flipped.thickness(requested: $0) } == [4, 10, 40, 52, 70, 70])
-        #expect([2, 5, 20, 26, 46, 60].map { flipped.effectiveCount(requested: $0) } == [2, 5, 20, 26, 35, 35])
+        #expect(flipped.available == 60)
+        #expect(flipped.maximum == 120)
+        #expect([2, 5, 20, 26, 46, 60].map { flipped.thickness(requested: $0) } == [4, 10, 40, 52, 92, 120])
+        #expect([2, 5, 20, 26, 46, 60, 75].map { flipped.effectiveCount(requested: $0) } == [2, 5, 20, 26, 46, 60, 60])
         #expect(flipped.text(requested: 2, locale: english) == "4.0 mm")
-        // From 35 images on the knob stands where the images left end, short of the thick end of the track.
         for exponential in [false, true] {
-            let reach = flipped.reach(exponential: exponential)
-            #expect(reach < 1 && flipped.position(ofCount: 34, exponential: exponential) < reach)
-            #expect([35, 46, 60].allSatisfy { flipped.position(ofCount: $0, exponential: exponential) == reach })
+            // The knob stands on the stop of the request, up to the thick end of the track.
+            #expect([2, 34, 35, 46, 60].allSatisfy {
+                flipped.position(ofCount: $0, exponential: exponential) == flipped.trackPosition(ofStop: $0, exponential: exponential)
+            })
+            #expect(flipped.position(ofCount: 60, exponential: exponential) == 1)
         }
-        #expect(flipped.reach(exponential: false) == (70.0 - 2) / (120 - 2))
 
         let forwards = regular(60, every: 2, thickness: 2, current: 34)
-        #expect(forwards.available == 26)
-        #expect(forwards.maximum == 52)
+        #expect(forwards.available == 60 && forwards.maximum == 120 && forwards.stops == flipped.stops)
 
-        // The last image in the slab's direction: one stop, the slice, at the thin end of the track of the series.
+        // The last image in the slab's direction has the slab of the images before it.
         let last = regular(60, every: 2, thickness: 2, current: 0, towardsStart: true)
-        #expect(last.available == 1)
-        #expect(last.stops == [2])
-        #expect(last.minimum == 2 && last.maximum == 2)
-        #expect(last.thickness(requested: 10) == 2)
-        #expect(last.text(requested: 10, locale: english) == "2.0 mm")
+        #expect(last.available == 60)
+        #expect(last.stops == flipped.stops)
+        #expect(last.minimum == 2 && last.maximum == 120)
+        #expect(last.thickness(requested: 10) == 20)
+        #expect(last.text(requested: 10, locale: english) == "20.0 mm")
         #expect(last.trackStops == flipped.trackStops && last.trackStops.count == 60)
         for exponential in [false, true] {
             #expect(last.tickCounts(minimumSpacing: 8.0 / 175)
                     == flipped.tickCounts(minimumSpacing: 8.0 / 175))
-            #expect(last.reach(exponential: exponential) == 0 && last.position(ofCount: 10, exponential: exponential) == 0)
-            #expect(last.count(at: 0.7, exponential: exponential) == 1)
+            #expect(last.position(ofCount: 10, exponential: exponential) == flipped.position(ofCount: 10, exponential: exponential))
+            #expect(last.count(at: 1, exponential: exponential) == 60)
         }
 
-        // A request is kept: it fuses what the image has, and all of it where the series allows.
-        #expect(regular(60, every: 2, thickness: 2, current: 10, towardsStart: true).thickness(requested: 46) == 22)
+        // A request is as thick wherever the image is.
+        #expect(regular(60, every: 2, thickness: 2, current: 10, towardsStart: true).thickness(requested: 46) == 92)
         #expect(regular(60, every: 2, thickness: 2, current: 50, towardsStart: true).thickness(requested: 46) == 92)
     }
 
-    @Test func theImagesLeftStayWithinTheSlidersCapacity() {
-        #expect(regular(120, every: 1, thickness: 1, current: 0, capacity: 118).available == 118)
-        #expect(regular(120, every: 1, thickness: 1, current: 119, towardsStart: true, capacity: 118).available == 118)
-        #expect(regular(120, every: 1, thickness: 1, current: 100, capacity: 118).available == 20)
+    @Test func theThicknessOfASlabDoesNotDependOnTheImage() {
+        for (count, interval, thickness) in [(60, 2.0, 2.0), (80, 1.0, 2.0), (383, 1.0, 1.0), (7, 2.5, 0.0), (2, 1.0, 3.0), (1, 1.0, 1.0)] {
+            let whole = regular(count, every: interval, thickness: thickness, current: 0, capacity: count)
+            #expect(whole.available == count && whole.stops == whole.trackStops)
+            for towardsStart in [false, true] {
+                for current in 0..<count {
+                    let scale = regular(count, every: interval, thickness: thickness, current: current, towardsStart: towardsStart, capacity: count)
+                    #expect(scale.available == count, "image \(current) of \(count)")
+                    #expect(scale.stops == whole.stops, "image \(current) of \(count)")
+                    #expect(scale.trackStops == whole.trackStops, "image \(current) of \(count)")
+                    #expect(scale == regular(count, every: interval, thickness: thickness, current: 0, towardsStart: towardsStart, capacity: count))
+                }
+            }
+        }
+    }
+
+    @Test func theImagesOfASlabStayWithinTheSlidersCapacity() {
+        // Every image of the series has the images the slider can ask for.
+        for (current, towardsStart) in [(0, false), (119, true), (100, false), (119, false), (0, true)] {
+            #expect(regular(120, every: 1, thickness: 1, current: current, towardsStart: towardsStart, capacity: 118).available == 118)
+        }
         // The track is of the images the slider can ask for, wherever the image shown is.
         for current in [0, 100, 119] {
             #expect(regular(120, every: 1, thickness: 1, current: current, capacity: 118).trackStops == (1...118).map(Double.init))
+            #expect(regular(120, every: 1, thickness: 1, current: current, capacity: 118).stops == (1...118).map(Double.init))
         }
-        #expect(StackFusionScale.available(current: 34, count: 60, towardsStart: true, capacity: 60) == 35)
-        #expect(StackFusionScale.available(current: 34, count: 60, towardsStart: false, capacity: 60) == 26)
-        #expect(StackFusionScale.available(current: 59, count: 60, towardsStart: false, capacity: 60) == 1)
-        // An image that is not of the series, or no series, has the one image.
-        #expect(StackFusionScale.available(current: -1, count: 60, towardsStart: false, capacity: 60) == 1)
-        #expect(StackFusionScale.available(current: 60, count: 60, towardsStart: true, capacity: 60) == 1)
-        #expect(StackFusionScale.available(current: 0, count: 0, towardsStart: false, capacity: 60) == 1)
-        #expect(StackFusionScale.available(current: 5, count: 60, towardsStart: false, capacity: 0) == 1)
+        #expect(StackFusionScale.available(count: 60, capacity: 60) == 60)
+        #expect(StackFusionScale.available(count: 60, capacity: 46) == 46)
+        #expect(StackFusionScale.available(count: 60, capacity: 128) == 60)
+        // No series, or a slider that asks for none, has the one image.
+        #expect(StackFusionScale.available(count: 0, capacity: 60) == 1)
+        #expect(StackFusionScale.available(count: 60, capacity: 0) == 1)
+        // So has an image that is not of the series.
         let outside = StackFusionScale(positions: [0, 1, 2], current: 7, towardsStart: false, sliceThickness: 2, fallbackInterval: 1, capacity: 3)
         #expect(outside.available == 1 && outside.stops == [2] && outside.trackStops == [2, 3, 4])
+        // A request for more images than the series has fuses them all, at the thick end of the track.
+        let short = regular(6, every: 1, thickness: 1, current: 2, capacity: 10)
+        #expect(short.available == 6 && short.effectiveCount(requested: 10) == 6)
+        #expect(short.text(requested: 10, locale: english) == "6.0 mm")
+        #expect(short.position(ofCount: 10, exponential: false) == 1 && short.count(at: 1, exponential: false) == 6)
     }
 
     @Test func thinSlicesKeepNeighbouringStopsApartInTheirText() {
@@ -118,7 +141,7 @@ import Testing
         #expect(scale.thickness(requested: 5) == 5)
         // At the series' end, the other neighbour.
         let last = regular(10, every: 1.5, thickness: 0, current: 9)
-        #expect(last.stops == [1.5])
+        #expect(last.stops == (1...10).map { 1.5 * Double($0) })
         // A thickness that is no number, or negative, is none.
         #expect(regular(10, every: 1, thickness: .nan, current: 3).minimum == 1)
         #expect(regular(10, every: 1, thickness: -2, current: 3).minimum == 1)
@@ -136,21 +159,21 @@ import Testing
         let bare = StackFusionScale(positions: [Double](repeating: .nan, count: 4), current: 0, towardsStart: false,
                                     sliceThickness: 2, fallbackInterval: 0, capacity: 4)
         #expect(bare.isPhysical && bare.stops == [2, 4, 6, 8])
-        // The unknown image is not needed by a slab that runs the other way.
-        let away = StackFusionScale(positions: [0, 1, .nan, 3.5, 4, 5], current: 1, towardsStart: true,
-                                    sliceThickness: 2, fallbackInterval: 9, capacity: 6)
-        #expect(away.stops == [2, 3])
+        // The unknown image is not needed by the slabs that do not reach it.
+        let away = StackFusionScale(positions: [0, 1, .nan, 3.5, 4, 5, 6, 7], current: 6, towardsStart: false,
+                                    sliceThickness: 2, fallbackInterval: 9, capacity: 3)
+        #expect(away.stops == [2, 3, 4])
     }
 
     @Test func aSeriesWithNoGeometryCountsImages() {
         let pictures = StackFusionScale(positions: [Double](repeating: .nan, count: 12), current: 2, towardsStart: false,
                                         sliceThickness: 0, fallbackInterval: 0, capacity: 12)
         #expect(!pictures.isPhysical)
-        #expect(pictures.available == 10)
-        #expect(pictures.stops == (1...10).map(Double.init))
+        #expect(pictures.available == 12)
+        #expect(pictures.stops == (1...12).map(Double.init))
         #expect(pictures.text(requested: 4, locale: english) == "4")
-        #expect(pictures.text(requested: 40, locale: english) == "10")
-        #expect(pictures.count(at: 1, exponential: false) == 10)
+        #expect(pictures.text(requested: 40, locale: english) == "12")
+        #expect(pictures.count(at: 1, exponential: false) == 12)
         // Images that all stand at one place have no thickness to add: a
         // slab of them counts images too, whatever one of them says of itself.
         let stacked = StackFusionScale(positions: [Double](repeating: 12.5, count: 8), current: 0, towardsStart: false,
@@ -181,6 +204,14 @@ import Testing
         let back = StackFusionScale(positions: [0, 1, 2, 3, 8, 13, 18, 23], current: 7, towardsStart: true,
                                     sliceThickness: 1, fallbackInterval: 1, capacity: 8)
         #expect(back.stops == [1, 6, 11, 16, 21, 22, 23, 24])
+        // In between, each image more is the next one on its side of the image shown: 3 and 4, 2 to 4, 2 to 5, and so on.
+        let middle = StackFusionScale(positions: [0, 1, 2, 3, 8, 13, 18, 23], current: 3, towardsStart: false,
+                                      sliceThickness: 1, fallbackInterval: 1, capacity: 8)
+        #expect(middle.stops == [1, 6, 7, 12, 13, 18, 19, 24])
+        // Towards the start, the image more is on the other side: 2 and 3, 2 to 4, 1 to 4, and so on.
+        let turned = StackFusionScale(positions: [0, 1, 2, 3, 8, 13, 18, 23], current: 3, towardsStart: true,
+                                      sliceThickness: 1, fallbackInterval: 1, capacity: 8)
+        #expect(turned.stops == [1, 2, 7, 8, 13, 14, 19, 24])
     }
 
     /// An oblique series, 1 mm apart along its normal: measured on the
@@ -228,7 +259,7 @@ import Testing
         // Several stacks in one series: the span of what is fused, whichever the order.
         let phases = StackFusionScale(positions: [0, 2, 4, 0, 2, 4, 0, 2, 4], current: 1, towardsStart: false,
                                       sliceThickness: 2, fallbackInterval: 2, capacity: 9)
-        #expect(phases.stops == [2, 4, 6, 6, 6, 6, 6, 6])
+        #expect(phases.stops == [2, 4, 6, 6, 6, 6, 6, 6, 6])
         #expect(zip(phases.stops, phases.stops.dropFirst()).allSatisfy { $0 <= $1 })
     }
 
@@ -255,13 +286,10 @@ import Testing
             #expect(places == scale.tickPlaces(minimumSpacing: track, exponential: false))
             #expect(places.first == 0 && places.last == 1)
             #expect(zip(places, places.dropFirst()).allSatisfy { $1 - $0 >= track - 1e-9 }, "marks at \(places)")
-            // Each mark the image reaches reads what its stop does, and the knob put on it stands on it;
-            // a mark beyond gives the images left.
+            // Each mark reads what its stop does, and the knob put on it stands on it.
             for (mark, place) in zip(marks, places) {
-                let landed = scale.count(at: place, exponential: false)
-                #expect(landed == min(mark, scale.available))
-                #expect(scale.text(requested: mark, locale: english) == scale.text(requested: landed, locale: english))
-                if mark <= scale.available { #expect(scale.position(ofCount: mark, exponential: false) == place) }
+                #expect(scale.count(at: place, exponential: false) == mark)
+                #expect(scale.position(ofCount: mark, exponential: false) == place)
             }
             // The linear marks stay evenly spaced; the last step is what the series leaves.
             let steps = zip(places, places.dropFirst()).map { $1 - $0 }.dropLast()
@@ -311,9 +339,8 @@ import Testing
                     last = place
                     #expect(scale.count(at: place, exponential: exponential) == count)
                 }
-                // The images left end the knob's way: the thick end of the track where the series is whole before the image.
-                #expect(last == scale.reach(exponential: exponential))
-                #expect((last == 1) == (scale.available == scale.trackStops.count))
+                // The knob goes to the thick end of the track on every image.
+                #expect(last == 1 && scale.available == scale.trackStops.count)
                 #expect(scale.position(ofCount: 1, exponential: exponential) == 0)
                 // Anywhere on the track: a stop, never going back; beyond the ends, the ends.
                 var landed = 1
@@ -337,18 +364,16 @@ import Testing
         #expect(whole.trackStops == (1...383).map(Double.init))
         for towardsStart in [false, true] {
             for exponential in [false, true] {
-                let places = stride(from: 0, to: 383, by: 7).map { current -> Double in
+                let places = (Array(stride(from: 0, to: 371, by: 7)) + [381, 382]).map { current -> Double in
                     let scale = regular(383, every: 1, thickness: 1, current: current, towardsStart: towardsStart)
                     #expect(scale.trackStops == whole.trackStops)
                     #expect(scale.tickCounts(minimumSpacing: 8.0 / 175)
                             == whole.tickCounts(minimumSpacing: 8.0 / 175))
-                    // Wherever ten images are left, they are 10 mm at one place of the track.
-                    guard scale.available >= 10 else { return -1 }
+                    // On every image, the last ones included, ten images are 10 mm at one place of the track.
                     #expect(scale.text(requested: 10, locale: english) == "10.0 mm")
-                    #expect(scale.reach(exponential: exponential) >= scale.position(ofCount: 10, exponential: exponential))
                     return scale.position(ofCount: 10, exponential: exponential)
-                }.filter { $0 >= 0 }
-                #expect(places.count > 50 && Set(places).count == 1)
+                }
+                #expect(places.count == 55 && Set(places).count == 1)
                 #expect(places[0] == whole.trackPosition(ofStop: 10, exponential: exponential))
             }
         }
@@ -358,56 +383,56 @@ import Testing
         #expect(regular(120, every: 2.5, thickness: 2.5, current: 60).trackStops.last == 300)
     }
 
-    @Test func aRequestTheImageCannotHoldStandsAtTheReach() {
+    /// The recording of the slider that moved by itself: near the end of a
+    /// series the slab thinned, the knob went down with it, and the wheel's
+    /// loop to the other end brought both back at once.
+    @Test func theKnobAndTheTextStayThroughTheEndsOfTheSeries() {
+        let whole = regular(383, every: 1, thickness: 1, current: 0)
         for exponential in [false, true] {
-            // Six images left of 383: a request for ten fuses the six, and reads them.
-            let near = regular(383, every: 1, thickness: 1, current: 377)
-            #expect(near.available == 6 && near.effectiveCount(requested: 10) == 6)
-            #expect(near.text(requested: 10, locale: english) == "6.0 mm")
-            let reach = near.reach(exponential: exponential)
-            #expect(reach == near.trackPosition(ofStop: 6, exponential: exponential))
-            #expect(reach > 0 && reach < near.trackPosition(ofStop: 10, exponential: exponential))
-            #expect(near.position(ofCount: 10, exponential: exponential) == reach)
-            // A smaller request is where it was.
-            #expect(near.position(ofCount: 4, exponential: exponential) == near.trackPosition(ofStop: 4, exponential: exponential))
-            // No place of the track gives more than the images left; within them, each its stop.
-            for step in 0...200 { #expect(near.count(at: Double(step) / 200, exponential: exponential) <= 6) }
-            #expect(near.count(at: 1, exponential: exponential) == 6 && near.count(at: reach, exponential: exponential) == 6)
-            #expect((1...6).allSatisfy { near.count(at: near.trackPosition(ofStop: $0, exponential: exponential), exponential: exponential) == $0 })
-            // One image earlier the reach is one stop further; with all the series before the image it is the whole track.
-            #expect(regular(383, every: 1, thickness: 1, current: 376).reach(exponential: exponential) > reach)
-            #expect(regular(383, every: 1, thickness: 1, current: 0).reach(exponential: exponential) == 1)
-            // Flipped data: the same from the other end.
-            let flipped = regular(383, every: 1, thickness: 1, current: 5, towardsStart: true)
-            #expect(flipped.available == 6 && flipped.reach(exponential: exponential) == reach)
-            #expect(flipped.position(ofCount: 10, exponential: exponential) == reach)
-            #expect(regular(383, every: 1, thickness: 1, current: 382, towardsStart: true).reach(exponential: exponential) == 1)
+            let place = whole.position(ofCount: 6, exponential: exponential)
+            #expect(place > 0 && place == whole.trackPosition(ofStop: 6, exponential: exponential))
+            // The last images, the loop to the first, and back.
+            for (current, towardsStart) in [(376, false), (377, false), (381, false), (382, false), (0, false), (1, false),
+                                            (5, true), (1, true), (0, true), (382, true), (381, true)] {
+                let scale = regular(383, every: 1, thickness: 1, current: current, towardsStart: towardsStart)
+                #expect(scale.available == 383 && scale.effectiveCount(requested: 6) == 6, "image \(current)")
+                #expect(scale.text(requested: 6, locale: english) == "6.0 mm", "image \(current)")
+                #expect(scale.position(ofCount: 6, exponential: exponential) == place, "image \(current)")
+                #expect(scale.position(ofCount: 10, exponential: exponential) == whole.trackPosition(ofStop: 10, exponential: exponential))
+                // Every stop of the track is there to pick.
+                #expect(scale.count(at: 1, exponential: exponential) == 383)
+                #expect((1...12).allSatisfy { scale.count(at: scale.trackPosition(ofStop: $0, exponential: exponential), exponential: exponential) == $0 })
+            }
         }
     }
 
-    @Test func theLastImageKeepsTheTrackAndHasNoReach() {
+    @Test func theLastImageHasTheSlabOfTheImagesBeforeIt() {
+        let whole = regular(383, every: 1, thickness: 1, current: 0)
         for (current, towardsStart) in [(382, false), (0, true)] {
             let last = regular(383, every: 1, thickness: 1, current: current, towardsStart: towardsStart)
-            #expect(last.available == 1 && last.stops == [1] && last.trackStops.count == 383)
-            #expect(last.text(requested: 10, locale: english) == "1.0 mm")
+            #expect(last.available == 383 && last.stops == whole.stops && last.trackStops.count == 383)
+            #expect(last.text(requested: 10, locale: english) == "10.0 mm")
             for exponential in [false, true] {
-                #expect(last.reach(exponential: exponential) == 0 && last.position(ofCount: 10, exponential: exponential) == 0)
-                #expect(last.count(at: 0.5, exponential: exponential) == 1 && last.count(at: 1, exponential: exponential) == 1)
+                #expect(last.position(ofCount: 10, exponential: exponential) == whole.position(ofCount: 10, exponential: exponential))
+                #expect(last.count(at: 0, exponential: exponential) == 1 && last.count(at: 1, exponential: exponential) == 383)
                 #expect(last.tickCounts(minimumSpacing: 8.0 / 175).last == 383)
             }
         }
-        // A series of one image has one stop and no track: nothing to reach, nothing beyond.
+        // A series of one image has one stop and no track.
         let single = regular(1, every: 1, thickness: 1, current: 0, capacity: 1)
-        #expect(single.trackStops == [1] && single.reach(exponential: false) == 1 && single.position(ofCount: 3, exponential: false) == 0)
+        #expect(single.trackStops == [1] && single.available == 1 && single.position(ofCount: 3, exponential: false) == 0)
         #expect(single.tickCounts(minimumSpacing: 8.0 / 175).isEmpty)
-        // A slab of two images at least: its track starts at two, and the last image, which has no slab, reaches none of it.
+        // A slab of two images at least: its track starts at two, on the last image as on any other.
         let pairs = StackFusionScale(positions: (0..<60).map { Double($0) * 2 }, current: 59, towardsStart: false, sliceThickness: 2,
                                      fallbackInterval: 2, capacity: 60, minimumImages: 2)
-        #expect(pairs.floor == 1 && pairs.reach(exponential: false) == 0)
+        #expect(pairs.floor == 2 && pairs.minimum == 4 && pairs.thickness(requested: 1) == 4)
         #expect(pairs.tickCounts(minimumSpacing: 8.0 / 175).first == 2)
         let before = StackFusionScale(positions: (0..<60).map { Double($0) * 2 }, current: 30, towardsStart: false, sliceThickness: 2,
                                       fallbackInterval: 2, capacity: 60, minimumImages: 2)
-        #expect(before.position(ofCount: 2, exponential: false) == 0 && before.reach(exponential: false) == (60.0 - 4) / (120 - 4))
+        #expect(before == StackFusionScale(positions: (0..<60).map { Double($0) * 2 }, current: 0, towardsStart: false, sliceThickness: 2,
+                                           fallbackInterval: 2, capacity: 60, minimumImages: 2))
+        #expect(before.position(ofCount: 2, exponential: false) == 0 && before.position(ofCount: 60, exponential: false) == 1)
+        #expect(pairs.position(ofCount: 31, exponential: false) == (62.0 - 4) / (120 - 4))
     }
 
     /// Images that are not evenly spaced: the request keeps its place, and the text says what its images make where they are.
@@ -415,12 +440,14 @@ import Testing
         let positions: [Double] = [0, 1, 2, 3, 8, 13, 18, 23]
         let start = StackFusionScale(positions: positions, current: 0, towardsStart: false, sliceThickness: 1, fallbackInterval: 1, capacity: 8)
         let later = StackFusionScale(positions: positions, current: 3, towardsStart: false, sliceThickness: 1, fallbackInterval: 1, capacity: 8)
-        #expect(later.trackStops == start.trackStops && later.stops == [1, 6, 11, 16, 21])
+        #expect(later.trackStops == start.trackStops && later.stops == [1, 6, 7, 12, 13, 18, 19, 24])
         for exponential in [false, true] {
-            #expect(later.position(ofCount: 3, exponential: exponential) == start.position(ofCount: 3, exponential: exponential))
-            #expect(later.reach(exponential: exponential) == start.trackPosition(ofStop: 5, exponential: exponential))
+            for count in 1...8 {
+                #expect(later.position(ofCount: count, exponential: exponential) == start.position(ofCount: count, exponential: exponential))
+            }
         }
-        #expect(start.text(requested: 3, locale: english) == "3.0 mm" && later.text(requested: 3, locale: english) == "11.0 mm")
+        // Three images are 0 to 2 at the first image and 2 to 4 at the fourth.
+        #expect(start.text(requested: 3, locale: english) == "3.0 mm" && later.text(requested: 3, locale: english) == "7.0 mm")
         // Thin steps anywhere in the series give every image the same decimals.
         let fine = StackFusionScale(positions: [0, 0.05, 0.1, 1, 2, 3], current: 3, towardsStart: false, sliceThickness: 0.3,
                                     fallbackInterval: 1, capacity: 6)

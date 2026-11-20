@@ -160,8 +160,10 @@ public final class QueryArrayController: NSObject {
         }
     }
 
+    /// Answers whether the query went through, as later headers of the plugin SDK declare it.
     @objc(performQuery:)
-    public func performQuery(_ showError: Bool) {
+    @discardableResult
+    public func performQuery(_ showError: Bool) -> Bool {
         if queryLock == nil { queryLock = NSLock() }
 
         queryLock?.lock()
@@ -220,6 +222,7 @@ public final class QueryArrayController: NSObject {
         }
 
         queryLock?.unlock()
+        return failure == nil
     }
 
     /// The @synchronized part of -performQuery:; the caller holds the lock.
@@ -302,7 +305,8 @@ public final class QueryArrayController: NSObject {
     }
 
     @objc(performQuery)
-    public func performQuery() {
+    @discardableResult
+    public func performQuery() -> Bool {
         return performQuery(true)
     }
 

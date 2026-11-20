@@ -11,6 +11,7 @@
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
 import AppKit
+import IsiXImaging
 
 /// The strip above the 2D viewport. It is the `slider` outlet of
 /// `ViewerController`, so it keeps the `NSSlider` contract the controller and
@@ -34,8 +35,8 @@ public final class ImageNavigationSlider: HorosCellSlider {
     }
 
     /// The images the current one stands for: more than one while a thick
-    /// slab (MIP, MinIP, mean or volume rendering) folds the next ones into
-    /// it, and the marker then covers them all.
+    /// slab (MIP, MinIP, mean or volume rendering) folds those around it
+    /// into it, and the marker then covers them all.
     @objc public var slabImageCount: Int = 1 {
         didSet { if slabImageCount != oldValue { needsDisplay = true } }
     }
@@ -79,14 +80,17 @@ public final class ImageNavigationSlider: HorosCellSlider {
     }
 
     /// The horizontal extent of the current image's marker in `bar`: the
-    /// slab's images from `index` on, as many as the series still has, or
-    /// the image alone; never narrower than `minimumWidth`, centred then.
+    /// images of the slab at `index` (ThickSlabSpan: centred on it, and kept
+    /// inside the series at its ends, so as wide on every image), or the
+    /// image alone; never narrower than `minimumWidth`, centred then. The
+    /// strip counts the images as the user does, and there a slab goes
+    /// forwards, flipped data or not.
     static func markerSpan(index: Int, slab: Int, count: Int, bar: NSRect,
                            minimumWidth: CGFloat = 3) -> ClosedRange<CGFloat> {
         guard count > 1 else { return (bar.midX - minimumWidth / 2)...(bar.midX + minimumWidth / 2) }
         func x(_ i: Int) -> CGFloat { bar.minX + bar.width * CGFloat(i) / CGFloat(count) }
-        let first = min(max(index, 0), count - 1)
-        let start = x(first), end = x(min(first + max(slab, 1), count))
+        let images = ThickSlabSpan(images: slab, at: min(max(index, 0), count - 1), of: count, towardsStart: false)
+        let start = x(images.first), end = x(images.last + 1)
         guard end - start < minimumWidth else { return start...end }
         let center = (start + end) / 2
         return (center - minimumWidth / 2)...(center + minimumWidth / 2)

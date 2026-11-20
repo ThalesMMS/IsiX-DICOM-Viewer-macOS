@@ -80,7 +80,7 @@ BOOL					COMPLETEREBUILD = NO;
 BOOL					USETOOLBARPANEL = NO;
 //short					Altivec = 1;
 AppController			*appController = nil;
-NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: DCMPix parsed-file cache, annotations and the DCMTK reads of DicomFile (the name is kept: exported symbol)
+NSRecursiveLock			*PapyrusLock = nil, *STORESCP = nil, *STORESCPTLS = nil;			// PapyrusLock: exported for the plugins that take it around their own reading of files; the application takes a lock of its own (the parsed-file cache of DCMPix) and waits for this one nowhere
 NSMutableArray			*accumulateAnimationsArray = nil;
 // Globals of the Horos and OsiriX plugin SDK that the application no longer
 // reads; a plugin built for that SDK looks their names up when it loads, so

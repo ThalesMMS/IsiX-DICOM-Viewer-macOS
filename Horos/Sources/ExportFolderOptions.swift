@@ -69,10 +69,8 @@ public final class ExportFolderOptions: NSView {
                 if let index = field, (0..<popup.numberOfItems).contains(index) { popup.selectItem(at: index) }
             }
         }
-        observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            // Delivered on the main queue, as asked.
-            MainActor.assumeIsolated { self?.updateControls() }
-        }
+        // Without the thread that wrote the preference waiting for this one.
+        observer = PreferenceChangeNotice.observe { [weak self] in self?.updateControls() }
         updateControls()
     }
 

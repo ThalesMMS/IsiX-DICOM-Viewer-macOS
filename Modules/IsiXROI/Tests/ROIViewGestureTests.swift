@@ -112,6 +112,24 @@ struct TwoClickLengthPlacementTests {
         #expect(!Placement.doubleClickCancels(clickCount: 2, hasHotKeyAction: false) && !Placement.doubleClickCancels(clickCount: 1, hasHotKeyAction: true))
         #expect(!Placement.isDrag(from: .zero, to: CGPoint(x: 2, y: 2)) && Placement.isDrag(from: .zero, to: CGPoint(x: 3, y: 0)))
     }
+
+    /// Escape and every key that deletes the selected ROIs take back the
+    /// pending endpoint: Backspace (key 51, which gives Delete), the forward
+    /// Delete key (117) in both its forms, with or without a modifier. No
+    /// other key does.
+    @Test func escapeAndTheDeleteKeysCancelAPendingEndpoint() {
+        #expect(Placement.keyCancels(keyCode: 53, character: 0x1B))
+        #expect(Placement.keyCancels(keyCode: 53, character: nil))
+        #expect(Placement.keyCancels(keyCode: 51, character: 0x7F))
+        #expect(Placement.keyCancels(keyCode: 51, character: 0x08))
+        #expect(Placement.keyCancels(keyCode: 117, character: 0xF728))
+        #expect(Placement.keyCancels(keyCode: 117, character: 0xF73E))
+        // Return, Space, Tab, an arrow, a letter, and a key that gives no character.
+        for (keyCode, character) in [(36, 13), (49, 32), (48, 9), (123, 0xF702), (0, 97)] as [(UInt16, UInt16)] {
+            #expect(!Placement.keyCancels(keyCode: keyCode, character: character))
+        }
+        #expect(!Placement.keyCancels(keyCode: 51, character: nil))
+    }
 }
 
 // MARK: - ROI selector

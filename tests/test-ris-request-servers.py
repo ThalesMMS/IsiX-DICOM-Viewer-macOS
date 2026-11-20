@@ -137,7 +137,8 @@ expect(RISRequestAlert.notInDatabase(filters: "PatientID = P1", onDemandNodes: [
 expect(RISRequestAlert.notInDatabase(filters: "PatientID = P1", onDemandNodes: ["Main PACS", "Cloud PACS"]).contains("(Main PACS, Cloud PACS)"), "PACS On-Demand nodes named")
 let link = RISRequestAlert.describe(method: "retrieve", parameters: ["methodName": "retrieve", "serverName": "Cloud", "filterKey": "PatientID", "filterValue": "P1"])
 expect(link == "retrieve (filterKey = PatientID, filterValue = P1, serverName = Cloud)", "a link: \(link)")
-expect(RISRequestAlert.notCarriedOut(link).contains(link), "XML-RPC off: the request is named")
+expect(RISRequestAlert.notCarriedOut(link).contains(link), "a dropped request is named")
+expect(RISRequestAlert.waitsForActivation(link).contains(link), "URL support off: the request is named")
 expect(RISRequestAlert.text("m", code: -2) == "m\n\nError code: -2", "the code the caller was answered")
 expect(RISRequestAlert.refusedMessage(peer: "10.0.0.9", reason: .noCredential).contains("10.0.0.9"), "refusal names the peer")
 expect(RISRequestAlert.refusedMessage(peer: "10.0.0.9", reason: .wrongCredential).contains("password is wrong"), "wrong password")
@@ -221,11 +222,10 @@ app = class_text('AppController')
 # are LinkRequests (ExternalRequestHandler.swift); the launch state is
 # ApplicationLifecycle's.
 geturl = block(app, '    func open(link: String?) {', 'if let methodName')
-check(re.search(r'RISRequestAlert\.notCarriedOut\(request\)', geturl), 'URL support off: the request is named')
-# The application restarts, or stays to say that it has to be restarted; then
-# the link is dropped.
-check(re.search(r'if case \.notScheduled\(let reason\) = controller\.lifecycle\.restart\(controller\) \{[^{}]*\}\s*\}\s*return\s*\}', geturl),
-      'URL support off: nothing is called afterwards')
+check(re.search(r'RISRequestAlert\.waitsForActivation\(request\)', geturl), 'URL support off: the request is named')
+# Left off, the link is dropped; turned on there, its request goes on.
+check(re.search(r'guard result == HorosAlertPanel\.alternateResponse else \{[^{}]*return\s*\}\s*preferences\.set\(true, for: NetworkPreferences\.linkSchemeSupport\)', geturl),
+      'URL support off: the link is not dropped when the user declines, or not carried out once the links are on')
 request = block(app, 'struct LinkRequest: Sendable {', '@MainActor final class ExternalRequestHandler')
 check('_ = try? server?.methodCall' not in request and 'answered error' in request, 'the code is logged')
 facade = block(app, '@objc(getUrl:withReplyEvent:) func getUrl', 'externalRequests.open(link:')

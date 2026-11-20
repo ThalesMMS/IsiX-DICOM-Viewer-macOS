@@ -1207,10 +1207,12 @@ public final class PluginManager: NSObject {
 
     // MARK: activation
 
+    /// Answers whether the plugin is at its destination, as later headers of the plugin SDK declare it.
     @objc(movePluginFromPath:toPath:)
-    public class func movePlugin(fromPath sourcePath: String!, toPath destinationPath: String!) {
+    @discardableResult
+    public class func movePlugin(fromPath sourcePath: String!, toPath destinationPath: String!) -> Bool {
         #if !MACAPPSTORE
-        if ObjC.isEqualToString(sourcePath, destinationPath) { return }
+        if ObjC.isEqualToString(sourcePath, destinationPath) { return true }
 
         // The plugins folders of all users, under /Library, do not exist until a
         // plugin goes there, and the user cannot make them: the move then
@@ -1263,6 +1265,9 @@ public final class PluginManager: NSObject {
                                         message: NSLocalizedString("The plugin could not be moved. Its activation or location change was not completed. Check folder permissions and try again.", comment: ""),
                                         defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
         }
+        return !FileManager.default.fileExists(atPath: sourcePath) && FileManager.default.fileExists(atPath: destinationPath)
+        #else
+        return false
         #endif
     }
 

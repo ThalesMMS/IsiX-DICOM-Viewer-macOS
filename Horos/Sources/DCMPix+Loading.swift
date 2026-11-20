@@ -43,9 +43,35 @@ import IsiXImaging
 
 /// The parsed DICOM files the images share, by file revision: every DCMPix
 /// that reads frames of one file uses the one parsed object, counted, and the
-/// last one to go removes it. The cache is under PapyrusLock, which the
-/// annotations share; a purge waits until no load is in progress.
+/// last one to go removes it. The cache is under a lock of its own, which
+/// the annotations and the DCMTK reads of DicomFile share; a purge waits until
+/// no load is in progress.
 enum DCMPixParsedFileCache {
+    /// The lock of the cache. Every load of an image takes it, on the thread
+    /// that decodes a series and on the main thread that shows an image: one
+    /// left held stops every load behind it. It is the application's alone,
+    /// not the lock the plugin SDK exports (PapyrusLock), which a plugin can
+    /// take and leave held; it reports who holds it to whoever waits long,
+    /// and the main thread hands back at its idle run loop what something
+    /// left it holding (leaveWhatTheMainThreadLeftHeld()).
+    static let lock = AccountableLock(of: "the parsed files of the images") { NSLog("%@", $0) }
+
+    /// At a point where the main thread can have no region of the lock open:
+    /// what it still holds was left by something that unwound through a
+    /// region, and is handed back with a report of where it was taken.
+    static func leaveWhatTheMainThreadLeftHeld() {
+        lock.releaseIfLeftHeld()
+    }
+
+    /// Hands back at each idle pass of the main run loop what the main thread
+    /// was left holding. No region of the lock runs a run loop, so the main
+    /// thread holds nothing of its own when its loop goes to sleep.
+    @MainActor static func watchTheMainRunLoop() {
+        let observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, CFRunLoopActivity.beforeWaiting.rawValue, true, 0) { _, _ in
+            leaveWhatTheMainThreadLeftHeld()
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+    }
     nonisolated(unsafe) static let parsedFiles = NSMutableDictionary()
     nonisolated(unsafe) static let fileFormats = NSMutableDictionary()
     /// The loads in progress, which IsiXImaging counts and the purge waits
@@ -66,7 +92,7 @@ enum DCMPixParsedFileCache {
     /// The parsed object of `key`, taken by `pix`: the cached one, counted; or
     /// `parsed`, cached for the others. nil when neither is there.
     static func take(_ key: String?, parsed: DCMObject?, for pix: DCMPix) -> DCMObject? {
-        HorosObjCException.locked(PapyrusLock) {
+        HorosObjCException.locked(DCMPixParsedFileCache.lock) {
             let group = key.flatMap { parsedFiles.object(forKey: $0 as NSString) } as? NSMutableDictionary
             if let group {
                 let object = group.object(forKey: "dcmObject") as? DCMObject
@@ -96,7 +122,7 @@ enum DCMPixParsedFileCache {
 
     /// What `pix` took of the cache, given back: the last image of a file removes it.
     static func release(_ pix: DCMPix) {
-        HorosObjCException.locked(PapyrusLock) {
+        HorosObjCException.locked(DCMPixParsedFileCache.lock) {
             // What a load retained, not whether pixels remain: deinit frees an
             // owned fImage before it gets here, and the parsed file stayed cached.
             guard let retained = pix.horos_retainedCacheGroup else { return }
@@ -114,7 +140,7 @@ enum DCMPixParsedFileCache {
 
     /// The group `pix` took, while the cache still holds it.
     static func group(of pix: DCMPix) -> AnyObject? {
-        HorosObjCException.locked(PapyrusLock) {
+        HorosObjCException.locked(DCMPixParsedFileCache.lock) {
             guard let retained = pix.horos_retainedCacheGroup, let key = (pix.horos_cachedFileKey as String?) ?? pix.srcFile,
                   let group = parsedFiles.object(forKey: key as NSString) as AnyObject?,
                   retained == ObjectIdentifier(group) else { return nil }
@@ -142,10 +168,10 @@ enum DCMPixParsedFileCache {
             return
         }
         // Neither lock may stay held when the purge raises: the count of loads
-        // would stop every later purge, PapyrusLock every image load. The
-        // wait leaves the count; the region leaves PapyrusLock.
+        // would stop every later purge, the lock of the cache every image
+        // load. The wait leaves the count; the region leaves the lock.
         let wait = loads.whenNoneInProgress {
-            HorosObjCException.locked(PapyrusLock) {
+            HorosObjCException.locked(DCMPixParsedFileCache.lock) {
                 parsedFiles.removeAllObjects()
                 H264StreamDecoder.purgeCache()
             }

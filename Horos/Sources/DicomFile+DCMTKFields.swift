@@ -189,7 +189,7 @@ func dicomFileString(_ bytes: Data?, _ encoding: String.Encoding) -> NSString? {
     /// The file at `path`, read whole under the parser lock the import shares;
     /// nil when DCMTK cannot read it.
     private static func lockedFile(atPath path: String?) -> IsiXDCMTKFile? {
-        HorosObjCException.locked(PapyrusLock) {
+        HorosObjCException.locked(DCMPixParsedFileCache.lock) {
             return try? IsiXDCMTKFile.file(atPath: path)
         }
     }

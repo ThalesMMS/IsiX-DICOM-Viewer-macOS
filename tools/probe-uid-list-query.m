@@ -28,7 +28,7 @@ __attribute__((constructor)) static void install(void) {
                 @"AETitle":@"CFINDFIX", @"TransferSyntax":@0, @"retrieveMode":@0, @"Activated":@YES, @"QR":@YES};
             NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
             NSMutableDictionary *arguments=[[defaults volatileDomainForName:NSArgumentDomain] mutableCopy];
-            arguments[@"SERVERS"]=@[server]; arguments[@"httpXMLRPCServer"]=@YES;
+            arguments[@"SERVERS"]=@[server]; arguments[@"LinkSchemeSupport"]=@YES;
             [defaults setVolatileDomain:arguments forName:NSArgumentDomain];
             NSArray *cases=@[
                 [NSString stringWithFormat:@"  %@\\%@\n",uids[0],uids[1]],

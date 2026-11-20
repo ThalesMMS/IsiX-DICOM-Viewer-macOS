@@ -292,14 +292,12 @@ private func formerTextualData(_ view: View, keys: [String], annotations: [Strin
                     }
                     let curImage = view.current, pixCount = view.count
                     if view.stack > 1 {
-                        var maxVal = view.flipped ? curImage - view.stack + 1 : curImage + view.stack
-                        if maxVal < 0 { maxVal = 0 }
-                        if maxVal > pixCount { maxVal = pixCount }
-                        if view.flipped {
-                            tempString.appendFormat("Im: %ld-%ld/%ld %@" as NSString, pixCount - curImage, pixCount &- maxVal, pixCount, orientationStack)
-                        } else {
-                            tempString.appendFormat("Im: %ld-%ld/%ld %@" as NSString, curImage + 1, maxVal, pixCount, orientationStack)
-                        }
+                        // A slab is centred on the image and kept inside the series: its images as the user
+                        // counts them, the image more of an even slab after the one shown.
+                        let images = min(view.stack, pixCount)
+                        let number = view.flipped ? pixCount - curImage : curImage + 1
+                        let from = min(max(number - (images - 1) / 2, 1), pixCount - images + 1)
+                        tempString.appendFormat("Im: %ld-%ld/%ld %@" as NSString, from, from + images - 1, pixCount, orientationStack)
                     } else if fullText {
                         if view.flipped {
                             tempString.appendFormat("Im: %ld/%ld %@" as NSString, pixCount - curImage, pixCount, orientationStack)
@@ -642,7 +640,7 @@ struct AnnotationOverlayLayoutTests {
         for step in steps {
             for flipped in [false, true] {
                 for current in [0, 3, 5, 9] {
-                    for stack in [1, 3, 20] {
+                    for stack in [1, 2, 3, 4, 20] {
                         view.step = step.map { (x: $0.0, y: $0.1, z: $0.2) }
                         view.flipped = flipped
                         view.current = current

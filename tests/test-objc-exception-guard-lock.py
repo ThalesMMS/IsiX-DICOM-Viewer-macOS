@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """A region of a lock that raises leaves the lock for the other threads.
 
-The loading of an image takes PapyrusLock, a recursive lock every image load
-and every plugin shares, around the parsed-file cache, the annotations and the
+The loading of an image takes the lock of the parsed files, a recursive lock
+every image load shares, around the parsed-file cache, the annotations and the
 DCMTK reads. An NSException that unwinds a Swift frame does not run its
 `defer`: a region written `lock.lock(); defer { lock.unlock() }` that raised
 left the lock with its thread, and since the load of a slice catches the
@@ -126,7 +126,7 @@ func raiseUnderTwoFrames(_ reason: String) -> Int {
     return held.count
 }
 
-// PapyrusLock is a recursive lock, taken as NSLocking by the guard.
+// The lock of the parsed files is a recursive lock, taken as NSLocking by the guard.
 let lock = NSRecursiveLock()
 
 switch CommandLine.arguments[1] {

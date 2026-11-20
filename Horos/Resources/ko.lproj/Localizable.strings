@@ -504,7 +504,6 @@
 "AcquisitionTime (0008,0032)" = "취득시간 (0008,0032)";
 "Action" = "동작";
 "Activate" = "활성화";
-"Activate & Restart" = "활성화 & 재시작";
 "Activate AutoRouting" = "자동 라우팅을 활성화";
 "Activate C-FIND SCP support" = "C-FIND SCP 지원";
 "Activate C-GET SCP support" = "C-GET SCP 지원";
@@ -517,7 +516,8 @@
 "Activate WADO Server at /wado" = "/wado에서 WADO 서버 활성화";
 "Activate search for following Smart Albums, with Q&R Date & Modality filters:" = "다음 스마트 앨범 검색 활성화 (Q&R 날짜 및 모달리티 필터 사용):";
 "Activate the DICOM Listener only if this user session is active (user switching)" = "이 사용자 세션이 활성 상태일 때만 DICOM 수신기 활성화 (사용자 전환)";
-"Activate the URL support and HTTP XML-RPC Server on port:" = "포트에 URL 지원 및 HTTP XML-RPC 서버 활성화:";
+"Activate the HTTP XML-RPC Server on port:" = "포트에 HTTP XML-RPC 서버 활성화:";
+"Open [ isix:// , horos:// , osirix:// ] links" = "[ isix:// , horos:// , osirix:// ] 링크 열기";
 "Activate the built-in Web Server" = "내장 웹 서버 활성화";
 "Activate the edition" = "편집 활성화";
 "Activated" = "활성화됨";
@@ -4502,6 +4502,7 @@
 "No study matching %@ is in the database, and no PACS On-Demand node is chosen in the preferences." = "%@와(과) 일치하는 검사가 데이터베이스에 없으며, 환경설정에서 선택된 PACS On-Demand 노드가 없습니다.";
 "No study matching %@ is in the database or on the PACS On-Demand nodes (%@)." = "%@와(과) 일치하는 검사가 데이터베이스에도 PACS On-Demand 노드(%@)에도 없습니다.";
 "The request %@ was not carried out." = "요청 %@이(가) 실행되지 않았습니다.";
+"The link asks for the request %@, which is carried out once the links are activated." = "이 링크는 요청 %@을(를) 요구하며, 링크를 활성화하면 실행됩니다.";
 "An XML-RPC request from %@ was refused because it carried no password." = "%@의 XML-RPC 요청이 암호가 없어 거부되었습니다.";
 "An XML-RPC request from %@ was refused because its password is wrong." = "%@의 XML-RPC 요청이 암호가 틀려 거부되었습니다.";
 "Error code: %@" = "오류 코드: %@";
@@ -5039,7 +5040,7 @@
 "Mouse (mm)" = "마우스 (mm)";
 "Empty filter will route\U0003 ALL images\n" = "빈 필터는\U0003 모든 영상을 전송합니다\n";
 "\nRW1wdHkgZmlsdGVyIHdpbGwgcm91dGUD4oCoQUxMIGltYWdlcwo\n" = "\n67mIIO2VhO2EsOuKlAPigKjrqqjrk6Ag7JiB7IOB7J2EIOyghOyGoe2VqeuLiOuLpAo\n";
-"Activating it also turns on the XML-RPC server of this Mac, on port %ld. %@" = "활성화하면 이 Mac의 XML-RPC 서버도 포트 %ld에서 켜집니다. %@";
+"Links run inside IsiX DICOM Viewer: activating them opens no network port and does not turn on the XML-RPC server." = "링크는 IsiX DICOM Viewer 안에서 실행됩니다. 활성화해도 네트워크 포트가 열리지 않으며 XML-RPC 서버도 켜지지 않습니다.";
 "A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it." = "링크가 IsiX DICOM Viewer에 요청 %@의 실행을 요구합니다.\r\r링크는 어떤 웹 페이지, 이메일, 문서에서도 올 수 있습니다. 예상한 요청일 때만 실행하십시오.";
 "Carry Out" = "실행";
 "An XML-RPC request (FindObject with execute = Delete) asks to delete %ld studies from the database. This cannot be undone." = "XML-RPC 요청(execute = Delete인 FindObject)이 데이터베이스에서 검사 %ld건의 삭제를 요구합니다. 이 작업은 되돌릴 수 없습니다.";
@@ -5130,7 +5131,7 @@
 "Done" = "완료";
 "Opened by %@" = "여는 응용 프로그램: %@";
 "IsiX DICOM Viewer does not know which application opened %@:// links before it, so they stay with it. To have another application open them, make it the default in that application's own settings." = "IsiX DICOM Viewer는 이전에 어떤 응용 프로그램이 %@:// 링크를 열었는지 알지 못하므로 링크는 그대로 유지됩니다. 다른 응용 프로그램으로 열려면 해당 응용 프로그램의 자체 설정에서 기본으로 지정하십시오.";
-"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now? Restart is necessary." = "IsiX DICOM Viewer URL 스킴 [isix://, horos://, osirix://]이 현재 활성화되어 있지 않습니다!\r\r지금 활성화할까요? 재시작이 필요합니다.";
+"IsiX DICOM Viewer URL scheme [isix:// , horos:// , osirix://] is currently not activated!\r\rShould I activate it now?" = "IsiX DICOM Viewer URL 스킴 [isix://, horos://, osirix://]이 현재 활성화되어 있지 않습니다!\r\r지금 활성화할까요?";
 "Choose a surgical log exported as CSV." = "CSV로 내보낸 수술 기록을 선택하십시오.";
 "Emails" = "이메일";
 "Last email: %1$@, to %2$@: handed to the Mail application." = "마지막 이메일: %1$@, 받는 사람 %2$@: Mail 앱에 전달했습니다.";

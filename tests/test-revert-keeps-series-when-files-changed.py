@@ -106,6 +106,12 @@ final class DCMPix: NSObject {
     func revert() { Harness.log.append("slice released"); decoded = false }
 }
 
+/// The lock of the parsed files, which the wait hands back when the main
+/// thread was left holding it; nothing here holds it.
+enum DCMPixParsedFileCache {
+    static func leaveWhatTheMainThreadLeftHeld() {}
+}
+
 /// The change of plane, which reverts a series it made of the files' slices.
 @MainActor struct ViewerPlaneChange {
     static var revertsToFiles = false

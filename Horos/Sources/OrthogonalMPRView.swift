@@ -433,20 +433,13 @@ public class OrthogonalMPRView: DCMView {
     public dynamic func convertPixX(_ x: Float, pixY y: Float, toDICOMCoords location: UnsafeMutablePointer<Float>!) {
         let curDCM = self.curDCM
         if Int(curDCM?.stack ?? 0) > 1 {
-            var stackImageIndex: Int
-            let stack = Int(curDCM?.stack ?? 0)
-
-            if self.horos_flippedData {
-                stackImageIndex = Int(self.horos_curImage) - (stack - 1) / 2
-            } else {
-                stackImageIndex = Int(self.horos_curImage) + (stack - 1) / 2
-            }
-
+            // The image in the middle of the slab the view shows (ThickSlabSpan).
             let dcmPixList = self.horos_dcmPixList
-            if stackImageIndex < 0 { stackImageIndex = 0 }
-            if stackImageIndex >= (dcmPixList?.count ?? 0) { stackImageIndex = (dcmPixList?.count ?? 0) - 1 }
+            let slab = ThickSlabSpan(images: Int(curDCM?.stack ?? 0), at: Int(self.horos_curImage), of: dcmPixList?.count ?? 0,
+                                     towardsStart: self.horos_flippedData)
+            let middle = slab.middle >= 0 && slab.middle < (dcmPixList?.count ?? 0) ? dcmPixList?.object(at: slab.middle) as? DCMPix : curDCM
 
-            (dcmPixList?.object(at: stackImageIndex) as? DCMPix)?.convertX(x, pixY: y, toDICOMCoords: location, pixelCenter: true)
+            middle?.convertX(x, pixY: y, toDICOMCoords: location, pixelCenter: true)
         } else {
             curDCM?.convertX(x, pixY: y, toDICOMCoords: location, pixelCenter: true)
         }

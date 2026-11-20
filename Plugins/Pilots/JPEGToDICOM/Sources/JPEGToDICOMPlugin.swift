@@ -59,9 +59,12 @@ public final class JPEGToDICOMPlugin: NSObject, IsiXPlugin {
     private func chooseFiles(parent: NSWindow?) throws {
         guard conversion == nil else { throw Failure(reason: "JPEG to DICOM is already converting.") }
         let panel = NSOpenPanel()
+        // The types before the folders: a panel given its types of file stops
+        // taking folders, whatever it was told before, and its Open button
+        // then stays off on every folder.
+        panel.allowedContentTypes = [.image]
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.image]
         panel.title = "JPEG to DICOM"
         panel.message = "Select images or folders of images to convert to DICOM in the selected study."
         let finish: (NSApplication.ModalResponse) -> Void = { [weak self, weak panel] response in

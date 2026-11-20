@@ -52,10 +52,17 @@ public final class PatientCrosshairController: NSObject {
         self.defaults = defaults
         checksFrameOfReference = defaults.bool(forKey: ViewerReferenceLines.frameOfReferencePreferenceKey)
         super.init()
+        // Told on the thread that wrote the preference, which may hold what the
+        // main thread waits for: an observer of the main queue would keep it
+        // waiting. A write off the main thread is answered from the main queue.
         defaultsObserver = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+            forName: UserDefaults.didChangeNotification, object: nil, queue: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshFramePolicy() }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { self?.refreshFramePolicy() }
+            } else {
+                DispatchQueue.main.async { self?.refreshFramePolicy() }
+            }
         }
     }
 

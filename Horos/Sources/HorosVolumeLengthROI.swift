@@ -38,6 +38,7 @@
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
 import Cocoa
+import IsiXImaging
 import IsiXROI
 
 /// A length measured between two points in patient space (from the 3D
@@ -192,9 +193,10 @@ public class HorosVolumeLengthROI: ROI {
         let half = p.sliceThickness.isFinite ? fmax(0.01, abs(p.sliceThickness) / 2) : 0.01
         var lo = -half, hi = half
         if p.stack > 1 {
-            let index = Int(view.curImage), count = view.dcmPixList?.count ?? 0
-            let end = Swift.max(0, Swift.min(count - 1, index + (view.flippedData ? -1 : 1) * (Int(p.stack) - 1)))
-            if let last = view.dcmPixList?.object(at: end) as? DCMPix {
+            // The slab reaches as far as its two end images, on either side of the one shown.
+            let slab = ThickSlabSpan(images: Int(p.stack), at: Int(view.curImage), of: view.dcmPixList?.count ?? 0, towardsStart: view.flippedData)
+            for end in [slab.first, slab.last] where end != Int(view.curImage) {
+                guard let last = view.dcmPixList?.object(at: end) as? DCMPix else { continue }
                 var dz = 0.0
                 _ = HorosVolumeLengthROI.projectPoint([NSNumber(value: last.originX), NSNumber(value: last.originY), NSNumber(value: last.originZ)],
                                                       pix: p, depth: &dz)

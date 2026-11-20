@@ -77,26 +77,35 @@ public extension NSMutableArray {
     // the first one where it is. The duplicate itself is removed; formerly,
     // -indexOfObject: removed the first object equal to it, which could be
     // another object, and left the duplicate in place.
-    @objc func removeDuplicatedObjects() {
+    // The three answer whether anything was removed, as later headers of the
+    // plugin SDK declare them; the former ones declared no answer.
+    @discardableResult
+    @objc func removeDuplicatedObjects() -> Bool {
         var seen = Set<ObjectIdentifier>()
         var duplicates = IndexSet()
         for (index, object) in enumerated() where !seen.insert(ObjectIdentifier(object as AnyObject)).inserted {
             duplicates.insert(index)
         }
         removeObjects(at: duplicates)
+        return !duplicates.isEmpty
     }
 
-    @objc func removeDuplicatedStrings() {
-        removeObjects(at: duplicatedStringIndexes())
+    @discardableResult
+    @objc func removeDuplicatedStrings() -> Bool {
+        let duplicates = duplicatedStringIndexes()
+        removeObjects(at: duplicates)
+        return !duplicates.isEmpty
     }
 
     // Removes the same indexes from otherArray, so that the pairs stay
     // together: the first path of each group keeps its own object.
     @objc(removeDuplicatedStringsInSyncWithThisArray:)
-    func removeDuplicatedStrings(inSyncWithThisArray otherArray: NSMutableArray?) {
+    @discardableResult
+    func removeDuplicatedStrings(inSyncWithThisArray otherArray: NSMutableArray?) -> Bool {
         let duplicates = duplicatedStringIndexes()
         removeObjects(at: duplicates)
         otherArray?.removeObjects(at: duplicates)
+        return !duplicates.isEmpty
     }
 
     // The indexes of the strings equal (-isEqual:, as -isEqualToString:) to

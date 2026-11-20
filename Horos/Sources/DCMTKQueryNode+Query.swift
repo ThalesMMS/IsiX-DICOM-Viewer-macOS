@@ -69,9 +69,12 @@ extension DCMTKQueryNode {
 
     /// `values` are dictionaries: "name", a filter of the Query window or a
     /// keyword of the DICOM dictionary, and "value".
+    /// Answers whether the query succeeded, as later headers of the plugin SDK declare it.
     @objc(queryWithValues:)
-    func query(withValues values: [Any]?) {
+    @discardableResult
+    func query(withValues values: [Any]?) -> Bool {
         query(withValues: values, identifier: nil)
+        return lastQuerySucceededValue
     }
 
     /// The search of `identifier`, or of what this level asks for when nil,

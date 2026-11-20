@@ -139,8 +139,8 @@ public extension ViewerController {
         } else {
             viewer.horos_slider?.intValue = 0
         }
-        // A thick slab runs from the current image towards the end of the strip,
-        // flipped data or not: the strip is flipped with the data.
+        // A thick slab is around the current image, its image more towards the end
+        // of the strip, flipped data or not: the strip is flipped with the data.
         if let slider = viewer.horos_slider as? ImageNavigationSlider {
             slider.slabImageCount = SliceNavigation.slabImageCount(stack: Int(viewer.horos_imageView?.curDCM?.stack ?? 0))
         }

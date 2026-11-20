@@ -5,6 +5,10 @@ Cadence steps a fake systemUptime so suite load cannot starve a production
 timer. A real run-loop timer still checks that playback
 continues across a civil-clock rollback.
 
+While the series loads, a player gives a moment to an image the load has not
+reached and then shows it: with a load that never ends and no image loaded it
+advances about once a second, and with its next images loaded, at its rate.
+
 This isolates scheduling from DICOM decoding, GPU rendering and synchronization.
 """
 from pathlib import Path
@@ -72,7 +76,7 @@ for facade, tick in (('@objc(performAnimation:)', 'cine.advanceSlice()'), ('@obj
 start = cine.index('@MainActor final class CinePlayback {')
 shell = cine[start:cine.index('\n    /// The "Browse" player\'s timer', start)]
 callbacks = (method(cine, '    func advanceSlice()') + method(cine, '    func advanceMovie()')
-             + method(cine, '    func isLoadingFirstHalf()') + method(cine, '    private static func imagesPerSecond('))
+             + method(cine, '    func waitsForLoad(ofImage index: Int') + method(cine, '    private static func imagesPerSecond('))
 if callbacks.count(uptime) < 2:
     raise SystemExit(f'expected systemUptime in cine callbacks, found {callbacks.count(uptime)}')
 callbacks = callbacks.replace(uptime, 'testUptime()')
@@ -91,6 +95,11 @@ header = r'''
 #pragma clang diagnostic ignored "-Wnullability-completeness"
 #import <AppKit/AppKit.h>
 double testUptime(void);
+// An image of the series: whether the load has reached it.
+@interface DCMPix : NSObject
+@property BOOL loaded;
+- (BOOL)isLoaded;
+@end
 @interface ImageProbe : NSObject
 @property NSInteger curImage;
 @property BOOL flippedData;
@@ -108,7 +117,7 @@ NS_SWIFT_UI_ACTOR
  NSTextField *speedText;
  NSButton *loopButton;
  ImageProbe *imageView;
- NSMutableArray *pixList[1];
+ NSMutableArray *pixList[3];
  short curMovieIndex, maxMovieIndex;
  float direction;
  BOOL windowWillClose;
@@ -159,6 +168,9 @@ double testUptime(void) {
 - (void)performAnimation:(id)sender;
 - (void)performMovieAnimation:(id)sender;
 @end
+@implementation DCMPix
+- (BOOL)isLoaded { return self.loaded; }
+@end
 @implementation ImageProbe
 - (void)setIndex:(NSInteger)index { self.curImage=index; }
 - (void)sendSyncMessage:(NSInteger) value {}
@@ -169,7 +181,11 @@ double testUptime(void) {
  speedSlider=[NSSlider new]; speedSlider.maxValue=60;
  movieRateSlider=[NSSlider new]; movieRateSlider.maxValue=60;
  speedText=[NSTextField new]; loopButton=[NSButton new]; loopButton.state=NSControlStateValueOn;
- imageView=[ImageProbe new]; pixList[0]=[@[@0,@1,@2] mutableCopy]; direction=1; maxMovieIndex=3;
+ imageView=[ImageProbe new]; direction=1; maxMovieIndex=3;
+ for (int list=0; list<3; list++) {
+  pixList[list]=[NSMutableArray array];
+  for (int image=0; image<3; image++) { DCMPix *pix=[DCMPix new]; pix.loaded=YES; [pixList[list] addObject:pix]; }
+ }
  } return self; }
 - (void)setMovieIndex:(short)value { phaseCount++; }
 - (void)propagateSettings {}
@@ -201,6 +217,20 @@ double testUptime(void) {
 - (ImageProbe*)horos_imageView { return imageView; }
 - (NSButton*)horos_loopButton { return loopButton; }
 @end
+static void setLoaded(ViewerController *v, BOOL loaded) {
+ for (int list=0; list<3; list++) for (DCMPix *pix in v->pixList[list]) pix.loaded=loaded;
+}
+// The advances of 3.2 s of simulated uptime, at 20 a second.
+static int advancesIn(ViewerController *v, int mode) {
+ int before=mode ? v->phaseCount : v->sliceCount;
+ const double step=0.0001;
+ const int ticks=(int)llround(3.2/step);
+ for (int i=0;i<ticks;i++) {
+  testClock+=step;
+  if (mode) [v performMovieAnimation:nil]; else [v performAnimation:nil];
+ }
+ return (mode ? v->phaseCount : v->sliceCount)-before;
+}
 static void runFor(double duration) {
  double end=NSProcessInfo.processInfo.systemUptime+duration;
  while (NSProcessInfo.processInfo.systemUptime < end)
@@ -247,7 +277,37 @@ int main(void) { @autoreleasepool {
    [timer invalidate]; clockOffset=0;
   }
  }
- NSLog(@"PASS: slice and phase cadence on simulated uptime, playback continues across civil-clock rollback");
+ // A load that has not reached the images a player shows next, and never does: the player gives each a second
+ // and shows it all the same, as the arrow keys would; with the images there, loading or not, it plays at its rate.
+ for (int mode=0; mode<2; mode++) {
+  ViewerController *v=[ViewerController new];
+  v->speedSlider.floatValue=20; v->movieRateSlider.floatValue=20;
+  useTestClock=YES; testClock=2000;
+  INITIALIZERS
+  v->loadingThread=[NSThread new];
+  setLoaded(v, NO);
+  int stalled=advancesIn(v, mode);
+  if (!(stalled >= 2 && stalled <= 4)) {
+   fprintf(stderr,"FAIL: a %s player whose load has stopped advanced %d times in 3.2 s, not about once a second\n", mode ? "phase" : "slice", stalled);
+   return 1;
+  }
+  setLoaded(v, YES);
+  INITIALIZERS
+  int following=advancesIn(v, mode);
+  if (!(following >= 63 && following <= 64)) {
+   fprintf(stderr,"FAIL: a %s player whose next images are loaded advanced %d times in 3.2 s while the series loads, not at its rate\n", mode ? "phase" : "slice", following);
+   return 1;
+  }
+  setLoaded(v, NO);
+  v->loadingThread=nil;
+  INITIALIZERS
+  int loadedSeries=advancesIn(v, mode);
+  if (!(loadedSeries >= 63 && loadedSeries <= 64)) {
+   fprintf(stderr,"FAIL: a %s player with no load pending advanced %d times in 3.2 s\n", mode ? "phase" : "slice", loadedSeries);
+   return 1;
+  }
+ }
+ NSLog(@"PASS: slice and phase cadence on simulated uptime, playback continues across civil-clock rollback, and a player follows the load of its series without being stopped by it");
 } }
 '''.replace('INITIALIZERS', initializers)
 with tempfile.TemporaryDirectory(prefix='horos-cine-timing-') as directory:
