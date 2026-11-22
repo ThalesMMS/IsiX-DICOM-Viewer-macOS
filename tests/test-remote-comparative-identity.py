@@ -15,6 +15,10 @@ a=s.index(signature)
 b=s.index('    // MARK: Verification', a)
 method=s[a:b]
 assert 'QueryController.queryStudies(forFilters:' in method, 'the history no longer asks the nodes through queryStudiesForFilters'
+history=(root/'Horos/Sources/PatientHistoryList.swift').read_text(encoding='utf-8')
+local=history[history.index('nonisolated static func localStudies('):history.index('nonisolated static func comparativeIdentity(')]
+gate=local.index('if ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: uidHasName, uidHasBirthDate: uidHasBirthDate) {')
+assert gate < local.index('!identity.hasDifferentIssuer(from: $0)') < local.index('if uidHasName || uidHasBirthDate {'), 'the local history drops studies of the same patient UID by issuer whatever the UID holds'
 harness=r'''
 import Foundation
 public class DicomStudy: NSObject {
@@ -103,6 +107,12 @@ let matched = QueryController.queryStudies(forPatient: indexed, usePatientID: tr
 check(same(matched, [variation, unknownBirth]), "corroborate same-issuer history and exclude conflicts")
 check(sentFilters["PatientBirthDate"] == nil, "allow a same-issuer result with no birth date")
 check(same(query(indexed, true, true, true), [foreignIssuer]), "legacy callers retain exact demographic matching")
+// The local history: a study of the selected one's patient UID leaves it for
+// another issuer unless the UID holds the name and the birth date.
+check(!ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: true, uidHasBirthDate: true), "a full UID still separates by issuer")
+check(ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: true, uidHasBirthDate: false)
+      && ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: false, uidHasBirthDate: true)
+      && ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: false, uidHasBirthDate: false), "a UID without the name or the birth date no longer separates by issuer")
 print("PASS: remote history validates enabled identity fields; wrong/missing IDs and birthdates, wildcard IDs, optional name/birthdate, empty responses and invalid query guards")
 '''
 with tempfile.TemporaryDirectory(prefix='horos-remote-comparative-') as t:

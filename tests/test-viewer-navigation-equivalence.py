@@ -539,9 +539,16 @@ NS_SWIFT_NAME(FourDSeriesGuard)
 - (NSMutableArray*) pixList;
 @end
 
+// The viewer's loading state: of each player, whether it is ahead of the load.
+@interface LoadingStateProbe : NSObject
+@property BOOL browseAheadOfLoad;
+@property BOOL movieAheadOfLoad;
+@end
+
 NS_SWIFT_UI_ACTOR
 @interface ViewerController : OSIWindowController {
 @public
+    LoadingStateProbe *loadingStateProbe;
     NSString *nameValue, *modalityValue, *clutValue;
     DCMView *imageView;
     SeriesView *seriesView;
@@ -623,6 +630,7 @@ NS_SWIFT_UI_ACTOR
 @property(assign) long horos_speedometer;
 @property(assign) float horos_direction;
 @property(retain, nullable) NSThread* horos_loadingThread NS_SWIFT_NONISOLATED;
+@property(readonly) LoadingStateProbe* loadingState;
 @property(assign) BOOL horos_windowWillClose;
 @property(assign) BOOL horos_requestLoadingCancel;
 @property(assign) BOOL horos_checkEverythingLoadedFlag;
@@ -921,8 +929,12 @@ NSInteger HorosRunCriticalAlertPanel(NSString *title, NSString *format, NSString
 - (NSMutableArray*) pixList { return nil; }
 @end
 
+@implementation LoadingStateProbe
+@end
+
 @implementation ViewerController
 @synthesize window, speedSlider, movieRateSlider, speedText, movieTextSlide;
+- (LoadingStateProbe*) loadingState { if (loadingStateProbe == nil) loadingStateProbe = [LoadingStateProbe new]; return loadingStateProbe; }
 + (NSMutableArray*) getDisplayed2DViewers { return [[viewers2D mutableCopy] autorelease]; }
 + (NSMutableArray*) get2DViewers { return [[viewers2D mutableCopy] autorelease]; }
 - (DCMView*) imageView { return imageView; }
@@ -1770,7 +1782,10 @@ REFERENCE_CORRECTIONS = [
      # had stopped never moved again. The Swift (CinePlayback.advanceMovie,
      # CineCadence.waitsForLoad) waits only for the image of the next time
      # point at the slice shown, while the load has not reached it, and for
-     # one second since the last frame at most.
+     # one second since the last frame at most. The scenario ticks the player
+     # once while the series loads; that a player which has shown an image the
+     # load had not reached waits for none of those that follow is held by
+     # test-cine-timing.py and by the tests of CineCadence.
      '- (void) performMovieAnimation:(id) sender\n'
      '{\n'
      '    @synchronized( loadingThread)\n'

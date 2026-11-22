@@ -194,6 +194,16 @@ public protocol IsiXDatabaseBackend: AnyObject {
     func writeDerivedSeriesNow(_ request: IsiXDerivedSeriesRequest) throws -> [URL]
     /// Opens the series in a new viewer and returns it.
     func openViewer(forSeries seriesInstanceUID: String) throws -> (any IsiXViewerBackend)?
+    /// Opens the series together in a new viewer, each a phase, in the order
+    /// given, and returns it.
+    func open4DViewer(forSeries seriesInstanceUIDs: [String]) throws -> (any IsiXViewerBackend)?
+}
+
+public extension IsiXDatabaseBackend {
+    /// A host made before the requirement existed opens no series together.
+    func open4DViewer(forSeries seriesInstanceUIDs: [String]) throws -> (any IsiXViewerBackend)? {
+        throw IsiXPluginError.hostFailure("This application does not open several series in one viewer for plugins.")
+    }
 }
 
 extension IsiXDerivedSeriesRequest {
@@ -296,6 +306,30 @@ public extension IsiXDatabase {
     func openViewer(forSeries seriesInstanceUID: String) throws -> IsiXViewer? {
         try require(.databaseRead)
         let opened = try backend().openViewer(forSeries: seriesInstanceUID)
+        guard capabilities.contains(.viewerRead) else { return nil }
+        return opened.map { IsiXViewer(backend: $0, capabilities: capabilities) }
+    }
+
+    /// Opens several series together in one new 2D viewer, each series a
+    /// phase of it, in the order given: the echoes or the times of one
+    /// acquisition, which the viewer then plays and the plugin reads phase by
+    /// phase. Needs `viewer.4d` besides `database.read`. At least two series,
+    /// each named once, all with the same number of images and the same image
+    /// size: `invalidValue` says which series differs, `notFound` which one
+    /// the database lacks, and nothing opens then. The viewer is returned
+    /// when the plugin declared `viewer.read`.
+    @discardableResult
+    func open4DViewer(forSeries seriesInstanceUIDs: [String]) throws -> IsiXViewer? {
+        try require(.databaseRead)
+        try require(.viewer4D)
+        guard seriesInstanceUIDs.count > 1 else {
+            throw IsiXPluginError.invalidValue("A 4D viewer needs at least two series.")
+        }
+        var named = Set<String>()
+        if let repeated = seriesInstanceUIDs.first(where: { !named.insert($0).inserted }) {
+            throw IsiXPluginError.invalidValue("Series \(repeated) is named more than once.")
+        }
+        let opened = try backend().open4DViewer(forSeries: seriesInstanceUIDs)
         guard capabilities.contains(.viewerRead) else { return nil }
         return opened.map { IsiXViewer(backend: $0, capabilities: capabilities) }
     }

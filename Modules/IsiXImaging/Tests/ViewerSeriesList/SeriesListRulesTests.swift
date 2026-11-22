@@ -37,6 +37,31 @@ import Testing
         #expect(none.shown == [0, 1] && !none.hasComparatives)
     }
 
+    @Test func theHistoryIsCompletedWithTheStudiesOfTheDatabaseItLacks() {
+        typealias Studies = SeriesListPatientStudies
+        // A history that has every study of the database stays as it is, a
+        // study on a PACS with the UID of a local one included.
+        #expect(Studies.completed(historyUIDs: ["c", "b", "a"], historyDates: [30, 20, 10],
+                                  databaseUIDs: ["c", "a"], databaseDates: [30, 10]) == [.history(0), .history(1), .history(2)])
+        // A history of the study looked at alone: the others come back, by date.
+        #expect(Studies.completed(historyUIDs: ["b"], historyDates: [20],
+                                  databaseUIDs: ["d", "c", "b", "a"], databaseDates: [40, 30, 20, 10])
+                == [.database(0), .database(1), .history(0), .database(3)])
+        // An empty history, and a database without the patient.
+        #expect(Studies.completed(historyUIDs: [], historyDates: [], databaseUIDs: ["b", "a"], databaseDates: [2, 1])
+                == [.database(0), .database(1)])
+        #expect(Studies.completed(historyUIDs: ["a"], historyDates: [1], databaseUIDs: [], databaseDates: []) == [.history(0)])
+        // The history keeps its order whatever its dates; a study without a
+        // date is the oldest, one of the same date comes after the history's.
+        #expect(Studies.completed(historyUIDs: ["x", "y"], historyDates: [10, 30],
+                                  databaseUIDs: ["m", "n", "o"], databaseDates: [20, 10, nil])
+                == [.database(0), .history(0), .history(1), .database(1), .database(2)])
+        #expect(Studies.completed(historyUIDs: ["x", "y"], historyDates: [nil, 5], databaseUIDs: ["m"], databaseDates: [1])
+                == [.database(0), .history(0), .history(1)])
+        // A study of the database without an instance UID is left out.
+        #expect(Studies.completed(historyUIDs: ["x"], historyDates: [5], databaseUIDs: [nil, "x"], databaseDates: [9, 5]) == [.history(0)])
+    }
+
     @Test func numbersColoursAndStates() {
         #expect(SeriesListStudyNumbers.colorIndex(studyIndex: 1, colorCount: 3) == 1)
         #expect(SeriesListStudyNumbers.colorIndex(studyIndex: 5, colorCount: 3) == 2)

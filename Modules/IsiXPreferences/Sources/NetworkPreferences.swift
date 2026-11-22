@@ -267,6 +267,9 @@ public enum NetworkPreferences {
     /// For each scheme this application took, the path of the application that opened it before, which
     /// the Listener pane gives the scheme back to.
     public static let linkSchemePreviousHandlers = PreferenceKey<[String: PropertyListValue]?>("LinkSchemePreviousHandlers")
+    /// The hosts whose download links are carried out without asking: for each, its name, with the
+    /// port when it is not the port of the scheme, and whether a link that is not encrypted is accepted.
+    public static let linkDownloadTrustedHosts = PreferenceKey<[PropertyListValue]?>("LinkDownloadTrustedHosts")
 
     /// Every key of this file.
     static let catalog: [any CataloguedPreference] = [
@@ -308,6 +311,7 @@ public enum NetworkPreferences {
         searchesComparativeStudiesOnDICOMNodes, pacsOnDemandNodes, searchesSmartAlbumStudiesOnDICOMNodes, sendsROIs,
         sendTransferSyntax, lastSendServer, lastSendWhat, xmlrpcWithPACSOnDemand, xmlrpcServerShowsFailureAlerts, xmlrpcServerWaitForStudy,
         xmlrpcRetrieveOpenWaitSeconds, linkSchemeSupport, linkSchemeStartupPolicy, linkSchemePreviousHandlers,
+        linkDownloadTrustedHosts,
     ]
 
     /// The key path of `key` in NSUserDefaultsController, whose observers and bindings hear a change of the key.

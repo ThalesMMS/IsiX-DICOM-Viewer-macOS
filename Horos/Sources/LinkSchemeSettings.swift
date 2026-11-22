@@ -24,6 +24,9 @@ import IsiXPreferences
 /// scheme; unticking it gives the scheme back to the application it was taken
 /// from, when that is known.
 ///
+/// Below them, the hosts whose download links are carried out without asking
+/// (`LinkTrustedHostsEditor`).
+///
 /// Built in code, and reached by a button added to the pane at runtime: the
 /// pane's nib has a copy for each language and no row to spare.
 @MainActor
@@ -38,6 +41,8 @@ public final class LinkSchemeSettings: NSObject {
     private var handlerLabels: [NSTextField] = []
     private var policyPopUp: NSPopUpButton?
     private var noteLabel: NSTextField?
+    /// The list of the hosts whose download links run without asking.
+    private(set) var trustedHosts: LinkTrustedHostsEditor?
     private var activation: NSObjectProtocol?
 
     // MARK: - The button of the pane
@@ -125,6 +130,7 @@ public final class LinkSchemeSettings: NSObject {
         handlerLabels = []
         policyPopUp = nil
         noteLabel = nil
+        trustedHosts = nil
     }
 
     func makeSheet() -> NSWindow {
@@ -169,6 +175,20 @@ public final class LinkSchemeSettings: NSObject {
         note.textColor = .systemRed
         noteLabel = note
 
+        // The hosts a download link is carried out for without asking: the
+        // alert of such a link adds to this list too.
+        let editor = LinkTrustedHostsEditor(preferences: registry.preferences)
+        editor.layoutChanged = { [weak self] in
+            guard let self, let sheet = self.sheet else { return }
+            self.resize(sheet)
+        }
+        trustedHosts = editor
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.widthAnchor.constraint(equalToConstant: 480).isActive = true
+        let hostViews = editor.makeViews(width: 480)
+
         let done = NSButton(title: NSLocalizedString("Done", comment: ""), target: self, action: #selector(done(_:)))
         done.keyEquivalent = "\r"
         let spacer = NSView()
@@ -177,7 +197,7 @@ public final class LinkSchemeSettings: NSObject {
         buttonRow.orientation = .horizontal
         buttonRow.distribution = .fill
 
-        let column = NSStackView(views: [heading, explanation] + rows + [policyLabel, policy, note, buttonRow])
+        let column = NSStackView(views: [heading, explanation] + rows + [policyLabel, policy, note, separator] + hostViews + [buttonRow])
         column.orientation = .vertical
         column.alignment = .leading
         column.spacing = 10
@@ -224,6 +244,8 @@ public final class LinkSchemeSettings: NSObject {
         }
         let policy = LinkSchemeHandlers.StartupPolicy(stored: registry.preferences[NetworkPreferences.linkSchemeStartupPolicy])
         policyPopUp?.selectItem(withTag: policy.rawValue)
+        // A host the alert of a link added while the sheet was open.
+        trustedHosts?.reload()
         resize(sheet)
     }
 

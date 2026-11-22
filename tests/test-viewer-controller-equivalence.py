@@ -120,6 +120,22 @@ final class ViewerRegistry: @unchecked Sendable {
     @MainActor func register(_ viewer: ViewerController, isFullScreen: Bool) { ViewerController.horos_register2DViewer(viewer) }
     @MainActor var count: Int32 { Int32(ViewerController.numberOf2DViewer()) }
     @MainActor var displayedViewers: [ViewerController] { (ViewerController.getDisplayed2DViewers() as? [ViewerController]) ?? [] }
+    // The account of the viewers alive has its own test (test-viewer-fusion-freed-order.py).
+    func viewerWasMade(_ viewer: ViewerController) {}
+    func viewerIsBeingFreed(_ viewer: ViewerController) {}
+    @MainActor var aliveViewers: [ViewerController] { [] }
+}
+
+// The fusion's part for a viewer that goes (ViewerFusion.swift), tested there
+// too: the freed viewer ends its fusion, which the record shows.
+@MainActor final class ViewerFusion {
+    let viewer: ViewerController
+    init(viewer: ViewerController) { self.viewer = viewer }
+    static func forget(_ leaving: ViewerController, among alive: [ViewerController]) {}
+    func endFusionOfFreedViewer() { viewer.activateBlending(nil) }
+}
+extension ViewerController {
+    var fusion: ViewerFusion { ViewerFusion(viewer: self) }
 }
 
 final class NSFullScreenWindow: NSWindow {}

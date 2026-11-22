@@ -52,6 +52,7 @@ import IsiXPreferences
         windowLevel = ViewerWindowLevel(viewer: viewer, preferences: processGraph.preferences, menus: processGraph.presetMenuCache)
         colourTables = ViewerColourTables(preferences: processGraph.preferences, menus: processGraph.presetMenuCache,
                                           cache: processGraph.colourTableCache)
+        processGraph.viewerRegistry.viewerWasMade(viewer)
     }
 
     /// The application's preferences, read and written through the typed keys

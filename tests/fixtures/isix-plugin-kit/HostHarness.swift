@@ -136,7 +136,7 @@ final class FakeViewer: IsiXViewerBackend {
 }
 
 @MainActor
-final class FakeHost: IsiXHostBackend {
+class FakeHost: IsiXHostBackend {
     var viewers: [FakeViewer] = []
     var commandChanges = 0
 
@@ -149,6 +149,63 @@ final class FakeHost: IsiXHostBackend {
     func series(inStudy studyInstanceUID: String) async throws -> [IsiXSeries] { throw IsiXPluginError.noDatabase }
     func importFiles(at urls: [URL]) async throws -> IsiXImportResult { throw IsiXPluginError.noDatabase }
     func commandsDidChange() { commandChanges += 1 }
+}
+
+/// A host with a database of series named by their UIDs, which records the
+/// series it was asked to open together and opens a viewer for them. The
+/// rest of the database is not there.
+@MainActor
+final class FakeDatabaseHost: FakeHost, IsiXDatabaseBackend {
+    var known: Set<String> = []
+    var opened4D: [[String]] = []
+
+    func databaseSelection() throws -> IsiXDatabaseSelection { throw IsiXPluginError.noDatabase }
+    func studies(matching query: IsiXStudyQuery) throws -> [IsiXStudy] { throw IsiXPluginError.noDatabase }
+    func seriesRecords(inStudy studyInstanceUID: String) throws -> [IsiXSeries] { throw IsiXPluginError.noDatabase }
+    func seriesRecord(withInstanceUID uid: String) throws -> IsiXSeries? { throw IsiXPluginError.noDatabase }
+    func images(inSeries seriesInstanceUID: String) throws -> [IsiXDatabaseImage] { throw IsiXPluginError.noDatabase }
+    func images(withSOPInstanceUID uid: String) throws -> [IsiXDatabaseImage] { throw IsiXPluginError.noDatabase }
+    func updateStudy(_ studyInstanceUID: String, _ update: IsiXStudyUpdate) throws -> IsiXStudy { throw IsiXPluginError.noDatabase }
+    func updateSeries(_ seriesInstanceUID: String, _ update: IsiXSeriesUpdate) throws -> IsiXSeries { throw IsiXPluginError.noDatabase }
+    func updateImage(_ sopInstanceUID: String, frame: Int, _ update: IsiXImageUpdate) throws -> IsiXDatabaseImage { throw IsiXPluginError.noDatabase }
+    func albums() throws -> [IsiXAlbum] { throw IsiXPluginError.noDatabase }
+    func studies(inAlbum name: String) throws -> [IsiXStudy] { throw IsiXPluginError.noDatabase }
+    func createAlbum(named name: String) throws -> IsiXAlbum { throw IsiXPluginError.noDatabase }
+    func addStudies(_ studyInstanceUIDs: [String], toAlbum name: String) throws { throw IsiXPluginError.noDatabase }
+    func removeStudies(_ studyInstanceUIDs: [String], fromAlbum name: String) throws { throw IsiXPluginError.noDatabase }
+    func importFilesNow(at urls: [URL]) throws -> IsiXImportResult { throw IsiXPluginError.noDatabase }
+    func writeDerivedSeriesNow(_ request: IsiXDerivedSeriesRequest) throws -> [URL] { throw IsiXPluginError.noDatabase }
+    func openViewer(forSeries seriesInstanceUID: String) throws -> (any IsiXViewerBackend)? { throw IsiXPluginError.noDatabase }
+
+    func open4DViewer(forSeries seriesInstanceUIDs: [String]) throws -> (any IsiXViewerBackend)? {
+        if let missing = seriesInstanceUIDs.first(where: { !known.contains($0) }) { throw IsiXPluginError.notFound("series \(missing)") }
+        opened4D.append(seriesInstanceUIDs)
+        let viewer = FakeViewer()
+        viewers.append(viewer)
+        return viewer
+    }
+}
+
+/// A host whose database predates the call that opens series together.
+@MainActor
+final class FormerDatabaseHost: FakeHost, IsiXDatabaseBackend {
+    func databaseSelection() throws -> IsiXDatabaseSelection { throw IsiXPluginError.noDatabase }
+    func studies(matching query: IsiXStudyQuery) throws -> [IsiXStudy] { throw IsiXPluginError.noDatabase }
+    func seriesRecords(inStudy studyInstanceUID: String) throws -> [IsiXSeries] { throw IsiXPluginError.noDatabase }
+    func seriesRecord(withInstanceUID uid: String) throws -> IsiXSeries? { throw IsiXPluginError.noDatabase }
+    func images(inSeries seriesInstanceUID: String) throws -> [IsiXDatabaseImage] { throw IsiXPluginError.noDatabase }
+    func images(withSOPInstanceUID uid: String) throws -> [IsiXDatabaseImage] { throw IsiXPluginError.noDatabase }
+    func updateStudy(_ studyInstanceUID: String, _ update: IsiXStudyUpdate) throws -> IsiXStudy { throw IsiXPluginError.noDatabase }
+    func updateSeries(_ seriesInstanceUID: String, _ update: IsiXSeriesUpdate) throws -> IsiXSeries { throw IsiXPluginError.noDatabase }
+    func updateImage(_ sopInstanceUID: String, frame: Int, _ update: IsiXImageUpdate) throws -> IsiXDatabaseImage { throw IsiXPluginError.noDatabase }
+    func albums() throws -> [IsiXAlbum] { throw IsiXPluginError.noDatabase }
+    func studies(inAlbum name: String) throws -> [IsiXStudy] { throw IsiXPluginError.noDatabase }
+    func createAlbum(named name: String) throws -> IsiXAlbum { throw IsiXPluginError.noDatabase }
+    func addStudies(_ studyInstanceUIDs: [String], toAlbum name: String) throws { throw IsiXPluginError.noDatabase }
+    func removeStudies(_ studyInstanceUIDs: [String], fromAlbum name: String) throws { throw IsiXPluginError.noDatabase }
+    func importFilesNow(at urls: [URL]) throws -> IsiXImportResult { throw IsiXPluginError.noDatabase }
+    func writeDerivedSeriesNow(_ request: IsiXDerivedSeriesRequest) throws -> [URL] { throw IsiXPluginError.noDatabase }
+    func openViewer(forSeries seriesInstanceUID: String) throws -> (any IsiXViewerBackend)? { throw IsiXPluginError.noDatabase }
 }
 
 /// Whether dyld has mapped the file at `path` into this process.
@@ -183,7 +240,8 @@ func message(_ error: any Error) -> String {
 }
 
 @MainActor
-func load(_ url: URL, entry: String? = nil, host: FakeHost, output: inout [String: Any]) -> IsiXPluginRuntime? {
+func load(_ url: URL, entry: String? = nil, host: FakeHost, capabilities: Set<IsiXCapability>? = nil,
+          output: inout [String: Any]) -> IsiXPluginRuntime? {
     let inspection = PluginInspector().inspect(bundleAt: url)
     guard inspection.isLoadable, let manifest = inspection.manifest else {
         output["diagnostics"] = inspection.diagnostics.map { "\($0)" }
@@ -196,7 +254,7 @@ func load(_ url: URL, entry: String? = nil, host: FakeHost, output: inout [Strin
         try bundle.loadAndReturnError()
         let type = try IsiXPluginRuntime.resolveEntry(named: entry ?? manifest.principalClass, executableURL: executable)
         let info = IsiXPluginInfo(identifier: manifest.identifier, name: manifest.name, version: manifest.version, bundleURL: url,
-                                  capabilities: Set(manifest.capabilities.map(IsiXCapability.init(rawValue:))))
+                                  capabilities: capabilities ?? Set(manifest.capabilities.map(IsiXCapability.init(rawValue:))))
         let runtime = IsiXPluginRuntime(info: info, bundle: bundle, entry: type, host: host)
         do {
             try runtime.activate()
@@ -296,6 +354,41 @@ func run() -> [String: Any] {
         observer["tasksAfterDeactivate"] = runtime.runningTaskCount
     }
     probe["observer"] = observer
+
+    // Several series in one viewer: what the kit refuses itself, what the
+    // host answers, the order kept, and the capabilities the call needs.
+    var fourD: [String: Any] = [:]
+    let seriesHost = FakeDatabaseHost()
+    seriesHost.known = ["1.2.1", "1.2.2", "1.2.3"]
+    var declared: [String: Any] = [:]
+    if let runtime = load(arguments[1], entry: "ProbePlugins.FourDPlugin", host: seriesHost,
+                          capabilities: [.databaseRead, .viewerRead, .viewer4D], output: &declared) {
+        fourD["declared"] = describe(runtime.instance)
+        runtime.deactivate()
+    }
+    fourD["hostOpened"] = seriesHost.opened4D.map { $0.joined(separator: " ") }
+    let blindHost = FakeDatabaseHost()
+    blindHost.known = seriesHost.known
+    if let runtime = load(arguments[1], entry: "ProbePlugins.FourDPlugin", host: blindHost,
+                          capabilities: [.databaseRead, .viewer4D], output: &declared) {
+        fourD["withoutViewerRead"] = describe(runtime.instance)
+        runtime.deactivate()
+    }
+    fourD["hostOpenedWithoutViewerRead"] = blindHost.opened4D.count
+    let undeclaredHost = FakeDatabaseHost()
+    undeclaredHost.known = seriesHost.known
+    if let runtime = load(arguments[1], entry: "ProbePlugins.FourDPlugin", host: undeclaredHost,
+                          capabilities: [.databaseRead, .viewerRead], output: &declared) {
+        fourD["undeclared"] = describe(runtime.instance)
+        runtime.deactivate()
+    }
+    fourD["hostOpenedUndeclared"] = undeclaredHost.opened4D.count
+    if let runtime = load(arguments[1], entry: "ProbePlugins.FourDPlugin", host: FormerDatabaseHost(),
+                          capabilities: [.databaseRead, .viewerRead, .viewer4D], output: &declared) {
+        fourD["formerHost"] = describe(runtime.instance)
+        runtime.deactivate()
+    }
+    probe["fourD"] = fourD
 
     // Input and drawing: what the image view of a viewer gives the plugins.
     let interactionHost = FakeHost()

@@ -40,6 +40,11 @@ nonisolated final class ViewerRegistry: Sendable {
         var hasRegistered = false
         /// Every viewer is being closed at once.
         var isClosingAll = false
+        /// The addresses of the viewers alive, registered or not, in the
+        /// order they were made: from the making of a viewer's graph to the
+        /// start of its freeing. Addresses and not references, which would
+        /// keep the viewers.
+        var alive: [UInt] = []
     }
 
     private let state = Mutex(State())
@@ -99,6 +104,35 @@ nonisolated final class ViewerRegistry: Sendable {
             } else {
                 state.fullScreen.remove(viewer)
             }
+        }
+    }
+
+    // MARK: - The viewers alive
+
+    /// A viewer was made. It is initialized, so its freeing comes to
+    /// `viewerIsBeingFreed`.
+    func viewerWasMade(_ viewer: ViewerController) {
+        let address = UInt(bitPattern: Unmanaged.passUnretained(viewer).toOpaque())
+        state.withLock { $0.alive.append(address) }
+    }
+
+    /// `viewer` starts being freed: it is no longer among the viewers alive.
+    func viewerIsBeingFreed(_ viewer: ViewerController) {
+        let address = UInt(bitPattern: Unmanaged.passUnretained(viewer).toOpaque())
+        state.withLock { $0.alive.removeAll { $0 == address } }
+    }
+
+    /// Whether the object at `address` is a viewer alive. A viewer keeps some
+    /// others without retaining them, as the plugin SDK has them kept: this
+    /// says whether such a field may be read.
+    func isAlive(address: UInt) -> Bool {
+        address != 0 && state.withLock { $0.alive.contains(address) }
+    }
+
+    /// The viewers alive, with or without a window, registered or closed.
+    @MainActor var aliveViewers: [ViewerController] {
+        state.withLock { $0.alive }.compactMap { address in
+            UnsafeRawPointer(bitPattern: address).map { Unmanaged<ViewerController>.fromOpaque($0).takeUnretainedValue() }
         }
     }
 

@@ -107,6 +107,17 @@ struct ComparativePatientIdentity: Sendable {
         self.birthDate = birthDate
     }
 
+    /// Whether a study of the same patient UID as the selected one leaves
+    /// the local history when another authority issued its Patient ID. A UID
+    /// made of the Patient ID with the name and the birth date already says
+    /// the three are the same: the same person registered by two authorities
+    /// under one identifier, a national document for one, and the database
+    /// lists them as one patient. With less in the UID the issuer is what
+    /// tells two patients of one identifier apart.
+    static func issuerSeparatesSamePatientUID(uidHasName: Bool, uidHasBirthDate: Bool) -> Bool {
+        !(uidHasName && uidHasBirthDate)
+    }
+
     func hasDifferentIssuer(from other: ComparativePatientIdentity) -> Bool {
         if let universalIssuer, let otherIssuer = other.universalIssuer {
             return universalIssuer != otherIssuer

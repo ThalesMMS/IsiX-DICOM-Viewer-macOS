@@ -4383,6 +4383,13 @@
 "Another application opens the links of IsiX DICOM Viewer" = "Otra aplicación abre los enlaces de IsiX DICOM Viewer";
 "The links are still opened by another application" = "Los enlaces los sigue abriendo otra aplicación";
 "Open Links with IsiX…" = "Abrir enlaces con IsiX…";
+"Always Allow %@" = "Permitir siempre %@";
+"“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "«Permitir siempre» añade %@ a los hosts de confianza de los ajustes de Receptor (Abrir enlaces con IsiX…): sus enlaces de descarga se ejecutan desde entonces sin preguntar.";
+"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Este enlace no está cifrado (http): lo que descarga puede leerse o sustituirse en la red. «Permitir siempre» acepta también los enlaces sin cifrar de este host.";
+"Trusted hosts for download links" = "Hosts de confianza para enlaces de descarga";
+"A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "Un enlace de descarga (DownloadURL) a un host de esta lista se ejecuta sin preguntar. El host se compara de forma exacta, con su puerto: un subdominio es otro host. Incluya solo hosts en los que confíe, como el portal de su institución.";
+"Allow HTTP" = "Permitir HTTP";
+"%@ is not a host name. Type a host, with its port when it is not the usual one: pacs.example.com or pacs.example.com:8443." = "%@ no es un nombre de host. Escriba un host, con su puerto cuando no sea el habitual: pacs.example.com o pacs.example.com:8443.";
 "Open links with IsiX" = "Abrir enlaces con IsiX";
 "A ticked scheme is opened by this copy of IsiX DICOM Viewer. An application that also declares a scheme can take it again later; isix:// links are declared by IsiX DICOM Viewer alone." = "Un esquema marcado lo abre esta copia de IsiX DICOM Viewer. Una aplicación que también declare un esquema puede volver a tomarlo más adelante; los enlaces isix:// solo los declara IsiX DICOM Viewer.";
 "At startup, when another application opens these links:" = "Al iniciar, si otra aplicación abre estos enlaces:";

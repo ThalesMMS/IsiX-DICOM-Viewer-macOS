@@ -209,7 +209,7 @@ DicomImage *NewImage(NSString *name, DicomSeries *series);
 
 @interface DicomDatabase : NSObject
 @property BOOL isReadOnlyValue, isLocalValue;
-@property(retain) NSArray *harnessStudies;
+@property(retain) NSArray *harnessStudies, *harnessPatientStudies;
 @property(retain) NSMutableDictionary *harnessLocalCopies, *harnessObjects;
 - (NSEntityDescription*) studyEntity;
 - (NSArray*) objectsForEntity:(NSEntityDescription*)entity predicate:(NSPredicate*)predicate;
@@ -899,6 +899,9 @@ DicomImage *NewImage(NSString *name, DicomSeries *series) {
 @implementation DicomDatabase
 - (NSEntityDescription*) studyEntity { return nil; }
 - (NSArray*) objectsForEntity:(NSEntityDescription*)entity predicate:(NSPredicate*)predicate {
+    // The studies of the patient the history is completed with, which the
+    // Objective-C did not ask for: not recorded, and none unless a scenario gives them.
+    if ([[predicate predicateFormat] hasPrefix: @"patientUID ==[cd]"]) return self.harnessPatientStudies ?: @[];
     Record([NSString stringWithFormat: @"%@ objectsForEntity %@", Name(self), Name(predicate)]);
     NSString *format = [predicate predicateFormat];
     if ([format hasPrefix: @"studyInstanceUID"]) {
@@ -2236,6 +2239,33 @@ static NSPasteboard *RowsPasteboard(NSArray<NSArray<NSString*>*> *rows) {
 /// Drops of database rows, as the browser writes them. The Objective-C read
 /// the pasteboard's first property list as data and raised on the array; this
 /// scenario runs on the current tree only, against what it must do.
+// The history the list goes by is completed with the studies of the patient
+// the database has: the browser's history lacks those whose Patient ID another
+// authority issued than the selected study's.
+static void HistoryCompletion(void) {
+    RUN("history completed from the database", {
+        ViewerController *v0 = Viewer(@"viewer", nil, 1);
+        Patient p = MakePatient(v0.database);
+        ViewerController *v = Viewer(@"viewer two", p.currentSeries[1], 1);
+        harnessBrowser.database = v.database = v0.database;
+        harnessBrowser.comparativePatientUID = @"pat1";
+        harnessBrowser.comparativeStudies = @[p.current];
+        Record(@"history of the study alone");
+        [v buildMatrixPreview: YES];
+        DumpViewer(v);
+        v0.database.harnessPatientStudies = @[p.current, p.older];
+        Record(@"the database has an older study");
+        [v buildMatrixPreview: YES];
+        DumpViewer(v);
+        v->needsToBuildSeriesPopupMenu = YES;
+        [v buildSeriesPopup];
+        DumpViewer(v);
+        v0.database.harnessPatientStudies = nil;
+        harnessBrowser.comparativeStudies = nil;
+        harnessBrowser.comparativePatientUID = nil;
+    });
+}
+
 static void BrowserDrops(void) {
     RUN("browser drops", {
         ViewerController *v0 = Viewer(@"viewer", nil, 1);
@@ -2348,6 +2378,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
     else if ([scenario isEqualToString: @"drag"]) DragAndDrop();
     else if ([scenario isEqualToString: @"keys"]) Keys();
     else if ([scenario isEqualToString: @"browserdrop"]) BrowserDrops();
+    else if ([scenario isEqualToString: @"history"]) HistoryCompletion();
     else status = 3;
     [[NSFileManager defaultManager] removeItemAtPath: harnessTemporary error: NULL];
     [defaults removePersistentDomainForName: domain];
@@ -2530,6 +2561,7 @@ with tempfile.TemporaryDirectory(prefix='horos-viewer-series-list-') as tmp:
                   '    @MainActor var browserDatabase: DicomDatabase? { BrowserController.currentBrowser()?.database }\n'
                   '    @MainActor var viewerSync: ViewerSyncState { ViewerSyncState.harness }\n'
                   '    var preferences: UserDefaults { UserDefaults.standard }\n}\n'
+                  'enum AssociationContract {\n    static func relatedStudiesLimit(in defaults: UserDefaults) -> Int { 200 }\n}\n'
                   '@MainActor final class BrowserWindowGraph {\n    let browser: BrowserController\n'
                   '    init(browser: BrowserController) { self.browser = browser }\n}\n'
                   '@MainActor final class ViewerSessionGraph {\n    let processGraph = ProcessGraph.harness\n' + window_study[0] + '}\n' + window_study[1] +
@@ -2727,6 +2759,36 @@ int main(int argc, const char **argv) { @autoreleasepool {
                 print('FAIL: browser drops: ' + problem)
         else:
             print('browser drops: the rows of the database load the dropped series, read from every pasteboard item')
+
+        # The list and the menu go by the browser's history completed with the
+        # studies of the patient the database has, which the Objective-C did
+        # not do: a history of the study looked at alone lists that study, and
+        # the older study of the database with it once the database has one.
+        result = subprocess.run([str(current_program), 'history'], capture_output=True, text=True, timeout=60)
+        lines = result.stdout.splitlines()
+        if args.dump:
+            (args.dump / 'history-current.txt').write_text(result.stdout)
+        problems = []
+        if result.returncode or any(line.startswith('raised ') for line in lines):
+            problems.append('the scenario raised or stopped:\n' + (result.stdout + result.stderr)[-2000:])
+        elif 'history of the study alone' not in lines or 'the database has an older study' not in lines:
+            problems.append('the scenario did not run')
+        else:
+            alone = lines[lines.index('history of the study alone'):lines.index('the database has an older study')]
+            completed = lines[lines.index('the database has an older study'):]
+            listed = [line for line in completed if ' setRepresentedObject: rep(study ' in line]
+            if any('study older' in line for line in alone):
+                problems.append('a study neither the history nor the database gave is listed')
+            if len(listed) != 2 or not listed[0].split(' rep(')[1].startswith('study current') or not listed[1].split(' rep(')[1].startswith('study older'):
+                problems.append('the list does not show the study of the history, then the older one of the database: %s' % [line[:60] for line in listed])
+            if completed.count('childrenArray study older') < 2:
+                problems.append('the series menu does not list the older study of the database')
+        if problems:
+            failures += 1
+            for problem in problems:
+                print('FAIL: history completed from the database: ' + problem)
+        else:
+            print('history completed from the database: the list and the menu show the studies of the patient the history lacks')
 
     if failures:
         sys.exit(1)

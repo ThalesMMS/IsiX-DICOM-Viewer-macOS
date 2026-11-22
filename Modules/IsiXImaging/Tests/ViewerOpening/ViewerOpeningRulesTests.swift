@@ -149,6 +149,22 @@ import Testing
         #expect(SeriesSplitting.isFourD(groupSizes: [3, 3]) && !SeriesSplitting.isFourD(groupSizes: [3, 2]))
     }
 
+    @Test func seriesOpenedTogetherShareCountAndSize() {
+        let small = FourDSeriesSelection.ImageSize(columns: 4, rows: 3), large = FourDSeriesSelection.ImageSize(columns: 8, rows: 6)
+        #expect(FourDSeriesSelection.check([], maximum: 8) == .tooFewSeries)
+        #expect(FourDSeriesSelection.check([[small, small]], maximum: 8) == .tooFewSeries)
+        #expect(FourDSeriesSelection.check(Array(repeating: [small], count: 9), maximum: 8) == .tooManySeries)
+        #expect(FourDSeriesSelection.check([[small], [], [small]], maximum: 8) == .noImages(series: 1))
+        #expect(FourDSeriesSelection.check([[small, small], [small, small], [small]], maximum: 8) == .differentImageCount(series: 2))
+        #expect(FourDSeriesSelection.check([[small, small], [small, large]], maximum: 8) == .differentImageSize(series: 1))
+        // A first series of mixed sizes is the one that differs.
+        #expect(FourDSeriesSelection.check([[small, large], [small, small]], maximum: 8) == .differentImageSize(series: 0))
+        // The same columns and rows the other way round are another size.
+        #expect(FourDSeriesSelection.check([[small], [FourDSeriesSelection.ImageSize(columns: 3, rows: 4)]], maximum: 8)
+                == .differentImageSize(series: 1))
+        #expect(FourDSeriesSelection.check([[small, small], [small, small], [small, small]], maximum: 3) == .accepted)
+    }
+
     @Test func subSeriesAndTiling() {
         #expect(SubSeriesSelection.indices(imageCount: 10, from: 2, to: 8, interval: 3) == [3, 6])
         #expect(SubSeriesSelection.indices(imageCount: 4, from: 5, to: 2, interval: 1) == [])

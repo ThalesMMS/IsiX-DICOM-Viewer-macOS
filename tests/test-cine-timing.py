@@ -6,8 +6,9 @@ timer. A real run-loop timer still checks that playback
 continues across a civil-clock rollback.
 
 While the series loads, a player gives a moment to an image the load has not
-reached and then shows it: with a load that never ends and no image loaded it
-advances about once a second, and with its next images loaded, at its rate.
+reached and then shows it, and gives none to the images that follow until it
+finds one loaded: with a load that never ends and no image loaded it waits a
+second once and then plays at its rate, as it does with its next images loaded.
 
 This isolates scheduling from DICOM decoding, GPU rendering and synchronization.
 """
@@ -75,9 +76,19 @@ for facade, tick in (('@objc(performAnimation:)', 'cine.advanceSlice()'), ('@obj
         raise SystemExit(f'{facade} no longer ticks the viewer\'s CinePlayback')
 start = cine.index('@MainActor final class CinePlayback {')
 shell = cine[start:cine.index('\n    /// The "Browse" player\'s timer', start)]
-callbacks = (method(cine, '    func advanceSlice()') + method(cine, '    func advanceMovie()')
+# The ticks wake their timer through the player's own helper, in the modes the timer fires in.
+modes = re.search(r'\n    private static let timerModes: \[RunLoop\.Mode\] = \[[^\n]*\]\n', cine)
+if not modes:
+    raise SystemExit('FAIL: no timerModes')
+for tick in ('    func advanceSlice()', '    func advanceMovie()'):
+    if 'defer { wake(' not in method(cine, tick) or 'CineCadence.wake(' in method(cine, tick):
+        raise SystemExit(f'{tick.strip()} no longer wakes its timer through the helper that waits for the callback to return')
+if 'CineCadence.wake(timer, afterCallbackIn: Self.timerModes' not in method(cine, '    private func wake(_ timer: Timer?'):
+    raise SystemExit('the ticks no longer wake their timer after the callback, in every mode it fires in')
+callbacks = (modes.group(0) + method(cine, '    private func wake(_ timer: Timer?')
+             + method(cine, '    func advanceSlice()') + method(cine, '    func advanceMovie()')
              + method(cine, '    func waitsForLoad(ofImage index: Int') + method(cine, '    private static func imagesPerSecond('))
-if callbacks.count(uptime) < 2:
+if callbacks.count(uptime) < 3:
     raise SystemExit(f'expected systemUptime in cine callbacks, found {callbacks.count(uptime)}')
 callbacks = callbacks.replace(uptime, 'testUptime()')
 if 'systemUptime' in callbacks:
@@ -100,6 +111,11 @@ double testUptime(void);
 @property BOOL loaded;
 - (BOOL)isLoaded;
 @end
+// The viewer's loading state: of each player, whether it is ahead of the load.
+@interface LoadingStateProbe : NSObject
+@property BOOL browseAheadOfLoad;
+@property BOOL movieAheadOfLoad;
+@end
 @interface ImageProbe : NSObject
 @property NSInteger curImage;
 @property BOOL flippedData;
@@ -121,6 +137,7 @@ NS_SWIFT_UI_ACTOR
  short curMovieIndex, maxMovieIndex;
  float direction;
  BOOL windowWillClose;
+ LoadingStateProbe *loadingState;
  long speedometer;
  int sliceCount, phaseCount;
 }
@@ -138,6 +155,7 @@ NS_SWIFT_UI_ACTOR
 @property(assign) NSTimeInterval horos_lastTime;
 @property(assign) NSTimeInterval horos_lastTimeFrame;
 @property(assign) NSTimeInterval horos_lastMovieTime;
+@property(readonly) LoadingStateProbe* loadingState;
 @property(assign) long horos_speedometer;
 @property(assign) float horos_direction;
 @property(readonly, nullable) NSTextField* horos_speedText;
@@ -171,6 +189,8 @@ double testUptime(void) {
 @implementation DCMPix
 - (BOOL)isLoaded { return self.loaded; }
 @end
+@implementation LoadingStateProbe
+@end
 @implementation ImageProbe
 - (void)setIndex:(NSInteger)index { self.curImage=index; }
 - (void)sendSyncMessage:(NSInteger) value {}
@@ -181,7 +201,7 @@ double testUptime(void) {
  speedSlider=[NSSlider new]; speedSlider.maxValue=60;
  movieRateSlider=[NSSlider new]; movieRateSlider.maxValue=60;
  speedText=[NSTextField new]; loopButton=[NSButton new]; loopButton.state=NSControlStateValueOn;
- imageView=[ImageProbe new]; direction=1; maxMovieIndex=3;
+ imageView=[ImageProbe new]; loadingState=[LoadingStateProbe new]; direction=1; maxMovieIndex=3;
  for (int list=0; list<3; list++) {
   pixList[list]=[NSMutableArray array];
   for (int image=0; image<3; image++) { DCMPix *pix=[DCMPix new]; pix.loaded=YES; [pixList[list] addObject:pix]; }
@@ -207,6 +227,7 @@ double testUptime(void) {
 - (void)setHoros_lastTimeFrame:(NSTimeInterval)value { lastTimeFrame=value; }
 - (NSTimeInterval)horos_lastMovieTime { return lastMovieTime; }
 - (void)setHoros_lastMovieTime:(NSTimeInterval)value { lastMovieTime=value; }
+- (LoadingStateProbe*)loadingState { return loadingState; }
 - (long)horos_speedometer { return speedometer; }
 - (void)setHoros_speedometer:(long)value { speedometer=value; }
 - (float)horos_direction { return direction; }
@@ -277,26 +298,33 @@ int main(void) { @autoreleasepool {
    [timer invalidate]; clockOffset=0;
   }
  }
- // A load that has not reached the images a player shows next, and never does: the player gives each a second
- // and shows it all the same, as the arrow keys would; with the images there, loading or not, it plays at its rate.
+ // A load that has not reached the images a player shows next, and never does: the player gives the first a second,
+ // shows it all the same, as the arrow keys would, and waits for none of those that follow; with the images there,
+ // loading or not, it plays at its rate, and the next image it finds missing gets its second again.
  for (int mode=0; mode<2; mode++) {
   ViewerController *v=[ViewerController new];
   v->speedSlider.floatValue=20; v->movieRateSlider.floatValue=20;
   useTestClock=YES; testClock=2000;
   INITIALIZERS
   v->loadingThread=[NSThread new];
-  setLoaded(v, NO);
-  int stalled=advancesIn(v, mode);
-  if (!(stalled >= 2 && stalled <= 4)) {
-   fprintf(stderr,"FAIL: a %s player whose load has stopped advanced %d times in 3.2 s, not about once a second\n", mode ? "phase" : "slice", stalled);
-   return 1;
-  }
-  setLoaded(v, YES);
-  INITIALIZERS
-  int following=advancesIn(v, mode);
-  if (!(following >= 63 && following <= 64)) {
-   fprintf(stderr,"FAIL: a %s player whose next images are loaded advanced %d times in 3.2 s while the series loads, not at its rate\n", mode ? "phase" : "slice", following);
-   return 1;
+  for (int round=0; round<2; round++) {
+   // One second of wait, then 2.2 s at 20 a second: 45 advances. One a second, as each image once waited, is 3.
+   setLoaded(v, NO);
+   INITIALIZERS
+   int ahead=advancesIn(v, mode);
+   if (!(ahead >= 43 && ahead <= 46)) {
+    fprintf(stderr,"FAIL: a %s player whose load has stopped advanced %d times in 3.2 s (round %d), not at its rate after one second of wait\n", mode ? "phase" : "slice", ahead, round);
+    return 1;
+   }
+   if (!(mode ? v->loadingState.movieAheadOfLoad : v->loadingState.browseAheadOfLoad)) { fprintf(stderr,"FAIL: a %s player that shows images the load has not reached is not ahead of the load\n", mode ? "phase" : "slice"); return 1; }
+   setLoaded(v, YES);
+   INITIALIZERS
+   int following=advancesIn(v, mode);
+   if (!(following >= 63 && following <= 64)) {
+    fprintf(stderr,"FAIL: a %s player whose next images are loaded advanced %d times in 3.2 s while the series loads, not at its rate\n", mode ? "phase" : "slice", following);
+    return 1;
+   }
+   if (mode ? v->loadingState.movieAheadOfLoad : v->loadingState.browseAheadOfLoad) { fprintf(stderr,"FAIL: a %s player that finds its images loaded is still ahead of the load\n", mode ? "phase" : "slice"); return 1; }
   }
   setLoaded(v, NO);
   v->loadingThread=nil;

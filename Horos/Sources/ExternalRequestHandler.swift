@@ -159,14 +159,33 @@ struct LinkRequest: Sendable {
             // Whoever can put a link in front of the user can have it opened: a
             // method that changes or ends what the user is doing runs only
             // after the user agrees to the request, named with its values.
-            if XMLRPCLinkPolicy.verdict(methodName: methodName, parameters: invocation.parameters) == .confirm {
+            // A download from a host the user chose to trust is not asked about.
+            let trusted = LinkTrustedHosts.list(in: preferences)
+            if XMLRPCLinkPolicy.verdict(methodName: methodName, parameters: invocation.parameters, trustedHosts: trusted) == .confirm {
+                // The request is named without the query of a download's
+                // URL, which can carry a token.
                 let described = RISRequestAlert.describe(method: methodName, parameters: invocation.parameters)
                 NSLog("horos URL asks for %@: the user is asked first", methodName as NSString)
-                let message = String(format: NSLocalizedString("A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it.", comment: "URL scheme: confirmation of a request that changes or ends what the user is doing"), described)
+                var message = String(format: NSLocalizedString("A link asks IsiX DICOM Viewer to carry out the request %@.\r\rA link can come from any web page, e-mail or document. Carry it out only if you expected it.", comment: "URL scheme: confirmation of a request that changes or ends what the user is doing"), described)
+                // A download whose URL names a host offers to trust that
+                // host from now on; no other request does.
+                let origin = methodName.lowercased() == XMLRPCLinkPolicy.downloadMethod ? XMLRPCLinkPolicy.downloadOrigin(invocation.parameters) : nil
+                var always: String?
+                if let origin {
+                    if !origin.isSecure {
+                        message += "\r\r" + NSLocalizedString("This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host.", comment: "URL scheme: confirmation of a download whose URL is http")
+                    }
+                    message += "\r\r" + String(format: NSLocalizedString("“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking.", comment: "URL scheme: confirmation of a download, what the Always Allow button does; %@ is a host"), origin.entry)
+                    always = String(format: NSLocalizedString("Always Allow %@", comment: "URL scheme: button that carries out the download and trusts its host from now on; %@ is a host"), origin.entry)
+                }
                 let answer = HorosAlertPanel.runCritical(title: NSLocalizedString("URL scheme", comment: ""), message: message,
                                                          defaultButton: NSLocalizedString("Cancel", comment: ""),
-                                                         alternateButton: NSLocalizedString("Carry Out", comment: "URL scheme: carries out the link's request"), otherButton: nil)
-                guard answer == HorosAlertPanel.alternateResponse else {
+                                                         alternateButton: NSLocalizedString("Carry Out", comment: "URL scheme: carries out the link's request"), otherButton: always)
+                if let origin, always != nil, answer == HorosAlertPanel.otherResponse {
+                    LinkTrustedHosts.add(XMLRPCLinkTrustedHost(trusting: origin), in: preferences)
+                    processGraph.preferences.synchronize()
+                    NSLog("horos URL %@: the user trusts the host %@ from now on", methodName as NSString, origin.entry as NSString)
+                } else if answer != HorosAlertPanel.alternateResponse {
                     NSLog("horos URL %@ not carried out: the user declined", methodName as NSString)
                     return
                 }

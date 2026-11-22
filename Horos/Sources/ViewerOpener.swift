@@ -266,8 +266,10 @@ private struct ComparativeOpeningRules: Sendable {
     }
 
     /// Tiles the windows when "AUTOTILING" is on, through the responder chain
-    /// as the toolbar does; otherwise brings them into view.
-    private func tileOrShowViewers() {
+    /// as the toolbar does; otherwise brings them into view. The loading
+    /// leaves the window of a new viewer out of the screen: whoever opens
+    /// one outside the commands of this class ends with this.
+    func tileOrShowViewers() {
         if preferences[ViewerPreferences.autoTiling] {
             NSApp.sendAction(NSSelectorFromString("tileWindows:"), to: nil, from: browser)
         } else {

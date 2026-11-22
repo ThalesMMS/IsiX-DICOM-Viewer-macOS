@@ -64,6 +64,7 @@ adopt `IsiXPlugin`; otherwise the plugin is refused too.
 | `network.query` | the DICOM nodes of Locations with Query/Retrieve on; C-FIND of studies, series and the modality worklist |
 | `xmlrpc` | XML-RPC methods of the plugin's own, answered through the application's XML-RPC interface |
 | `report` | commands in the Report menu of the application's plugins (`IsiXCommand.Placement.report`) |
+| `viewer.4d` | opening several series of the database together in one viewer, each a phase (`IsiXDatabase.open4DViewer(forSeries:)`) |
 
 A call that needs a capability the plugin did not declare throws
 `IsiXPluginError.capabilityNotDeclared`.
@@ -326,6 +327,17 @@ rest of the database is synchronous, on the main actor, as viewers are:
   gives an image's attributes and its file, which the plugin reads and never
   changes; `albums()` and `studies(inAlbum:)`; `openViewer(forSeries:)` opens a
   series in a new 2D viewer (`database.read`).
+- `open4DViewer(forSeries:)` (`database.read` and `viewer.4d`) opens several
+  series together in one new 2D viewer, each series a phase of it, in the
+  order given: the echoes of a multi-echo acquisition, or one volume at
+  several times. The viewer plays them as its 4D series, and the plugin
+  reads them phase by phase (`image(slice:phase:)`, `setCurrentPhase(_:)`,
+  `statistics(of:slice:phase:)`). It takes at least two series, each named
+  once, all with the same number of images and images of one size:
+  otherwise it throws `invalidValue`, which says which series differs, or
+  `notFound` for a series the database lacks, and opens nothing. The call
+  and the capability came after the first version 1 applications (see
+  Compatibility).
 - `updateStudy(_:_:)`, `updateSeries(_:_:)`, `updateImage(_:frame:_:)`
   (`database.write`) change the comment fields, the state (an index of
   `IsiXDatabase.stateNames`), the report (a web address or the path of a file)
@@ -475,6 +487,7 @@ in place of a load that fails on a missing symbol.
 | Addition | Capability | Applications |
 | --- | --- | --- |
 | `IsiXCommand.Placement.report`, the Report menu | `report` | after 6.0.3 |
+| `IsiXDatabase.open4DViewer(forSeries:)`, several series in one 4D viewer | `viewer.4d` | after 6.0.7 |
 
 ## Installing
 

@@ -724,6 +724,50 @@ fileprivate func blendingPercentageString(_ value: Float) -> String {
         viewer.horos_seriesView?.setBlendingMode(Int32(truncatingIfNeeded: objcSendInteger(sender, "tag")))
     }
 
+    // MARK: - A viewer that goes
+
+    /// `leaving` closed its window or is being freed: none of the viewers
+    /// `alive` keeps it as its fused series or as its registered one. A
+    /// viewer keeps both without retaining them, and reading the fused one
+    /// retains it: left pointing at a freed viewer, the field stops the
+    /// application at its next reading, which the freeing of its own viewer
+    /// does. The close notification is not enough: a viewer whose window
+    /// closed observes nothing any more and lives on until the run loop
+    /// releases it, after the viewers closed after it, and the body of
+    /// -ActivateBlending: turns a call away while another one runs.
+    static func forget(_ leaving: ViewerController, among alive: [ViewerController]) {
+        for other in alive where other !== leaving {
+            if other._blendingController.holds(leaving) {
+                // A viewer on screen ends its fusion as it does when told of the close.
+                if !other.horos_windowWillClose { other.activateBlending(nil) }
+                if other._blendingController.holds(leaving) { other.fusion.dropFusedViewer() }
+            }
+            if other._registeredViewer.holds(leaving) { other.horos_assignRegisteredViewer(nil) }
+        }
+    }
+
+    /// The viewer forgets its fused series and its views stop drawing it,
+    /// without the menus, the colour table and the series list an ended
+    /// fusion refreshes: for a viewer whose window closed.
+    private func dropFusedViewer() {
+        viewer.horos_assignBlendingController(nil)
+        viewer.horos_imageView?.blending = nil
+        viewer.horos_blendingSlider?.isEnabled = false
+        viewer.horos_blendingPercentage?.isEnabled = false
+        viewer.horos_seriesView?.activateBlending(nil, blendingFactor: viewer.horos_blendingSlider?.floatValue ?? 0)
+    }
+
+    /// The viewer, which is being freed, ends its fusion. The fused viewer
+    /// is read only when it is among the viewers alive: a field written from
+    /// outside the fusion, by a plugin through the exported instance
+    /// variable, is not known to point at one.
+    func endFusionOfFreedViewer() {
+        if !registry.isAlive(address: viewer._blendingController.address) {
+            viewer.horos_assignBlendingController(nil)
+        }
+        activateBlending(nil)
+    }
+
     // MARK: - A viewer dropped on this one
 
     /// Opens the sheet that asks what to do with `vc`, dropped on this viewer:

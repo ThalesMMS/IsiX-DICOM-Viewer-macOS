@@ -41,7 +41,7 @@ PRODUCT = {
 }
 
 TECHNICAL = {
-    "DICOM", "DICOMDIR", "DICOMDIR:", "URL:", "Soundex", "PACS", "ROI", "ROIs", "ROI ", "CLUT", "WLWW",
+    "DICOM", "DICOMDIR", "DICOMDIR:", "URL:", "Host", "Soundex", "PACS", "ROI", "ROIs", "ROI ", "CLUT", "WLWW",
     "WL / WW", "WL & WW", "WL/WW & CLUT",
     "MIP", "MinIP", "MPR", "CPR", "PET", "SUV", "RGB", "JPEG", "TIFF", "LOD",
     "WADO", "QIDO", "C-MOVE", "C-GET", "RTSTRUCT",

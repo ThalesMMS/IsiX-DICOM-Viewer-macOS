@@ -7888,6 +7888,53 @@
      {
       "children": [
        {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXViewer",
+          "printedName": "IsiXPluginKit.IsiXViewer",
+          "usr": "s:13IsiXPluginKit0A7XViewerC"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXViewer?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "String",
+          "printedName": "Swift.String",
+          "usr": "s:SS"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Array",
+        "printedName": "[Swift.String]",
+        "usr": "s:Sa"
+       }
+      ],
+      "declAttributes": [
+       "Final",
+       "DiscardableResult",
+       "Custom"
+      ],
+      "declKind": "Func",
+      "funcSelfKind": "NonMutating",
+      "isFromExtension": true,
+      "kind": "Function",
+      "mangledName": "$s13IsiXPluginKit0A9XDatabaseC12open4DViewer9forSeriesAA0A7XViewerCSgSaySSG_tKF",
+      "moduleName": "IsiXPluginKit",
+      "name": "open4DViewer",
+      "printedName": "open4DViewer(forSeries:)",
+      "throwing": true,
+      "usr": "s:13IsiXPluginKit0A9XDatabaseC12open4DViewer9forSeriesAA0A7XViewerCSgSaySSG_tKF"
+     },
+     {
+      "children": [
+       {
         "kind": "TypeNominal",
         "name": "IsiXStudy",
         "printedName": "IsiXPluginKit.IsiXStudy",
@@ -27433,6 +27480,51 @@
       "printedName": "report",
       "static": true,
       "usr": "s:13IsiXPluginKit0A11XCapabilityV6reportACvpZ"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXCapability",
+          "printedName": "IsiXPluginKit.IsiXCapability",
+          "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A11XCapabilityV8viewer4DACvgZ",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "static": true,
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV8viewer4DACvgZ"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXCapability",
+        "printedName": "IsiXPluginKit.IsiXCapability",
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "isLet": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A11XCapabilityV8viewer4DACvpZ",
+      "moduleName": "IsiXPluginKit",
+      "name": "viewer4D",
+      "printedName": "viewer4D",
+      "static": true,
+      "usr": "s:13IsiXPluginKit0A11XCapabilityV8viewer4DACvpZ"
      }
     ],
     "conformances": [

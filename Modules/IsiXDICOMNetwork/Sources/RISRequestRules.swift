@@ -294,9 +294,37 @@ public enum RISRequestRules {
     }
 
     /// How a link reads in a message: its method, then its other parameters.
+    /// The URL of a download is told without its query, which can carry a
+    /// token: a message stays on screen, and is copied into reports.
     public static func describe(method: String?, parameters: [String: String]) -> String {
         var filters = parameters
         filters["methodName"] = nil
+        if method?.lowercased() == "downloadurl" {
+            for name in filters.keys where name.lowercased() == "url" {
+                filters[name] = filters[name].map(addressWithoutQuery)
+            }
+        }
         return (method ?? "image") + (filters.isEmpty ? "" : " (" + describe(filters: filters) + ")")
+    }
+
+    /// An address up to its path, with `?…` where its query was; the user
+    /// and the password before the host, and the fragment, are left out too.
+    public static func addressWithoutQuery(_ address: String) -> String {
+        var text = address
+        var left = false
+        for mark in ["#", "?"] {
+            if let at = text.range(of: mark) {
+                left = left || mark == "?"
+                text = String(text[..<at.lowerBound])
+            }
+        }
+        if let scheme = text.range(of: "://") {
+            let rest = text[scheme.upperBound...]
+            let authority = rest.prefix { $0 != "/" }
+            if let user = authority.lastIndex(of: "@") {
+                text = String(text[..<scheme.upperBound]) + String(rest[rest.index(after: user)...])
+            }
+        }
+        return left ? text + "?…" : text
     }
 }

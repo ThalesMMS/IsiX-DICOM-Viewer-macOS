@@ -928,6 +928,7 @@
 		5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24B /* ListenerStatus.swift */; };
 		5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F9A0C00000000000000D24C /* ListenerStatusLine.swift */; };
 		51A2D5D1737942848D51BE6C /* LinkSchemeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F87500B44F34F198DB82531 /* LinkSchemeSettings.swift */; };
+		A0AECEE05A3E4C89952B2C41 /* LinkTrustedHosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA95B2588D814E10B0BCAC13 /* LinkTrustedHosts.swift */; };
 		20E66450684F4B2196BA317A /* LinkSchemeStartupCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6FA6C5E14C74E2AA6494A2D /* LinkSchemeStartupCheck.swift */; };
 		4AE9CA8A3D064685A88AA985 /* LaunchEnd.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152A6B4CED24AF7A1EBEAED /* LaunchEnd.swift */; };
 		9F080A60CE2C4FF18BEB508E /* LinkSchemeRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9458AF31B9FE4F108132C350 /* LinkSchemeRegistry.swift */; };
@@ -3360,6 +3361,7 @@
 		5F9A0C00000000000000D24B /* ListenerStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatus.swift"; sourceTree = "<group>"; };
 		5F9A0C00000000000000D24C /* ListenerStatusLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListenerStatusLine.swift"; sourceTree = "<group>"; };
 		8F87500B44F34F198DB82531 /* LinkSchemeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkSchemeSettings.swift; sourceTree = "<group>"; };
+		DA95B2588D814E10B0BCAC13 /* LinkTrustedHosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkTrustedHosts.swift; sourceTree = "<group>"; };
 		B6FA6C5E14C74E2AA6494A2D /* LinkSchemeStartupCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkSchemeStartupCheck.swift; sourceTree = "<group>"; };
 		2152A6B4CED24AF7A1EBEAED /* LaunchEnd.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchEnd.swift; sourceTree = "<group>"; };
 		9458AF31B9FE4F108132C350 /* LinkSchemeRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkSchemeRegistry.swift; sourceTree = "<group>"; };
@@ -8050,6 +8052,7 @@
 				5F9A0C00000000000000D24B /* ListenerStatus.swift */,
 				5F9A0C00000000000000D24C /* ListenerStatusLine.swift */,
 				8F87500B44F34F198DB82531 /* LinkSchemeSettings.swift */,
+				DA95B2588D814E10B0BCAC13 /* LinkTrustedHosts.swift */,
 				B6FA6C5E14C74E2AA6494A2D /* LinkSchemeStartupCheck.swift */,
 				2152A6B4CED24AF7A1EBEAED /* LaunchEnd.swift */,
 				9458AF31B9FE4F108132C350 /* LinkSchemeRegistry.swift */,
@@ -11138,6 +11141,7 @@
 				5F9A0C00000000000000C24B /* ListenerStatus.swift in Sources */,
 				5F9A0C00000000000000C24C /* ListenerStatusLine.swift in Sources */,
 				51A2D5D1737942848D51BE6C /* LinkSchemeSettings.swift in Sources */,
+				A0AECEE05A3E4C89952B2C41 /* LinkTrustedHosts.swift in Sources */,
 				20E66450684F4B2196BA317A /* LinkSchemeStartupCheck.swift in Sources */,
 				4AE9CA8A3D064685A88AA985 /* LaunchEnd.swift in Sources */,
 				9F080A60CE2C4FF18BEB508E /* LinkSchemeRegistry.swift in Sources */,

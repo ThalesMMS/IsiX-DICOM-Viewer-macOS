@@ -228,6 +228,11 @@ final class SyntheticBundle {
         let report = try inspect(info { $0["IsiXPluginCapabilities"] = ["viewer.read", "report"] })
         #expect(report.isLoadable)
         #expect(report.manifest?.capabilities == ["viewer.read", "report"])
+        // Several series in one viewer: a capability so that an application
+        // without that call refuses the plugin before loading it.
+        let fourD = try inspect(info { $0["IsiXPluginCapabilities"] = ["database.read", "viewer.read", "viewer.4d"] })
+        #expect(fourD.isLoadable)
+        #expect(fourD.manifest?.capabilities == ["database.read", "viewer.read", "viewer.4d"])
     }
 
     @Test func architecture() throws {

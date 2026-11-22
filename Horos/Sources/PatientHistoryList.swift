@@ -209,11 +209,18 @@ private struct LocalHistory: Sendable {
             if preferences[DatabasePreferences.usePatientIDForUID], let selected,
                let identity = comparativeIdentity(of: selected, in: idatabase) {
                 let headerLimit = 32
-                let checked = found.prefix(headerLimit).filter { study in
-                    comparativeIdentity(of: study, in: idatabase).map { !identity.hasDifferentIssuer(from: $0) } ?? true
+                let uidHasName = preferences[DatabasePreferences.usePatientNameForUID]
+                let uidHasBirthDate = preferences[DatabasePreferences.usePatientBirthDateForUID]
+                // The studies of the same patient UID stay whatever the
+                // issuer when the UID holds the name and the birth date:
+                // the history then is the same whichever study is selected.
+                if ComparativePatientIdentity.issuerSeparatesSamePatientUID(uidHasName: uidHasName, uidHasBirthDate: uidHasBirthDate) {
+                    let checked = found.prefix(headerLimit).filter { study in
+                        comparativeIdentity(of: study, in: idatabase).map { !identity.hasDifferentIssuer(from: $0) } ?? true
+                    }
+                    found = Array(checked) + found.dropFirst(headerLimit)
                 }
-                found = Array(checked) + found.dropFirst(headerLimit)
-                if preferences[DatabasePreferences.usePatientNameForUID] || preferences[DatabasePreferences.usePatientBirthDateForUID] {
+                if uidHasName || uidHasBirthDate {
                     request.predicate = NSPredicate(format: "patientID == %@ AND NOT (patientUID ==[cd] %@)", selected.patientID ?? "", patientUID)
                     request.fetchLimit = headerLimit
                     let candidates = ((try? idatabase.managedObjectContext.fetch(request)) ?? []).compactMap { $0 as? DicomStudy }

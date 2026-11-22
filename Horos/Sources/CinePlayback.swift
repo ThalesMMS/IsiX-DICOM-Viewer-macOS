@@ -45,10 +45,11 @@ import IsiXPreferences
 // of the series at the speed slider's rate, its toolbar item and its speed
 // text, and the 4D player that steps through the time points at the 4D speed
 // with its button; the speed sliders, which the key viewer hands to the other
-// viewers still at the default speed; and the wait of both players while less
-// than half of the series is loaded. The timers fire the viewer's selectors
+// viewers still at the default speed; and the moment both players give to an
+// image the load of the series has not reached. The timers fire the viewer's selectors
 // -performAnimation: and -performMovieAnimation:, the former Objective-C ones,
-// and the state of the players is the viewer's ViewerPlaybackState. Which image
+// and the state of the players is the viewer's (ViewerController+PlaybackState.swift),
+// with what each has to do with the load in its ViewerLoadingState. Which image
 // or time point comes next is IsiXImaging's SliceNavigation.
 
 /// The cine of one 2D viewer, made for one call.
@@ -137,15 +138,27 @@ import IsiXPreferences
 
     // MARK: - The timers
 
+    /// The modes of the run loop a player's timer fires in: a player goes on
+    /// while a panel is modal and while a control tracks the mouse.
+    private static let timerModes: [RunLoop.Mode] = [.default, .modalPanel, .eventTracking]
+
     /// A player's timer, which sleeps between frames. It stays a repeating
     /// Timer for as long as the player plays: plugins read that it is not nil.
     private func playerTimer(rate: Float, selector: Selector) -> Timer {
         let interval = CineCadence.frameInterval(rate: rate)
-        let timer = Timer.scheduledTimer(timeInterval: interval, target: viewer, selector: selector, userInfo: nil, repeats: true)
+        let timer = Timer(timeInterval: interval, target: viewer, selector: selector, userInfo: nil, repeats: true)
         timer.tolerance = CineCadence.tolerance(interval: interval)
-        RunLoop.current.add(timer, forMode: .modalPanel)
-        RunLoop.current.add(timer, forMode: .eventTracking)
+        for mode in Self.timerModes { RunLoop.current.add(timer, forMode: mode) }
         return timer
+    }
+
+    /// Wakes a player's `timer` after its tick: when the frame after
+    /// `lastFrame` is due, or soon when the tick `waited` for the load. The
+    /// timer is woken once its callback has returned, in every mode it fires
+    /// in (CineCadence.wake(_:afterCallbackIn:delay:)).
+    private func wake(_ timer: Timer?, afterTickWithLastFrame lastFrame: TimeInterval, rate: Float, waited: Bool) {
+        CineCadence.wake(timer, afterCallbackIn: Self.timerModes,
+                         delay: CineCadence.delayAfterTick(now: ProcessInfo.processInfo.systemUptime, lastFrame: lastFrame, rate: rate, waited: waited))
     }
 
     // MARK: - The "Browse" player
@@ -157,7 +170,8 @@ import IsiXPreferences
     func advanceSlice() {
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
-        defer { CineCadence.wake(viewer.horos_timer, lastFrame: viewer.horos_lastTime, rate: viewer.horos_speedSlider?.floatValue ?? 0) }
+        var waited = false
+        defer { wake(viewer.horos_timer, afterTickWithLastFrame: viewer.horos_lastTime, rate: viewer.horos_speedSlider?.floatValue ?? 0, waited: waited) }
 
         if viewer.horos_windowWillClose { return }
 
@@ -174,7 +188,9 @@ import IsiXPreferences
             guard let imageView = viewer.horos_imageView else { return }
             let step = SliceNavigation.browseStep(from: imageView.stackNavigation, direction: viewer.horos_direction, flipped: imageView.flippedData,
                                                   count: count, loops: viewer.horos_loopButton?.state == .on)
-            if waitsForLoad(ofImage: step.image, at: Int(viewer.horos_curMovieIndex), now: thisTime, lastFrame: viewer.horos_lastTime) { return }
+            waited = waitsForLoad(ofImage: step.image, at: Int(viewer.horos_curMovieIndex), now: thisTime, lastFrame: viewer.horos_lastTime,
+                                  aheadOfLoad: &viewer.loadingState.browseAheadOfLoad)
+            if waited { return }
             viewer.horos_direction = step.direction
 
             imageView.setIndex(step.image)
@@ -209,6 +225,7 @@ import IsiXPreferences
 
             viewer.horos_lastTime = ProcessInfo.processInfo.systemUptime
             viewer.horos_lastTimeFrame = ProcessInfo.processInfo.systemUptime
+            viewer.loadingState.browseAheadOfLoad = false
 
             item?.image = NSImage.toolbarImageNamed(Self.pauseItemImage)
             item?.label = NSLocalizedString("Stop", comment: "")
@@ -230,14 +247,16 @@ import IsiXPreferences
     func advanceMovie() {
         // Playback intervals must not change when the civil clock is corrected.
         let thisTime = ProcessInfo.processInfo.systemUptime
-        defer { CineCadence.wake(viewer.horos_movieTimer, lastFrame: viewer.horos_lastMovieTime, rate: viewer.horos_movieRateSlider?.floatValue ?? 0) }
+        var waited = false
+        defer { wake(viewer.horos_movieTimer, afterTickWithLastFrame: viewer.horos_lastMovieTime, rate: viewer.horos_movieRateSlider?.floatValue ?? 0, waited: waited) }
 
         if thisTime - viewer.horos_lastMovieTime > 1.0 / Double(viewer.horos_movieRateSlider?.floatValue ?? 0) {
             let frames = SliceNavigation(movieIndex: Int(viewer.horos_curMovieIndex), movieCount: Int(viewer.horos_maxMovieIndex))
             let next = Int16(truncatingIfNeeded: frames.nextMovieIndex)
             // The image the view shows of the next time point: the same slice.
-            if waitsForLoad(ofImage: Int(viewer.horos_imageView?.curImage ?? 0), at: Int(next), now: thisTime,
-                            lastFrame: viewer.horos_lastMovieTime) { return }
+            waited = waitsForLoad(ofImage: Int(viewer.horos_imageView?.curImage ?? 0), at: Int(next), now: thisTime,
+                                  lastFrame: viewer.horos_lastMovieTime, aheadOfLoad: &viewer.loadingState.movieAheadOfLoad)
+            if waited { return }
 
             viewer.horos_curMovieIndex = next
 
@@ -280,6 +299,7 @@ import IsiXPreferences
         viewer.horos_movieTimer = playerTimer(rate: movieRate, selector: #selector(ViewerController.performMovieAnimation(_:)))
 
         viewer.horos_lastMovieTime = ProcessInfo.processInfo.systemUptime
+        viewer.loadingState.movieAheadOfLoad = false
 
         viewer.horos_moviePlayStop?.title = NSLocalizedString("Stop", comment: "")
     }
@@ -288,14 +308,22 @@ import IsiXPreferences
 
     /// Whether a player waits before it shows the image at `index` of the
     /// time point `movie`: the series is still loading and has not reached that image,
-    /// for a moment at most (CineCadence.waitsForLoad). The players waited
-    /// for half of the whole load, every time point of a 4D series included,
-    /// whatever image they were about to show: a player of a series whose
-    /// images were there stood still, and one whose load had stopped never
-    /// moved again, while the arrow keys went on.
-    func waitsForLoad(ofImage index: Int, at movie: Int, now: TimeInterval, lastFrame: TimeInterval) -> Bool {
-        guard let load = viewer.horos_loadingThread, !load.isFinished else { return false }
+    /// for a moment at most (CineCadence.waitsForLoad). `aheadOfLoad` is the
+    /// player's own: set when it shows an image the load has not reached,
+    /// after which it waits for none until it finds one loaded. The players
+    /// waited for half of the whole load, every time point of a 4D series
+    /// included, whatever image they were about to show: a player of a series
+    /// whose images were there stood still, and one whose load had stopped
+    /// never moved again, while the arrow keys went on.
+    func waitsForLoad(ofImage index: Int, at movie: Int, now: TimeInterval, lastFrame: TimeInterval, aheadOfLoad: inout Bool) -> Bool {
+        guard let load = viewer.horos_loadingThread, !load.isFinished else {
+            aheadOfLoad = false
+            return false
+        }
         let image = viewer.horos_pixList(at: movie).flatMap { index >= 0 && index < $0.count ? $0.object(at: index) as? DCMPix : nil }
-        return CineCadence.waitsForLoad(loading: true, nextImageLoaded: image?.isLoaded() ?? true, now: now, lastFrame: lastFrame)
+        let loaded = image?.isLoaded() ?? true
+        if CineCadence.waitsForLoad(loading: true, nextImageLoaded: loaded, aheadOfLoad: aheadOfLoad, now: now, lastFrame: lastFrame) { return true }
+        aheadOfLoad = CineCadence.isAheadOfLoad(loading: true, nextImageLoaded: loaded)
+        return false
     }
 }

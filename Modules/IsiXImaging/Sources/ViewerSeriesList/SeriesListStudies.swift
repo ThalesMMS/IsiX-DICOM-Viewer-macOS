@@ -78,6 +78,46 @@ public struct SeriesListStudySelection: Equatable {
     }
 }
 
+/// The patient's studies the list and the menu go by when the database
+/// window's history is the patient's. The history is made for comparing: it
+/// leaves out studies of the patient the database has (those whose Patient
+/// ID another authority issued, those past its limit), and it may be asked
+/// while it is still being made. The list shows what is open and what can
+/// be opened, so it has every study of the patient the database has.
+public enum SeriesListPatientStudies {
+    /// A study of the history or one of the database's, by its index there.
+    public enum Source: Equatable, Sendable {
+        case history(Int)
+        case database(Int)
+    }
+
+    /// The history, with the database's studies it lacks by their instance
+    /// UID put among it by date, the most recent first. Both come most
+    /// recent first, and a date is its seconds since any one reference; the
+    /// history keeps its order, a study without a date counts as the oldest,
+    /// and one of the database without an instance UID cannot be told from
+    /// the history's and is left out.
+    public static func completed(historyUIDs: [String?], historyDates: [Double?],
+                                 databaseUIDs: [String?], databaseDates: [Double?]) -> [Source] {
+        let known = Set(historyUIDs.compactMap { $0 })
+        var missing = databaseUIDs.indices.filter { index in
+            guard let uid = databaseUIDs[index] else { return false }
+            return !known.contains(uid)
+        }[...]
+        var sources: [Source] = []
+        for index in historyUIDs.indices {
+            let date = historyDates[index] ?? -.infinity
+            while let next = missing.first, (databaseDates[next] ?? -.infinity) > date {
+                sources.append(.database(next))
+                missing = missing.dropFirst()
+            }
+            sources.append(.history(index))
+        }
+        sources.append(contentsOf: missing.map { .database($0) })
+        return sources
+    }
+}
+
 public enum SeriesListStudyNumbers {
     /// The colour of the study at `index` among the patient's studies: its
     /// own, or the last one past the end (nil without colours). `index` may

@@ -141,13 +141,32 @@ public enum XMLRPCLinkPolicy {
 
     /// What a link that names `methodName` with `parameters` gets: a method
     /// outside `unattended` (ending the application, opening another
-    /// database, downloading a URL, a method a plugin added) asks first, and
-    /// so does a search told to delete what it finds.
-    public static func verdict(methodName: String, parameters: [String: String]) -> Verdict {
+    /// database, a method a plugin added) asks first, and so does a search
+    /// told to delete what it finds. A download asks first unless its URL
+    /// points to one of `trustedHosts`, the hosts the user chose.
+    public static func verdict(methodName: String, parameters: [String: String],
+                               trustedHosts: [XMLRPCLinkTrustedHost] = []) -> Verdict {
         let name = methodName.lowercased()
+        if name == downloadMethod {
+            guard let origin = downloadOrigin(parameters) else { return .confirm }
+            return trustedHosts.contains { $0.matches(origin) } ? .run : .confirm
+        }
         guard unattended.contains(name) else { return .confirm }
         if name == "findobject" || name == "dbwindowfind", deletes(parameters) { return .confirm }
         return .run
+    }
+
+    /// The published method that downloads a URL, in lower case.
+    public static let downloadMethod = "downloadurl"
+
+    /// Where the download of a link points, for a link that names its URL
+    /// once and in a way that is read one way only. The method reads the
+    /// name of a parameter whatever its case, so a link with `URL` and `url`
+    /// names two and has no origin.
+    public static func downloadOrigin(_ parameters: [String: String]) -> XMLRPCLinkOrigin? {
+        let named = parameters.filter { $0.key.lowercased() == "url" }
+        guard named.count == 1, let address = named.first?.value else { return nil }
+        return XMLRPCLinkOrigin(url: address)
     }
 
     /// Whether the parameters of a search tell it to delete what it finds.

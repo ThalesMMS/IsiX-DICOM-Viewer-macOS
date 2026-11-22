@@ -472,7 +472,12 @@ extension ViewerSessionGraph {
             processGraph.currentBrowser?.showDatabase(viewer)
         }
 
-        viewer.activateBlending(nil)
+        // The viewers that kept this one without retaining it forget it
+        // while it still counts as alive, since ending a fusion reads the
+        // fused viewer; then this one ends its own fusion.
+        ViewerFusion.forget(viewer, among: registry.aliveViewers)
+        registry.viewerIsBeingFreed(viewer)
+        viewer.fusion.endFusionOfFreedViewer()
 
         NotificationCenter.default.removeObserver(viewer)
 

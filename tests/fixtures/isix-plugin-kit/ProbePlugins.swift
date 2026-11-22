@@ -109,6 +109,32 @@ public final class ObserverPlugin: IsiXPlugin, CustomStringConvertible {
     }
 }
 
+/// Asks the database to open series together in one viewer: too few, one
+/// named twice, one the database lacks, then three it has, last first.
+public final class FourDPlugin: IsiXPlugin, CustomStringConvertible {
+    private let summary = Mutex("")
+
+    public init() {}
+
+    public nonisolated var description: String { summary.withLock { $0 } }
+
+    public func activate(with context: IsiXPluginContext) throws {
+        let database = try context.database()
+        var lines: [String] = []
+        for series in [[], ["1.2.1"], ["1.2.1", "1.2.2", "1.2.1"], ["1.2.1", "1.2.9"], ["1.2.3", "1.2.1", "1.2.2"]] {
+            do {
+                let viewer = try database.open4DViewer(forSeries: series)
+                lines.append(viewer.map { "viewer open \($0.isOpen)" } ?? "no viewer")
+            } catch {
+                lines.append("\(error)")
+            }
+        }
+        summary.withLock { $0 = lines.joined(separator: "|") }
+    }
+
+    public func deactivate() {}
+}
+
 /// Takes clicks in the left half of the image and the key x, draws over the
 /// viewer of a command, and gives its input handler and overlay up when asked.
 public final class InteractionPlugin: IsiXPlugin, CustomStringConvertible {

@@ -50,6 +50,19 @@ struct ManuallyRetained<Value: AnyObject> {
     mutating func assign(_ newValue: Value?) {
         value = newValue
     }
+
+    /// The address of the object kept, 0 for none, read as a number. No
+    /// reference to the object is formed, which reading `wrappedValue` does by
+    /// retaining it: an object stored by `assign` may have been freed since,
+    /// and this still answers.
+    var address: UInt {
+        withUnsafeBytes(of: self) { $0.load(as: UInt.self) }
+    }
+
+    /// Whether the object kept is `object`, by its address.
+    func holds(_ object: AnyObject) -> Bool {
+        address == UInt(bitPattern: Unmanaged.passUnretained(object).toOpaque())
+    }
 }
 
 /// The slots of a C array of objects kept as manual retain-release instance

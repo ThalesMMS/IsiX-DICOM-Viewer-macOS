@@ -306,6 +306,45 @@ public enum MoviePlayerSelection: Equatable, Sendable {
     }
 }
 
+/// What whole series must share to be opened together in the 4D player
+/// without the user choosing them, each a phase of one viewer: at least two
+/// series, at most `maximum`, every one with images, as many as the first,
+/// and every image of the size of the first. A phase is read slice by slice
+/// against the others, so a series of another matrix is refused, where a
+/// selection of the user's is taken as it is (MoviePlayerSelection).
+public enum FourDSeriesSelection: Equatable, Sendable {
+    public struct ImageSize: Hashable, Sendable {
+        public var columns: Int
+        public var rows: Int
+
+        public init(columns: Int, rows: Int) {
+            self.columns = columns
+            self.rows = rows
+        }
+    }
+
+    case tooFewSeries
+    case tooManySeries
+    /// The series at this index has no image.
+    case noImages(series: Int)
+    /// The series at this index has another number of images than the first.
+    case differentImageCount(series: Int)
+    /// The series at this index has an image of another size than the first image of the first series.
+    case differentImageSize(series: Int)
+    case accepted
+
+    /// `series` gives, for each series in the order asked, the size of each of its images.
+    public static func check(_ series: [[ImageSize]], maximum: Int) -> FourDSeriesSelection {
+        if series.count < 2 { return .tooFewSeries }
+        if series.count > maximum { return .tooManySeries }
+        if let empty = series.firstIndex(where: \.isEmpty) { return .noImages(series: empty) }
+        if let other = series.firstIndex(where: { $0.count != series[0].count }) { return .differentImageCount(series: other) }
+        let size = series[0][0]
+        if let other = series.firstIndex(where: { $0.contains { $0 != size } }) { return .differentImageSize(series: other) }
+        return .accepted
+    }
+}
+
 /// The images the sub-series sheet keeps: from `from` to `to` (one-based,
 /// inclusive), every `interval`th counted from the first image of the series.
 public enum SubSeriesSelection {

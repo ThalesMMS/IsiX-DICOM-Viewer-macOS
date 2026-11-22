@@ -25,6 +25,11 @@ the members they use, and show an image:
   list of no pixels, which clears the view as -setIndex: does.
 In none of them an exception reaches the guard.
 
+One more: an observer of the notification of the change raises. The guard
+logs it, the image is the view's, and the view is marked for display. The mark
+was inside the guard, after the notification: an exception there left the
+former picture on screen while the index went on.
+
 The sources are those of the working tree, or of the revision given as the
 first argument.
 """
@@ -134,7 +139,11 @@ class DCMView: NSView {
     var horos_noScale = false
     var horos_COPYSETTINGSINSERIES = false
     var yearOld: String?
-    var textures = 0, tilings = 0, moves = 0
+    var textures = 0, tilings = 0, moves = 0, displays = 0
+    override var needsDisplay: Bool {
+        get { super.needsDisplay }
+        set { if newValue { displays += 1 }; super.needsDisplay = newValue }
+    }
 
     func stopROIEditing() {}
     func is2DViewer() -> Bool { false }
@@ -237,7 +246,21 @@ check(foreign.curDCM == nil && foreign.horos_curImage == -1, "-setIndexWithReset
 foreign.setIndex(2)
 check(logged.isEmpty && foreign.horos_curImage == 2 && foreign.curDCM === pix(foreign, 2), "the image after an entry that is not one is not shown")
 
-print("PASS: -setIndex: and -setIndexWithReset:: read the files and the ROI lists within their own length, and show no image for an entry that is not one")
+// What the change of image calls raises, here an observer of its notification: the guard logs it, and the view is
+// marked for display all the same. It was marked inside the guard, after the notification: the view went on showing
+// the former image, every image a player stepped to, until something else displayed it.
+let raising = view(pixels: 3, files: nil, rois: 3)
+let observer = NotificationCenter.default.addObserver(forName: .OsirixDCMViewIndexChanged, object: raising, queue: nil) { _ in
+    NSException(name: .rangeException, reason: "an observer raises", userInfo: nil).raise()
+}
+raising.setIndex(1)
+NotificationCenter.default.removeObserver(observer)
+check(logged.count == 1 && logged[0].contains("an observer raises"), "the exception of an observer did not reach the guard: \(logged)")
+check(raising.horos_curImage == 1 && raising.curDCM === pix(raising, 1), "the image whose notification raised is not the view's")
+check(raising.displays == 1, "the view is not marked for display when what the change of image calls raises: \(raising.displays)")
+logged.removeAll()
+
+print("PASS: -setIndex: and -setIndexWithReset:: read the files and the ROI lists within their own length, show no image for an entry that is not one, and mark the view for display when what the change of image calls raises")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-image-list-bounds-') as name:

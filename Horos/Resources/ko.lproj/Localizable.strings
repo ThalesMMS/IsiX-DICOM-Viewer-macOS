@@ -5122,6 +5122,13 @@
 "Another application opens the links of IsiX DICOM Viewer" = "다른 응용 프로그램이 IsiX DICOM Viewer의 링크를 엽니다";
 "The links are still opened by another application" = "링크를 여전히 다른 응용 프로그램이 엽니다";
 "Open Links with IsiX…" = "IsiX로 링크 열기…";
+"Always Allow %@" = "%@ 항상 허용";
+"“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "“항상 허용”은 %@을(를) 수신기 설정(IsiX로 링크 열기…)의 신뢰하는 호스트에 추가합니다. 이후 이 호스트의 다운로드 링크는 묻지 않고 실행됩니다.";
+"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "이 링크는 암호화되지 않았습니다(http). 다운로드하는 내용을 네트워크에서 읽거나 바꿔치기할 수 있습니다. “항상 허용”은 이 호스트의 암호화되지 않은 링크도 받아들입니다.";
+"Trusted hosts for download links" = "다운로드 링크의 신뢰하는 호스트";
+"A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "여기에 등록된 호스트로 가는 다운로드 링크(DownloadURL)는 묻지 않고 실행됩니다. 호스트는 포트까지 정확히 비교하며, 하위 도메인은 다른 호스트입니다. 소속 기관의 포털처럼 신뢰하는 호스트만 등록하십시오.";
+"Allow HTTP" = "HTTP 허용";
+"%@ is not a host name. Type a host, with its port when it is not the usual one: pacs.example.com or pacs.example.com:8443." = "%@은(는) 호스트 이름이 아닙니다. 호스트를 입력하고, 일반 포트가 아니면 포트도 적으십시오: pacs.example.com 또는 pacs.example.com:8443.";
 "Open links with IsiX" = "IsiX로 링크 열기";
 "A ticked scheme is opened by this copy of IsiX DICOM Viewer. An application that also declares a scheme can take it again later; isix:// links are declared by IsiX DICOM Viewer alone." = "선택된 스킴은 이 IsiX DICOM Viewer 사본이 엽니다. 같은 스킴을 선언한 응용 프로그램은 나중에 다시 스킴을 가져갈 수 있습니다. isix:// 링크는 IsiX DICOM Viewer만 선언합니다.";
 "At startup, when another application opens these links:" = "시작할 때 다른 응용 프로그램이 이 링크를 여는 경우:";

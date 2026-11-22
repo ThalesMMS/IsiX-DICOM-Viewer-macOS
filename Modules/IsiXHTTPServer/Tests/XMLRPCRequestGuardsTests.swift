@@ -111,4 +111,139 @@ import IsiXHTTPServer
         // Every unattended name is a published method.
         #expect(XMLRPCLinkPolicy.unattended.isSubset(of: Set(XMLRPCMethodTable.selectors.keys)))
     }
+
+    private func trusted(_ entry: String, http: Bool = false) -> XMLRPCLinkTrustedHost {
+        XMLRPCLinkTrustedHost(entry: entry, allowsHTTP: http)!
+    }
+
+    private func download(_ url: String?, trusting hosts: [XMLRPCLinkTrustedHost], name: String = "DownloadURL") -> XMLRPCLinkPolicy.Verdict {
+        var parameters = ["Display": "YES"]
+        parameters["URL"] = url
+        return XMLRPCLinkPolicy.verdict(methodName: name, parameters: parameters, trustedHosts: hosts)
+    }
+
+    /// A download runs unasked only to a host of the list, named exactly.
+    @Test func aDownloadFromATrustedHostRunsUnasked() {
+        let hosts = [trusted("pacs.example.com")]
+        let wado = "https://pacs.example.com/wado?requestType=WADO&studyUID=1.2.3&token=abc"
+        #expect(download(wado, trusting: hosts) == .run)
+        #expect(download(wado, trusting: hosts, name: "downloadurl") == .run)
+        #expect(download(wado, trusting: []) == .confirm)
+        // A WADO XML manifest follows the same rule.
+        #expect(download("https://pacs.example.com/studies/manifest.xml", trusting: hosts) == .run)
+        #expect(download("https://other.example.com/studies/manifest.xml", trusting: hosts) == .confirm)
+        // The case of the host does not count, in the link or in the list.
+        #expect(download("HTTPS://PACS.Example.COM/wado", trusting: hosts) == .run)
+        #expect(download(wado, trusting: [trusted("PACS.EXAMPLE.COM")]) == .run)
+        #expect(download("https://pacs.example.com./wado", trusting: hosts) == .run)
+        // No pattern: a subdomain, a parent and a name that only starts or ends alike are other hosts.
+        for other in ["https://a.pacs.example.com/wado", "https://example.com/wado", "https://pacs.example.com.evil.test/wado",
+                      "https://evilpacs.example.com/wado", "https://pacs.example.co/wado"] {
+            #expect(download(other, trusting: hosts) == .confirm, "\(other)")
+        }
+        // The other methods that ask are not let through by the list.
+        #expect(XMLRPCLinkPolicy.verdict(methodName: "KillOsiriX", parameters: ["URL": wado], trustedHosts: hosts) == .confirm)
+        #expect(XMLRPCLinkPolicy.verdict(methodName: "OpenDB", parameters: ["URL": wado], trustedHosts: hosts) == .confirm)
+        #expect(XMLRPCLinkPolicy.verdict(methodName: "FindObject", parameters: ["execute": "Delete", "URL": wado], trustedHosts: hosts) == .confirm)
+    }
+
+    /// The port of the scheme is the entry without a port; another port is another entry.
+    @Test func aTrustedHostIsMatchedWithItsPort() {
+        let plain = [trusted("pacs.example.com")]
+        #expect(download("https://pacs.example.com:443/wado", trusting: plain) == .run)
+        #expect(download("https://pacs.example.com:8443/wado", trusting: plain) == .confirm)
+        let other = [trusted("pacs.example.com:8443")]
+        #expect(download("https://pacs.example.com:8443/wado", trusting: other) == .run)
+        #expect(download("https://pacs.example.com/wado", trusting: other) == .confirm)
+        #expect(download("https://pacs.example.com:9000/wado", trusting: other) == .confirm)
+        #expect(download("https://pacs.example.com:0/wado", trusting: plain) == .confirm)
+        #expect(download("https://[2001:db8::1]:8443/wado", trusting: [trusted("[2001:db8::1]:8443")]) == .run)
+        #expect(download("https://[2001:db8::2]:8443/wado", trusting: [trusted("[2001:db8::1]:8443")]) == .confirm)
+        #expect(download("https://10.0.0.5/wado", trusting: [trusted("10.0.0.5")]) == .run)
+    }
+
+    /// A link that is not encrypted runs unasked only to a host marked for it.
+    @Test func httpNeedsItsOwnMark() {
+        #expect(download("http://pacs.example.com/wado", trusting: [trusted("pacs.example.com")]) == .confirm)
+        let marked = [trusted("pacs.example.com", http: true)]
+        #expect(download("http://pacs.example.com/wado", trusting: marked) == .run)
+        #expect(download("http://pacs.example.com:80/wado", trusting: marked) == .run)
+        #expect(download("https://pacs.example.com/wado", trusting: marked) == .run)
+        #expect(download("http://pacs.example.com:8080/wado", trusting: marked) == .confirm)
+        #expect(download("http://pacs.example.com:8080/wado", trusting: [trusted("pacs.example.com:8080", http: true)]) == .run)
+        for other in ["ftp://pacs.example.com/a.dcm", "file:///tmp/a.dcm", "file://pacs.example.com/a.dcm", "//pacs.example.com/wado", "pacs.example.com/wado"] {
+            #expect(download(other, trusting: marked) == .confirm, "\(other)")
+        }
+    }
+
+    /// A URL that could be read in two ways, or that is not there, asks.
+    @Test func aURLReadInMoreThanOneWayAsks() {
+        let hosts = [trusted("pacs.example.com", http: true), trusted("evil.test")]
+        // What comes before an @ is a user, not the host; a link with one asks even when its host is trusted.
+        #expect(XMLRPCLinkOrigin(url: "https://pacs.example.com@other.test/wado") == nil)
+        #expect(download("https://pacs.example.com@other.test/wado", trusting: [trusted("pacs.example.com")]) == .confirm)
+        #expect(download("https://user:secret@pacs.example.com/wado", trusting: hosts) == .confirm)
+        #expect(download("https://evil.test\\@pacs.example.com/wado", trusting: hosts) == .confirm)
+        #expect(download("https://pacs.example.com\\.evil.test/wado", trusting: hosts) == .confirm)
+        #expect(download("https://pacs.example.com /wado", trusting: hosts) == .confirm)
+        #expect(download(" https://pacs.example.com/wado", trusting: hosts) == .confirm)
+        #expect(download("https://pacs.example.com/wado\n", trusting: hosts) == .confirm)
+        #expect(download("https://pacs.example.com\u{0}/wado", trusting: hosts) == .confirm)
+        #expect(download(nil, trusting: hosts) == .confirm)
+        #expect(download("", trusting: hosts) == .confirm)
+        #expect(download("https:///wado", trusting: hosts) == .confirm)
+        #expect(download("not a url", trusting: hosts) == .confirm)
+        // The method reads a parameter's name whatever its case: two of them are two URLs.
+        let twice = ["URL": "https://pacs.example.com/wado", "url": "https://other.test/wado"]
+        #expect(XMLRPCLinkPolicy.verdict(methodName: "DownloadURL", parameters: twice, trustedHosts: hosts) == .confirm)
+        #expect(XMLRPCLinkPolicy.verdict(methodName: "DownloadURL", parameters: ["url": "https://pacs.example.com/wado"], trustedHosts: hosts) == .run)
+    }
+
+    /// An internationalized name is compared in its ASCII form, so a name that looks alike is another host.
+    @Test func anInternationalizedHostIsComparedInItsASCIIForm() {
+        let typed = trusted("bücher.example")
+        #expect(typed.host == "xn--bcher-kva.example")
+        #expect(typed.entry == "xn--bcher-kva.example")
+        #expect(download("https://xn--bcher-kva.example/wado", trusting: [typed]) == .run)
+        #expect(download("https://bücher.example/wado", trusting: [trusted("xn--bcher-kva.example")]) == .run)
+        #expect(download("https://bucher.example/wado", trusting: [typed]) == .confirm)
+        // A Cyrillic letter in place of the Latin one it looks like.
+        #expect(download("https://p\u{0430}cs.example.com/wado", trusting: [trusted("pacs.example.com")]) == .confirm)
+    }
+
+    /// What the user types becomes one host, and the list is stored with its marks.
+    @Test func theListIsReadFromWhatIsTypedAndStored() {
+        #expect(trusted(" pacs.example.com ").entry == "pacs.example.com")
+        #expect(trusted("https://PACS.example.com:8443/wado?token=abc").entry == "pacs.example.com:8443")
+        #expect(trusted("http://pacs.example.com/").entry == "pacs.example.com")
+        #expect(trusted("[2001:DB8::1]").entry == "[2001:db8::1]")
+        for text in ["", "  ", "*.example.com", "*", "pacs example.com", "user@pacs.example.com", "ftp://pacs.example.com",
+                     "pacs.example.com:0", "pacs.example.com:70000", "https://", "pacs.example.com\\x"] {
+            #expect(XMLRPCLinkTrustedHost(entry: text) == nil, "\(text)")
+        }
+
+        let secure = XMLRPCLinkOrigin(url: "https://Pacs.Example.com/wado?token=abc")!
+        #expect(secure.entry == "pacs.example.com")
+        #expect(XMLRPCLinkTrustedHost(trusting: secure) == trusted("pacs.example.com"))
+        let plain = XMLRPCLinkOrigin(url: "http://pacs.example.com:8080/wado")!
+        #expect(plain.entry == "pacs.example.com:8080")
+        #expect(XMLRPCLinkTrustedHost(trusting: plain) == trusted("pacs.example.com:8080", http: true))
+        #expect(XMLRPCLinkOrigin(url: "https://[2001:db8::1]:8443/wado")?.entry == "[2001:db8::1]:8443")
+
+        var list = XMLRPCLinkTrustedHost.adding(trusted("pacs.example.com"), to: [])
+        list = XMLRPCLinkTrustedHost.adding(trusted("b.example.com:8443"), to: list)
+        list = XMLRPCLinkTrustedHost.adding(trusted("PACS.example.com", http: true), to: list)
+        #expect(list == [trusted("pacs.example.com", http: true), trusted("b.example.com:8443")])
+        list = XMLRPCLinkTrustedHost.adding(trusted("pacs.example.com"), to: list)
+        #expect(list.first?.allowsHTTP == true)
+
+        let stored = XMLRPCLinkTrustedHost.stored(list)
+        #expect(stored.count == 2)
+        #expect(stored[0]["Host"] as? String == "pacs.example.com")
+        #expect(stored[0]["AllowsHTTP"] as? Bool == true)
+        #expect(XMLRPCLinkTrustedHost.list(stored: stored) == list)
+        #expect(XMLRPCLinkTrustedHost.list(stored: nil).isEmpty)
+        let damaged: [Any] = ["pacs.example.com", ["Host": "*"], ["Host": 3], ["AllowsHTTP": true], ["Host": "a.example.com"], ["Host": "A.example.com", "AllowsHTTP": true]]
+        #expect(XMLRPCLinkTrustedHost.list(stored: damaged) == [trusted("a.example.com", http: true)])
+    }
 }

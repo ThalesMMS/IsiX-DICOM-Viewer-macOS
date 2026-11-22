@@ -51,4 +51,58 @@ final class CineCadenceTests: XCTestCase {
         XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, now: 10, lastFrame: 10 - CineCadence.loadPatience))
         XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, now: 100, lastFrame: 10))
     }
+
+    func testAPlayerAheadOfTheLoadWaitsForNoImageUntilItFindsOneLoaded() {
+        // The moment has passed for an image the load has not reached: the player shows it and is ahead of the load.
+        XCTAssertTrue(CineCadence.isAheadOfLoad(loading: true, nextImageLoaded: false))
+        // The images that follow get no moment of their own, however soon after the last frame.
+        XCTAssertFalse(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, aheadOfLoad: true, now: 10, lastFrame: 9.99))
+        // An image found loaded, or a load that ended, puts the player behind the load again: the next image it has
+        // not reached gets its moment.
+        XCTAssertFalse(CineCadence.isAheadOfLoad(loading: true, nextImageLoaded: true))
+        XCTAssertFalse(CineCadence.isAheadOfLoad(loading: false, nextImageLoaded: false))
+        XCTAssertTrue(CineCadence.waitsForLoad(loading: true, nextImageLoaded: false, aheadOfLoad: false, now: 10, lastFrame: 9.99))
+    }
+
+    func testATickThatWaitedLooksAgainSoonAndOneThatShowedAFrameSleepsUntilTheNext() {
+        XCTAssertEqual(CineCadence.delayAfterTick(now: 100.01, lastFrame: 100, rate: 10, waited: false), 0.09, accuracy: 1e-9)
+        // The frame of a tick that waited is overdue: the timer is not woken at once, over and over, for the whole wait.
+        XCTAssertEqual(CineCadence.delay(now: 100.5, lastFrame: 100, rate: 10), 0)
+        XCTAssertEqual(CineCadence.delayAfterTick(now: 100.5, lastFrame: 100, rate: 10, waited: true), CineCadence.loadPoll)
+        XCTAssertGreaterThan(CineCadence.loadPoll, 0)
+        XCTAssertLessThan(CineCadence.loadPoll, CineCadence.loadPatience / 10)
+    }
+
+    /// The ticks of a repeating timer with a tolerance that is woken from its own callback, as a player's is.
+    private final class Ticks: @unchecked Sendable {
+        var count = 0
+    }
+
+    @MainActor func testATimerWokenFromItsCallbackGoesOnInEveryModeOfItsRunLoop() {
+        // The second mode stands for the one a control tracks the mouse in.
+        let modes: [RunLoop.Mode] = [.default, RunLoop.Mode("IsiXImagingTests.CineCadence.tracking")]
+        let ticks = Ticks()
+        let timer = Timer(timeInterval: 0.02, repeats: true) { timer in
+            ticks.count += 1
+            CineCadence.wake(timer, afterCallbackIn: modes, delay: 0.02)
+        }
+        timer.tolerance = CineCadence.tolerance(interval: 0.02)
+        for mode in modes { RunLoop.current.add(timer, forMode: mode) }
+        defer { timer.invalidate() }
+
+        func ticksWhileRunning(_ mode: RunLoop.Mode, for seconds: TimeInterval) -> Int {
+            let before = ticks.count, end = Date(timeIntervalSinceNow: seconds)
+            while Date() < end { RunLoop.current.run(mode: mode, before: end) }
+            return ticks.count - before
+        }
+
+        // 0.4 s at fifty a second is twenty ticks; a loaded machine may lose most of them, a stopped timer gives none.
+        XCTAssertGreaterThanOrEqual(ticksWhileRunning(modes[0], for: 0.4), 4, "in the default mode")
+        XCTAssertGreaterThanOrEqual(ticksWhileRunning(modes[1], for: 0.4), 4, "in the other mode, where nothing else wakes the run loop")
+        // Back from the mode it last fired in: woken inside its callback, the timer never fired here again.
+        XCTAssertGreaterThanOrEqual(ticksWhileRunning(modes[0], for: 0.4), 4, "back in the default mode")
+        // A stay shorter than a frame in the other mode, and back.
+        _ = ticksWhileRunning(modes[1], for: 0.03)
+        XCTAssertGreaterThanOrEqual(ticksWhileRunning(modes[0], for: 0.4), 4, "back in the default mode after a short stay in the other")
+    }
 }

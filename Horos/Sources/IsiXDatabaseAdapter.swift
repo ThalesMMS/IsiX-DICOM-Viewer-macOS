@@ -11,6 +11,7 @@
 import AppKit
 import IsiXDatabase
 import IsiXDICOMFile
+import IsiXImaging
 @_spi(IsiXHost) import IsiXPluginKit
 
 /// The local database as plugins of API version 1 reach it: the active local
@@ -234,6 +235,44 @@ extension IsiXPluginHost: IsiXDatabaseBackend {
         guard let series = try fetchSeries(seriesInstanceUID).first else { throw IsiXPluginError.notFound("series \(seriesInstanceUID)") }
         guard let browser = BrowserDatabaseSource.process.processGraph.currentBrowser else { throw IsiXPluginError.noDatabase }
         guard let viewer = browser.loadSeries(series, nil, true, keyImagesOnly: false) else { return nil }
+        browser.viewerOpener.tileOrShowViewers()
+        let adapter = IsiXViewerAdapter(viewer: viewer, identities: identities)
+        return adapter.isOpen ? adapter : nil
+    }
+
+    /// The series together in the 4D player, each a phase, in the order
+    /// given, as the database window's "Open as 4D" puts its selection. What
+    /// that command asks the user in an alert is answered here as an error,
+    /// before anything opens, and the sub-series sheet is not shown: cutting
+    /// one series would leave the phases of different lengths.
+    func open4DViewer(forSeries seriesInstanceUIDs: [String]) throws -> (any IsiXViewerBackend)? {
+        guard let browser = BrowserDatabaseSource.process.processGraph.currentBrowser else { throw IsiXPluginError.noDatabase }
+        let lists: [[Any]] = try seriesInstanceUIDs.map { uid in
+            guard let series = try fetchSeries(uid).first else { throw IsiXPluginError.notFound("series \(uid)") }
+            return browser.childrenArray(series) ?? []
+        }
+        let sizes = lists.map { $0.compactMap { $0 as? DicomImage }.map {
+            FourDSeriesSelection.ImageSize(columns: $0.width()?.intValue ?? 0, rows: $0.height()?.intValue ?? 0)
+        } }
+        switch FourDSeriesSelection.check(sizes, maximum: Int(MAX4D)) {
+        case .accepted:
+            break
+        case .tooFewSeries:
+            throw IsiXPluginError.invalidValue("A 4D viewer needs at least two series.")
+        case .tooManySeries:
+            throw IsiXPluginError.invalidValue("A 4D viewer takes at most \(MAX4D) series; \(lists.count) were given.")
+        case .noImages(let index):
+            throw IsiXPluginError.invalidValue("Series \(seriesInstanceUIDs[index]) has no image.")
+        case .differentImageCount(let index):
+            throw IsiXPluginError.invalidValue("Series \(seriesInstanceUIDs[index]) has \(sizes[index].count) images and series \(seriesInstanceUIDs[0]) has \(sizes[0].count): the series of a 4D viewer have the same number of images.")
+        case .differentImageSize(let index):
+            throw IsiXPluginError.invalidValue("Series \(seriesInstanceUIDs[index]) has images of another size than \(sizes[0][0].columns) x \(sizes[0][0].rows): the series of a 4D viewer have images of one size.")
+        }
+        let asked = BrowserController.horos_dontShowOpenSubSeries
+        BrowserController.horos_dontShowOpenSubSeries = true
+        defer { BrowserController.horos_dontShowOpenSubSeries = asked }
+        guard let viewer = browser.viewerOpener.openViewer(lists, movie: true, viewer: nil, keyImagesOnly: false) else { return nil }
+        browser.viewerOpener.tileOrShowViewers()
         let adapter = IsiXViewerAdapter(viewer: viewer, identities: identities)
         return adapter.isOpen ? adapter : nil
     }

@@ -80,6 +80,9 @@ public struct IsiXCapability: RawRepresentable, Hashable, Sendable, CustomString
     /// Commands in the Report menu of the application's plugins
     /// (`IsiXCommand.Placement.report`).
     public static let report = IsiXCapability(rawValue: "report")
+    /// Opening several series of the database together in one viewer, each a
+    /// phase of it (`IsiXDatabase.open4DViewer(forSeries:)`).
+    public static let viewer4D = IsiXCapability(rawValue: "viewer.4d")
 }
 
 /// The plugin's identity, as its Info.plist declares it.

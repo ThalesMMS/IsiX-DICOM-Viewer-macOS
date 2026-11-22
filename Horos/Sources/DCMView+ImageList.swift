@@ -255,13 +255,13 @@ extension DCMView {
                 self.loadTextures()
             }
 
-            let event = NSApplication.shared.currentEvent
-
-            self.mouseMovedEvent(event)
-            self.needsDisplay = true
+            self.mouseMovedEvent(NSApplication.shared.currentEvent)
 
             self.updateTilingViews()
         }, "-[DCMView setIndex:]")
+        // Outside the guard: what an image change calls (a ROI, an observer of its notification) can raise, and the
+        // view went on showing the former image, every image a player stepped to, until something else displayed it.
+        self.needsDisplay = true
     }
 
     /// The view's window applied to the new image when it differs from the

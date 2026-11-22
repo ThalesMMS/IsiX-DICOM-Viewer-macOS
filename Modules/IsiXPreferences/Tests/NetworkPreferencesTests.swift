@@ -123,6 +123,7 @@ import Testing
         check(NetworkPreferences.xmlrpcServerWaitForStudy, "httpXMLRPCServerWaitForStudy", Int.self)
         check(NetworkPreferences.linkSchemeStartupPolicy, "LinkSchemeStartupPolicy", Int.self)
         check(NetworkPreferences.linkSchemePreviousHandlers, "LinkSchemePreviousHandlers", [String: PropertyListValue]?.self)
+        check(NetworkPreferences.linkDownloadTrustedHosts, "LinkDownloadTrustedHosts", [PropertyListValue]?.self)
         check(NetworkPreferences.dicomNodes, "SERVERS", [PropertyListValue]?.self)
         check(NetworkPreferences.dicomwebNodes, "DICOMWEB_SERVERS", [PropertyListValue]?.self)
         check(NetworkPreferences.osirixServers, "OSIRIXSERVERS", [PropertyListValue]?.self)

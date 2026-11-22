@@ -157,6 +157,12 @@ final class ViewerColourTables {
     init(preferences: UserDefaults, menus: PresetMenuCache, cache: ColourTableCache) {}
 }
 
+// The fusion's part for a viewer that goes (ViewerFusion.swift), which has
+// its own test: these viewers fuse nothing.
+enum ViewerFusion {
+    @MainActor static func forget(_ leaving: ViewerController, among alive: [ViewerController]) {}
+}
+
 nonisolated(unsafe) private var graphKey = 0
 
 extension ViewerController {

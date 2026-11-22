@@ -172,5 +172,17 @@ struct RISRequestRulesTests {
         #expect(RISRequestRules.describe(method: "retrieve", parameters: ["methodName": "retrieve", "serverName": "Cloud"])
                 == "retrieve (serverName = Cloud)")
         #expect(RISRequestRules.describe(method: nil, parameters: [:]) == "image")
+        // The URL of a download is named without its query, its user and its fragment.
+        #expect(RISRequestRules.describe(method: "DownloadURL", parameters: ["methodName": "DownloadURL", "Display": "YES",
+                                                                             "URL": "https://pacs.example.com:8443/wado?requestType=WADO&studyUID=1.2.3&token=secret"])
+                == "DownloadURL (Display = YES, URL = https://pacs.example.com:8443/wado?…)")
+        #expect(RISRequestRules.describe(method: "downloadurl", parameters: ["url": "https://user:secret@pacs.example.com/a.dcm#part"])
+                == "downloadurl (url = https://pacs.example.com/a.dcm)")
+        #expect(RISRequestRules.addressWithoutQuery("https://pacs.example.com/wado") == "https://pacs.example.com/wado")
+        #expect(RISRequestRules.addressWithoutQuery("https://pacs.example.com/a@b?x=1#y?z") == "https://pacs.example.com/a@b?…")
+        #expect(RISRequestRules.addressWithoutQuery("not a url ?token=secret") == "not a url ?…")
+        #expect(RISRequestRules.addressWithoutQuery("") == "")
+        // Another method's parameters read as they came.
+        #expect(RISRequestRules.describe(method: "Retrieve", parameters: ["URL": "https://a.example/?x=1"]) == "Retrieve (URL = https://a.example/?x=1)")
     }
 }

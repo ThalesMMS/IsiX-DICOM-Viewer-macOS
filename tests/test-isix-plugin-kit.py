@@ -219,6 +219,23 @@ def verify(arch, report):
     # Input: only the kinds asked for, taken when the handler says so, none
     # once the token is invalidated or the plugin deactivated. Drawing: in the
     # image's pixels, in a graphics state of its own, until the token goes.
+    # Several series in one viewer: the kit refuses fewer than two series and
+    # one named twice itself, the host says which one the database lacks, and
+    # the series reach it in the order asked. Without viewer.read the viewer
+    # opens and is not handed over; without viewer.4d nothing reaches the
+    # host; a host that lacks the call answers so.
+    four_d = probe['fourD']
+    few = 'invalidValue("A 4D viewer needs at least two series.")'
+    refused = [few, few, 'invalidValue("Series 1.2.1 is named more than once.")']
+    check(four_d.get('declared') == '|'.join(refused + ['notFound("series 1.2.9")', 'viewer open true']),
+          tag + f'4D: {four_d.get("declared")}')
+    check(four_d.get('hostOpened') == ['1.2.3 1.2.1 1.2.2'], tag + f'4D order: {four_d.get("hostOpened")}')
+    check(four_d.get('withoutViewerRead') == '|'.join(refused + ['notFound("series 1.2.9")', 'no viewer'])
+          and four_d.get('hostOpenedWithoutViewerRead') == 1, tag + f'4D without viewer.read: {four_d}')
+    check(four_d.get('undeclared') == '|'.join(['capabilityNotDeclared(viewer.4d)'] * 5)
+          and four_d.get('hostOpenedUndeclared') == 0, tag + f'4D undeclared: {four_d}')
+    former = 'hostFailure("This application does not open several series in one viewer for plugins.")'
+    check(four_d.get('formerHost') == '|'.join(refused + [former, former]), tag + f'4D on a former host: {four_d.get("formerHost")}')
     interaction = probe['interaction']
     check(interaction.get('inputKinds') == 9 and interaction.get('taken') == [True, False, False, True, False],
           tag + f'input: {interaction}')

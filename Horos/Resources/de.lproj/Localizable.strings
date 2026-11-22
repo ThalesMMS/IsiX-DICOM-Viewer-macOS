@@ -5124,6 +5124,13 @@
 "Another application opens the links of IsiX DICOM Viewer" = "Ein anderes Programm öffnet die Links von IsiX DICOM Viewer";
 "The links are still opened by another application" = "Die Links werden weiterhin von einem anderen Programm geöffnet";
 "Open Links with IsiX…" = "Links mit IsiX öffnen …";
+"Always Allow %@" = "%@ immer erlauben";
+"“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "„Immer erlauben“ fügt %@ den vertrauenswürdigen Rechnern in den Empfang-Einstellungen hinzu (Links mit IsiX öffnen …): seine Download-Links werden dann ohne Nachfrage ausgeführt.";
+"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Dieser Link ist nicht verschlüsselt (http): Was er lädt, kann im Netzwerk mitgelesen oder ausgetauscht werden. „Immer erlauben“ akzeptiert auch unverschlüsselte Links dieses Rechners.";
+"Trusted hosts for download links" = "Vertrauenswürdige Rechner für Download-Links";
+"A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "Ein Download-Link (DownloadURL) zu einem hier aufgeführten Rechner wird ohne Nachfrage ausgeführt. Ein Rechner wird genau verglichen, mit seinem Port: Eine Subdomain ist ein anderer Rechner. Führen Sie nur Rechner auf, denen Sie vertrauen, etwa das Portal Ihrer Einrichtung.";
+"Allow HTTP" = "HTTP erlauben";
+"%@ is not a host name. Type a host, with its port when it is not the usual one: pacs.example.com or pacs.example.com:8443." = "%@ ist kein Rechnername. Geben Sie einen Rechner ein, mit Port, wenn es nicht der übliche ist: pacs.example.com oder pacs.example.com:8443.";
 "Open links with IsiX" = "Links mit IsiX öffnen";
 "A ticked scheme is opened by this copy of IsiX DICOM Viewer. An application that also declares a scheme can take it again later; isix:// links are declared by IsiX DICOM Viewer alone." = "Ein markiertes Schema wird von dieser Kopie von IsiX DICOM Viewer geöffnet. Ein Programm, das ein Schema ebenfalls deklariert, kann es später wieder übernehmen; isix://-Links deklariert nur IsiX DICOM Viewer.";
 "At startup, when another application opens these links:" = "Beim Start, wenn ein anderes Programm diese Links öffnet:";

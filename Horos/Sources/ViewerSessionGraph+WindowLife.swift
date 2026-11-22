@@ -309,6 +309,10 @@ extension ViewerSessionGraph {
         // The object is the viewer, which the plugins compare.
         NotificationCenter.default.post(name: NSNotification.Name.OsirixCloseViewer, object: viewer, userInfo: nil)
 
+        // The viewers the notification did not reach, or whose fusion it did
+        // not end: this one is released when this pass of the run loop ends.
+        ViewerFusion.forget(viewer, among: registry.aliveViewers)
+
         if ViewerController.horos_SYNCSERIES() {
             let others = NSApp.windows.filter { $0.windowController is ViewerController && $0.windowController !== viewer }.count
             if others <= 1 {

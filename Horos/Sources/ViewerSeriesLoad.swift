@@ -56,7 +56,8 @@ import IsiXPreferences
 /// The loading of the images and the life of the window as the loading and
 /// post-processing threads see it, read from any thread: the pending load, a
 /// cancel request, whether a wait for everything to load is running, whether
-/// the window is closing, whether the series was post-processed.
+/// the window is closing, whether the series was post-processed; and, of each
+/// player of the viewer, whether it has got ahead of the load.
 final class ViewerLoadingState: Sendable {
     /// The pending load's handle as the lock keeps it. `@unchecked Sendable`:
     /// a Thread is not Sendable, but the handle answers from any thread
@@ -71,6 +72,8 @@ final class ViewerLoadingState: Sendable {
         var checkEverythingLoaded = false
         var windowWillClose = false
         var postprocessed = false
+        var browseAheadOfLoad = false
+        var movieAheadOfLoad = false
     }
 
     private let values = Mutex(Values())
@@ -105,6 +108,19 @@ final class ViewerLoadingState: Sendable {
     var postprocessed: Bool {
         get { values.withLock { $0.postprocessed } }
         set { values.withLock { $0.postprocessed = newValue } }
+    }
+
+    /// Whether the "Browse" player shows images the load has not reached
+    /// (CineCadence.isAheadOfLoad), which the player alone sets.
+    var browseAheadOfLoad: Bool {
+        get { values.withLock { $0.browseAheadOfLoad } }
+        set { values.withLock { $0.browseAheadOfLoad = newValue } }
+    }
+
+    /// The same of the 4D player.
+    var movieAheadOfLoad: Bool {
+        get { values.withLock { $0.movieAheadOfLoad } }
+        set { values.withLock { $0.movieAheadOfLoad = newValue } }
     }
 }
 

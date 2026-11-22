@@ -213,10 +213,12 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
 
     private func attributes(of located: Located) -> IsiXImageAttributes {
         let pix = located.pix
-        let series = located.viewer.currentSeries()
+        // The image's own series and study: the phases of a 4D viewer may be
+        // series of their own, and the viewer's are those of the phase shown.
+        let series = pix.imageObj()?.series ?? located.viewer.currentSeries()
         return IsiXImageAttributes(
             modality: pix.modalityString ?? series?.modality,
-            studyInstanceUID: located.viewer.currentStudy()?.studyInstanceUID,
+            studyInstanceUID: series?.study?.studyInstanceUID ?? located.viewer.currentStudy()?.studyInstanceUID,
             seriesInstanceUID: series?.seriesDICOMUID ?? series?.seriesInstanceUID,
             sopInstanceUID: pix.imageObj()?.sopInstanceUID(),
             echoTime: pix.echotime.flatMap { Double($0) },

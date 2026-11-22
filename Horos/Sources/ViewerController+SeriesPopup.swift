@@ -260,9 +260,10 @@ extension BrowserComparativeStudies: SeriesMenuBrowsing {
     }
 
     /// The patient's studies of `study`, as the series menu and the list
-    /// look for them: the browser's history, with the distant studies, when
-    /// it is this patient's and the browser shows `db`, or else the patient's
-    /// studies of `db`, most recent first.
+    /// look for them: the browser's history, with the distant studies and
+    /// with the studies of `db` it lacks, when it is this patient's and the
+    /// browser shows `db`, or else the patient's studies of `db`, most recent
+    /// first.
     func patientStudies(of study: DicomStudy, database db: DicomDatabase?, selectingInBrowser: Bool) -> NSArray? {
         var searchString = study.patientUID as NSString?
         let predicate: NSPredicate
@@ -274,7 +275,7 @@ extension BrowserComparativeStudies: SeriesMenuBrowsing {
         }
 
         if browser.database === db, let history = browser.history(ofPatient: study.patientUID) {
-            return history as NSArray
+            return completed(history, patientUID: study.patientUID, database: db) as NSArray
         }
         // A study of a database the browser does not show is not selected
         // (select(_:)): the list is built again when a viewer closes, and
@@ -286,6 +287,41 @@ extension BrowserComparativeStudies: SeriesMenuBrowsing {
         }
         let studies = db?.objects(forEntity: db?.studyEntity(), predicate: predicate) as NSArray?
         return studies?.sortedArray(using: [NSSortDescriptor(key: "date", ascending: false)]) as NSArray?
+    }
+
+    /// The browser's history of a patient with the studies of the patient
+    /// `db` has and the history lacks, most recent first. The history is the
+    /// one of the database window's table, made for comparing: it leaves out
+    /// the studies whose Patient ID another authority issued than the selected
+    /// study's, and the list of a viewer then showed one study of a patient
+    /// who had several open, until the history was searched again from
+    /// another study. The database's studies are those of the same patient
+    /// UID, within the limit the history itself keeps.
+    private func completed(_ history: [Any], patientUID: String?, database db: DicomDatabase?) -> [Any] {
+        guard let db, let patientUID, !patientUID.isEmpty, patientUID != "0" else { return history }
+        var local = (db.objects(forEntity: db.studyEntity(), predicate: viewerPredicate("(patientUID ==[cd] %@)", patientUID as NSString)) ?? [])
+            .compactMap { $0 as? DicomStudy }
+            .sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+        let limit = AssociationContract.relatedStudiesLimit(in: preferences)
+        if limit > 0 { local = Array(local.prefix(limit)) }
+
+        // A study of the database or of a node; anything else has neither.
+        func value(_ study: Any, _ name: String) -> AnyObject? {
+            guard let object = study as? NSObject, object.responds(to: NSSelectorFromString(name)) else { return nil }
+            return viewerSendObject(object, name)
+        }
+        func uid(_ study: Any) -> String? { value(study, "studyInstanceUID") as? String }
+        func date(_ study: Any) -> Double? { (value(study, "date") as? Date)?.timeIntervalSinceReferenceDate }
+        let sources = SeriesListPatientStudies.completed(historyUIDs: history.map(uid), historyDates: history.map(date),
+                                                         databaseUIDs: local.map(\.studyInstanceUID),
+                                                         databaseDates: local.map { $0.date?.timeIntervalSinceReferenceDate })
+        guard sources.count != history.count else { return history }
+        return sources.map { source -> Any in
+            switch source {
+            case .history(let index): return history[index]
+            case .database(let index): return local[index]
+            }
+        }
     }
 
     /// The number of the series the window shows: the one a series list gave
