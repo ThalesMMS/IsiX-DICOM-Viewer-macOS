@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewer는 자동화를 사용하여 Mail 초안을 만들고, 선택한 응용 프로그램과 이미지 및 보고서를 주고받습니다.";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewer는 로컬 네트워크의 DICOM 노드(PACS, 모달리티, 워크스테이션)에 연결하여 검사를 검색하고 가져오고 전송합니다.";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewer는 디스크와 이동식 드라이브에서 DICOM 검사를 읽고, 선택한 검사를 USB 드라이브에 기록합니다.";

@@ -817,15 +817,13 @@ private let structuredReportReading = NSLock()
         let pages = rep?.pageCount ?? 0
         var width = 0, height = 0
         if pages > 0, let rep {
+            // The size the viewer draws the page at: the series' volume gives
+            // the page a place of the size stored here.
             let image = NSImage()
             image.addRepresentation(rep)
-            let bitmap = image.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }
-            if let bitmap, CGFloat(bitmap.pixelsWide) > image.size.width {
-                height = bitmap.pixelsHigh
-                width = bitmap.pixelsWide
-            } else {
-                height = Int(image.size.height)
-                width = Int(image.size.width)
+            if let pixels = image.displayedPixels() {
+                height = pixels.height
+                width = pixels.width
             }
         }
         if pages > 0 && width > 0 && height > 0 {

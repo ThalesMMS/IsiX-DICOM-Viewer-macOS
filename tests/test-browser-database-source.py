@@ -91,7 +91,8 @@ CASES = {
     },
     'IsiXDatabaseAdapter.swift': {
         ACTIVE: 1,            # the database a plugin reads and changes
-        BROWSER: 4,           # the selection, the viewer of a series, the albums after a change (two)
+        BROWSER: 5,           # the selection, the viewer of a series, the viewer of several series as phases,
+                              # the albums after a change (two)
     },
     'DicomImage.swift': {
         DELETION: 2,          # the image's file and its Analyze .img, after the save that deletes the row

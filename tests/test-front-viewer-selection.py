@@ -24,6 +24,8 @@ if SWIFT:
  g=read('Horos/Sources/ViewerRegistry.swift').decode()
  selection=''.join(member(r,'    @objc('+selector+')\n') for selector in ('frontMostDisplayed2DViewerForScreen:','frontMostDisplayed2DViewer','isFrontMost2DViewer:'))
  chosen=member(g,'    @MainActor func frontMostDisplayedViewer(on screen: NSScreen?)')
+ # The rule of the front viewer's windows, once the registry has it.
+ if '    @MainActor func isWindowOfFrontViewer(_ window: NSWindow?)' in g: chosen+=member(g,'    @MainActor func isWindowOfFrontViewer(_ window: NSWindow?)')
  methods=selection+'}\nfinal class ViewerRegistry {\n'+chosen.replace('@MainActor func','func')+'}\nextension ViewerController {\n    nonisolated(unsafe) static let viewerRegistry = ViewerRegistry()\n'
 else:
  a=s.index('+ (ViewerController*) frontMostDisplayed2DViewerForScreen:');b=s.index('+ (NSMutableArray*) get2DViewers',a)
@@ -112,6 +114,7 @@ final class TestApp {
 nonisolated(unsafe) let NSApp = TestApp()
 class ViewerController: NSObject {
     var window: NSWindow?
+    var horos_FullScreenWindow: NSWindow?
     var closing = false
     func windowWillClose() -> Bool { closing }
 }
@@ -151,7 +154,22 @@ check(ViewerController.frontMostDisplayed2DViewer(for: b) === first)
 NSApp.orderedWindows = [panel]
 check(ViewerController.frontMostDisplayed2DViewer() == nil)
 check(!ViewerController.isFrontMost2DViewer(nil))
-print("PASS: live ordering, auxiliary windows, visibility, closing, moved screen, empty list and nil window")
+// In full screen the viewer's content is in a second window, whose controller
+// is the viewer too, and the viewer keeps its own window: both are the front
+// viewer's, and the full screen window of another viewer is not.
+let full = NSWindow(); full.isVisible = true; full.screen = b; full.windowController = first
+first.horos_FullScreenWindow = full
+second.window!.isVisible = true
+let otherFull = NSWindow(); otherFull.isVisible = true; otherFull.screen = a; otherFull.windowController = second
+second.horos_FullScreenWindow = otherFull
+NSApp.orderedWindows = [panel, full, first.window!, otherFull, second.window!]
+NSApp.keyWindow = full
+check(ViewerController.frontMostDisplayed2DViewer() === first)
+check(ViewerController.isFrontMost2DViewer(full))
+check(ViewerController.isFrontMost2DViewer(first.window))
+check(!ViewerController.isFrontMost2DViewer(otherFull))
+check(!ViewerController.isFrontMost2DViewer(second.window))
+print("PASS: live ordering, auxiliary windows, visibility, closing, moved screen, empty list, nil window and full screen window")
 '''.replace('METHODS',methods)
 with tempfile.TemporaryDirectory(prefix='horos-front-viewer-') as d:
  p=Path(d)

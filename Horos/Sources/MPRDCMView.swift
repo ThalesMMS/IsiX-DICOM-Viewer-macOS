@@ -132,6 +132,9 @@ public final class MPRDCMView: DCMView {
 
     private var viewID: Int32 = 0
     private var mouseDownTool: ToolMode = .tWL
+    /// True from the double click that fills the window with this plane, or brings the three back, to its release: the view moves
+    /// under the pointer, and a move of the mouse was measured from the press's point in the view as a drag of hundreds of points.
+    private var pressChangedLayout = false
     /// vrView: weak; the MPR's hidden VRView, which its VRController owns and
     /// lets go when the window closes, while the view can still be drawn.
     private weak var _vrView: (NSView & HorosMPRVRViewMessages)?
@@ -1645,33 +1648,24 @@ public final class MPRDCMView: DCMView {
                     }
 
                     mprFrameZoomed = true
-                    switch viewID {
-                    case 1:
-                        controller?.horizontalSplit?.setPosition(controller?.horizontalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-                        controller?.verticalSplit?.setPosition(controller?.verticalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-
-                    case 2:
-                        controller?.horizontalSplit?.setPosition(controller?.horizontalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-                        controller?.verticalSplit?.setPosition(controller?.verticalSplit?.maxPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-
-                    case 3:
-                        controller?.horizontalSplit?.setPosition(controller?.horizontalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-                        controller?.verticalSplit?.setPosition(controller?.verticalSplit?.minPossiblePositionOfDivider(at: 0) ?? 0, ofDividerAt: 0)
-
-                    default:
-                        break
+                    let horizontal = controller?.horizontalSplit, vertical = controller?.verticalSplit
+                    if (1...3).contains(viewID) { // Plane 1 is above the horizontal divider, plane 3 past the vertical one.
+                        horizontal?.setPosition((viewID == 1 ? horizontal?.maxPossiblePositionOfDivider(at: 0) : horizontal?.minPossiblePositionOfDivider(at: 0)) ?? 0, ofDividerAt: 0)
+                        vertical?.setPosition((viewID == 3 ? vertical?.minPossiblePositionOfDivider(at: 0) : vertical?.maxPossiblePositionOfDivider(at: 0)) ?? 0, ofDividerAt: 0)
                     }
                 } else {
                     mprFrameZoomed = false
                     controller?.verticalSplit?.setPosition(CGFloat(mprSplitPosition[1]), ofDividerAt: 0)
                     controller?.horizontalSplit?.setPosition(CGFloat(mprSplitPosition[0]), ofDividerAt: 0)
                 }
+                pressChangedLayout = true
 
                 self.restoreCamera()
                 windowControllerIvar?.lowLOD = false
                 self.updateViewMPR()
             }
         } else {
+            pressChangedLayout = false
             self.magicTrick()
 
             windowControllerIvar?.planePressBegan()
@@ -1754,6 +1748,11 @@ public final class MPRDCMView: DCMView {
     public override dynamic func mouseUp(with theEvent: NSEvent) {
         self.checkCursor()
         defer { windowControllerIvar?.planePressEnded() } // Whatever the press did.
+        if pressChangedLayout { // The press was spent on the layout: no tool ends here.
+            pressChangedLayout = false
+            dontCheckRoiChange = false
+            return
+        }
         if let windowController = windowControllerIvar {
             NSObject.cancelPreviousPerformRequests(withTarget: windowController, selector: MPRDCMView.delayedFullLODRendering, object: nil)
         }
@@ -1930,6 +1929,7 @@ public final class MPRDCMView: DCMView {
     }
 
     public override dynamic func mouseDragged(with theEvent: NSEvent) {
+        if pressChangedLayout { return }
         self.restoreCamera()
 
         if _rotateLines {

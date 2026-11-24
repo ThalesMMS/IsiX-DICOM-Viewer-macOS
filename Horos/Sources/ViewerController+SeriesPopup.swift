@@ -445,7 +445,7 @@ extension SeriesMenuPresenter {
 
     /// Builds the menu when it needs it: the patient's studies the series
     /// list shows, each with its series, read once into a SeriesMenuModel;
-    /// then the contextual menu's copy, and the views' colours.
+    /// then the contextual menu's submenu, and the views' colours.
     func build() {
         if viewer.horos_needsToBuildSeriesPopupMenu == false {
             return
@@ -477,7 +477,10 @@ extension SeriesMenuPresenter {
 
             let viewerSeries = viewerSeries(checkingNil: false)
 
-            let found = patientStudies(of: study, database: db, selectingInBrowser: true)
+            // Only the viewer in front brings the database window to its study. The menu of a viewer behind
+            // another is built again when a window changes or a history arrives, and took the selection back
+            // from the study just asked for.
+            let found = patientStudies(of: study, database: db, selectingInBrowser: viewer.window?.isMainWindow ?? false)
 
             seriesListMakeRetrieveImage(side: 50)
 
@@ -511,7 +514,7 @@ extension SeriesMenuPresenter {
         let model = SeriesMenuModel(studies: read.studies, windowStudy: SeriesListPresenter.windowStudy(of: viewer))
         fill(menu, from: model, read: read, inverted: inverted)
 
-        viewer.horos_seriesPopupContextualMenu?.submenu = menu?.copy() as? NSMenu
+        viewer.horos_seriesPopupContextualMenu?.submenu = contextualMenu(from: model, read: read, inverted: inverted)
         viewer.horos_seriesPopupContextualMenu?.image = viewer.horos_seriesPopupMenu?.selectedItem?.image
         viewer.horos_seriesPopupContextualMenu?.title = viewer.currentSeries()?.name ?? NSLocalizedString("Unnamed", comment: "")
 
@@ -627,51 +630,93 @@ extension SeriesMenuPresenter {
             case .separator:
                 added.append(NSMenuItem.separator())
             case .study(let index):
-                let cell = newItem()
-                cell.representedObject = read.represented[index]
-                let study = model.studies[index]
-                switch study.picture {
-                case .number(let studyIndex)?:
-                    cell.image = Self.numberPicture(studyIndex: studyIndex, inverted: inverted)
-                case .retrieve?:
-                    cell.image = seriesListRetrieveImage
-                case nil:
-                    break
-                }
-                if let title = study.title {
-                    cell.attributedTitle = NSAttributedString(string: title, attributes: [.font: NSFont.boldSystemFont(ofSize: 14)])
-                }
-                added.append(cell)
+                added.append(studyItem(index, model: model, read: read, inverted: inverted))
             case .series(let index, let position):
-                let series = model.studies[index].series[position]
-                let curSeries = read.series[index][position]
-                let cell = newItem()
-                cell.representedObject = O2ViewerThumbnailsMatrixRepresentedObject.object(curSeries)
-
-                var attributes: [NSAttributedString.Key: Any] = [:]
-                switch model.highlight(of: series) {
-                case .shown(.current):
-                    attributes[.backgroundColor] = SeriesListColors.shown
-                case .shown(.previous):
-                    attributes[.backgroundColor] = SeriesListColors.shownPrevious
-                case .fused:
-                    attributes[.backgroundColor] = SeriesListColors.fused
-                case .windowColour:
-                    // The colour of the study of the window that shows it.
-                    attributes[.backgroundColor] = (ViewerController.horosSeriesOpenColors()?.object(forKey: curSeries) as? NSColor)?.withAlphaComponent(0.5)
-                case .none:
-                    break
-                }
-                attributes[.font] = NSFont.systemFont(ofSize: 14)
-                cell.attributedTitle = NSAttributedString(string: SeriesMenuModel.title(of: series, images: Self.imageCount), attributes: attributes)
-                cell.image = read.pictures[index][position]
-                added.append(cell)
+                added.append(seriesItem(study: index, series: position, model: model, read: read))
             }
             menu?.addItem(added[added.count - 1])
         }
         if let selected = model.selectedItem {
             viewer.horos_seriesPopupMenu?.select(added[selected])
         }
+    }
+
+    /// The series submenu of the contextual menu, from the model: the series
+    /// of the studies shown in line, and those of each other study in a
+    /// submenu of its item (SeriesMenuModel.contextualItems).
+    private func contextualMenu(from model: SeriesMenuModel, read: Read, inverted: Bool) -> NSMenu {
+        let menu = NSMenu()
+        // The series the popup selects has its check mark here too.
+        let selected = model.selectedItem.map { model.items[$0] }
+        for item in model.contextualItems {
+            switch item {
+            case .separator:
+                menu.addItem(NSMenuItem.separator())
+            case .study(let index):
+                menu.addItem(studyItem(index, model: model, read: read, inverted: inverted))
+            case .series(let index, let position):
+                let series = seriesItem(study: index, series: position, model: model, read: read)
+                if selected == .series(study: index, series: position) { series.state = .on }
+                menu.addItem(series)
+            case .folded(let index):
+                let study = studyItem(index, model: model, read: read, inverted: inverted)
+                let series = NSMenu()
+                for position in model.studies[index].series.indices {
+                    series.addItem(seriesItem(study: index, series: position, model: model, read: read))
+                }
+                study.submenu = series
+                menu.addItem(study)
+            }
+        }
+        return menu
+    }
+
+    /// The item of the study at `index`: its number or the arrow of a study
+    /// to retrieve, and its line.
+    private func studyItem(_ index: Int, model: SeriesMenuModel, read: Read, inverted: Bool) -> NSMenuItem {
+        let cell = newItem()
+        cell.representedObject = read.represented[index]
+        let study = model.studies[index]
+        switch study.picture {
+        case .number(let studyIndex)?:
+            cell.image = Self.numberPicture(studyIndex: studyIndex, inverted: inverted)
+        case .retrieve?:
+            cell.image = seriesListRetrieveImage
+        case nil:
+            break
+        }
+        if let title = study.title {
+            cell.attributedTitle = NSAttributedString(string: title, attributes: [.font: NSFont.boldSystemFont(ofSize: 14)])
+        }
+        return cell
+    }
+
+    /// The item of a series: its picture, its name and number of images, on
+    /// the colour that says which window shows it.
+    private func seriesItem(study index: Int, series position: Int, model: SeriesMenuModel, read: Read) -> NSMenuItem {
+        let series = model.studies[index].series[position]
+        let curSeries = read.series[index][position]
+        let cell = newItem()
+        cell.representedObject = O2ViewerThumbnailsMatrixRepresentedObject.object(curSeries)
+
+        var attributes: [NSAttributedString.Key: Any] = [:]
+        switch model.highlight(of: series) {
+        case .shown(.current):
+            attributes[.backgroundColor] = SeriesListColors.shown
+        case .shown(.previous):
+            attributes[.backgroundColor] = SeriesListColors.shownPrevious
+        case .fused:
+            attributes[.backgroundColor] = SeriesListColors.fused
+        case .windowColour:
+            // The colour of the study of the window that shows it.
+            attributes[.backgroundColor] = (ViewerController.horosSeriesOpenColors()?.object(forKey: curSeries) as? NSColor)?.withAlphaComponent(0.5)
+        case .none:
+            break
+        }
+        attributes[.font] = NSFont.systemFont(ofSize: 14)
+        cell.attributedTitle = NSAttributedString(string: SeriesMenuModel.title(of: series, images: Self.imageCount), attributes: attributes)
+        cell.image = read.pictures[index][position]
+        return cell
     }
 
     private func newItem() -> NSMenuItem {

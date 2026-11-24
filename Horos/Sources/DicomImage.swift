@@ -524,7 +524,10 @@ public final class DicomImage: NSManagedObject {
 
                 var f = self.primitiveValue(forKey: "storedNumberOfFrames") as? NSNumber
 
-                if f == nil { f = NSNumber(value: Int32(1)) }
+                // An image has at least one frame. The row has no value for
+                // one, and 0 for a file that states no Number of Frames when
+                // only the DICOM reader read it: both are one frame.
+                if (f?.int32Value ?? 0) < 1 { f = NSNumber(value: Int32(1)) }
 
                 _numberOfFrames = f
 

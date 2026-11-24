@@ -90,16 +90,23 @@ public struct LegacyPluginImport: Sendable {
         /// Whether this Mac can load the bundle at a URL, as the loader judges
         /// it before opening one: the bundle is not opened.
         public var canLoad: @Sendable (URL) -> Bool
+        /// Whether a plugin of IsiX was not loaded at the last launch, at the
+        /// version it declares now, as the loader recorded it: refused, or
+        /// failed in the dynamic loader or in its initialization. Answered
+        /// from that record; no bundle is opened, so a launch may ask it.
+        public var failedToLoad: @Sendable (Found) -> Bool
 
         public init(isPlugin: @escaping @Sendable (String) -> Bool, version: @escaping @Sendable (URL) -> String?,
                     compare: @escaping @Sendable (String?, String?) -> ComparisonResult?,
                     isPreferred: @escaping @Sendable (Found, Found) -> Bool,
-                    canLoad: @escaping @Sendable (URL) -> Bool = { _ in true }) {
+                    canLoad: @escaping @Sendable (URL) -> Bool = { _ in true },
+                    failedToLoad: @escaping @Sendable (Found) -> Bool = { _ in false }) {
             self.isPlugin = isPlugin
             self.version = version
             self.compare = compare
             self.isPreferred = isPreferred
             self.canLoad = canLoad
+            self.failedToLoad = failedToLoad
         }
     }
 
@@ -339,6 +346,12 @@ public struct LegacyPluginImport: Sendable {
         found.target.map(rules.canLoad) ?? false
     }
 
+    /// Whether a plugin of IsiX loads: this Mac can load it, and it was not
+    /// left out at the last launch.
+    private func loads(_ installed: Found, rules: Rules) -> Bool {
+        canLoad(installed, rules: rules) && !rules.failedToLoad(installed)
+    }
+
     /// Whether two entries lead to copies of one build.
     private func sameBuild(_ first: Found, _ second: Found) -> Bool {
         guard let one = first.target, let other = second.target else { return false }
@@ -392,10 +405,14 @@ public struct LegacyPluginImport: Sendable {
             // whatever version it declares: the Intel-only build of a plugin,
             // whose build number (300) is above the version of its universal
             // successor in the source folders (2.0), or a copy whose signature
-            // no longer validates, or a link or an alias that leads nowhere. A
-            // bundle of its name that loads takes its place. Only the bundles
-            // a version would keep are inspected.
-            if order != .orderedDescending, !canLoad(existing, rules: rules), canLoad(source, rules: rules) {
+            // no longer validates, or a link or an alias that leads nowhere.
+            // So is one that failed to load at the last launch, in the dynamic
+            // loader or in its initialization: the build of a plugin numbered
+            // by date (20250228), whose author went on to versions (0.9.3).
+            // Another build of its name that this Mac can load takes its place.
+            // Only the bundles a version would keep are inspected.
+            if order != .orderedDescending, !loads(existing, rules: rules), canLoad(source, rules: rules),
+               !sameBuild(source, existing) {
                 survey.additions.append(Addition(source: source, replaces: existing))
                 continue
             }
@@ -481,6 +498,10 @@ public struct LegacyPluginImport: Sendable {
     /// have, with the version in the source folders, taken as declined at the
     /// single offer.
     ///
+    /// A plugin of IsiX that the last launch did not load (`Rules.failedToLoad`)
+    /// is the exception: another build of its name in the source folders is
+    /// offered in its place, whatever their versions, once for each version.
+    ///
     /// This runs at every launch, before the plugins load, so it decides by
     /// declared versions alone: versions that cannot be compared are left to
     /// `survey`, no bundle is inspected, and `Rules.canLoad`, which validates
@@ -510,6 +531,17 @@ public struct LegacyPluginImport: Sendable {
             for source in inSources {
                 let key = nameKey(source.url)
                 let existing = installedByName[key]
+                // A plugin of IsiX left out at the last launch is offered
+                // another build of its name, whatever their versions say, once
+                // for each version of it: the record holds the version shown,
+                // and it began with the one IsiX has. Only for such a plugin
+                // are the files of the two bundles compared.
+                if let existing, rules.failedToLoad(existing) {
+                    if offered[key] != (source.version ?? ""), !sameBuild(source, existing) {
+                        additions.append(Addition(source: source, replaces: existing))
+                    }
+                    continue
+                }
                 if let existing, rules.compare(source.version, existing.version) != .orderedDescending { continue }
                 if let shown = offered[key], rules.compare(source.version, shown.isEmpty ? nil : shown) != .orderedDescending { continue }
                 additions.append(Addition(source: source, replaces: existing))

@@ -91,11 +91,12 @@ public final class ForeignDatabaseChoice: NSObject {
         }
     }
 
-    /// File > Import on `folder`, into the database the browser of
-    /// `browserWindow` shows. That flow asks whether to copy the files or only
-    /// link to them. The files of the folder that the Horos database beside it
-    /// no longer lists, those of studies deleted there among them, are left
-    /// out unless the user asks for them too.
+    /// The import of the studies of `folder` into the database the browser of
+    /// `browserWindow` shows, by the dialog of File > Import > Import Studies
+    /// from Horos or OsiriX: it asks whether to copy the files or only link
+    /// to them, leaves out the files the Horos database beside the folder no
+    /// longer lists unless the user asks for them too, and says which files
+    /// that database links to could not be read.
     @MainActor static func importIntoCurrentDatabase(_ folder: String, browserWindow: BrowserWindowGraph?) {
         NSLog("Database: importing the studies of %@", folder)
         guard let browser = browserWindow?.browser else { return }

@@ -32,7 +32,8 @@ for language in new_languages:
     assert language in regions, language
     folder = root / "Horos/Resources" / (language + ".lproj")
     files = list(folder.rglob("*.xib")) + list(folder.glob("*.strings"))
-    assert len(files) == 66, (language, len(files))
+    # 65 XIBs, the catalog and InfoPlist.strings, the reasons the system shows for its permissions.
+    assert len(files) == 67, (language, len(files))
     for path in files:
         # Xcode recognizes a localized build input from its immediate .lproj
         # parent. Nested preference paths compile into unlocalized Resources.

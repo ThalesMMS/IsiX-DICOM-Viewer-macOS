@@ -22,6 +22,11 @@ import IsiXStorage
 // goes through (DroppedFilesImport), copied or indexed where they are, on a
 // thread of the Activity list.
 //
+// A database that indexed its files where they were lists them by their full
+// path, on another disk as a rule. Those that cannot be read (the disk is not
+// connected, or the application has no leave to read there) are counted, with
+// the folders they were expected in, and the dialog asks for those folders.
+//
 // The files of the earlier image folder that its database no longer lists
 // (LegacyFileIndex) are what that application took out of its list and left
 // on disk, the studies deleted there among them: they are left out, counted,
@@ -62,7 +67,11 @@ import IsiXStorage
             guard let chosen = Self.chooseFolder(openFolder: openFolder) else { return }
             folders = [chosen]
         }
+        ask(folders, openFolder: openFolder, database: database, browser: browser)
+    }
 
+    /// The dialog of the import on `folders`, and the import it asks for.
+    private func ask(_ folders: [LegacyDatabase], openFolder: String, database: DicomDatabase, browser: BrowserController) {
         let dialog = LegacyImportDialog(folders: folders, openFolder: openFolder)
         guard let (choice, survey, files) = dialog.run() else { return }
         prepareNotes(survey.contents, in: database)
@@ -102,41 +111,44 @@ import IsiXStorage
     // MARK: - An image folder chosen on the way to a database
 
     /// Imports the image folder of an earlier application's database, as
-    /// choosing that database at first use or as the database location asks:
-    /// through the import of dropped files, which copies or links as the
-    /// settings say. When its database lies beside the folder, the files it
-    /// no longer lists are left out, and an alert counts them and offers to
-    /// import them too; a database that cannot be read leaves none out, which
-    /// the alert says. A folder without a database beside it is imported whole.
+    /// choosing that database at first use or as the database location asks.
+    /// When its database lies beside the folder, the import is the command's
+    /// own: the same dialog, on that folder, with the same choice between
+    /// copying the files and indexing them where they are, the same count of
+    /// what the database no longer lists and of what could not be read. A
+    /// folder without a database beside it is imported whole.
     func importImagesFolder(_ folder: String, into browser: BrowserController) {
         guard let legacy = LegacyDatabase.holding(imagesFolder: URL(fileURLWithPath: folder, isDirectory: true)) else {
             browser.subSelectFilesAndFolders(toAdd: [folder])
             return
         }
-        // The folder is read on a thread of the Activity list, which can
-        // cancel it; the alert comes from the main run loop, where a modal
-        // holds neither the main queue nor the main actor.
-        ActivityThread.startListed(name: NSLocalizedString("Reading the database…", comment: "")) {
-            guard let survey = legacy.survey(isCancelled: { Thread.current.isCancelled }) else { return }
-            onMainRunLoop { self.importSurveyed(survey, into: browser) }
-        }
+        // From the main run loop, where a modal holds neither the main queue
+        // nor the main actor.
+        onMainRunLoop { self.askForChosenFolder(legacy, in: browser) }
     }
 
-    private func importSurveyed(_ survey: LegacyDatabase.Survey, into browser: BrowserController) {
+    private func askForChosenFolder(_ legacy: LegacyDatabase, in browser: BrowserController) {
         let title = NSLocalizedString("Import Studies from Horos or OsiriX", comment: "")
-        var files = survey.files.paths
-        if let unread = Self.unreadText(survey.listing) {
-            _ = HorosAlertPanel.runInformational(title: title, message: unread, defaultButton: NSLocalizedString("OK", comment: ""),
-                                                 alternateButton: nil, otherButton: nil)
-        } else if !survey.files.unlisted.isEmpty {
-            let answer = HorosAlertPanel.runInformational(title: title, message: Self.unlistedText(survey.files),
-                                                          defaultButton: NSLocalizedString("OK", comment: ""),
-                                                          alternateButton: NSLocalizedString("Import Them Too", comment: ""), otherButton: nil)
-            if answer == HorosAlertPanel.alternateResponse { files += survey.files.unlisted }
+        guard Self.canImport(into: browser), let database = browser.database else {
+            NSLog("Database: the database shown cannot take the studies of an earlier database")
+            NSSound.beep()
+            return
         }
-        Self.log(survey, imported: files.count)
-        guard !files.isEmpty else { return }
-        browser.droppedFiles.add(files)
+        let openFolder = database.dataDirPath() ?? ""
+        guard !Self.isSame(legacy, as: openFolder) else {
+            _ = HorosAlertPanel.runCritical(title: title, message: NSLocalizedString("This folder is the database that is open.", comment: ""),
+                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return
+        }
+        ask([legacy], openFolder: openFolder, database: database, browser: browser)
+    }
+
+    /// How many files the database links to could not be read, and where
+    /// they were expected.
+    fileprivate static func unreadLinkedText(_ files: LegacyDatabase.Files) -> String {
+        String(format: NSLocalizedString("Files the database links to that could not be read: %@, in %@. They are left out. Check that their disk is connected, or choose Allow Access… and select that folder.", comment: ""),
+               NumberFormatter.localizedString(from: NSNumber(value: files.unreadLinked.count), number: .decimal),
+               LegacyDatabase.foldersHolding(files.unreadLinked).map { ($0 as NSString).abbreviatingWithTildeInPath }.joined(separator: ", "))
     }
 
     /// How many files of the folder the database no longer lists, and what
@@ -173,8 +185,8 @@ import IsiXStorage
         case .unreadable: listing = "unreadable"
         case .unknown: listing = "without file paths"
         }
-        NSLog("Database: importing %ld files of an earlier database (index %@); %ld files it no longer lists, %ld listed or linked",
-              imported, listing, survey.files.unlisted.count, survey.files.paths.count)
+        NSLog("Database: importing %ld files of an earlier database (index %@); %ld files it no longer lists, %ld listed or linked, %ld linked that could not be read",
+              imported, listing, survey.files.unlisted.count, survey.files.paths.count, survey.files.unreadLinked.count)
     }
 
     /// Whether a data folder is the one of the database that is open.
@@ -192,7 +204,7 @@ import IsiXStorage
         panel.directoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         panel.prompt = NSLocalizedString("Choose", comment: "")
         panel.message = NSLocalizedString("Choose the Horos Data or OsiriX Data folder", comment: "")
-        guard panel.runModal() == .OK, let url = panel.url, SandboxFileAccess.remember(url) else { return nil }
+        guard panel.runModal() == .OK, let url = panel.url, keepAccess(to: url) else { return nil }
         guard let legacy = LegacyDatabase.resolving(url) else {
             _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Import Studies from Horos or OsiriX", comment: ""),
                                             message: NSLocalizedString("No Horos or OsiriX database was found in this folder.", comment: ""),
@@ -206,6 +218,39 @@ import IsiXStorage
             return nil
         }
         return legacy
+    }
+
+    /// Keeps the access the user gave to a chosen folder, and says why when
+    /// it cannot be kept: without it nothing of the folder can be read.
+    fileprivate static func keepAccess(to url: URL) -> Bool {
+        do {
+            try SandboxFileAccess.retain(url)
+            return true
+        } catch {
+            NSLog("Unable to retain folder access: %@", error.localizedDescription)
+            _ = HorosAlertPanel.runCritical(title: NSLocalizedString("Import Studies from Horos or OsiriX", comment: ""),
+                                            message: String(format: NSLocalizedString("Access to this folder could not be kept: %@", comment: ""), error.localizedDescription),
+                                            defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: nil, otherButton: nil)
+            return false
+        }
+    }
+
+    /// Asks for the folder of files the database links to, so that the
+    /// application may read them: the open panel starts at `folder`, or at
+    /// the nearest folder above it that exists. Whether access was given.
+    fileprivate static func allowAccess(toLinkedFolder folder: String) -> Bool {
+        var start = URL(fileURLWithPath: folder, isDirectory: true)
+        while start.path != "/" && !FileManager.default.fileExists(atPath: start.path) { start.deleteLastPathComponent() }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = start
+        panel.prompt = NSLocalizedString("Allow Access", comment: "")
+        panel.message = String(format: NSLocalizedString("Select the folder of the files the database links to, to let the application read them: %@", comment: ""),
+                               (folder as NSString).abbreviatingWithTildeInPath)
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        return keepAccess(to: url)
     }
 
     // MARK: - Albums, comments and states
@@ -316,6 +361,10 @@ import IsiXStorage
     private let summary = NSTextField(wrappingLabelWithString: "")
     /// Shown when the folder holds files its database no longer lists.
     private let unlisted = NSButton(checkboxWithTitle: NSLocalizedString("Also import the files the database no longer lists", comment: ""), target: nil, action: nil)
+    /// Shown when the database links to files that could not be read.
+    private let access = NSButton(title: NSLocalizedString("Allow Access…", comment: ""), target: nil, action: nil)
+    private let accessory = NSView(frame: NSRect(x: 0, y: 0, width: LegacyImportDialog.width, height: 188))
+    private static let width: CGFloat = 440
     private var folders: [LegacyDatabase]
     private var selected = 0
     private let openFolder: String
@@ -334,19 +383,21 @@ import IsiXStorage
 
         popup.target = self
         popup.action = #selector(folderChosen(_:))
-        summary.frame = NSRect(x: 0, y: 26, width: 440, height: 128)
-        summary.preferredMaxLayoutWidth = 440
+        summary.preferredMaxLayoutWidth = Self.width
         summary.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         summary.textColor = .secondaryLabelColor
-        unlisted.frame = NSRect(x: 0, y: 0, width: 440, height: 18)
         unlisted.target = self
         unlisted.action = #selector(unlistedChosen(_:))
         unlisted.isHidden = true
-        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 188))
-        popup.setFrameOrigin(NSPoint(x: 0, y: 162))
-        accessory.addSubview(popup)
-        accessory.addSubview(summary)
-        accessory.addSubview(unlisted)
+        access.bezelStyle = .rounded
+        access.controlSize = .small
+        access.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        access.sizeToFit()
+        access.target = self
+        access.action = #selector(allowAccess(_:))
+        access.isHidden = true
+        for view in [popup, summary, unlisted, access] as [NSView] { accessory.addSubview(view) }
+        layOut()
         alert.accessoryView = accessory
         fillPopup()
     }
@@ -370,6 +421,40 @@ import IsiXStorage
 
     @objc private func unlistedChosen(_ sender: Any?) {
         if let survey { show(survey) }
+    }
+
+    /// Asks for each folder of the files that could not be read, one per
+    /// disk, until one is refused, then reads the database again.
+    @objc private func allowAccess(_ sender: Any?) {
+        guard let survey else { return }
+        var allowed = false
+        for folder in LegacyDatabase.foldersHolding(survey.files.unreadLinked) {
+            guard LegacyStudiesImport.allowAccess(toLinkedFolder: folder) else { break }
+            allowed = true
+        }
+        if allowed { read() }
+    }
+
+    /// The popup at the top, the summary under it at the height of its text,
+    /// then the box and the button that are shown. The alert is laid out
+    /// again when the height changes while it is on screen.
+    private func layOut() {
+        let text = max(128, ceil(summary.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: Self.width, height: 10_000)).height ?? 128))
+        var y: CGFloat = 0
+        if !access.isHidden {
+            access.setFrameOrigin(NSPoint(x: 0, y: y))
+            y += access.frame.height + 6
+        }
+        // The box keeps its place when hidden, as before it had a button under it.
+        unlisted.frame = NSRect(x: 0, y: y, width: Self.width, height: 18)
+        y += 26
+        summary.frame = NSRect(x: 0, y: y, width: Self.width, height: text)
+        y += text + 8
+        popup.setFrameOrigin(NSPoint(x: 0, y: y))
+        y += 26
+        guard accessory.frame.height != y else { return }
+        accessory.setFrameSize(NSSize(width: Self.width, height: y))
+        if alert.window.isVisible { alert.layout() }
     }
 
     private func fillPopup() {
@@ -407,7 +492,9 @@ import IsiXStorage
         setButtons(copy: false, link: false)
         unlisted.isHidden = true
         unlisted.state = .off
+        access.isHidden = true
         summary.stringValue = NSLocalizedString("Reading the database…", comment: "")
+        layOut()
         let database = folders[selected]
         reading = Task.detached(priority: .userInitiated) { [weak self] in
             guard let read = database.survey(isCancelled: { Task.isCancelled }), !Task.isCancelled else { return }
@@ -444,12 +531,20 @@ import IsiXStorage
             // Shown again whenever the box changes: the line says what the box asks for now.
             text += "\n" + LegacyStudiesImport.unlistedText(read.files, imported: unlisted.state == .on)
         }
+        if !read.files.unreadLinked.isEmpty {
+            text += "\n" + LegacyStudiesImport.unreadLinkedText(read.files)
+        }
         let fits = free.map { $0 > needed } ?? true
-        if !fits {
+        if files == 0 {
+            // Said, where the buttons alone were left off.
+            text += "\n" + NSLocalizedString("No file of this database was found to import.", comment: "")
+        } else if !fits {
             text += "\n" + NSLocalizedString("There is not enough free space to copy these files.", comment: "")
         }
         summary.stringValue = text
         unlisted.isHidden = read.files.unlisted.isEmpty
+        access.isHidden = read.files.unreadLinked.isEmpty
+        layOut()
         setButtons(copy: fits && files > 0, link: files > 0)
     }
 }

@@ -22,7 +22,8 @@ import IsiXPreferences
 /// are added to the database. Made in code: one window for the process,
 /// kept after it is closed so that it opens again as it was.
 @MainActor
-final class ModalityWorklistWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
+final class ModalityWorklistWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate,
+                                              NSMenuItemValidation {
 
     private static var shared: ModalityWorklistWindowController?
 
@@ -73,7 +74,7 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
     private let status = NSTextField(labelWithString: "")
 
     private var procedures: [ScheduledProcedure] = []
-    private var matches: [String: WorklistStudyMatch] = [:]
+    private var matches: [String: WorklistReceivedStudy] = [:]
     private var lastAnswer: ModalityWorklistAnswer?
     private var lastUpdate: Date?
     private var refreshing = false
@@ -166,6 +167,13 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
         table.intercellSpacing = NSSize(width: 3, height: 2)
         table.dataSource = self
         table.delegate = self
+        // A step whose study has arrived opens it, as a row of the database window does.
+        table.target = self
+        table.doubleAction = #selector(openStudy(_:))
+        let menu = NSMenu()
+        menu.addItem(withTitle: NSLocalizedString("Open Study", comment: "Modality Worklist window, opens the study a scheduled step arrived as"),
+                     action: #selector(openStudy(_:)), keyEquivalent: "").target = self
+        table.menu = menu
         table.autosaveName = "IsiXModalityWorklistTable"
         table.autosaveTableColumns = true
         // The widths of Column are those of short English headers, and the saved ones were left under the
@@ -306,6 +314,37 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
         stopObserving()
     }
 
+    // MARK: Opening
+
+    /// The step a double click or the menu acts on: the row under the pointer, else the selected one.
+    private var actedOnStudy: WorklistReceivedStudy? {
+        let row = table.clickedRow >= 0 ? table.clickedRow : table.selectedRow
+        guard procedures.indices.contains(row) else { return nil }
+        return matches[procedures[row].id]
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        menuItem.action != #selector(openStudy(_:)) || actedOnStudy != nil
+    }
+
+    /// Shows the study of a step that has arrived: selected in the database window, and in its viewer, brought to
+    /// the front when it is open already. A step that has not arrived does nothing.
+    @objc private func openStudy(_ sender: Any?) {
+        guard let received = actedOnStudy else { return }
+        guard let study = ModalityWorklistService.study(of: received) else {
+            // Deleted since the marks were read: the marks say so now.
+            NSSound.beep()
+            updateMatches()
+            return
+        }
+        let browser = ProcessGraph.process.currentBrowser
+        browser?.lastStudyNotOpenedReason = nil
+        if browser?.display(study, object: study, command: "Open") != true {
+            NSSound.beep()
+            if let reason = browser?.lastStudyNotOpenedReason, !reason.isEmpty { showStatus(reason) }
+        }
+    }
+
     // MARK: Table
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -327,7 +366,7 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
         field.stringValue = text(of: procedure, in: column)
         field.alignment = column == .received ? .center : .natural
         field.textColor = column == .received ? .systemGreen : .labelColor
-        field.toolTip = column == .received ? matches[procedure.id].map(Self.explanation) : nil
+        field.toolTip = column == .received ? matches[procedure.id].map { Self.explanation($0.match) } : nil
         return field
     }
 
@@ -367,7 +406,7 @@ final class ModalityWorklistWindowController: NSWindowController, NSWindowDelega
     private func sortKey(of procedure: ScheduledProcedure, in column: Column) -> String {
         switch column {
         case .scheduled: return procedure.startDate + procedure.startTime
-        case .received: return matches[procedure.id].map { String($0.rawValue) } ?? ""
+        case .received: return matches[procedure.id].map { String($0.match.rawValue) } ?? ""
         default: return text(of: procedure, in: column)
         }
     }

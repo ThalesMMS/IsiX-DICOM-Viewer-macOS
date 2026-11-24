@@ -146,6 +146,24 @@ import IsiXImaging
         Self.isMarked(viewer.horos_fileList(at: Int(viewer.horos_curMovieIndex))?.object(at: index) as AnyObject?)
     }
 
+    /// Gives the strip above the image the key images of the frame shown,
+    /// which it marks: read after the viewer marks or unmarks an image, and
+    /// when the strip asks (a series just loaded, another frame shown, a
+    /// change of the database), not at each image shown. A post processed
+    /// series has no key images of its own, and one that shows only key
+    /// images needs no marks.
+    func refreshStrip() {
+        guard let slider = viewer.horos_slider as? ImageNavigationSlider else { return }
+        let frame = Int(viewer.horos_curMovieIndex)
+        slider.keyImagesFrame = frame
+        if viewer.horos_postprocessed || viewer.horos_displayOnlyKeyImages {
+            slider.keyImages = IndexSet()
+            return
+        }
+        let files = viewer.horos_fileList(at: frame)
+        slider.keyImages = KeyImageNavigation.keyImages(count: files?.count ?? 0) { Self.isMarked(files?.object(at: $0) as AnyObject?) }
+    }
+
     /// The check box: marks the image shown as its state says.
     func checkBoxChanged(_ sender: Any?) {
         guard !viewer.horos_postprocessed else { return }
@@ -163,6 +181,7 @@ import IsiXImaging
         viewer.horos_imageView?.needsDisplay = true
 
         browser.saveDatabases(of: file.map { [$0] } ?? [])
+        refreshStrip()
     }
 
     /// The "next" (tag 0) and "previous" key image buttons: the next key
@@ -265,6 +284,7 @@ import IsiXImaging
         browser.saveDatabases(of: files)
 
         adjustControls()
+        refreshStrip()
     }
 
     /// The key image shortcut: toggles the check box and applies it.
@@ -290,6 +310,12 @@ import IsiXImaging
         viewer.horos_keyImagePopUpButton?.isEnabled = controls.isEnabled
         if let checked = controls.isChecked {
             viewer.keyImageCheck?.state = checked ? .on : .off
+        }
+        // The strip's marks run with the strip, flipped with the data, and
+        // are those of the frame shown.
+        if let slider = viewer.horos_slider as? ImageNavigationSlider {
+            slider.flippedData = viewer.horos_imageView?.flippedData ?? false
+            if slider.keyImagesFrame != Int(viewer.horos_curMovieIndex) { refreshStrip() }
         }
     }
 
@@ -319,6 +345,7 @@ import IsiXImaging
         browser.saveDatabases(of: files)
 
         adjustControls()
+        refreshStrip()
     }
 
     /// A value read as Objective-C's BOOL reads it: any non-zero value on

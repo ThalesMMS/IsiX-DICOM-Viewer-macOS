@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewer 使用自动化来创建“邮件”草稿，并与您选择的应用程序交换图像和报告。";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewer 连接到本地网络上的 DICOM 节点（PACS、成像设备和工作站），以查询、检索和发送检查。";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewer 从光盘和可移除驱动器读取 DICOM 检查，并将您选择的检查写入 USB 驱动器。";

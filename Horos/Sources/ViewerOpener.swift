@@ -538,6 +538,9 @@ private struct ComparativeOpeningRules: Sendable {
                     }
                 }
             }) {
+                // An exception left the opening before the preview was let
+                // go: held, it would show nothing more until the next launch.
+                self.browser.horos_dontUpdatePreviewPane = false
                 BrowserObjC.log(e, stack: true, "-[BrowserController newViewerDICOM:]")
             }
         }

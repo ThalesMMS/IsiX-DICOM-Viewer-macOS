@@ -617,7 +617,7 @@ public final class PluginManager: NSObject {
         let url = URL(fileURLWithPath: resolved)
         let inspection = PluginInspector().inspect(bundleAt: url)
         guard inspection.isLoadable, let declaration = LegacyPluginDeclaration(bundleAt: url) else {
-            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), inspection.summary)
+            PluginManager.recordNotLoaded(diagnosticPath, state: NSLocalizedString("Incompatible", comment: ""), reason: inspection.summary)
             NSLog("Plugin not loaded: %@: %@", resolved as NSString, inspection.summary as NSString)
             return
         }
@@ -632,14 +632,18 @@ public final class PluginManager: NSObject {
             }
         } catch {
             let exception = IsiXPluginException(error as NSError)
-            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Load failed", comment: ""),
-                                        String(format: NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""),
-                                               exception.description as NSString))
+            PluginManager.recordNotLoaded(diagnosticPath, state: NSLocalizedString("Load failed", comment: ""),
+                                          reason: String(format: NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""),
+                                                         exception.description as NSString))
             NSLog("******** Plugin loading exception: %@", exception.description)
             return
         }
         if let outcome {
-            PluginManagerCAPIRecordLoad(diagnosticPath, outcome.state, outcome.reason)
+            if outcome.state == NSLocalizedString("Loaded", comment: "") {
+                PluginManagerCAPIRecordLoad(diagnosticPath, outcome.state, outcome.reason)
+            } else {
+                PluginManager.recordNotLoaded(diagnosticPath, state: outcome.state, reason: outcome.reason)
+            }
         }
         #endif
     }
@@ -799,6 +803,17 @@ public final class PluginManager: NSObject {
         return inspection.isLoadable ? nil : (NSLocalizedString("Incompatible", comment: ""), inspection.summary)
     }
 
+    /// Records a bundle that did not load, refused or failed, with the state
+    /// and reason the plugins list shows, and keeps it for the notice at the
+    /// end of the discovery (`PluginsNotLoadedNotice`), whose record the
+    /// import from the Horos and OsiriX folders reads at the next launch.
+    class func recordNotLoaded(_ path: String?, state: String, reason: String) {
+        PluginManagerCAPIRecordLoad(path, state, reason)
+        guard let path else { return }
+        RefusedPluginNotice.Discovery.add(.init(path: path, version: PluginBundleVersion.declared(byBundleAt: URL(fileURLWithPath: path)),
+                                                reason: reason))
+    }
+
     /// Records a bundle that does not load because another one of its name
     /// does, with the state and reason the plugins list shows, and says so once.
     private class func reportDuplicate(atPath path: String, state: String = NSLocalizedString("Blocked", comment: ""), reason: String) {
@@ -837,6 +852,15 @@ public final class PluginManager: NSObject {
 
     @objc public class func discoverPlugins() {
         #if !MACAPPSTORE
+        // In Protected Mode nothing is inspected, so nothing is said, and the
+        // record of what was said is left as it is. The note of a plugin that
+        // stopped the previous launch can switch it on during the discovery.
+        if !DCMPix.isRunOsiriXInProtectedModeActivated() { RefusedPluginNotice.Discovery.begin() }
+        defer {
+            if let refused = RefusedPluginNotice.Discovery.end(), !DCMPix.isRunOsiriXInProtectedModeActivated() {
+                PluginsNotLoadedNotice.say(refused)
+            }
+        }
         do {
             try HorosObjCException.perform {
                 let appPath = Bundle.main.builtInPlugInsPath

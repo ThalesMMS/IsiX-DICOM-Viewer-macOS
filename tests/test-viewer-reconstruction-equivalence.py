@@ -435,6 +435,14 @@ NS_SWIFT_UI_ACTOR
 @property(assign) BOOL horos_postprocessed;
 @property(assign) BOOL horos_displayOnlyKeyImages;
 @property(readonly, nullable) NSPopUpButton* horos_keyImagePopUpButton;
+// The strip above the image, which marks the key images: these viewers have none.
+@property(readonly, nullable) NSSlider* horos_slider;
+@end
+NS_SWIFT_NAME(ImageNavigationSlider)
+@interface HorosImageNavigationSlider : NSSlider
+@property(copy) NSIndexSet *keyImages;
+@property NSInteger keyImagesFrame;
+@property BOOL flippedData;
 @end
 '''
 
@@ -1026,6 +1034,9 @@ static NSMutableDictionary *seriesContent;
 - (BOOL) horos_displayOnlyKeyImages { return displayOnlyKeyImages; }
 - (void) setHoros_displayOnlyKeyImages:(BOOL) v { displayOnlyKeyImages = v; }
 - (NSPopUpButton*) horos_keyImagePopUpButton { return keyImagePopUpButton; }
+- (NSSlider*) horos_slider { return nil; }
+@end
+@implementation HorosImageNavigationSlider
 @end
 
 @implementation BrowserController (Loading)

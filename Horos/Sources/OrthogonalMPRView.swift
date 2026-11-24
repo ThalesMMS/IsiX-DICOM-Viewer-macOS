@@ -206,7 +206,18 @@ public class OrthogonalMPRView: DCMView {
         self.blendingPropagate()
     }
 
+    /// True from the double click that fills the window with this view, or brings the three back, to its release. The view moves
+    /// and changes size under the pointer, so the point the press started at, kept in the view's coordinates, is no longer where the
+    /// mouse is: a move of the mouse before the release was measured from it, as a drag of hundreds of points with the tool.
+    private var pressChangedLayout = false
+
+    public override dynamic func mouseUp(with event: NSEvent) {
+        pressChangedLayout = false
+        super.mouseUp(with: event)
+    }
+
     public override dynamic func mouseDragged(with event: NSEvent) {
+        if pressChangedLayout { return }
         super.mouseDragged(with: event)
         self.blendingPropagate()
     }
@@ -751,7 +762,9 @@ public class OrthogonalMPRView: DCMView {
         if event.clickCount == 2 {
             _controller?.restoreCrossPositions()
             _controller?.doubleClick(event, self)
+            pressChangedLayout = true
         } else {
+            pressChangedLayout = false
             _controller?.saveCrossPositions()
             super.mouseDown(with: event)
             NotificationCenter.default.post(name: NSNotification.Name.OsirixDCMViewDidBecomeFirstResponder, object: self)

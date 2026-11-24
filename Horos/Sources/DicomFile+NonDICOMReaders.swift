@@ -209,17 +209,12 @@ extension DicomFile {
                         horos_numberOfFrames = pages.count
                     }
                 } else if let otherImage {
+                    // The size the viewer draws it at, which for a PDF page
+                    // is not its size in points.
                     autoreleasepool {
-                        var size = (width: 0, height: 0)
-                        if let image = otherImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                            let representation = NSBitmapImageRep(cgImage: image)
-                            representation.size = otherImage.size
-                            if let tiff = representation.tiffRepresentation, let decoded = NSBitmapImageRep(data: tiff) {
-                                size = (decoded.pixelsWide, decoded.pixelsHigh)
-                            }
-                        }
-                        horos_width = size.width
-                        horos_height = size.height
+                        let pixels = otherImage.displayedPixels()
+                        horos_width = pixels?.width ?? 0
+                        horos_height = pixels?.height ?? 0
                     }
                 }
 

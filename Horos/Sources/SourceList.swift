@@ -144,6 +144,8 @@ final class SourceList: NSObject, @MainActor HorosBonjourBrowserDelegate, @MainA
     private weak var browser: BrowserController?
     let preferences: any PreferenceStore
     private let volumeDiscovery = HorosVolumeDiscovery()
+    /// The volumes a medium is being written to, which are not read as discs that arrived.
+    private var writtenVolumes = VolumesBeingWritten()
     private let deferred = DeferredCalls()
 
     /// The browsers of the two Bonjour service types: shared databases and DICOM nodes.
@@ -731,7 +733,7 @@ final class SourceList: NSObject, @MainActor HorosBonjourBrowserDelegate, @MainA
     }
 
     private func volumeAnalyzed(atPath path: String, kind: SourceListRules.MountKind) {
-        guard browser != nil else { return }
+        guard browser != nil, !writtenVolumes.contains(path) else { return }
 #if !OSIRIX_LIGHT
         if !SourceListRules.listsMountedVolumes(mountAction: preferences[DatabasePreferences.mountAction]) { return }
 #endif
@@ -768,13 +770,34 @@ final class SourceList: NSObject, @MainActor HorosBonjourBrowserDelegate, @MainA
         let renamed = name == NSWorkspace.didRenameVolumeNotification
         if unmounted { volumeDiscovery.cancelPath(path) }
         if renamed { volumeDiscovery.cancelPath(oldPath) }
+        // A volume being written is followed through its renames and let go
+        // once it is unmounted, whatever the setting of mounted volumes.
+        if renamed { writtenVolumes.renamed(from: oldPath, to: path) }
+        let written = writtenVolumes.contains(path)
+        if unmounted { writtenVolumes.unmounted(path) }
         guard SourceListRules.listsMountedVolumes(mountAction: mountAction) else { return }
 
         redraw()
-        if name == NSWorkspace.didMountNotification, let path { analyzeVolume(atPath: path) }
+        if name == NSWorkspace.didMountNotification, let path, !written { analyzeVolume(atPath: path) }
         if unmounted || renamed { removeVolume(atDevicePath: renamed ? oldPath : path) }
         // Probed again even if the discovery at the old path was still pending.
-        if renamed, let path { analyzeVolume(atPath: path) }
+        // Not a volume being written: the copy renames it with its studies on
+        // it, and it would be read as a disc that arrived.
+        if renamed, let path, !written { analyzeVolume(atPath: path) }
+    }
+
+    /// A medium is about to be written to the volume at `path`: it leaves the
+    /// list, and is not read again while it is written.
+    func beginWriting(volumeAtPath path: String) {
+        writtenVolumes.end()
+        writtenVolumes.begin(path)
+        volumeDiscovery.cancelPath(path)
+        removeVolume(atDevicePath: path)
+    }
+
+    /// The writing of a medium ended, written or not.
+    func endWritingVolumes() {
+        writtenVolumes.end()
     }
 
     /// A volume is about to be unmounted: its scan stops, and if it is the

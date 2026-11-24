@@ -45,7 +45,8 @@ import Testing
     /// choice between two bundles of one name asks whether each one loads,
     /// of the bundle an entry leads to, and `canLoad` is the rule itself.
     private static func rules(inspecting: @escaping @Sendable (URL) -> Bool,
-                              canLoad: @escaping @Sendable (URL) -> Bool) -> LegacyPluginImport.Rules {
+                              canLoad: @escaping @Sendable (URL) -> Bool,
+                              failedToLoad: @escaping @Sendable (LegacyPluginImport.Found) -> Bool = { _ in false }) -> LegacyPluginImport.Rules {
         @Sendable func compare(_ first: String?, _ second: String?) -> ComparisonResult? {
             guard let a = first.flatMap(Double.init), let b = second.flatMap(Double.init) else { return nil }
             return a < b ? .orderedAscending : (a > b ? .orderedDescending : .orderedSame)
@@ -65,7 +66,8 @@ import Testing
                 return (Self.formats.firstIndex(of: first.url.pathExtension.lowercased()) ?? 9)
                     < (Self.formats.firstIndex(of: second.url.pathExtension.lowercased()) ?? 9)
             },
-            canLoad: canLoad)
+            canLoad: canLoad,
+            failedToLoad: failedToLoad)
     }
 
     /// A bundle whose Info.plist declares `version`, if any, and whose
@@ -415,6 +417,45 @@ import Testing
         let again = folders.importer.survey(rules: rules)
         #expect(again.additions.isEmpty)
         #expect(again.upToDate == 2)
+    }
+
+    /// A plugin of IsiX that the last launch did not load, though this Mac can
+    /// load its code: the build of a plugin numbered by date (20250228), whose
+    /// author went on to versions (0.9.3) and whose installer only knows the
+    /// Horos folder. Another build of its name takes its place, whatever the
+    /// versions say, in the command and once at a launch; a copy of the same
+    /// build is not offered, and a plugin that loads keeps its version rule.
+    @Test func aPluginThatFailedToLoadIsReplacedByAnotherBuildWhateverTheVersions() throws {
+        let folders = Folders()
+        let horos = folders.user.appendingPathComponent("Horos/Plugins")
+        let isix = folders.isix.appendingPathComponent("Plugins")
+        try answerTheSingleOffer(folders)
+        try makePlugin(isix.appendingPathComponent("MRHeart.osirixplugin"), version: "20250228", build: "dated")
+        try makePlugin(horos.appendingPathComponent("MRHeart.osirixplugin"), version: "0.9.3", build: "versioned")
+        try makePlugin(isix.appendingPathComponent("Same.osirixplugin"), version: "1", build: "one build")
+        try makePlugin(horos.appendingPathComponent("Same.osirixplugin"), version: "1", build: "one build")
+        try makePlugin(isix.appendingPathComponent("Fine.osirixplugin"), version: "20250228", build: "dated")
+        try makePlugin(horos.appendingPathComponent("Fine.osirixplugin"), version: "0.9.3", build: "versioned")
+        let isixPlugins = isix.resolvingSymlinksInPath().path
+        let rules = Self.rules(inspecting: Self.loads, canLoad: Self.loads, failedToLoad: { found in
+            let path = found.url.resolvingSymlinksInPath().path
+            #expect(path.hasPrefix(isixPlugins), "asked of a bundle outside IsiX: \(path)")
+            return ["MRHeart.osirixplugin", "Same.osirixplugin"].contains(found.name)
+        })
+
+        let survey = folders.importer.survey(rules: rules)
+        #expect(describe(survey) == [
+            "add MRHeart.osirixplugin 0.9.3 replacing MRHeart.osirixplugin 20250228",
+            "skip Fine.osirixplugin 0.9.3: IsiX keeps Fine.osirixplugin 20250228",
+        ])
+        #expect(survey.upToDate == 1)
+
+        #expect(try offer(folders, rules: rules, importing: false)
+                == ["add MRHeart.osirixplugin 0.9.3 replacing MRHeart.osirixplugin 20250228"])
+        #expect(try offer(folders, rules: rules) == nil, "a version offered at a launch was offered again")
+        #expect(try record(folders)?["mrheart"] == "0.9.3")
+        // A plugin that loads keeps the rule of versions at a launch too.
+        #expect(try offer(folders, rules: self.rules) == nil)
     }
 
     // MARK: links and aliases

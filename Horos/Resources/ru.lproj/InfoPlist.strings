@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewer использует автоматизацию, чтобы создавать черновики в Mail и обмениваться изображениями и отчётами с выбранными вами приложениями.";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewer подключается к узлам DICOM (PACS, модальностям и рабочим станциям) в вашей локальной сети, чтобы запрашивать, получать и отправлять исследования.";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewer читает исследования DICOM с дисков и съёмных накопителей и записывает выбранные вами исследования на USB-накопитель.";

@@ -84,7 +84,8 @@ need(source, [
     ('return database.isLocal() && !database.isReadOnly', 'only a local database that can be written takes the studies'),
     ('LegacyDatabase.found(inDocuments: $0)', 'the folders are looked for in the documents folder'),
     ('folders.removeAll { Self.isSame($0, as: openFolder) }', 'the open database is not offered to itself'),
-    ('SandboxFileAccess.remember(url)', 'a chosen folder keeps its access'),
+    ('try SandboxFileAccess.retain(url)', 'a chosen folder keeps its access'),
+    ('NSLocalizedString("Access to this folder could not be kept: %@", comment: ""), error.localizedDescription)', 'and the reason is said when it cannot'),
     ('"COPYDATABASE": NSNumber(value: choice == .copy)', 'the button decides between copying and indexing in place'),
     ('"COPYDATABASEMODE": NSNumber(value: DatabaseCopyRule.always)', 'the copy is not asked a second time'),
     ('"async": NSNumber(value: true)', 'the import runs on a thread of the Activity list'),
@@ -92,10 +93,14 @@ need(source, [
     ('survey.files.paths + (unlisted.state == .on ? survey.files.unlisted : [])', 'the files the earlier database no longer lists come only when asked for'),
     ('survey.files.paths + (includingUnlisted ? survey.files.unlisted : [])', 'and without the dialog too'),
     ('LegacyDatabase.holding(imagesFolder:', 'an image folder chosen on the way to a database is read with the database beside it'),
-    ('if answer == HorosAlertPanel.alternateResponse { files += survey.files.unlisted }', 'whose unlisted files come only when asked for'),
+    ('ask([legacy], openFolder: openFolder, database: database, browser: browser)', 'by the dialog of the command, which asks whether to copy or to link'),
     ('LegacyStudiesImport.unlistedText(read.files, imported: unlisted.state == .on)', 'the line of the files no longer listed says what the box asks for'),
     ('@objc private func unlistedChosen(_ sender: Any?) {\n        if let survey { show(survey) }', 'and is shown again when the box changes'),
-    ('onMainRunLoop { self.importSurveyed(survey, into: browser) }', 'asked from the main run loop, not from the main queue'),
+    ('onMainRunLoop { self.askForChosenFolder(legacy, in: browser) }', 'asked from the main run loop, not from the main queue'),
+    ('access.isHidden = read.files.unreadLinked.isEmpty', 'the linked files that could not be read have a button that asks for their folder'),
+    ('for folder in LegacyDatabase.foldersHolding(survey.files.unreadLinked) {', 'a panel per disk'),
+    ('if allowed { read() }', 'and the database is read again with the access given'),
+    ('if files == 0 {', 'a database without a file to import says so'),
     ('name: .OsirixAddToDB', 'the notes wait for the studies to be added'),
     ('notes.notesMissing(comments: current', 'the notes only fill what is empty'),
     ('setButtons(copy: fits && files > 0, link: files > 0)', 'copying is refused without room for it, and nothing is imported without files'),
@@ -105,7 +110,7 @@ prepare = source[source.index('private func prepareNotes('):]
 prepare = prepare[:prepare.index('\n    }\n')]
 if not prepare.index('createAlbums(') < prepare.index('applyNotes(to: nil)'):
     failures.append('the albums are not made before the notes are applied')
-run = source[source.index('func run(in browser: BrowserController) {'):]
+run = source[source.index('private func ask(_ folders: [LegacyDatabase]'):]
 run = run[:run.index('\n    }\n')]
 if not run.index('prepareNotes(') < run.index('importFiles('):
     failures.append('the albums are not made before the files are imported')
@@ -125,7 +130,12 @@ TEXTS = [
     'Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are left out unless you choose to import them too.',
     'Files in the folder that the database no longer lists, such as those of deleted studies: %@ (%@). They are imported too.',
     'Also import the files the database no longer lists',
-    'Import Them Too',
+    'Files the database links to that could not be read: %@, in %@. They are left out. Check that their disk is connected, or choose Allow Access… and select that folder.',
+    'Allow Access…',
+    'Allow Access',
+    'Select the folder of the files the database links to, to let the application read them: %@',
+    'Access to this folder could not be kept: %@',
+    'No file of this database was found to import.',
     'Every file in the folder is imported, including those of studies deleted in the earlier application.',
     'This database does not record where its files are.',
     'Albums, comments and states do not come with them.',

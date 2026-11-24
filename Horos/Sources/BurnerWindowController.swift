@@ -43,6 +43,7 @@ import DiscRecordingUI
 import IsiXContracts
 import IsiXDICOMDataset
 import IsiXDICOMFile
+import IsiXDatabase
 import IsiXPreferences
 import Synchronization
 import UniformTypeIdentifiers
@@ -394,6 +395,16 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                             return
                         }
 
+                        // Asked before the user agrees to the volume being emptied, and
+                        // before the files are prepared: a volume the application may not
+                        // write on is said now, with nothing changed on it.
+                        if let volumePath = self.writeVolumePath, self.volumeTakesFiles(volumePath) == false {
+                            self.buttonsDisabled = false
+                            self.runBurnAnimation = false
+                            self.burning = false
+                            return
+                        }
+
                         let result = HorosAlertPanel.runCritical(title: NSLocalizedString("USB Writing", comment: ""), message: String(format: NSLocalizedString("The ENTIRE content of the selected media (%@) will be deleted, before writing the new data. Do you confirm?", comment: ""), self.writeVolumePath ?? "(null)"), defaultButton: NSLocalizedString("OK", comment: ""), alternateButton: NSLocalizedString("Cancel", comment: ""), otherButton: nil)
 
                         if result != HorosAlertPanel.defaultResponse {
@@ -402,8 +413,6 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                             self.burning = false
                             return
                         }
-
-                        self.browserWindow?.browser.removePath(fromSources: self.writeVolumePath)
                     }
 
                     if options.destination == Int(DMGFile.rawValue) {
@@ -449,6 +458,14 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                             self.burning = false
                             return
                         }
+                    }
+
+                    // The volume leaves the sources and is not read as a disc that
+                    // arrived while it is written: the copy ends by renaming it, with
+                    // the studies on it, and the question about a mounted disc would
+                    // come for the medium just written, and keep this window open.
+                    if let volumePath = self.writeVolumePath {
+                        self.browserWindow?.browser.sourceList.beginWriting(volumeAtPath: volumePath)
                     }
 
                     // What the thread needs is taken here, on the main thread.
@@ -628,6 +645,7 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
                     onMainActor {
                         self.failed = result.failed
                         self.burnFailure = result.failure
+                        self.browserWindow?.browser.sourceList.endWritingVolumes()
 
                         self.buttonsDisabled = false
                         self.runBurnAnimation = false
@@ -716,6 +734,72 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         return result.written
     }
 
+    /// Whether the application runs in the App Sandbox, which lets it write only
+    /// where the user pointed in a panel: a volume chosen in the window's menu is
+    /// not one of those places.
+    nonisolated private static var isSandboxed: Bool {
+        ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    }
+
+    /// Where System Settings lists the applications that may use removable volumes.
+    nonisolated private static let privacySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders")
+
+    /// The sentence for a volume that did not take a file, which says that nothing
+    /// on it was changed and, where the user can do something about it, what.
+    nonisolated private static func volumeRefusalMessage(_ refusal: VolumeWriteProbe.Refusal, volumePath: String) -> String {
+        switch refusal {
+        case .notPermitted where isSandboxed:
+            return String(format: NSLocalizedString("IsiX DICOM Viewer was not given access to %@, and nothing on it was changed. Start again and, in the panel that opens, select the volume itself.", comment: ""), volumePath)
+        case .notPermitted:
+            return String(format: NSLocalizedString("macOS did not let IsiX DICOM Viewer write on %@, and nothing on it was changed. Allow IsiX DICOM Viewer to use removable volumes in System Settings > Privacy & Security > Files & Folders, then start again.", comment: ""), volumePath)
+        case .accessDenied:
+            return String(format: NSLocalizedString("The permissions of %@ do not let this account write on it, and nothing on it was changed.", comment: ""), volumePath)
+        case .readOnly:
+            return String(format: NSLocalizedString("%@ is read-only, and nothing on it was changed.", comment: ""), volumePath)
+        case .other(let errorNumber):
+            return String(format: NSLocalizedString("%@ did not take a test file (%@), and nothing on it was changed.", comment: ""), volumePath, String(cString: strerror(errorNumber)))
+        }
+    }
+
+    /// Whether the volume takes a file. In the App Sandbox the user is first asked
+    /// for the volume in a panel, which is what gives the application the access.
+    /// A volume that does not take it is said here, with the way to the privacy
+    /// settings when they are what keeps the application from it.
+    private func volumeTakesFiles(_ volumePath: String) -> Bool {
+        var refusal = VolumeWriteProbe.refusal(writingTo: volumePath)
+        if refusal == .notPermitted && BurnerWindowController.isSandboxed {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.allowsMultipleSelection = false
+            panel.directoryURL = URL(fileURLWithPath: volumePath, isDirectory: true)
+            panel.message = String(format: NSLocalizedString("To write on %@, IsiX DICOM Viewer needs your permission: select the volume and click Allow.", comment: ""), volumePath)
+            panel.prompt = NSLocalizedString("Allow", comment: "")
+            if panel.runModal() != .OK {
+                return false
+            }
+            refusal = VolumeWriteProbe.refusal(writingTo: volumePath)
+        }
+        guard let refusal else { return true }
+
+        NSLog("****** the volume %@ did not take a file: %@", volumePath, String(describing: refusal))
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = NSLocalizedString("USB Writing", comment: "")
+        alert.informativeText = BurnerWindowController.volumeRefusalMessage(refusal, volumePath: volumePath)
+        if refusal == .notPermitted && BurnerWindowController.isSandboxed == false, let url = BurnerWindowController.privacySettingsURL {
+            alert.addButton(withTitle: NSLocalizedString("Open Privacy Settings", comment: ""))
+            alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+            if alert.runModal() == .alertFirstButtonReturn {
+                NSWorkspace.shared.open(url)
+            }
+        } else {
+            alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+            alert.runModal()
+        }
+        return false
+    }
+
     /// Erases the volume at `writeVolumePath`, copies `folder` to it, names it
     /// after `name` and ejects it, on the burn thread; `failure` says why when the
     /// files were not written.
@@ -725,10 +809,12 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         // The volume is emptied before the copy, so a copy that then fails leaves the
         // key both erased and empty. It used to fail in silence - the error was
         // discarded and the window closed with the success sound - so a written
-        // medium could not be told from one that was not.
+        // medium could not be told from one that was not. A volume that takes no
+        // file is not emptied at all: what was on it stays.
         let writeVolume = (writeVolumePath ?? "") as NSString
-        for path in (writeVolumePath.flatMap { try? FileManager.default.contentsOfDirectory(atPath: $0) } ?? []) {
-            try? FileManager.default.removeItem(atPath: writeVolume.appendingPathComponent(path))
+        if let refusal = VolumeWriteProbe.empty(writeVolumePath ?? "") {
+            NSLog("****** the volume did not take a file: %@", String(describing: refusal))
+            return (false, volumeRefusalMessage(refusal, volumePath: writeVolumePath ?? "(null)"))
         }
 
         var copyError: NSError?
@@ -756,9 +842,12 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
             }
         }
 
-        NSWorkspace.shared.unmountAndEjectDevice(atPath: (writeVolume.deletingLastPathComponent as NSString).appendingPathComponent(newName))
+        // A volume that kept its name through every rename is ejected under it.
+        let renamedPath = (writeVolume.deletingLastPathComponent as NSString).appendingPathComponent(newName)
+        let ejectedPath = FileManager.default.fileExists(atPath: renamedPath) ? renamedPath : writeVolume as String
+        NSWorkspace.shared.unmountAndEjectDevice(atPath: ejectedPath)
 
-        NSLog("Ejecting new DICOM Volume: %@", newName)
+        NSLog("Ejecting new DICOM Volume: %@", ejectedPath)
 
         return (true, nil)
     }
@@ -904,6 +993,9 @@ public final class BurnerWindowController: NSWindowController, NSWindowDelegate 
         preferences.set(compressionMode?.selectedTag() ?? 0, for: ApplicationPreferences.burnCompressionMode)
 
         NSLog("Burner windowWillClose")
+
+        // A burn that ended before its copy let no volume go.
+        browserWindow?.browser.sourceList.endWritingVolumes()
 
         window?.delegate = nil
 

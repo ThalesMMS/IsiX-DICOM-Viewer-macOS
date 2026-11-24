@@ -75,12 +75,12 @@ enum ModalityWorklistService {
         return ModalityWorklistAnswer(procedures: ScheduledProcedure.merged(answers), failures: failures, askedNodes: nodes.count)
     }
 
-    /// The match of each step that has arrived, by the step's identity: the
-    /// studies of the local database with one of the steps' Study Instance
-    /// UIDs, Accession Numbers or Patient IDs, read on the main thread, which
-    /// owns the database's context.
+    /// The study each step that has arrived was found as, by the step's
+    /// identity: the studies of the local database with one of the steps'
+    /// Study Instance UIDs, Accession Numbers or Patient IDs, read on the main
+    /// thread, which owns the database's context.
     @MainActor
-    static func matches(for procedures: [ScheduledProcedure]) -> [String: WorklistStudyMatch] {
+    static func matches(for procedures: [ScheduledProcedure]) -> [String: WorklistReceivedStudy] {
         guard !procedures.isEmpty, let database = BrowserDatabaseSource.process.activeLocalDatabase else { return [:] }
         let values = ModalityWorklistMatching.lookupValues(of: procedures)
         var terms: [NSPredicate] = []
@@ -101,10 +101,20 @@ enum ModalityWorklistService {
             ReceivedStudy(studyInstanceUID: study.studyInstanceUID, accessionNumber: study.accessionNumber, patientID: study.patientID,
                           date: study.date)
         }
-        var matches: [String: WorklistStudyMatch] = [:]
+        var matches: [String: WorklistReceivedStudy] = [:]
         for procedure in procedures {
-            if let match = ModalityWorklistMatching.match(procedure, among: studies) { matches[procedure.id] = match }
+            if let received = ModalityWorklistMatching.received(procedure, among: studies) { matches[procedure.id] = received }
         }
         return matches
+    }
+
+    /// The study of the local database a step arrived as, nil once it has
+    /// been deleted or moved to another database.
+    @MainActor
+    static func study(of received: WorklistReceivedStudy) -> DicomStudy? {
+        guard !received.studyInstanceUID.isEmpty, let database = BrowserDatabaseSource.process.activeLocalDatabase else { return nil }
+        return (database.objects(forEntity: database.studyEntity(),
+                                 predicate: NSPredicate(format: "studyInstanceUID == %@", received.studyInstanceUID)) ?? [])
+            .compactMap { $0 as? DicomStudy }.first
     }
 }

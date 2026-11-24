@@ -40,6 +40,59 @@ import Testing
         #expect(SeriesMenuModel(studies: []).items.isEmpty)
     }
 
+    /// The contextual menu's submenu: the studies shown keep their series in
+    /// line, the others fold theirs into a submenu of their own item.
+    @Test func theContextualSubmenuFoldsTheStudiesNotShown() {
+        // Both studies with series are shown: nothing folds, and the PACS
+        // study without series stays a plain item.
+        #expect(patient().contextualItems == [.study(0), .series(study: 0, series: 0), .series(study: 0, series: 1), .series(study: 0, series: 2), .separator,
+                                              .study(1), .series(study: 1, series: 0), .separator,
+                                              .study(2)])
+        // Only the older study is shown: the recent one folds, however many series it has.
+        var older = patient()
+        older.studies[0].series[0].isShown = false
+        #expect(older.contextualItems == [.folded(0), .separator, .study(1), .series(study: 1, series: 0), .separator, .study(2)])
+        // Many studies: one line each, the one shown in line, in the studies' order.
+        let many = SeriesMenuModel(studies: (0..<6).map { index in
+            .init(title: "study \(index)", picture: .number(studyIndex: index), isViewerStudyOnPACS: false,
+                  series: (0..<21).map { Self.series("s\($0)", 10, shown: index == 4 && $0 == 7) })
+        })
+        let items = many.contextualItems
+        #expect(items.count == 4 + 1 + 1 + 21 + 1 + 1)
+        #expect(Array(items.prefix(6)) == [.folded(0), .folded(1), .folded(2), .folded(3), .separator, .study(4)])
+        #expect(Array(items.suffix(2)) == [.separator, .folded(5)])
+        #expect(items.firstIndex(of: .series(study: 4, series: 7)) == 13)
+        #expect(many.items.firstIndex(of: .series(study: 4, series: 7)) == 4 * 23 + 8)
+        // The last study shown ends the list without a separator.
+        var last = many
+        last.studies[4].series[7].isShown = false
+        last.studies[5].series[0].isShown = true
+        #expect(last.contextualItems.last == .series(study: 5, series: 20))
+    }
+
+    /// With one study, or with no series shown, the submenu is the popup's list.
+    @Test func theContextualSubmenuIsThePopupsListWithNothingToFold() {
+        func flat(_ model: SeriesMenuModel) -> [SeriesMenuModel.Item] {
+            model.contextualItems.compactMap { item in
+                switch item {
+                case .study(let study): return .study(study)
+                case .series(let study, let series): return .series(study: study, series: series)
+                case .separator: return .separator
+                case .folded: return nil
+                }
+            }
+        }
+        var none = patient(lastIsViewerStudyOnPACS: true)
+        none.studies[0].series[0].isShown = false
+        none.studies[1].series[0].isShown = false
+        #expect(flat(none) == none.items)
+        #expect(none.contextualItems.count == none.items.count)
+        let one = SeriesMenuModel(studies: [.init(title: "only", picture: .number(studyIndex: 0), isViewerStudyOnPACS: false,
+                                                  series: [Self.series("a", 1, shown: true), Self.series("b", 2)])])
+        #expect(flat(one) == one.items)
+        #expect(SeriesMenuModel(studies: []).contextualItems.isEmpty)
+    }
+
     @Test func thePopupSelectsTheLastSeriesShown() {
         // Item 6 is T1, after Axial (1): the last one selected stays.
         #expect(patient().selectedItem == 6)

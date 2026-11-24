@@ -17,6 +17,11 @@ nibs of two languages, compiled from the sources, and run in Spanish:
   at the level of ordinary windows, does not hide when the application
   is left, moves to the desktop in use and may sit over a full-screen window;
 - closed, it closes at once, and -affiche shows the same window again;
+- shown again after being closed, it opens centred on the screen in use, even
+  when it was left where no screen is, and an open window stays where it is;
+  with several displays and desktops the window centred once when the nib
+  loaded could open where the user was not looking;
+- the log says where it opened, on which screen, desktop and whether visible;
 - a controller whose nib is missing shows nothing and raises nothing.
 
 In the sources: no timer is left in the controller, the application keeps one
@@ -99,6 +104,31 @@ enum ReleaseNotes {
     controller.fade(nil)
     check(!window.isVisible, "-fade: leaves the window open")
 
+    // Closed and shown again, it opens centred on the screen in use, even
+    // when it was left where no screen is.
+    window.setFrame(NSRect(x: -40000, y: -40000, width: window.frame.width, height: window.frame.height), display: false)
+    window.performClose(nil)
+    controller.showWindow(nil)
+    controller.affiche()
+    if let screen = NSScreen.main {
+        let expected = SplashScreen.centredFrame(window.frame.size, in: screen.visibleFrame)
+        check(window.frame == expected, "the window opens at \(window.frame), not centred on the screen in use at \(expected)")
+        check(screen.visibleFrame.contains(window.frame), "the window opens outside the screen in use: \(window.frame)")
+    } else {
+        check(false, "no screen to open the window on")
+    }
+    // Open, it stays where the user put it.
+    let moved = window.frame.offsetBy(dx: -10, dy: -10)
+    window.setFrame(moved, display: false)
+    controller.showWindow(nil)
+    controller.affiche()
+    check(window.frame == moved, "an open window is moved back: \(window.frame)")
+    let tall = SplashScreen.centredFrame(NSSize(width: 600, height: 900), in: NSRect(x: 100, y: 50, width: 1000, height: 700))
+    check(tall == NSRect(x: 300, y: -150, width: 600, height: 900), "a window taller than the screen loses its top edge: \(tall)")
+    let fits = SplashScreen.centredFrame(NSSize(width: 600, height: 500), in: NSRect(x: 1920, y: 0, width: 1000, height: 700))
+    check(fits == NSRect(x: 2120, y: 100, width: 600, height: 500), "the window is not centred on a second display: \(fits)")
+    RunLoop.main.run(until: Date().addingTimeInterval(1.5))
+
     let missing = SplashScreen(windowNibName: "NoSuchNib")
     missing.affiche()
     missing.affiche()
@@ -107,7 +137,7 @@ enum ReleaseNotes {
 
 MainActor.assumeIsolated { run() }
 if failures > 0 { exit(1) }
-print("PASS: the About window loads in the language, opens opaque and visible at once, as an ordinary window that follows the desktop in use, closes at once and comes back the same; a missing nib shows nothing")
+print("PASS: the About window loads in the language, opens opaque and visible at once, centred on the screen in use, as an ordinary window that follows the desktop in use, closes at once and comes back the same; a missing nib shows nothing")
 '''
 
 with tempfile.TemporaryDirectory(prefix='horos-about-') as directory:
@@ -135,6 +165,8 @@ with tempfile.TemporaryDirectory(prefix='horos-about-') as directory:
     print('\n'.join(line for line in (run.stdout + run.stderr).strip().splitlines() if line.startswith(('PASS', 'FAIL')) or run.returncode not in (0, 1)))
     check(run.returncode == 0, f'the window failed (exit {run.returncode})')
     check(run.stderr.count('the About window could not be loaded') == 1, 'a missing nib is not said once in the log')
+    check(re.search(r'IsiX: the About window opened at x -?\d+ y -?\d+, \d+ x \d+, on the screen at x -?\d+ y -?\d+, \d+ x \d+, of \d+ screens; on the desktop in use: [01], visible: [01]', run.stderr) is not None,
+          'where the About window opened is not in the log')
 
 splash = source_text('SplashScreen')
 check('Timer.scheduledTimer' not in splash and 'timerIn' not in splash and 'timerOut' not in splash, 'a timer still shows or closes the window')

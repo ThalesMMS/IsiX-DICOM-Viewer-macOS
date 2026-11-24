@@ -25,8 +25,21 @@ public final class SandboxFileAccess: NSObject {
 
     @objc(rememberURL:)
     @discardableResult public static func remember(_ url: URL) -> Bool {
+        do {
+            try retain(url)
+            return true
+        } catch {
+            NSLog("Unable to retain folder access: %@", error.localizedDescription)
+            return false
+        }
+    }
+
+    /// Keeps the access the user gave to `url` for this run and for the next
+    /// launches, and throws the reason when it cannot be kept, for the caller
+    /// that says it. Outside the App Sandbox there is nothing to keep.
+    public static func retain(_ url: URL) throws {
         #if MACAPPSTORE
-        return activeURLs.withLock { active in
+        try activeURLs.withLock { active in
             let path = url.standardizedFileURL.path
             let started = url.startAccessingSecurityScopedResource()
             do {
@@ -39,15 +52,11 @@ public final class SandboxFileAccess: NSObject {
                     previous.url.stopAccessingSecurityScopedResource()
                 }
                 active[path] = Grant(url: url, started: started)
-                return true
             } catch {
                 if started { url.stopAccessingSecurityScopedResource() }
-                NSLog("Unable to retain folder access: %@", error.localizedDescription)
-                return false
+                throw error
             }
         }
-        #else
-        return true
         #endif
     }
 

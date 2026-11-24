@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "يستخدم IsiX DICOM Viewer الأتمتة لإنشاء مسودات في Mail وتبادل الصور والتقارير مع التطبيقات التي تختارها.";
+"NSLocalNetworkUsageDescription" = "يتصل IsiX DICOM Viewer بعُقد DICOM (PACS وأجهزة التصوير ومحطات العمل) على شبكتك المحلية للاستعلام عن الدراسات واسترجاعها وإرسالها.";
+"NSRemovableVolumesUsageDescription" = "يقرأ IsiX DICOM Viewer دراسات DICOM من الأقراص ووحدات التخزين القابلة للإزالة، ويكتب الدراسات التي تختارها على وحدة تخزين USB.";

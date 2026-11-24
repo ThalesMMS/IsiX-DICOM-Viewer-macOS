@@ -311,6 +311,8 @@
 	<string>YES</string>
 		<key>NSLocalNetworkUsageDescription</key>
 	<string>IsiX DICOM Viewer connects to DICOM nodes - PACS, modalities and workstations - on your local network to query, retrieve and send studies.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>IsiX DICOM Viewer reads DICOM studies from discs and removable drives, and writes the studies you choose to a USB drive.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(HUMAN_READABLE_COPYRIGHT)</string>
 	<key>NSMainNibFile</key>

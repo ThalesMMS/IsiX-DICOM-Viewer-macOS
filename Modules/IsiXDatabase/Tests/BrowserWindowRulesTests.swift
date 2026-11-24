@@ -93,6 +93,23 @@ struct BrowserWindowRulesTests {
         #expect(PreviewAnimation.sliderChange(animate: false, sliderEnabled: true, images: 4) == .disable)
     }
 
+    @Test func frameTheSliderShows() {
+        // Several images: the one the slider is on, and nothing past them.
+        #expect(PreviewAnimation.sliderFrame(images: 3, firstImageFrames: { nil }, position: 2) == .image(2))
+        #expect(PreviewAnimation.sliderFrame(images: 3, firstImageFrames: { NSNumber(value: 9) }, position: 3) == nil)
+        #expect(PreviewAnimation.sliderFrame(images: 3, firstImageFrames: { nil }, position: -1) == nil)
+        // One image of one frame, whatever its row says of a file that states no Number of Frames.
+        for frames: Any? in [NSNumber(value: 0), NSNumber(value: 1), nil, "0" as NSString, NSNumber(value: -1)] {
+            #expect(PreviewAnimation.sliderFrame(images: 1, firstImageFrames: { frames }, position: 0) == .image(0))
+            #expect(PreviewAnimation.sliderFrame(images: 1, firstImageFrames: { frames }, position: 1) == nil)
+        }
+        // One image of several frames: the frame the slider is on.
+        #expect(PreviewAnimation.sliderFrame(images: 1, firstImageFrames: { NSNumber(value: 12) }, position: 7) == .frame(7, of: 12))
+        #expect(PreviewAnimation.sliderFrame(images: 1, firstImageFrames: { "2" as NSString }, position: 0) == .frame(0, of: 2))
+        // No image.
+        #expect(PreviewAnimation.sliderFrame(images: 0, firstImageFrames: { NSNumber(value: 4) }, position: 0) == nil)
+    }
+
     @Test func savedSortSearchMenuAndDefaultDatabase() {
         #expect(ListSort.restored(saved: nil, isVisible: { _ in true }) == .byName)
         #expect(ListSort.restored(saved: ["key": "date", "order": NSNumber(value: false)], isVisible: { _ in true }) == .saved(key: "date", ascending: false))

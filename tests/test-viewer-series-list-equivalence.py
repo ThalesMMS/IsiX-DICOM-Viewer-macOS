@@ -758,6 +758,9 @@ void N2LogStackTraceMessage(NSString *message) { N2LogStackTrace(@"%@", message)
 @implementation HarnessWindow
 - (BOOL) isVisible { return self.harnessVisible; }
 - (BOOL) isKeyWindow { return self.harnessKey; }
+// The harness' viewers are in front: only the front viewer's series menu brings
+// the database window to its study, which the former code did for every viewer.
+- (BOOL) isMainWindow { return YES; }
 - (NSPoint) mouseLocationOutsideOfEventStream { return self.harnessMouse; }
 - (void) makeKeyAndOrderFront:(id)sender { Record([NSString stringWithFormat: @"%@ makeKeyAndOrderFront %@", Name(self), Name(sender)]); }
 - (void) setRepresentedFilename:(NSString*)path { Record([NSString stringWithFormat: @"%@ representedFilename %@", Name(self), Name(path)]); }
@@ -1407,6 +1410,23 @@ static void DumpMenu(NSMenu *menu, NSString *indent) {
     }
 }
 
+// The contextual menu's series submenu was a copy of the popup's menu. It now
+// keeps in line only the series of the studies shown and folds the series of
+// each other study into a submenu of the study's item (SeriesMenuModel's
+// contextualItems, tested in IsiXImaging). What stays the same is recorded: the
+// studies and series it leads to, in the popup's order, with their titles,
+// colours, actions and objects; not the separators, the nesting nor the
+// pictures, which were copies there and are the popup's own here.
+static void DumpSeriesOfMenu(NSMenu *menu, NSString *indent) {
+    for (NSMenuItem *item in menu.itemArray) {
+        if (item.isSeparatorItem) continue;
+        Record([NSString stringWithFormat: @"%@item %@ attributed %@ action %@ target %@ rep %@ state %ld tag %ld", indent, Name(item.title),
+                Name(item.attributedTitle), item.action ? NSStringFromSelector(item.action) : @"nil", Name(item.target),
+                Name(item.representedObject), (long)item.state, (long)item.tag]);
+        if (item.submenu) DumpSeriesOfMenu(item.submenu, indent);
+    }
+}
+
 static void DumpViewer(ViewerController *v) {
     NSPopUpButton *popup = v->seriesPopupMenu;
     Record([NSString stringWithFormat: @"%@ popup selected %ld needs popup %d matrix %d built %d", Name(v), (long)popup.indexOfSelectedItem,
@@ -1415,7 +1435,7 @@ static void DumpViewer(ViewerController *v) {
     NSMenuItem *contextual = v->seriesPopupContextualMenu;
     if (contextual) {
         Record([NSString stringWithFormat: @"  contextual %@ image %@", Name(contextual.title), Name(contextual.image)]);
-        if (contextual.submenu) DumpMenu(contextual.submenu, @"    ");
+        if (contextual.submenu) DumpSeriesOfMenu(contextual.submenu, @"    ");
     }
     NSButton *b = v->comparativesButton;
     Record([NSString stringWithFormat: @"  comparatives enabled %d title %@ attributed %@ tip %@", b.isEnabled, Name(b.title), Name(b.attributedTitle), Name(b.toolTip)]);

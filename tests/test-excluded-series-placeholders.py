@@ -254,4 +254,11 @@ assert 'cell.tag >= 0 && cell.tag < matrixViewArray.count' in selection, 'the ma
 deletion = (root / 'Horos/Sources/StudyDeletionJob.swift').read_text()
 assert 'ExcludedSeries.forget(study: uid, database: folder)' in deletion
 assert 'self.browser.horosPrepareExcludedSeries(of: item)' in preview
+# With no row selected the thumbnails and the placeholders of the last row go:
+# the matrix is laid out by their count, and a deleted study's stayed.
+none_shown = preview[preview.index('func showNoThumbnails()'):preview.index('func showThumbnails(of item: Any, sameRow: Bool)')]
+assert none_shown.index('browser.horos_matrixViewArray = []') < none_shown.index('browser.horosPrepareExcludedSeries(of: nil)') < none_shown.index('matrixInit(0)')
+selection_change = (root / 'Horos/Sources/BrowserController+OutlineSelection.swift').read_text()
+selection_change = selection_change[selection_change.index('guard let item else {'):]
+assert 'previewPane.showNoThumbnails()' in selection_change[:selection_change.index('return')], 'no selection clears the placeholders'
 print('PASS: no notice; placeholders after the series, outside the arrays other uses read; recorded, pictured, forgotten')

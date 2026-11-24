@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewer utilise l’automatisation pour créer des brouillons dans Mail et échanger des images et des comptes rendus avec les applications que vous choisissez.";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewer se connecte aux nœuds DICOM (PACS, modalités et stations de travail) de votre réseau local pour interroger, récupérer et envoyer des examens.";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewer lit les examens DICOM des disques et des supports amovibles, et écrit sur une clé USB les examens que vous choisissez.";

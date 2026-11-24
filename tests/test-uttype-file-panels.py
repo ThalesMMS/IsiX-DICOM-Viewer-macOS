@@ -74,9 +74,6 @@ EXPECTED = json.loads(r'''{
     ],
     [
       "plist"
-    ],
-    [
-      "sql"
     ]
   ],
   "Preference Panes/OSICustomImageAnnotations/OSICustomImageAnnotations.swift": [
@@ -301,7 +298,15 @@ for filename, extension_lists in EXPECTED.items():
                 if ext == 'rtfd':
                     objc.append(f'NSCAssert([types{count}[{index}] conformsToType:UTTypePackage], @"RTFD package");')
             count += 1
-assert count == 54, count
+assert count == 53, count
+
+# The panel that adds a local database path takes its types from the choice of
+# IsiXStorage, which answers the index file of a database out of the sandbox and
+# no type in it, where the panel takes folders only: no literal to compare here.
+locations = (ROOT / 'Preference Panes/OSILocationsPreferencePane/OSILocationsPreferencePanePref.swift').read_text()
+assert 'oPanel.allowedContentTypes = choice.fileExtensions.compactMap { UTType(filenameExtension: $0) }' in locations
+choice = (ROOT / 'Modules/IsiXStorage/Sources/LocalDatabasePathChoice.swift').read_text()
+assert 'public var fileExtensions: [String] { sandboxed ? [] : ["sql"] }' in choice
 swift.append('class NamePanel { var nameFieldStringValue = "" }')
 # Unknown/custom extensions must resolve to a constrained dynamic type, never
 # disappear through compactMap and turn the panel into an unrestricted filter.
@@ -322,4 +327,4 @@ with tempfile.TemporaryDirectory(prefix='horos-uttype-') as folder:
     subprocess.run(['xcrun', 'clang', '-fobjc-arc', str(tmp / 'main.m'), '-framework', 'AppKit',
                     '-framework', 'UniformTypeIdentifiers', '-o', str(tmp / 'objc-test')], check=True)
     subprocess.run([str(tmp / 'objc-test')], check=True)
-print('PASS: 54 migrated panel filters, custom filename tags, package conformance and export suffixes')
+print('PASS: 53 migrated panel filters, the types of the local database path panel from its choice, custom filename tags, package conformance and export suffixes')

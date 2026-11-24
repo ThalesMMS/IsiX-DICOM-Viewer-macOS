@@ -150,7 +150,7 @@ extension BrowserController {
 
         guard let item else {
             matrix?.selectCell(withTag: 0)
-            matrixInit(0)
+            previewPane.showNoThumbnails()
 
             horos_previousItem = nil
 

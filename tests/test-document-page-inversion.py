@@ -234,6 +234,7 @@ def run_harness():
                                 '-module-cache-path', str(work / 'modules'),
                                 str(ROOT / 'Modules/IsiXImaging/Sources/NonDICOM/ARGBImages.swift'),
                                 str(ROOT / 'Modules/IsiXImaging/Sources/ViewDrawing/DocumentPagePolarity.swift'),
+                                str(SOURCES / 'NSImage+DisplayedPixels.swift'),
                                 str(work / 'Harness.swift'), str(work / 'main.swift'),
                                 *process_graph_stand_in.swift_flags(work / 'isix'), '-o', str(binary)],
                                capture_output=True, text=True)

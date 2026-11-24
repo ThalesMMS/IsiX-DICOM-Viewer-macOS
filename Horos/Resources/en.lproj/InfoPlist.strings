@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewer uses automation to create Mail drafts and exchange images and reports with the applications you choose.";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewer connects to DICOM nodes - PACS, modalities and workstations - on your local network to query, retrieve and send studies.";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewer reads DICOM studies from discs and removable drives, and writes the studies you choose to a USB drive.";

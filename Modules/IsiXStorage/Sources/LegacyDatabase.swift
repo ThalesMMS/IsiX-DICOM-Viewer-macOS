@@ -230,23 +230,47 @@ public struct LegacyDatabase: Sendable, Equatable {
         public let bytes: Int64
         public let unlisted: [String]
         public let unlistedBytes: Int64
+        /// The files the database lists outside its folder that could not be
+        /// read as files: gone, on a disk that is not connected, or where the
+        /// application may not read. They are in neither list above.
+        public let unreadLinked: [String]
 
-        public init(paths: [String], bytes: Int64, unlisted: [String] = [], unlistedBytes: Int64 = 0) {
+        public init(paths: [String], bytes: Int64, unlisted: [String] = [], unlistedBytes: Int64 = 0, unreadLinked: [String] = []) {
             self.paths = paths
             self.bytes = bytes
             self.unlisted = unlisted
             self.unlistedBytes = unlistedBytes
+            self.unreadLinked = unreadLinked
         }
     }
 
+    /// Where to look for the files of `paths`, or to ask leave to read them:
+    /// one folder per disk, the deepest that holds every file of that disk,
+    /// sorted. A disk is a volume under `/Volumes`; every other path is of
+    /// the startup disk.
+    public static func foldersHolding(_ paths: [String]) -> [String] {
+        var common: [String: [String]] = [:]
+        for path in paths {
+            let folder = Array(URL(fileURLWithPath: path).pathComponents.dropLast())
+            let disk = folder.count >= 3 && folder[1] == "Volumes" ? folder[2] : ""
+            if let shared = common[disk] {
+                common[disk] = Array(zip(shared, folder).prefix { $0 == $1 }.map(\.0))
+            } else {
+                common[disk] = folder
+            }
+        }
+        return common.values.map { NSString.path(withComponents: $0) }.sorted()
+    }
+
     /// The files of the database's image folder, hidden ones left out, and
-    /// the files it lists elsewhere that are still there. With `listed`, the
+    /// the files it lists elsewhere that are still there; those that cannot
+    /// be read are counted apart. With `listed`, the
     /// files of the folder it does not list are set apart; without it, which
     /// is when the database does not say, every file of the folder is to
     /// import. Nil when `isCancelled` answers true.
     public func files(linked: [String], listed: LegacyFileIndex? = nil, fileManager: FileManager = .default,
                       isCancelled: () -> Bool = { false }) -> Files? {
-        var paths: [String] = [], bytes: Int64 = 0, unlisted: [String] = [], unlistedBytes: Int64 = 0
+        var paths: [String] = [], bytes: Int64 = 0, unlisted: [String] = [], unlistedBytes: Int64 = 0, unreadLinked: [String] = []
         let keys: [URLResourceKey] = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
         if let enumerator = fileManager.enumerator(at: imagesFolder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles],
                                                    errorHandler: { _, _ in true }) {
@@ -270,11 +294,14 @@ public struct LegacyDatabase: Sendable, Equatable {
         }
         for (index, path) in linked.enumerated() {
             if index % 512 == 0 && isCancelled() { return nil }
-            guard let size = Self.size(of: URL(fileURLWithPath: path), keys: keys) else { continue }
+            guard let size = Self.size(of: URL(fileURLWithPath: path), keys: keys) else {
+                unreadLinked.append(path)
+                continue
+            }
             paths.append(path)
             bytes += size
         }
-        return Files(paths: paths, bytes: bytes, unlisted: unlisted, unlistedBytes: unlistedBytes)
+        return Files(paths: paths, bytes: bytes, unlisted: unlisted, unlistedBytes: unlistedBytes, unreadLinked: unreadLinked)
     }
 
     // MARK: - What to import

@@ -87,6 +87,8 @@ v1 = (root / 'Horos/Sources/PluginManager+IsiXPlugins.swift').read_text()
 load = swift_block(source, source.index('@objc(loadPluginAtPath:)'))
 # What it says of a second bundle with the name of one already loading.
 load += '\n' + swift_block(source, source.index('    private class func reportDuplicate(atPath'))
+# Where a bundle that did not load is recorded and kept for the notice at the end of a discovery.
+load += '\n' + swift_block(source, source.index('    class func recordNotLoaded('))
 load_v1 = swift_block(v1, v1.index('@objc(loadIsiXPluginAtPath:)'))
 former = '\n'.join(swift_block(source, source.index(anchor)) for anchor in (
     '@objc(loadPluginBundle:)', '    private class func registerFormerPlugin(',

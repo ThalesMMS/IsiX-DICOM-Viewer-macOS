@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "IsiX DICOM Viewerは、オートメーションを使用してメールの下書きを作成し、選択したアプリケーションと画像やレポートをやり取りします。";
+"NSLocalNetworkUsageDescription" = "IsiX DICOM Viewerは、ローカルネットワーク上のDICOMノード（PACS、モダリティ、ワークステーション）に接続して、検査の問い合わせ、取得、送信を行います。";
+"NSRemovableVolumesUsageDescription" = "IsiX DICOM Viewerは、ディスクやリムーバブルドライブからDICOM検査を読み込み、選択した検査をUSBドライブに書き込みます。";

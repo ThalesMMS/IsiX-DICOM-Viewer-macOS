@@ -112,7 +112,7 @@ public extension ViewerController {
 
     @objc(isFrontMost2DViewer:)
     class func isFrontMost2DViewer(_ window: NSWindow?) -> Bool {
-        window != nil && viewerRegistry.frontMostDisplayedViewer(on: nil)?.window === window
+        viewerRegistry.isWindowOfFrontViewer(window)
     }
 
     /// The series the active window shows, with the colour of the frame of its views (ViewerWindowBorder):

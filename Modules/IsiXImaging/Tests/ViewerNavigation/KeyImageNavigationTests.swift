@@ -8,6 +8,7 @@
 //  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 //  A PARTICULAR PURPOSE. See the GNU Lesser General Public License for details.
 
+import Foundation
 import Testing
 @testable import IsiXImaging
 
@@ -57,5 +58,39 @@ import Testing
         #expect(KeyImageNavigation.landing(count: 8, nextSeries: true, flipped: true, isKey: Self.isKey) == 5)
         #expect(KeyImageNavigation.landing(count: 0, nextSeries: true, flipped: false, isKey: Self.isKey) == nil)
         #expect(KeyImageNavigation.landing(count: 0, nextSeries: false, flipped: false, isKey: Self.isKey) == nil)
+    }
+
+    @Test func theKeyImagesOfAFrame() {
+        #expect(KeyImageNavigation.keyImages(count: 8, isKey: { $0 == 2 || $0 == 5 }) == IndexSet([2, 5]))
+        #expect(KeyImageNavigation.keyImages(count: 0, isKey: { _ in true }).isEmpty)
+        #expect(KeyImageNavigation.keyImages(count: -3, isKey: { _ in true }).isEmpty)
+    }
+
+    /// A mark in the middle of each key image's place on the strip, which
+    /// counts the images as the user does.
+    @Test func stripMarksStandInTheMiddleOfEachKeyImage() {
+        let marks = KeyImageNavigation.stripMarks(of: IndexSet([0, 10, 99]), count: 100, flipped: false, from: 1, width: 400)
+        #expect(marks == [3, 43, 399])
+        // Flipped data: the view's first image is the strip's last.
+        let flipped = KeyImageNavigation.stripMarks(of: IndexSet([0, 10, 99]), count: 100, flipped: true, from: 1, width: 400)
+        #expect(flipped == [3, 359, 399])
+        // The strip's marker for the image shown, slab or not, is centred on the same place.
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([4]), count: 9, flipped: false, from: 0, width: 90) == [45])
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([4]), count: 9, flipped: true, from: 0, width: 90) == [45])
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([0]), count: 1, flipped: false, from: 10, width: 60) == [40])
+    }
+
+    @Test func stripMarksLeaveOutWhatCannotBeDrawn() {
+        // Images outside the series, an empty series, a strip without width.
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([3, 12]), count: 10, flipped: false, from: 0, width: 100) == [35])
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([3]), count: 0, flipped: false, from: 0, width: 100).isEmpty)
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet([3]), count: 10, flipped: false, from: 0, width: 0).isEmpty)
+        #expect(KeyImageNavigation.stripMarks(of: IndexSet(), count: 10, flipped: false, from: 0, width: 100).isEmpty)
+        // Every image marked in a series longer than the strip: marks a point apart, not one per image.
+        let all = KeyImageNavigation.stripMarks(of: IndexSet(integersIn: 0..<2000), count: 2000, flipped: true, from: 0, width: 400)
+        #expect(all.count == 400)
+        #expect(zip(all, all.dropFirst()).allSatisfy { $1 - $0 >= 1 })
+        let wide = KeyImageNavigation.stripMarks(of: IndexSet(integersIn: 0..<2000), count: 2000, flipped: false, from: 0, width: 400, spacing: 4)
+        #expect(wide.count == 100)
     }
 }

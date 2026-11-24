@@ -133,6 +133,8 @@ def source_failures():
     build = indicator.swift_code(member(popup, '    func build() {'))
     if 'database(of: study)' not in build or 'browser.database' in build:
         failures.append("the series menu looks for the patient's studies in the browser's database, not the viewer study's")
+    if 'selectingInBrowser: viewer.window?.isMainWindow ?? false' not in build:
+        failures.append("the series menu of a viewer behind another one takes the database window's selection")
     cells = indicator.swift_code(member(read('SeriesListPresenter.swift'), 'private func fillCells('))
     if 'seriesMenuPresenter.database(of: study)' not in cells or re.search(r'let db = browser\.database', cells):
         failures.append("the series list looks for the patient's studies in the browser's database, not the viewer study's")

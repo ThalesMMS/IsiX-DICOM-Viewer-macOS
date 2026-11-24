@@ -210,13 +210,7 @@ extension DCMPix {
         autoreleasepool {
             // AppKit renders the image, which may come from a plugin.
             _ = HorosObjCException.logged("-[DCMPix getDataFromNSImage:]", stack: true) {
-                guard let otherImage else { return }
-                var rect = NSRect(origin: .zero, size: otherImage.size)
-                var twoPixelsAPoint = AffineTransform.identity
-                twoPixelsAPoint.scale(2)
-                guard let image = otherImage.cgImage(forProposedRect: &rect, context: nil,
-                                                     hints: [.ctm: NSAffineTransform(transform: twoPixelsAPoint)]) else { return }
-                guard image.width != 0, image.height != 0 else { return }
+                guard let otherImage, let image = otherImage.displayedPixels() else { return }
                 var width = Int(Int32(truncatingIfNeeded: image.width))
                 var height = Int(Int32(truncatingIfNeeded: image.height))
                 let sizes = NSMutableDictionary()

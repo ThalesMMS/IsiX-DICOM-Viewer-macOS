@@ -261,28 +261,29 @@ private func selectedCell(of sender: Any?) -> NSCell? {
                     browser.horos_oMatrix?.selectCell(withTag: position)
                 }
             }
-            guard !list.isEmpty else { return }
-            let frames = list.count > 1 ? list.count : Int(intValue((list[0] as? DicomImage)?.numberOfFrames))
             let curDCM = browser.horos_imageView?.curDCM
 
-            if list.count > 1 || frames == 1 {
-                if !isIndex(position, below: list.count) { return }
-                let image = list[position] as? DicomImage
+            switch PreviewAnimation.sliderFrame(images: list.count, firstImageFrames: { (list.first as? DicomImage)?.numberOfFrames },
+                                                position: position) {
+            case nil:
+                return
+            case .image(let index):
+                let image = list[index] as? DicomImage
                 let frameID = intValue(image?.frameID)
                 guard !BrowserObjC.literallyEqual(curDCM?.srcFile, image?.completePath()) || Int(frameID) != (curDCM?.frameNo ?? 0) else { return }
                 let pix: DCMPix? = Self.lentFrame(path: image?.completePath(), frame: frameID,
                                                   expected: BrowserController.horos_previewFrame(for: image, frame: frameID))
-                    ?? DCMPix(path: image?.completePath(), position, list.count, nil, Int(frameID), Int(intValue(image?.series?.id)), isBonjour: isRemote, imageObj: image)
+                    ?? DCMPix(path: image?.completePath(), index, list.count, nil, Int(frameID), Int(intValue(image?.series?.id)), isBonjour: isRemote, imageObj: image)
                 if let pix { show(pix, of: image, at: cell.tag) }
-            } else if frames > 1 {
+            case .frame(let frame, let frames):
                 // A single multiframe image.
                 let first = list[0] as? DicomImage
                 let seriesID = Int(intValue(first?.series?.id))
                 guard !BrowserObjC.literallyEqual(curDCM?.srcFile, first?.completePath())
-                        || (curDCM?.frameNo ?? 0) != position || (curDCM?.serieNo ?? 0) != seriesID else { return }
-                let pix: DCMPix? = Self.lentFrame(path: first?.completePath(), frame: Int32(truncatingIfNeeded: position),
-                                                  expected: BrowserController.horos_previewFrame(for: first, frame: Int32(truncatingIfNeeded: position)))
-                    ?? DCMPix(path: first?.completePath(), position, frames, nil, position, seriesID, isBonjour: isRemote, imageObj: first)
+                        || (curDCM?.frameNo ?? 0) != frame || (curDCM?.serieNo ?? 0) != seriesID else { return }
+                let pix: DCMPix? = Self.lentFrame(path: first?.completePath(), frame: Int32(truncatingIfNeeded: frame),
+                                                  expected: BrowserController.horos_previewFrame(for: first, frame: Int32(truncatingIfNeeded: frame)))
+                    ?? DCMPix(path: first?.completePath(), frame, frames, nil, frame, seriesID, isBonjour: isRemote, imageObj: first)
                 if let pix { show(pix, of: first, at: cell.tag) }
             }
         }
@@ -797,6 +798,18 @@ private func selectedCell(of sender: Any?) -> NSCell? {
     }
 
     // MARK: - Showing a row's thumbnails
+
+    /// No row is selected: no thumbnail, and no placeholder of a series left
+    /// out. The rows and the placeholders are the last selected row's until
+    /// then, and the matrix is laid out by their count: a study deleted, with
+    /// nothing selected after it, left its placeholders in the matrix, each
+    /// still retrieving its series at a click.
+    func showNoThumbnails() {
+        browser.horos_matrixViewArray = []
+        browser.horosPrepareExcludedSeries(of: nil)
+        matrixInit(0)
+    }
+
 
     /// The thumbnails of the selected row, keeping the selected ones when the
     /// row is the same, and the load of those still to make: on the main

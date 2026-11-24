@@ -191,8 +191,34 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// Shows the window. Closed, it opens centred on the screen of the window
+    /// the user is working in: centred once when the nib loaded, it opened on
+    /// whatever screen that was, which with several displays and desktops
+    /// could be one the user was not looking at, and choosing About seemed to
+    /// do nothing. Open, it stays where the user put it.
     @IBAction public override func showWindow(_ sender: Any?) {
+        if let window = self.window, !window.isVisible,
+           let screen = Self.workingScreen(excluding: window) {
+            window.setFrame(Self.centredFrame(window.frame.size, in: screen.visibleFrame), display: false)
+        }
         super.showWindow(sender)
+    }
+
+    /// The screen of the application's main window, else of its key window,
+    /// else the screen with the menu bar.
+    private static func workingScreen(excluding about: NSWindow) -> NSScreen? {
+        for window in [NSApp.mainWindow, NSApp.keyWindow] {
+            if let window, window !== about, window.isVisible, let screen = window.screen { return screen }
+        }
+        return NSScreen.main ?? NSScreen.screens.first
+    }
+
+    /// `size` centred in `visible`; a window taller or wider than the screen
+    /// keeps its top and left edges on it.
+    static func centredFrame(_ size: NSSize, in visible: NSRect) -> NSRect {
+        let x = size.width < visible.width ? visible.midX - size.width / 2 : visible.minX
+        let y = size.height < visible.height ? visible.midY - size.height / 2 : visible.maxY - size.height
+        return NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
     }
 
     private static var saidTheWindowIsMissing = false
@@ -214,6 +240,17 @@ public final class SplashScreen: NSWindowController, NSWindowDelegate {
         window.alphaValue = 1.0
         NSApp.activate()
         window.makeKeyAndOrderFront(self)
+        // Where it opened, for whoever cannot see it, a second later: the
+        // window server reports the desktop and the occlusion after it has
+        // placed the window, and at the next turn of the run loop a window on
+        // screen still read as hidden. All in numbers, which the system log
+        // shows; it hides text arguments.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { MainActor.assumeIsolated {
+            let frame = window.frame, screen = window.screen?.frame ?? .zero
+            NSLog("IsiX: the About window opened at x %.0f y %.0f, %.0f x %.0f, on the screen at x %.0f y %.0f, %.0f x %.0f, of %ld screens; on the desktop in use: %d, visible: %d",
+                  frame.minX, frame.minY, frame.width, frame.height, screen.minX, screen.minY, screen.width, screen.height,
+                  NSScreen.screens.count, window.isOnActiveSpace ? 1 : 0, window.occlusionState.contains(.visible) ? 1 : 0)
+        } }
     }
 
     /// The former -init loaded SplashQtz when useQuartz() said so; it always

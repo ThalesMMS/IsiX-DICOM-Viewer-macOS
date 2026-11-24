@@ -88,7 +88,11 @@ enum LegacySupportImportPrompt {
     /// the bundle at a path. An entry that is a symbolic link or an alias is
     /// asked about as the bundle it leads to, which is the one that loads.
     private static func rules(canLoad: @escaping @Sendable (String) -> Bool) -> LegacyPluginImport.Rules {
-        LegacyPluginImport.Rules(
+        // What the last launch did not load, read once for the rules: a plugin
+        // of IsiX in it is replaced by another build of its name, whatever the
+        // versions say.
+        let notLoaded = PluginsNotLoadedNotice.notice.recorded()
+        return LegacyPluginImport.Rules(
             isPlugin: PluginAdmission.isPluginBundle,
             version: PluginBundleVersion.declared(byBundleAt:),
             compare: PluginBundleVersion.compare,
@@ -97,7 +101,11 @@ enum LegacySupportImportPrompt {
                                             to: .init(path: (second.target ?? second.url).path, version: second.version, folderRank: second.rank),
                                             canLoad: canLoad)
             },
-            canLoad: { canLoad($0.path) })
+            canLoad: { canLoad($0.path) },
+            failedToLoad: { found in
+                guard let bundle = found.target, !notLoaded.isEmpty else { return false }
+                return PluginsNotLoadedNotice.notLoadedAtLastLaunch(notLoaded, bundleAt: bundle, version: found.version)
+            })
     }
 
     /// At a launch after the single offer was answered: what the plugins
@@ -133,6 +141,23 @@ enum LegacySupportImportPrompt {
         }
     }
 
+    /// What follows the name of a plugin to bring in that this Mac cannot load,
+    /// or nothing: an installer made for Horos or OsiriX puts the Intel-only
+    /// build of a plugin in their folders, and the copy would go in to be
+    /// refused at launch. Its files are read, as the loader reads them before
+    /// opening a bundle, and its signature is not checked: only the few
+    /// bundles an offer lists are read, and the loader says the rest.
+    static func cannotLoadNote(_ source: LegacyPluginImport.Found) -> String {
+        guard let bundle = source.target else { return "" }
+        let inspection = PluginInspector().inspect(bundleAt: bundle)
+        guard !inspection.isLoadable else { return "" }
+        if let found = inspection.foreignArchitectures, !found.isEmpty {
+            return " — " + String(format: NSLocalizedString("built for %@ only; it will not load on this Mac", comment: "The architectures of a plugin, as x86_64"),
+                                  found.joined(separator: ", "))
+        }
+        return " — " + NSLocalizedString("it will not load on this Mac", comment: "A plugin an import would copy")
+    }
+
     /// What a survey found, as the lines the user reads: what would be copied,
     /// and what is left out with its reason. A plugin left out for its name
     /// shows both versions.
@@ -142,9 +167,11 @@ enum LegacySupportImportPrompt {
         }
         let additions = survey.additions.map { addition -> String in
             let source = named(addition.source.name, addition.source.version)
-            guard let installed = addition.replaces else { return source }
+            // After the whole line, so that a replacement still reads as one.
+            let note = cannotLoadNote(addition.source)
+            guard let installed = addition.replaces else { return source + note }
             return String(format: NSLocalizedString("%1$@ replaces %2$@", comment: "A plugin and the installed plugin it takes the place of"),
-                          source, named(installed.name, installed.version))
+                          source, named(installed.name, installed.version)) + note
         }
         let leftOut = survey.skipped.map { skipped -> String in
             let source = named(skipped.name, skipped.version)

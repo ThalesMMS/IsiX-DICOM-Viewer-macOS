@@ -248,9 +248,27 @@ public enum WorklistStudyMatch: Int, Comparable, Sendable {
     public static func < (left: WorklistStudyMatch, right: WorklistStudyMatch) -> Bool { left.rawValue < right.rawValue }
 }
 
+/// The study a scheduled procedure step arrived as: how it was found, and
+/// which study it is, so that the window can open it.
+public struct WorklistReceivedStudy: Equatable, Sendable {
+    public var match: WorklistStudyMatch
+    public var studyInstanceUID: String
+
+    public init(match: WorklistStudyMatch, studyInstanceUID: String) {
+        self.match = match
+        self.studyInstanceUID = studyInstanceUID
+    }
+}
+
 /// The rules that say whether a scheduled procedure step has arrived.
 public enum ModalityWorklistMatching {
     /// The surest match of `procedure` among `studies`, nil when none matches.
+    public static func match(_ procedure: ScheduledProcedure, among studies: [ReceivedStudy],
+                             calendar: Calendar = .current) -> WorklistStudyMatch? {
+        received(procedure, among: studies, calendar: calendar)?.match
+    }
+
+    /// The study `procedure` arrived as, nil when none of `studies` matches.
     ///
     /// - The Study Instance UID, when the worklist assigned one, identifies
     ///   the study the modality was asked to make.
@@ -259,10 +277,20 @@ public enum ModalityWorklistMatching {
     ///   information system, not this one.
     /// - The Patient ID alone matches only a study made on the scheduled day,
     ///   since a patient has studies on other days too.
-    public static func match(_ procedure: ScheduledProcedure, among studies: [ReceivedStudy],
-                             calendar: Calendar = .current) -> WorklistStudyMatch? {
+    ///
+    /// The surest match wins. Among studies found the same way (an order
+    /// filled by two studies, a patient with two studies on the day), it is
+    /// the one made nearest to the step's start, a study without a date last,
+    /// and the first of `studies` when that does not tell them apart.
+    public static func received(_ procedure: ScheduledProcedure, among studies: [ReceivedStudy],
+                                calendar: Calendar = .current) -> WorklistReceivedStudy? {
         let day = procedure.scheduledDay(calendar: calendar)
-        var best: WorklistStudyMatch?
+        let start = procedure.scheduledStart(calendar: calendar)
+        func distance(_ study: ReceivedStudy) -> TimeInterval {
+            guard let start, let date = study.date else { return .infinity }
+            return abs(date.timeIntervalSince(start))
+        }
+        var best: (match: WorklistStudyMatch, study: ReceivedStudy)?
         for study in studies {
             var found: WorklistStudyMatch?
             if !procedure.studyInstanceUID.isEmpty && study.studyInstanceUID == procedure.studyInstanceUID {
@@ -274,10 +302,15 @@ public enum ModalityWorklistMatching {
                       let day, let date = study.date, calendar.isDate(date, inSameDayAs: day) {
                 found = .patientIDOnScheduledDay
             }
-            if let found, best.map({ found > $0 }) ?? true { best = found }
-            if best == .studyInstanceUID { break }
+            guard let found else { continue }
+            if let current = best, found < current.match || (found == current.match && distance(study) >= distance(current.study)) {
+                continue
+            }
+            best = (found, study)
+            // A Study Instance UID names one study of the database.
+            if found == .studyInstanceUID { break }
         }
-        return best
+        return best.map { WorklistReceivedStudy(match: $0.match, studyInstanceUID: $0.study.studyInstanceUID) }
     }
 
     /// The values the database is searched by for `procedures`: their Study

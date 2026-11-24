@@ -154,6 +154,46 @@ import Testing
         #expect((LegacyDatabase.freeSpace(at: data) ?? 0) > 0)
     }
 
+    @Test func linkedFilesThatCannotBeReadAreCounted() throws {
+        let documents = try Documents()
+        let data = documents.root.appendingPathComponent("Horos Data")
+        let exams = documents.root.appendingPathComponent("Disk/Exams")
+        let kept = [exams.appendingPathComponent("a/1.dcm"), exams.appendingPathComponent("b/2.dcm")]
+        let gone = [exams.appendingPathComponent("a/3.dcm"), exams.appendingPathComponent("c/deep/4.dcm")]
+        for file in kept {
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(count: 2000).write(to: file)
+        }
+        // A folder where a file is listed is not that file.
+        try FileManager.default.createDirectory(at: gone[1], withIntermediateDirectories: true)
+        try makeDatabase(in: data, statements: ["INSERT INTO ZSTUDY VALUES (1, 0, '1.2.3', NULL, NULL, NULL, NULL)"]
+            + (kept + gone).enumerated().map { "INSERT INTO ZIMAGE VALUES (\($0.offset + 1), 0, 0, '\($0.element.path)')" })
+
+        let survey = try #require(LegacyDatabase(folder: data).survey())
+        #expect(survey.listing == .read)
+        #expect(survey.files.paths.sorted() == kept.map(\.path).sorted())
+        #expect(survey.files.unreadLinked.sorted() == gone.map(\.path).sorted())
+        #expect(LegacyDatabase.foldersHolding(survey.files.unreadLinked) == [exams.path])
+
+        // With every linked file gone, nothing is left to import, and all of them are counted.
+        try FileManager.default.removeItem(at: exams)
+        let empty = try #require(LegacyDatabase(folder: data).survey())
+        #expect(empty.files.paths.isEmpty)
+        #expect(empty.files.unreadLinked.count == 4)
+    }
+
+    @Test func theFoldersOfLinkedFilesAreOnePerDisk() {
+        #expect(LegacyDatabase.foldersHolding([]) == [])
+        #expect(LegacyDatabase.foldersHolding(["/Volumes/Archive/exams/2019/1.dcm"]) == ["/Volumes/Archive/exams/2019"])
+        #expect(LegacyDatabase.foldersHolding(["/Volumes/Archive/exams/2019/1.dcm", "/Volumes/Archive/exams/2020/ct/2.dcm",
+                                               "/Volumes/Other Disk/3.dcm", "/Volumes/Other Disk/x/4.dcm",
+                                               "/Users/someone/Exams/5.dcm", "/Users/someone/Desktop/6.dcm"])
+            == ["/Users/someone", "/Volumes/Archive/exams", "/Volumes/Other Disk"])
+        // Names that only begin alike are different folders, and files at the root of the startup disk share the root.
+        #expect(LegacyDatabase.foldersHolding(["/Volumes/Archive/exams/1.dcm", "/Volumes/Archive/exams2/2.dcm"]) == ["/Volumes/Archive"])
+        #expect(LegacyDatabase.foldersHolding(["/a/1.dcm", "/b/2.dcm"]) == ["/"])
+    }
+
     @Test func readingChangesNothingInTheFolder() throws {
         let documents = try Documents()
         let data = documents.root.appendingPathComponent("Horos Data")

@@ -144,6 +144,49 @@ public struct SeriesMenuModel: Sendable, Equatable {
         return items
     }
 
+    /// An item of the series submenu of the contextual menu.
+    public enum ContextualItem: Sendable, Equatable {
+        /// A study's line; its series, if it has any here, are the items after it.
+        case study(Int)
+        case series(study: Int, series: Int)
+        /// A study whose series are in a submenu of its own item, in their order.
+        case folded(Int)
+        case separator
+    }
+
+    /// The items of the series submenu of the contextual menu. A submenu
+    /// opens at its first item and cannot be opened scrolled, so with every
+    /// series of every study in one list the series shown, of an older
+    /// study, was below the screen's edge. Here the studies the viewer shows
+    /// a series of keep their series in line, and each other study that has
+    /// series is one item with them in its submenu: the studies stay in
+    /// their order, and the series shown is in sight. With one study, or
+    /// with no series shown, the list is the popup's.
+    public var contextualItems: [ContextualItem] {
+        let open = studies.map { study in study.series.contains { $0.isShown } }
+        guard studies.count > 1, open.contains(true) else {
+            return items.map { item in
+                switch item {
+                case .study(let study): return .study(study)
+                case .series(let study, let series): return .series(study: study, series: series)
+                case .separator: return .separator
+                }
+            }
+        }
+        var result: [ContextualItem] = []
+        for (index, study) in studies.enumerated() {
+            if open[index] {
+                if let last = result.last, last != .separator { result.append(.separator) }
+                result.append(.study(index))
+                result += study.series.indices.map { .series(study: index, series: $0) }
+                if index != studies.count - 1 { result.append(.separator) }
+            } else {
+                result.append(study.series.isEmpty ? .study(index) : .folded(index))
+            }
+        }
+        return result
+    }
+
     /// The item the popup selects: the last series the viewer shows; nil
     /// when it shows none of them.
     public var selectedItem: Int? {

@@ -138,6 +138,7 @@ methods = [swift_block(source, source.index(anchor)) for anchor in (
     '@objc(loadPluginAtPath:)',
     '    private class func takePluginsOutOfApplication()',
     '    class func refusalBeforeOpening(bundleAt',
+    '    class func recordNotLoaded(',
     '    private class func reportDuplicate(atPath',
     '    private class func folderRank(of folder',
     '@objc public class func discoverPlugins()',
@@ -248,6 +249,23 @@ func onMainActorSync<Result>(_ body: @MainActor @Sendable () throws -> Result) r
 }
 // The import command shows its second sheet from the main run loop; the probe opens no window.
 func onMainRunLoop(_ body: @escaping @MainActor @Sendable () -> Void) {}
+// The end of a discovery hands what did not load to PluginsNotLoadedNotice,
+// compiled as it is: it writes its record beside the plugins folders and keeps
+// its alert for the end of the launch, which the probe records and never shows.
+nonisolated(unsafe) var keptForLaunchEnd: [String] = []
+@MainActor enum LaunchEnd {
+    static func keeps(_ name: String, _ show: @escaping @MainActor @Sendable () -> Void) -> Bool {
+        keptForLaunchEnd.append(name)
+        return true
+    }
+}
+final class BrowserController: NSObject {
+    var pluginManagerController: NSWindowController? { nil }
+}
+// The notice reaches the browser through the process graph; the probe has none.
+extension ProcessGraph {
+    @MainActor var currentBrowser: BrowserController? { nil }
+}
 // The host that runs version 1 plugins: it records each bundle it is asked to
 // load, and what the crash marker says at that moment, and loads nothing.
 @MainActor final class IsiXPluginHost {
@@ -365,6 +383,9 @@ let report: [String: Any] = [
     "bundle": Bundle.main.bundleIdentifier ?? "",
     "alerts": alerts,
     "alertButtons": alertButtons,
+    "keptForLaunchEnd": keptForLaunchEnd,
+    // The bundles the launch did not load, as the record beside the plugins folders keeps them.
+    "notLoadedRecord": PluginsNotLoadedNotice.notice.recorded().map { "\(($0.key as NSString).lastPathComponent) \($0.value)" }.sorted(),
     "protectedModeAlert": ProtectedMode.alertMessage,
     "listed": listedFolders,
     "checked": checkedPaths,
@@ -428,6 +449,8 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     (work / 'PluginUpdateRecovery.swift').write_text(read('Horos/Sources/PluginUpdateRecovery.swift'))
     (work / 'PluginQuarantine.swift').write_text(read('Horos/Sources/PluginQuarantine.swift'))
     (work / 'ProtectedMode.swift').write_text(read('Horos/Sources/ProtectedMode.swift'))
+    notice = root / 'Horos/Sources/PluginsNotLoadedNotice.swift'
+    (work / 'PluginsNotLoadedNotice.swift').write_text(notice.read_text(encoding='utf-8') if notice.exists() else '')
     prompt = read('Horos/Sources/LegacySupportImportPrompt.swift')
     if revision and '.leadsNowhere' not in prompt:
         # Its switch over the module's reasons would not compile with the module as it is now.
@@ -450,7 +473,7 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
     built = subprocess.run(['xcrun', 'swiftc', '-module-name', 'IsolatedPlugins', '-import-objc-header', str(work / 'bridge.h'),
                             '-Xcc', '-I' + str(root / 'Horos/Sources'), str(work / 'main.swift'),
                             str(work / 'PluginUpdateRecovery.swift'), str(work / 'PluginQuarantine.swift'),
-                            str(work / 'ProtectedMode.swift'),
+                            str(work / 'ProtectedMode.swift'), str(work / 'PluginsNotLoadedNotice.swift'),
                             str(work / 'LegacySupportImportPrompt.swift'),
                             *objects, *module_flags('IsiXStorage', work / 'modules'),
                             *module_flags('IsiXPluginLoading', work / 'modules'),
@@ -775,6 +798,59 @@ with tempfile.TemporaryDirectory(prefix='horos-isolated-plugins-') as directory:
                             'with its reason, the one that loads instead and both versions')
         if unrunnable['alerts'] != ['Plugins']:
             failures.append(f'beside a {foreign} build: alerts {unrunnable["alerts"]}')
+        # Set aside for its name, it is said by the alert about duplicates, not by the notice.
+        if any(entry.startswith('QA.') for entry in unrunnable.get('notLoadedRecord', [])):
+            failures.append(f'beside a {foreign} build: the notice recorded {unrunnable["notLoadedRecord"]}')
+
+    # The build this Mac cannot run, alone: what an installer made for Horos
+    # leaves and the import copies. It is listed as incompatible, and the end
+    # of the discovery hands it, with its version, to the notice that says it
+    # at the end of the launch; nothing is said during the discovery.
+    alone = foreign and judged('a build this Mac cannot run, alone', scenario(
+        'release-a-build-this-mac-cannot-run-alone', RELEASE, False, recovery=False,
+        prepare=lambda support: foreign_build(support / 'IsiX/Plugins/QA.horosplugin')))
+    if alone:
+        refused = alone['loadOf'].get('QA.horosplugin', '')
+        if not refused.startswith('300 Incompatible') or f'The plugin is built for {foreign};' not in refused:
+            failures.append(f'a {foreign} build alone: QA.horosplugin is {refused!r}, not incompatible with its reason')
+        if 'QA.horosplugin 300' not in alone.get('notLoadedRecord', []) \
+                or alone.get('keptForLaunchEnd') != ['PluginsNotLoadedNotice']:
+            failures.append(f'a {foreign} build alone: the notice recorded {alone.get("notLoadedRecord")} '
+                            f'and kept {alone.get("keptForLaunchEnd")} for the end of the launch')
+        if alone['alerts']:
+            failures.append(f'a {foreign} build alone: alerts during the discovery {alone["alerts"]}')
+
+    # A plugin of IsiX that the last launch did not load, numbered by date
+    # (20250228), and the build its author numbered 2.0 since, which its
+    # installer left in the Horos folder only. With the record of the last
+    # launch, the launch offers the other build whatever the versions say, and
+    # it loads; without the record, the dated build stands, as a newer version.
+    def dated_build(support, failed):
+        dated = support / 'IsiX/Plugins/QA.osirixplugin'
+        shutil.copytree(fixtures / 'QA.osirixplugin', dated)
+        info = plistlib.loads((dated / 'Contents/Info.plist').read_bytes())
+        for key in ('CFBundleVersion', 'CFBundleShortVersionString'):
+            if key in info:
+                info[key] = '20250228'
+        (dated / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
+        subprocess.run(['codesign', '--force', '--sign', '-', str(dated)], capture_output=True)
+        shutil.copytree(fixtures / 'QA.osirixplugin', support / 'Horos/Plugins/QA.osirixplugin')
+        (support / 'IsiX/.ImportLegacyPlugins.json').write_text('[]')
+        if failed:
+            (support / 'IsiX/.RefusedPlugins.json').write_text(json.dumps({str(dated): '20250228'}))
+    for failed in (True, False):
+        label = 'a dated build that failed at the last launch' if failed else 'a dated build that loaded'
+        dated = scenario('release-dated-build-' + ('failed' if failed else 'loaded'), RELEASE, False, recovery=False,
+                         prepare=lambda support, failed=failed: dated_build(support, failed),
+                         extra=['--ProbeCopyLegacyPlugins'])
+        if not dated:
+            continue
+        state = dated['loadOf'].get('QA.osirixplugin', '')
+        offered = 'Import Plugins from Horos or OsiriX' in dated['alerts']
+        if failed and (not offered or not state.startswith('2.0 Loaded')):
+            failures.append(f'{label}: offered {offered}, QA.osirixplugin is {state!r}, not the 2.0 build loaded')
+        if not failed and (offered or not state.startswith('20250228')):
+            failures.append(f'{label}: offered {offered}, QA.osirixplugin is {state!r}, not the dated build kept')
 
     # The same with a build this Mac could run but whose seal no longer
     # validates, as a plugin that writes into its own bundle leaves it: its

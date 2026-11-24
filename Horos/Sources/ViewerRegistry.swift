@@ -194,6 +194,17 @@ nonisolated final class ViewerRegistry: Sendable {
         return nil
     }
 
+    /// Whether `window` is a window of the front viewer: its own, or the one
+    /// that holds its content while it fills the screen. The viewer keeps its
+    /// own window as `window` in full screen, so the full screen window, the
+    /// one its views are in, is asked for as well; without it a view in full
+    /// screen never found itself in front, and each turn of the wheel made
+    /// its window main again.
+    @MainActor func isWindowOfFrontViewer(_ window: NSWindow?) -> Bool {
+        guard let window, let front = frontMostDisplayedViewer(on: nil) else { return false }
+        return front.window === window || front.horos_FullScreenWindow === window
+    }
+
     /// Whether more than one viewer's window is on screen, as WindowFrameRule
     /// (IsiXImaging) counts them: a window in the Dock, ordered out, on
     /// another Space, closing or the full screen one is not; one on another

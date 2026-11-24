@@ -25,6 +25,7 @@ cell that resolves the dynamic colour before reading its components are checked
 in the sources.
 """
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -190,7 +191,9 @@ else:
         # in the list: the menu's model is told the study of the window by
         # the list's own rule, and highlights the series shown by it.
         for highlight, colour in (('current', 'shown'), ('previous', 'shownPrevious')):
-            if 'case .shown(.%s):\n                    attributes[.backgroundColor] = SeriesListColors.%s\n' % (highlight, colour) not in popup:
+            # The item of a series is made by a method of its own, which the
+            # menu and the contextual menu's submenu both fill from.
+            if not re.search(r'case \.shown\(\.%s\):\n +attributes\[\.backgroundColor\] = SeriesListColors\.%s\n' % (highlight, colour), popup):
                 menu_colours = False
         if 'SeriesMenuModel(studies: read.studies, windowStudy: SeriesListPresenter.windowStudy(of: viewer))' not in menu:
             failures.append("the series menu's model is not told the study of the window by the rule of the list")

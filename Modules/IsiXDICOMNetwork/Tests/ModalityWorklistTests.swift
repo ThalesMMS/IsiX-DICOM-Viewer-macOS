@@ -131,6 +131,44 @@ struct ModalityWorklistTests {
         #expect(ModalityWorklistMatching.match(noPatient, among: [otherPatientsOrder], calendar: calendar) == .accessionNumber)
     }
 
+    @Test func aStepNamesTheStudyItArrivedAs() {
+        func at(_ hour: Int, day: Int = 8) -> Date {
+            DateComponents(calendar: calendar, timeZone: calendar.timeZone, year: 2026, month: 11, day: day, hour: hour).date!
+        }
+        let step = procedure(["PatientID": "P1", "AccessionNumber": "A100", "StudyInstanceUID": "1.2.3",
+                              "ScheduledProcedureStepStartDate": "20261108", "ScheduledProcedureStepStartTime": "1000"])
+        let byUID = ReceivedStudy(studyInstanceUID: "1.2.3", accessionNumber: "OTHER", patientID: "P9", date: at(9, day: 9))
+        let byAccession = ReceivedStudy(studyInstanceUID: "9.9", accessionNumber: "A100", patientID: "P1", date: at(9, day: 9))
+        let morning = ReceivedStudy(studyInstanceUID: "9.7", accessionNumber: "", patientID: "P1", date: at(7))
+        let noon = ReceivedStudy(studyInstanceUID: "9.6", accessionNumber: "", patientID: "P1", date: at(11))
+        let evening = ReceivedStudy(studyInstanceUID: "9.5", accessionNumber: "", patientID: "P1", date: at(19))
+        func received(_ step: ScheduledProcedure, _ studies: [ReceivedStudy]) -> WorklistReceivedStudy? {
+            ModalityWorklistMatching.received(step, among: studies, calendar: calendar)
+        }
+
+        // The surest match names the study, wherever it stands among the candidates.
+        #expect(received(step, [noon, byAccession, byUID]) == WorklistReceivedStudy(match: .studyInstanceUID, studyInstanceUID: "1.2.3"))
+        #expect(received(step, [byUID, byAccession, noon]) == WorklistReceivedStudy(match: .studyInstanceUID, studyInstanceUID: "1.2.3"))
+        #expect(received(step, [noon, byAccession]) == WorklistReceivedStudy(match: .accessionNumber, studyInstanceUID: "9.9"))
+        #expect(received(step, [byAccession, noon]) == WorklistReceivedStudy(match: .accessionNumber, studyInstanceUID: "9.9"))
+        #expect(received(step, [evening]) == WorklistReceivedStudy(match: .patientIDOnScheduledDay, studyInstanceUID: "9.5"))
+        #expect(received(step, []) == nil)
+
+        // Found the same way, the study made nearest to the step's start.
+        #expect(received(step, [evening, morning, noon])?.studyInstanceUID == "9.6")
+        #expect(received(step, [noon, morning, evening])?.studyInstanceUID == "9.6")
+        let secondOfTheOrder = ReceivedStudy(studyInstanceUID: "9.4", accessionNumber: "A100", patientID: "P1", date: at(10))
+        #expect(received(step, [byAccession, secondOfTheOrder]) == WorklistReceivedStudy(match: .accessionNumber, studyInstanceUID: "9.4"))
+        // A study without a date comes after a dated one, and the first stays when nothing tells two apart.
+        let undatedOfTheOrder = ReceivedStudy(studyInstanceUID: "9.3", accessionNumber: "A100", patientID: "P1", date: nil)
+        #expect(received(step, [undatedOfTheOrder, byAccession])?.studyInstanceUID == "9.9")
+        #expect(received(step, [undatedOfTheOrder, ReceivedStudy(studyInstanceUID: "9.2", accessionNumber: "A100", patientID: "",
+                                                                 date: nil)])?.studyInstanceUID == "9.3")
+        // A step without a time is measured from the start of its day.
+        let untimed = procedure(["PatientID": "P1", "ScheduledProcedureStepStartDate": "20261108"])
+        #expect(received(untimed, [evening, noon, morning])?.studyInstanceUID == "9.7")
+    }
+
     @Test func theDatabaseIsSearchedByTheStepsIdentifiers() {
         let values = ModalityWorklistMatching.lookupValues(of: [
             procedure(["PatientID": "P1", "AccessionNumber": "A1", "StudyInstanceUID": "1.2"]),

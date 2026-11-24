@@ -385,8 +385,12 @@ def write_zip(folder, names, archive, timestamp=None):
 
 
 def build_with_xcode(configuration, archs, scratch):
+    # The kit is built with the package versions the checkout's lockfile
+    # approves, as the application is: without these two options Xcode resolves
+    # again and rewrites the lockfile when a dependency has a newer version.
     command = ['xcodebuild', '-project', str(ROOT / 'Horos.xcodeproj'), '-target', NAME,
                '-configuration', configuration, f'ARCHS={" ".join(archs)}', 'ONLY_ACTIVE_ARCH=NO',
+               '-disableAutomaticPackageResolution', '-onlyUsePackageVersionsFromResolvedFile',
                f'SYMROOT={scratch}/Products', f'OBJROOT={scratch}/Intermediates', 'CODE_SIGNING_ALLOWED=NO']
     log = Path(scratch) / 'xcodebuild.log'
     with open(log, 'w') as handle:

@@ -37,6 +37,8 @@
 //
 //  Copyright (c) 2026 Thales Matheus M Santos (ThalesMMS) — modifications in this fork
 
+import Foundation
+
 /// The key images of the 2D viewer, over KeyImageSearch: the state of the key
 /// image check box and of the "key images only" popup, toggling the image
 /// shown, and where the "next" and "previous key image" buttons go: the next
@@ -65,6 +67,35 @@ public enum KeyImageNavigation {
             return Controls(isEnabled: false, isChecked: nil)
         }
         return Controls(isEnabled: true, isChecked: current >= 0 && isKey(current))
+    }
+
+    /// The key images among the `count` images of a frame, as the view counts them.
+    public static func keyImages(count: Int, isKey: (Int) -> Bool) -> IndexSet {
+        var marked = IndexSet()
+        for image in 0..<max(count, 0) where isKey(image) { marked.insert(image) }
+        return marked
+    }
+
+    /// Where the key images stand on the navigation strip, a bar from `minX`
+    /// of `width` that divides into `count` images: the middle of each key
+    /// image's place, in ascending order. `keyImages` are counted as the view
+    /// counts them, and the strip as the user does: flipped data runs the
+    /// other way. An image outside the series has no mark, and of marks less
+    /// than `spacing` apart only the first is kept, so a run of key images in
+    /// a long series does not draw one mark over another.
+    public static func stripMarks(of keyImages: IndexSet, count: Int, flipped: Bool,
+                                  from minX: Double, width: Double, spacing: Double = 1) -> [Double] {
+        guard count > 0, width > 0 else { return [] }
+        let positions = keyImages.filter { $0 >= 0 && $0 < count }
+            .map { Int(SeriesBrowsing.sliderValue(forViewImage: $0, count: count, flipped: flipped)) }
+            .sorted()
+        var marks: [Double] = []
+        for position in positions {
+            let x = minX + width * (Double(position) + 0.5) / Double(count)
+            if let last = marks.last, x - last < spacing { continue }
+            marks.append(x)
+        }
+        return marks
     }
 
     /// The key image shortcut: the state the check box toggles to.

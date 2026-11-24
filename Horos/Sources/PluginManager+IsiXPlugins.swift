@@ -44,9 +44,9 @@ extension PluginManager {
             }
         } catch {
             let exception = IsiXPluginException(error as NSError)
-            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Load failed", comment: ""),
-                                        String(format: NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""),
-                                               exception.description as NSString))
+            PluginManager.recordNotLoaded(diagnosticPath, state: NSLocalizedString("Load failed", comment: ""),
+                                          reason: String(format: NSLocalizedString("Plugin initialization failed: %@. Obtain an updated plugin from its author.", comment: ""),
+                                                         exception.description as NSString))
             NSLog("******** IsiX plugin loading exception: %@", exception.description)
             return
         }
@@ -56,10 +56,10 @@ extension PluginManager {
             PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Loaded", comment: ""),
                                         NSLocalizedString("The bundle and its principal class loaded and registration completed in this session.", comment: ""))
         case .incompatible:
-            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Incompatible", comment: ""), outcome.reason)
+            PluginManager.recordNotLoaded(diagnosticPath, state: NSLocalizedString("Incompatible", comment: ""), reason: outcome.reason)
             NSLog("IsiX plugin not loaded: %@: %@", resolved, outcome.reason)
         case .failed:
-            PluginManagerCAPIRecordLoad(diagnosticPath, NSLocalizedString("Load failed", comment: ""), outcome.reason)
+            PluginManager.recordNotLoaded(diagnosticPath, state: NSLocalizedString("Load failed", comment: ""), reason: outcome.reason)
             NSLog("IsiX plugin load failed: %@: %@", resolved, outcome.reason)
         }
         #endif

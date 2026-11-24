@@ -164,6 +164,28 @@ public enum PreviewAnimation {
         return .slider(animate: false, images: 0)
     }
 
+    /// What the slider shows of the images of a thumbnail or of a series.
+    public enum SliderFrame: Equatable, Sendable {
+        /// The image at this index: one of several, or the only one.
+        case image(Int)
+        /// This frame of the only image, which has `of` frames.
+        case frame(Int, of: Int)
+    }
+
+    /// What the slider at `position` shows of `images` images, nil when it
+    /// shows nothing: no image, or a position past the images.
+    /// `firstImageFrames` is the number of frames of the first image, asked
+    /// only when it is the only one. An image has at least one frame: a row
+    /// of the database says 0 for a file that states no Number of Frames, as
+    /// most images of one frame do, and the only image of a series was then
+    /// neither one image nor several frames, so it was not shown.
+    public static func sliderFrame(images: Int, firstImageFrames: () -> Any?, position: Int) -> SliderFrame? {
+        guard images > 0 else { return nil }
+        let frames = images > 1 ? 1 : max(Int(objcInt(firstImageFrames())), 1)
+        if frames > 1 { return .frame(position, of: frames) }
+        return position >= 0 && position < images ? .image(position) : nil
+    }
+
     public enum SliderChange: Equatable, Sendable {
         /// Disabled, at 0, one tick mark.
         case disable
