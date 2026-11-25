@@ -291,10 +291,10 @@ struct PlanarFrame: Equatable {
         // scanner) turned the edge of the field into a dotted ring, and the
         // body it cuts into white streaks. The fragment interpolates those
         // samples itself, with a Catmull-Rom over the samples held within the
-        // window and kept within the four texels a linear sample reads: no edge
-        // overshoots, whatever the window, an edge against a value outside the
-        // window is smoothed as the host's windowed bytes are, and the window is
-        // still a uniform. Bytes keep the host's enlargement: windowed already,
+        // window widened by half its width on each side and kept within the four
+        // texels a linear sample reads: no edge overshoots, whatever the window,
+        // an edge against a value far outside the window is smoothed, and the
+        // window is still a uniform. Bytes keep the host's enlargement: windowed already,
         // they cannot leave the window.
         let boundedCubic = hostScale > 1 && hostBytes == nil && transfer == nil && sampling.z == 0
         softwareScale = boundedCubic ? 1 : hostScale
@@ -1043,12 +1043,16 @@ final class PlanarMetalRenderer {
     // A scalar sample at texel coordinates `xy` (texel centres at integers):
     // Catmull-Rom over the 4 x 4 texels around it, kept within the four a
     // linear sample reads, so an edge gains no ring or halo. Each texel is
-    // first held within the window [`low`, `high`]: the interpolation runs on
-    // what the window shows, as the host's 8-bit path interpolates windowed
-    // bytes, so an edge between a value far outside the window and one inside
-    // it - a CT's padding outside its field of view against tissue - ramps
-    // across the texel instead of snapping to the texel grid. Weights are
-    // computed in float, as the bilinear path computes its own.
+    // first held within [`shownLow`, `shownHigh`], the window with a margin of
+    // half its width on each side. The bound keeps a value far outside the
+    // window - a CT's padding outside its field of view against tissue - from
+    // making the edge snap to the texel grid. The margin keeps what lies just
+    // outside the window as it is: held at the window itself, the texels of a
+    // partial volume between air and tissue all became the same value, the
+    // curve lost where the edge crosses the texel, and at a high magnification
+    // a contour came out notched at the texel pitch, where the linear sample
+    // draws it smooth. Weights are computed in float, as the bilinear path
+    // computes its own.
     static float planarBoundedCubic(texture2d<float> image, float2 xy, float shownLow, float shownHigh) {
         int2 base=int2(floor(xy)), last=int2(image.get_width()-1,image.get_height()-1);
         float2 t=xy-floor(xy);
@@ -1087,8 +1091,8 @@ final class PlanarMetalRenderer {
         else if(p.window.z != 0) sampled=image.sample(linearSampler,pixel/dimensions);
         else if(p.window.w == 2.0) {
             // An inverted window has a negative width: its bounds swap.
-            float a=p.window.x-p.window.y*0.5, b=p.window.x+p.window.y*0.5;
-            sampled=float4(planarBoundedCubic(image,pixel*p.output.w-0.5,min(a,b),max(a,b)),0,0,1);
+            float a=p.window.x-p.window.y*0.5, b=p.window.x+p.window.y*0.5, margin=abs(p.window.y)*0.5;
+            sampled=float4(planarBoundedCubic(image,pixel*p.output.w-0.5,min(a,b)-margin,max(a,b)+margin),0,0,1);
         }
         else {
             // Hardware sampler weights can be quantized. Compute scalar

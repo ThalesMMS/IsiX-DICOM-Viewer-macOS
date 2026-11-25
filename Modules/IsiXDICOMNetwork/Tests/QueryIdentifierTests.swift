@@ -139,6 +139,22 @@ struct RetrieveRulesTests {
         #expect(wait == nil)
     }
 
+    @Test func aRequestForWhatIsMissingShowsTheWholeStudy() {
+        // 12 of 30 instances are here; the two series still missing some are asked for in turn.
+        let parts = RetrievePartProgress.parts(here: 12, asked: [14, 4])
+        #expect(parts == [RetrievePartProgress(before: 12, asked: 14, whole: 30), RetrievePartProgress(before: 26, asked: 4, whole: 30)])
+        // Before the first answer the bar is where the interruption left it.
+        #expect(parts[0].ofWhole(accounted: 0, finished: 0)! == (12, 30))
+        #expect(parts[0].ofWhole(accounted: 14, finished: 7)! == (19, 30))
+        #expect(parts[0].ofWhole(accounted: 14, finished: 14)! == (26, 30))
+        #expect(parts[1].ofWhole(accounted: 4, finished: 0)! == (26, 30))
+        #expect(parts[1].ofWhole(accounted: 4, finished: 4)! == (30, 30))
+        // A peer that reports more than it accounts for does not pass the study.
+        #expect(parts[1].ofWhole(accounted: 4, finished: 9)! == (30, 30))
+        #expect(RetrievePartProgress.parts(here: 0, asked: []).isEmpty)
+        #expect(RetrievePartProgress(before: 0, asked: 0, whole: 0).ofWhole(accounted: 1, finished: 1) == nil)
+    }
+
     @Test func aConfirmedListingMovesTheBarForwardOnly() {
         var progress = RetrieveProgress()
         let listed = progress.update(counted: false, accounted: 0, finished: 0) { (3, 10) }

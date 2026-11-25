@@ -40,6 +40,26 @@ public enum IsiXROIKind: Hashable, Sendable {
     case other
 }
 
+/// The colour of a ROI: red, green and blue, each from 0 to 1. The
+/// application keeps each component with 16 bits, so a colour read back can
+/// differ from the one set by less than 1/65535.
+public struct IsiXROIColor: Hashable, Sendable {
+    public var red: Double
+    public var green: Double
+    public var blue: Double
+
+    public init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    /// Whether each component is a finite number from 0 to 1.
+    public var isValid: Bool {
+        [red, green, blue].allSatisfy { $0.isFinite && (0...1).contains($0) }
+    }
+}
+
 /// A ROI, copied when it was read.
 public struct IsiXROI: Hashable, Sendable {
     public var id: IsiXROIID
@@ -57,10 +77,25 @@ public struct IsiXROI: Hashable, Sendable {
     public var isSelected: Bool
     /// Whether the viewer shows the ROI's text box, with its name and measurements.
     public var showsTextBox: Bool
+    /// The colour the viewer draws the ROI in: a text ROI's text, a brush
+    /// ROI's region, the outline of the others. Nil when the application did
+    /// not report it.
+    public var color: IsiXROIColor?
+    /// The opacity the viewer draws the ROI with, from 0 (transparent) to 1.
+    /// Nil when the application did not report it.
+    public var opacity: Double?
 
     @_spi(IsiXHost)
     public init(id: IsiXROIID, kind: IsiXROIKind, name: String, comment: String, slice: Int, phase: Int,
                 points: [IsiXPixelPoint], patientPoints: [IsiXVector3], isSelected: Bool = false, showsTextBox: Bool = true) {
+        self.init(id: id, kind: kind, name: name, comment: comment, slice: slice, phase: phase, points: points,
+                  patientPoints: patientPoints, isSelected: isSelected, showsTextBox: showsTextBox, color: nil, opacity: nil)
+    }
+
+    @_spi(IsiXHost)
+    public init(id: IsiXROIID, kind: IsiXROIKind, name: String, comment: String, slice: Int, phase: Int,
+                points: [IsiXPixelPoint], patientPoints: [IsiXVector3], isSelected: Bool = false, showsTextBox: Bool = true,
+                color: IsiXROIColor?, opacity: Double?) {
         self.id = id
         self.kind = kind
         self.name = name
@@ -71,6 +106,8 @@ public struct IsiXROI: Hashable, Sendable {
         self.patientPoints = patientPoints
         self.isSelected = isSelected
         self.showsTextBox = showsTextBox
+        self.color = color
+        self.opacity = opacity
     }
 }
 
@@ -88,15 +125,31 @@ public struct IsiXROIUpdate: Hashable, Sendable {
     /// Selects or deselects the ROI; other ROIs keep their selection.
     public var isSelected: Bool?
     public var showsTextBox: Bool?
+    /// The new colour. Needs the `roi.color` capability.
+    public var color: IsiXROIColor?
+    /// The new opacity, from 0 (transparent) to 1. Needs the `roi.color`
+    /// capability.
+    public var opacity: Double?
 
+    // Kept for plugins built against a kit without colour and opacity; the
+    // initializer below takes the same arguments and these two.
+    @_disfavoredOverload
     public init(points: [IsiXPixelPoint]? = nil, kind: IsiXROIKind? = nil, name: String? = nil, comment: String? = nil,
                 isSelected: Bool? = nil, showsTextBox: Bool? = nil) {
+        self.init(points: points, kind: kind, name: name, comment: comment, isSelected: isSelected,
+                  showsTextBox: showsTextBox, color: nil, opacity: nil)
+    }
+
+    public init(points: [IsiXPixelPoint]? = nil, kind: IsiXROIKind? = nil, name: String? = nil, comment: String? = nil,
+                isSelected: Bool? = nil, showsTextBox: Bool? = nil, color: IsiXROIColor? = nil, opacity: Double? = nil) {
         self.points = points
         self.kind = kind
         self.name = name
         self.comment = comment
         self.isSelected = isSelected
         self.showsTextBox = showsTextBox
+        self.color = color
+        self.opacity = opacity
     }
 }
 
@@ -138,18 +191,40 @@ public struct IsiXROIDraft: Hashable, Sendable {
     public var phase: Int?
     /// The pixels of a brush ROI; nil for the other kinds.
     public var mask: IsiXROIMask?
+    /// The colour of the ROI; the application's default for its kind when
+    /// nil. Needs the `roi.color` capability.
+    public var color: IsiXROIColor?
+    /// The opacity of the ROI, from 0 (transparent) to 1; the application's
+    /// default for its kind when nil. Needs the `roi.color` capability.
+    public var opacity: Double?
 
+    // Kept for plugins built against a kit without colour and opacity; the
+    // initializers below take the same arguments and these two.
+    @_disfavoredOverload
     public init(kind: IsiXROIKind, points: [IsiXPixelPoint], name: String? = nil, slice: Int? = nil, phase: Int? = nil) {
+        self.init(kind: kind, points: points, name: name, slice: slice, phase: phase, color: nil, opacity: nil)
+    }
+
+    @_disfavoredOverload
+    public init(mask: IsiXROIMask, name: String? = nil, slice: Int? = nil, phase: Int? = nil) {
+        self.init(mask: mask, name: name, slice: slice, phase: phase, color: nil, opacity: nil)
+    }
+
+    public init(kind: IsiXROIKind, points: [IsiXPixelPoint], name: String? = nil, slice: Int? = nil, phase: Int? = nil,
+                color: IsiXROIColor? = nil, opacity: Double? = nil) {
         self.kind = kind
         self.points = points
         self.name = name
         self.slice = slice
         self.phase = phase
+        self.color = color
+        self.opacity = opacity
     }
 
     /// A brush ROI of the pixels of `mask` that are inside the image.
-    public init(mask: IsiXROIMask, name: String? = nil, slice: Int? = nil, phase: Int? = nil) {
-        self.init(kind: .brush, points: [], name: name, slice: slice, phase: phase)
+    public init(mask: IsiXROIMask, name: String? = nil, slice: Int? = nil, phase: Int? = nil,
+                color: IsiXROIColor? = nil, opacity: Double? = nil) {
+        self.init(kind: .brush, points: [], name: name, slice: slice, phase: phase, color: color, opacity: opacity)
         self.mask = mask
     }
 }

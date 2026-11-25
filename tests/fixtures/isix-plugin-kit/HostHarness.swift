@@ -102,10 +102,20 @@ final class FakeViewer: IsiXViewerBackend {
         }
         guard draft.points.count == needed else { throw IsiXPluginError.invalidROI("points") }
         let g = geometry(s)
+        // Green at half opacity stands for the application's default.
         let roi = IsiXROI(id: IsiXROIID(rawValue: UUID()), kind: draft.kind, name: draft.name ?? "", comment: "",
-                          slice: s, phase: 0, points: draft.points, patientPoints: draft.points.map { g.patientPoint(of: $0) })
+                          slice: s, phase: 0, points: draft.points, patientPoints: draft.points.map { g.patientPoint(of: $0) },
+                          color: draft.color ?? IsiXROIColor(red: 0, green: 1, blue: 0), opacity: draft.opacity ?? 0.5)
         stored.append(roi)
         return roi
+    }
+
+    func updateROI(_ id: IsiXROIID, _ update: IsiXROIUpdate) throws -> IsiXROI {
+        guard let index = stored.firstIndex(where: { $0.id == id }) else { throw IsiXPluginError.roiNotFound }
+        if let name = update.name { stored[index].name = name }
+        if let color = update.color { stored[index].color = color }
+        if let opacity = update.opacity { stored[index].opacity = opacity }
+        return stored[index]
     }
 
     func removeROI(_ id: IsiXROIID) throws {
@@ -389,6 +399,22 @@ func run() -> [String: Any] {
         runtime.deactivate()
     }
     probe["fourD"] = fourD
+
+    // ROI colour and opacity: set on creation and by an update, the
+    // application's default left alone when nil, refused out of 0...1 and
+    // without roi.color.
+    var roiColor: [String: Any] = [:]
+    for (key, capabilities) in [("declared", [IsiXCapability.viewerRead, .roi, .roiColor]), ("undeclared", [.viewerRead, .roi])] {
+        let colorHost = FakeHost()
+        colorHost.viewers = [FakeViewer()]
+        var output: [String: Any] = [:]
+        if let runtime = load(arguments[1], entry: "ProbePlugins.ROIColorPlugin", host: colorHost,
+                              capabilities: Set(capabilities), output: &output) {
+            roiColor[key] = describe(runtime.instance)
+            runtime.deactivate()
+        }
+    }
+    probe["roiColor"] = roiColor
 
     // Input and drawing: what the image view of a viewer gives the plugins.
     let interactionHost = FakeHost()

@@ -147,12 +147,13 @@ def bounded_cubic(texture, px, py, image_width, image_height, level, width):
     """The planar fragment's high-quality interpolation of scalar float samples.
 
     The samples go up one texel each. Each of the 4 x 4 texels around the
-    sample is first held within the window, whose bounds swap for a negative
-    width; Catmull-Rom weighs them, and the result is kept within the four
+    sample is first held within the window widened by half its width on each
+    side, whose bounds swap for a negative width; Catmull-Rom weighs them, and the result is kept within the four
     texels a linear sample reads. Texel reads are clamped to the edge.
     """
     th, tw = texture.shape
     low, high = sorted((level-width/2, level+width/2))
+    low, high = low-abs(width)/2, high+abs(width)/2
     x, y = px*tw/image_width-.5, py*th/image_height-.5
     x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
     wx, wy = catmull_rom(x-x0), catmull_rom(y-y0)
@@ -170,10 +171,10 @@ def bounded_cubic(texture, px, py, image_width, image_height, level, width):
 
 
 def bounded_cubic_slack(level, width):
-    """Eight float32 ULPs of the window's larger bound. The fragment holds every
-    texel within the window before weighing it, so the rounding of its float
-    sums scales with the window, not with the value, which can be near zero."""
-    return float(np.spacing(np.float32(max(abs(level-width/2), abs(level+width/2)))))*8
+    """Eight float32 ULPs of the larger bound the fragment holds a texel within,
+    the window widened by half its width on each side. The rounding of its float
+    sums scales with those bounds, not with the value, which can be near zero."""
+    return float(np.spacing(np.float32(max(abs(level-width/2), abs(level+width/2))+abs(width)/2)))*8
 
 
 def interpolation_interval(texture, px, py, dx, dy, iw, ih, sample=interpolate, jumps=False):

@@ -324,6 +324,39 @@ import simd
                 if CGFloat(x) < left + 5 || CGFloat(x) > left + 75 || y < 45 || y > 160 { leftovers += 1 }
             } }
         }
+        // The image of a frame keeps its pixels when the canvas that drew it
+        // is resized or released: a layer can show it until its next commit.
+        var kept: AnnotationPicture?
+        var litBefore = 0
+        do {
+            var owner: ROICanvas? = ROICanvas()
+            owner!.beginFrame(width: w, height: h, colorSpace: CGColorSpaceCreateDeviceRGB())
+            owner!.set(modelview: CGAffineTransform(a: 2.0 / CGFloat(w), b: 0, c: 0, d: -2.0 / CGFloat(h), tx: -1, ty: 1),
+                       viewport: CGRect(x: 0, y: 0, width: w, height: h))
+            owner!.color(r: 1, g: 1, b: 1, a: 1)
+            owner!.lineWidth(5)
+            owner!.begin(1); owner!.vertex(x: 10, y: 20); owner!.vertex(x: 150, y: 120); owner!.end()
+            kept = owner!.finishFrame()?.picture
+            if let image = kept?.image(in: CGColorSpaceCreateDeviceRGB()), let data = image.dataProvider?.data {
+                let length = CFDataGetLength(data), bytes = CFDataGetBytePtr(data)!
+                litBefore = stride(from: 3, to: length, by: 4).reduce(0) { $0 + (bytes[$1] != 0 ? 1 : 0) }
+            }
+            // Other sizes free and reuse the memory of the first bitmaps.
+            for size in [(w / 2, h / 2), (w, h), (w * 2, h)] {
+                owner!.beginFrame(width: size.0, height: size.1, colorSpace: CGColorSpaceCreateDeviceRGB())
+                _ = owner!.finishFrame()
+            }
+            owner = nil
+        }
+        var scribble = [UnsafeMutableRawPointer?]()
+        for _ in 0..<64 { let block = malloc(w * h * 4); memset(block, 0x5A, w * h * 4); scribble.append(block) }
+        var litAfter = -1
+        if let picture = kept {
+            let bytes = picture.bytes
+            litAfter = stride(from: 3, to: bytes.count, by: 4).reduce(0) { $0 + (bytes[$1] != 0 ? 1 : 0) }
+        }
+        scribble.forEach { free($0) }
+        print("KEPT \(litBefore) \(litAfter)")
         print("LEFTOVERS \(leftovers)")
         print("DONE")
     }
@@ -350,6 +383,9 @@ with tempfile.TemporaryDirectory(prefix='horos-roi-canvas-') as name:
     if run.returncode or 'DONE' not in run.stdout:
         print(run.stdout.strip() or run.stderr.strip() or 'FAIL: the canvas driver failed')
         raise SystemExit(1)
+    kept = re.search(r'KEPT (\d+) (-?\d+)', run.stdout)
+    if not kept or int(kept.group(1)) < 100 or kept.group(1) != kept.group(2):
+        failures.append("a frame's image lost its pixels when its canvas was resized and released: %s" % (kept.groups() if kept else 'no count',))
     leftovers = re.search(r'LEFTOVERS (\d+)', run.stdout)
     if not leftovers or int(leftovers.group(1)):
         failures.append('a frame shows pixels an earlier frame drew: %s' % (leftovers.group(1) if leftovers else 'no count'))

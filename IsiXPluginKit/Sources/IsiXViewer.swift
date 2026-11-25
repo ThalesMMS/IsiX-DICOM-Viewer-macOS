@@ -162,9 +162,21 @@ public final class IsiXViewer {
         return try backend.rois(slice: slice, phase: phase)
     }
 
+    /// Creates a ROI. A colour or an opacity needs the `roi.color`
+    /// capability; one out of 0...1 throws `invalidROI`.
     public func addROI(_ draft: IsiXROIDraft) throws -> IsiXROI {
         try require(.roi)
+        try checkStyle(color: draft.color, opacity: draft.opacity)
         return try backend.addROI(draft)
+    }
+
+    private func checkStyle(color: IsiXROIColor?, opacity: Double?) throws {
+        guard color != nil || opacity != nil else { return }
+        try require(.roiColor)
+        if let color, !color.isValid { throw IsiXPluginError.invalidROI("A colour component is not between 0 and 1.") }
+        if let opacity, !(opacity.isFinite && (0...1).contains(opacity)) {
+            throw IsiXPluginError.invalidROI("The opacity is not between 0 and 1.")
+        }
     }
 
     public func removeROI(_ id: IsiXROIID) throws {
@@ -175,10 +187,12 @@ public final class IsiXViewer {
     /// Changes a ROI in place: its identifier stays the same. Returns the ROI
     /// as it is afterwards. Throws `roiNotFound` once the ROI is gone, and
     /// `invalidROI` for points its kind cannot take or a change of kind other
-    /// than a rectangle or an oval becoming a polygon.
+    /// than a rectangle or an oval becoming a polygon. A colour or an opacity
+    /// needs the `roi.color` capability; one out of 0...1 throws `invalidROI`.
     @discardableResult
     public func updateROI(_ id: IsiXROIID, _ update: IsiXROIUpdate) throws -> IsiXROI {
         try require(.roi)
+        try checkStyle(color: update.color, opacity: update.opacity)
         return try backend.updateROI(id, update)
     }
 

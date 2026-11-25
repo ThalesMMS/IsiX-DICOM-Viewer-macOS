@@ -236,6 +236,20 @@ def verify(arch, report):
           and four_d.get('hostOpenedUndeclared') == 0, tag + f'4D undeclared: {four_d}')
     former = 'hostFailure("This application does not open several series in one viewer for plugins.")'
     check(four_d.get('formerHost') == '|'.join(refused + [former, former]), tag + f'4D on a former host: {four_d.get("formerHost")}')
+    # ROI colour and opacity: a draft's reach the host and come back with the
+    # ROI, an update changes them and a later one without them keeps them,
+    # nil leaves the host's default, values out of 0...1 are refused by the
+    # kit, and without roi.color only the uncoloured ROI is made.
+    roi_color = probe['roiColor']
+    invalid = ['invalidROI("The opacity is not between 0 and 1.")',
+               'invalidROI("A colour component is not between 0 and 1.")',
+               'invalidROI("The opacity is not between 0 and 1.")']
+    check(roi_color.get('declared') == '|'.join([
+        'default 0.0,1.0,0.0 0.5', 'orange 1.0,0.5,0.0 0.25', 'orange 0.0,0.0,1.0 0.75', 'renamed 0.0,0.0,1.0 0.75',
+        *invalid, 'listed default 0.0,1.0,0.0 0.5;renamed 0.0,0.0,1.0 0.75']), tag + f'ROI colour: {roi_color.get("declared")}')
+    check(roi_color.get('undeclared') == '|'.join(['default 0.0,1.0,0.0 0.5'] + ['capabilityNotDeclared(roi.color)'] * 3
+                                                  + ['listed default 0.0,1.0,0.0 0.5']),
+          tag + f'ROI colour without roi.color: {roi_color.get("undeclared")}')
     interaction = probe['interaction']
     check(interaction.get('inputKinds') == 9 and interaction.get('taken') == [True, False, False, True, False],
           tag + f'input: {interaction}')

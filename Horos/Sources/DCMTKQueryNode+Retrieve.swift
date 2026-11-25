@@ -246,6 +246,8 @@ extension DCMTKQueryNode {
                 // What the listing showed so far: instances, any that is not
                 // here, and an entry that could not be read.
                 var listedInstances = false, askedForInstances = false, unreadableListing = false
+                // The instances earlier batches of the listing asked for.
+                var askedBefore = 0
                 Thread.sleep(forTimeInterval: 0.1)
                 // isFinished, not isExecuting: the worker may not have begun
                 // executing after the pause above, and the loop then never ran.
@@ -290,8 +292,20 @@ extension DCMTKQueryNode {
                                 : [QueryIdentifiers.retrieve(instances: imagesWithoutSeries, series: nil, study: study)]
                             let owner = ObservedThread.current
                             let listener = !get && !DCMTKQueryRetrieveSCP.store() && destination == nil
+                            // The bar is this thread's and shows the study: what
+                            // is here, then each request's instances as they arrive.
+                            let counts = !seriesUIDsToRetrieve.isEmpty ? seriesOrder.map { seriesUIDsToRetrieve[$0]?.count ?? 0 }
+                                                                       : [imagesWithoutSeries.count]
+                            let here = localObjectUIDs.count + askedBefore
+                            askedBefore += counts.reduce(0, +)
+                            let retrieve = Thread.current
+                            let reports = RetrievePartProgress.parts(here: here, asked: counts).map {
+                                RetrievePartReport(owner: retrieve, part: $0)
+                            }
+                            reports.first?.report(accounted: 0, finished: 0)
                             let threads = [ActivityThread.startUnlisted(name: "IMAGE level retrieve") { [self] _ in
-                                for request in requests {
+                                for (request, report) in zip(requests, reports) {
+                                    Thread.current.threadDictionary[RetrievePartReport.key] = report
                                     let succeeded: Bool
                                     if get {
                                         succeeded = setupNetwork(service: .getStudyRoot, identifier: request, destination: destination, quietly: true)

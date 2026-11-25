@@ -25,6 +25,10 @@ import Foundation
 /// Retrieve & View and the automatic retrieves do not go through the queue
 /// and do not count in it.
 ///
+/// Move to Top, in Activity, starts a waiting retrieve ahead of one under
+/// way: that one cancels its transfer, goes back to the line without leaving
+/// Activity, and asks again in its next turn for what is still missing.
+///
 /// The state is read and written only under `condition`'s lock, from the main
 /// thread and from the retrieves' threads: that is what makes it Sendable.
 @objc(HorosRetrieveQueue)
@@ -63,9 +67,22 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
     /// The rule alone: which retrieves are under way and which wait, in
     /// order. A waiting retrieve starts when it is first in line and fewer
     /// retrieves are under way than its capacity.
+    ///
+    /// A retrieve put ahead of those under way (`startAhead`) waits first in
+    /// line, among the others put ahead, until one under way has yielded: the
+    /// one started last. That one counts as under way until its transfer has
+    /// stopped (`yielded`), then waits right behind the retrieves put ahead,
+    /// to resume.
     struct State {
-        private(set) var running: Set<Int> = []
+        /// The retrieves under way, in the order they started.
+        private(set) var running: [Int] = []
         private(set) var waiting: [(id: Int, explicitlyQueued: Bool)] = []
+        /// The retrieves under way asked to yield, in the order they were asked.
+        private(set) var yielding: [Int] = []
+        /// The waiting retrieves put ahead of those under way: the first of the line.
+        private(set) var ahead: Set<Int> = []
+        /// The waiting retrieves that yielded, and resume in their turn.
+        private(set) var interrupted: Set<Int> = []
 
         /// A new retrieve: true when it starts now, false when it waits. In
         /// Parallel without a limit a click starts at once, even with
@@ -73,7 +90,7 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         mutating func submit(_ id: Int, explicitlyQueued: Bool, policy: Policy) -> Bool {
             let capacity = policy.capacity(explicitlyQueued: explicitlyQueued)
             if (waiting.isEmpty || capacity == Int.max) && running.count < capacity {
-                running.insert(id)
+                running.append(id)
                 return true
             }
             waiting.append((id, explicitlyQueued))
@@ -83,8 +100,9 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         /// A retrieve ended, failed or was cancelled, under way or waiting.
         /// Returns those that start in its place.
         mutating func remove(_ id: Int, policy: Policy) -> [Int] {
-            running.remove(id)
+            running.removeAll { $0 == id }
             waiting.removeAll { $0.id == id }
+            interrupted.remove(id)
             return promote(policy: policy)
         }
 
@@ -94,9 +112,11 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
             var started: [Int] = []
             while let first = waiting.first, running.count < policy.capacity(explicitlyQueued: first.explicitlyQueued) {
                 waiting.removeFirst()
-                running.insert(first.id)
+                running.append(first.id)
+                interrupted.remove(first.id)
                 started.append(first.id)
             }
+            balance()
             return started
         }
 
@@ -110,12 +130,115 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
 
         /// Puts a waiting retrieve at `index` of the line, kept within it; the
         /// retrieves under way do not move. Returns whether its place changed.
+        /// The retrieves put ahead of those under way stay first: another one
+        /// goes no further up than right behind them, and one of them moved
+        /// behind another retrieve waits its turn as that one does.
         mutating func move(_ id: Int, to index: Int) -> Bool {
             guard let from = waiting.firstIndex(where: { $0.id == id }) else { return false }
-            let to = min(max(index, 0), waiting.count - 1)
+            var to = min(max(index, 0), waiting.count - 1)
+            if ahead.contains(id) {
+                if to >= ahead.count { ahead.remove(id) }
+            } else {
+                to = max(to, ahead.count)
+            }
             guard to != from else { return false }
             waiting.insert(waiting.remove(at: from), at: to)
+            balance()
             return true
+        }
+
+        /// Whether `startAhead` would change anything for this retrieve: it
+        /// waits, and is not already the first to start.
+        func canStartAhead(_ id: Int) -> Bool {
+            guard let index = waiting.firstIndex(where: { $0.id == id }) else { return false }
+            return index > 0 || !ahead.contains(id)
+        }
+
+        /// Starts a waiting retrieve ahead of those under way. In Parallel
+        /// without a limit it starts at once and nothing yields. Otherwise it
+        /// goes first in line and starts if there is room; if there is none,
+        /// the retrieve started last is asked to yield (`mustYield`) and this
+        /// one starts when it has (`yielded`). Returns whether anything changed.
+        mutating func startAhead(_ id: Int, policy: Policy) -> Bool {
+            guard canStartAhead(id), let from = waiting.firstIndex(where: { $0.id == id }) else { return false }
+            let entry = waiting.remove(at: from)
+            if policy.capacity(explicitlyQueued: false) == Int.max {
+                interrupted.remove(id)
+                running.append(id)
+                balance()
+                return true
+            }
+            waiting.insert(entry, at: 0)
+            ahead.insert(id)
+            _ = promote(policy: policy)
+            return true
+        }
+
+        /// Whether a retrieve under way was asked to yield: it cancels its
+        /// transfer and then says `yielded`.
+        func mustYield(_ id: Int) -> Bool { yielding.contains(id) }
+
+        /// Whether a waiting retrieve yielded, and resumes in its turn.
+        func isInterrupted(_ id: Int) -> Bool { interrupted.contains(id) }
+
+        /// A retrieve under way has stopped its transfer to yield: it waits
+        /// right behind the retrieves put ahead, to resume, and they start in
+        /// its place. Asked to yield or not: one that stopped after the
+        /// request was withdrawn waits first, and starts again if there is
+        /// room. Returns those that start.
+        mutating func yielded(_ id: Int, policy: Policy) -> [Int] {
+            guard let index = running.firstIndex(of: id) else { return [] }
+            running.remove(at: index)
+            let stillAhead = waiting.prefix { ahead.contains($0.id) }.count
+            waiting.insert((id, false), at: stillAhead)
+            interrupted.insert(id)
+            return promote(policy: policy)
+        }
+
+        /// One retrieve under way yields for each retrieve put ahead that
+        /// still waits: the ones started last. A request no longer needed, as
+        /// when another retrieve ended meanwhile, is withdrawn.
+        private mutating func balance() {
+            let inLine = Set(waiting.map { $0.id })
+            ahead.formIntersection(inLine)
+            yielding.removeAll { !running.contains($0) }
+            while yielding.count > ahead.count { yielding.removeLast() }
+            while yielding.count < ahead.count, let next = running.last(where: { !yielding.contains($0) }) {
+                yielding.append(next)
+            }
+        }
+    }
+
+    /// What a queued retrieve asks for, and which of it has ended: a retrieve
+    /// of several studies or series that yielded resumes with the ones that
+    /// had not ended, and does not ask again for the others.
+    ///
+    /// @unchecked Sendable: `ended` is read and written only under `lock`, by
+    /// the retrieve's thread and the thread of each of its transfers.
+    final class Turns: @unchecked Sendable {
+        private let lock = NSLock()
+        private let items: [AnyObject]
+        private var ended: Set<ObjectIdentifier> = []
+
+        init(_ items: [Any]) {
+            self.items = items.map { $0 as AnyObject }
+        }
+
+        /// The transfer of `item` ended without being cancelled.
+        func markEnded(_ item: AnyObject) {
+            lock.lock(); defer { lock.unlock() }
+            ended.insert(ObjectIdentifier(item))
+        }
+
+        func hasEnded(_ item: AnyObject) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            return ended.contains(ObjectIdentifier(item))
+        }
+
+        /// What is still to be asked for, in order.
+        var remaining: [Any] {
+            lock.lock(); defer { lock.unlock() }
+            return items.filter { !ended.contains(ObjectIdentifier($0)) }
         }
     }
 
@@ -140,7 +263,8 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         waits.prefix(max(row, 0)).enumerated().filter { $0.element && $0.offset != dragged }.count
     }
 
-    /// Where Activity moves a waiting retrieve in the line.
+    /// Where Activity moves a waiting retrieve in the line; to the top, it
+    /// also starts ahead of the retrieves under way.
     @objc(HorosRetrieveQueueMove)
     public enum Move: Int {
         case top, up, down
@@ -229,6 +353,70 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         return state.position(ticket.id) ?? 0
     }
 
+    /// On the retrieve's thread, in its turn: runs `transfer` on a thread of
+    /// its own and waits for it. A transfer is stopped by cancelling its
+    /// thread and a cancelled thread stays cancelled, so the thread Activity
+    /// lists, which lasts through every turn, is not the one that transfers.
+    /// `start` makes that thread, hands it to its first argument before it
+    /// starts, starts it and returns it. `whileRunning` is given the
+    /// transfer's thread at each look, to show on the retrieve's thread what
+    /// it reports, until the retrieve is asked to yield. Cancelling the retrieve cancels
+    /// the transfer. When the retrieve must yield, `willYield` is called, the
+    /// transfer is cancelled and, once it has stopped, the retrieve is back
+    /// in line, unless `resumes` says nothing is left to ask for. Returns
+    /// whether it is back in line: the caller then waits for its turn again.
+    func runTurn(_ ticket: Ticket, pollInterval: TimeInterval = 0.1,
+                 start: (_ configure: (Thread) -> Void, _ transfer: @escaping @Sendable () -> Void) -> Thread,
+                 willYield: () -> Void = {}, whileRunning: (Thread) -> Void = { _ in }, resumes: () -> Bool = { true },
+                 transfer: @escaping @Sendable () -> Void) -> Bool {
+        let retrieve = Thread.current
+        let thread = start({ $0.threadDictionary[RetrieveQueue.threadKey] = ticket }, transfer)
+        var asked = false
+        while !thread.isFinished {
+            if retrieve.isCancelled {
+                thread.cancel()
+            } else if !asked && mustYield(ticket) {
+                asked = true
+                willYield()
+                thread.cancel()
+            }
+            if !asked { whileRunning(thread) }
+            Thread.sleep(forTimeInterval: pollInterval)
+        }
+        if !asked { whileRunning(thread) }
+        guard asked, !retrieve.isCancelled, resumes() else { return false }
+        condition.lock()
+        defer { condition.unlock() }
+        _ = state.yielded(ticket.id, policy: .current())
+        condition.broadcast()
+        return true
+    }
+
+    /// Whether a retrieve under way was asked to yield to one put ahead of it.
+    @objc(mustYield:)
+    public func mustYield(_ ticket: Ticket) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        return state.mustYield(ticket.id)
+    }
+
+    /// Whether a waiting retrieve yielded, and resumes in its turn.
+    @objc(isInterrupted:)
+    public func isInterrupted(_ ticket: Ticket) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        return state.isInterrupted(ticket.id)
+    }
+
+    /// Whether Move to Top does anything for this retrieve: it waits, and is
+    /// not already the first to start.
+    @objc(canMoveToTop:)
+    public func canMoveToTop(_ ticket: Ticket) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        return state.canStartAhead(ticket.id)
+    }
+
     /// How many retrieves wait in line.
     @objc public var waitingCount: Int {
         condition.lock()
@@ -236,8 +424,11 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         return state.waiting.count
     }
 
-    /// Moves a waiting retrieve in the line; the ones under way go on. A
-    /// retrieve moved first may start at once, if its capacity allows it.
+    /// Moves a waiting retrieve in the line. Up and down, the ones under way
+    /// go on, and a retrieve moved first may start at once, if its capacity
+    /// allows it. To the top, it starts ahead of them: at once in Parallel
+    /// without a limit, and otherwise as soon as the retrieve started last
+    /// has yielded, which resumes afterwards.
     @discardableResult
     @objc(move:ticket:)
     public func move(_ move: Move, _ ticket: Ticket) -> Bool {
@@ -246,7 +437,10 @@ public final class RetrieveQueue: NSObject, @unchecked Sendable {
         guard let position = state.position(ticket.id) else { return false }
         let index: Int
         switch move {
-        case .top: index = 0
+        case .top:
+            guard state.startAhead(ticket.id, policy: .current()) else { return false }
+            condition.broadcast()
+            return true
         case .up: index = position - 2
         case .down: index = position
         }

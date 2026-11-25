@@ -25,17 +25,19 @@ import Testing
                                      rowRect: CGRect(x: 1920, y: 0, width: 1920, height: 1055))
 
     static func options(rows: Int32 = 0, columns: Int32 = 0, hangingProtocol: Bool = false, keepStudies: Bool = false,
-                        byDate: Bool = false) -> Layout.Options {
+                        byDate: Bool = false, bySeriesList: Bool = false, protocolOrdersSeries: Bool = false) -> Layout.Options {
         Layout.Options(rows: rows, columns: columns, hasHangingProtocol: hangingProtocol, keepsStudiesOnSameScreen: keepStudies,
-                       stretchesWindows: true, ordersByStudyDate: byDate, reversesStudyDateOrder: false)
+                       stretchesWindows: true, ordersByStudyDate: byDate, reversesStudyDateOrder: false,
+                       ordersBySeriesList: bySeriesList, protocolOrdersSeries: protocolOrdersSeries)
     }
 
-    /// A visible viewer whose window sits at `x`, `y` on the first screen.
+    /// A visible viewer whose window sits at `x`, `y` on the first screen;
+    /// `series` is the place of its series in the series list.
     static func viewer(_ x: CGFloat, _ y: CGFloat, screen: Int = 0, study: String? = "1.2.3", date: Date? = nil,
-                       visible: Bool = true, key: Bool = false) -> Layout.Viewer {
+                       series: Int? = nil, visible: Bool = true, key: Bool = false) -> Layout.Viewer {
         Layout.Viewer(frame: CGRect(x: x, y: y, width: 400, height: 300), isVisible: visible, isKey: key,
                       orderedScreenIndex: screen, screenVisibleOriginY: 0, tilingScreenIndex: screen,
-                      studyInstanceUID: study, studyDate: date)
+                      studyInstanceUID: study, studyDate: date, seriesListPlace: series)
     }
 
     @Test func screensFromLowestLeftmost() {
@@ -184,6 +186,95 @@ import Testing
         #expect(result.placements[2].frame.minX >= 1920)
         // A viewer without a study is a study of its own.
         #expect(!Layout.sameStudy(nil, nil) && Layout.sameStudy("A", "A") && !Layout.sameStudy("A", "B"))
+    }
+
+    @Test func aSeriesOpenedLaterEntersWhereTheSeriesListHasIt() {
+        var layout = Layout()
+        // The second and third series of the list are shown; the first one is opened after them.
+        let viewers = [Self.viewer(0, 0, series: 1), Self.viewer(960, 0, series: 2), Self.viewer(0, 0, series: 0, visible: false)]
+        let result = layout.arrange(viewers, on: [Self.wide], request: nil, options: Self.options(bySeriesList: true))
+        #expect(result.order == [2, 0, 1])
+        #expect(result.placements.map(\.viewer) == [2, 0, 1])
+        // It takes the leftmost place of the row, and is still the key viewer.
+        #expect(result.placements[0].frame == CGRect(x: 0, y: 0, width: 640, height: 1055))
+        #expect(result.keyViewer == 2)
+        #expect(result.hidden.isEmpty)
+    }
+
+    @Test func aFifthSeriesEntersAtTheTopLeftOfTheGrid() {
+        let four = [Self.viewer(0, 600, series: 1), Self.viewer(900, 600, series: 2), Self.viewer(0, 0, series: 3),
+                    Self.viewer(900, 0, series: 4)]
+        let five = four + [Self.viewer(0, 0, series: 0, visible: false)]
+
+        var layout = Layout()
+        _ = layout.arrange(four, on: [Self.wide], request: nil, options: Self.options(bySeriesList: true))
+        #expect(layout.lastColumns == 2 && layout.lastCount == 4)
+        let result = layout.arrange(five, on: [Self.wide], request: nil, options: Self.options(bySeriesList: true))
+        // Three columns where there were two: the order of the list holds, and
+        // no viewer is taken out of it for the new column.
+        #expect(layout.lastRows == 2 && layout.lastColumns == 3)
+        #expect(result.order == [4, 0, 1, 2, 3])
+        #expect(result.placements.first == .init(viewer: 4, frame: CGRect(x: 0, y: 500, width: 640, height: 500)))
+
+        // Without the option the added viewer goes where the new column starts.
+        var opened = Layout()
+        _ = opened.arrange(four, on: [Self.wide], request: nil, options: Self.options())
+        #expect(opened.arrange(five, on: [Self.wide], request: nil, options: Self.options()).order == [0, 1, 4, 2, 3])
+    }
+
+    @Test func studiesKeepTheirOrderAroundTheSeriesList() {
+        let old = Date(timeIntervalSinceReferenceDate: 0), new = Date(timeIntervalSinceReferenceDate: 1000)
+        // The prior study, then the current one, whose first series is opened last.
+        let dated = [Self.viewer(0, 0, study: "A", date: old, series: 0), Self.viewer(960, 0, study: "B", date: new, series: 1),
+                     Self.viewer(0, 0, study: "B", date: new, series: 0, visible: false)]
+        var layout = Layout()
+        let result = layout.arrange(dated, on: [Self.wide], request: nil, options: Self.options(byDate: true, bySeriesList: true))
+        // The latest study first, its series in the order of the list; the prior study after it.
+        #expect(result.order == [2, 1, 0])
+
+        // Without the order by date, the viewers of a study exchange the places
+        // they had, and the other study's viewer stays between them.
+        let mixed = [Self.viewer(0, 0, study: "A", series: 1), Self.viewer(600, 0, study: "B", series: 0),
+                     Self.viewer(1200, 0, study: "A", series: 0)]
+        var other = Layout()
+        #expect(other.arrange(mixed, on: [Self.wide], request: nil, options: Self.options(bySeriesList: true)).order == [2, 1, 0])
+        // The same place in two studies orders nothing between them.
+        #expect(Layout.orderedBySeriesList([0, 1], [Self.viewer(0, 0, study: "A", series: 1), Self.viewer(0, 0, study: "B", series: 0)])
+                == [0, 1])
+    }
+
+    @Test func theSeriesListOrdersNothingWhenTheOptionIsOff() {
+        let listed = [Self.viewer(0, 0, series: 1), Self.viewer(960, 0, series: 2), Self.viewer(0, 0, series: 0, visible: false)]
+        let plain = [Self.viewer(0, 0), Self.viewer(960, 0), Self.viewer(0, 0, visible: false)]
+        var first = Layout(), second = Layout()
+        let result = first.arrange(listed, on: [Self.wide], request: nil, options: Self.options())
+        // The order the windows were opened in, as without the places of the series.
+        #expect(result.order == [0, 1, 2])
+        #expect(result == second.arrange(plain, on: [Self.wide], request: nil, options: Self.options()))
+        #expect(first == second)
+        #expect(!Self.options().followsSeriesList && Self.options(bySeriesList: true).followsSeriesList)
+    }
+
+    @Test func theHangingProtocolsOrderPrevailsOverTheSeriesList() {
+        var layout = Layout()
+        let viewers = [Self.viewer(0, 0, series: 1), Self.viewer(960, 0, series: 2), Self.viewer(0, 0, series: 0, visible: false)]
+        let options = Self.options(rows: 1, columns: 3, hangingProtocol: true, bySeriesList: true, protocolOrdersSeries: true)
+        #expect(!options.followsSeriesList)
+        // The order the protocol opened its series in.
+        #expect(layout.arrange(viewers, on: [Self.wide], request: nil, options: options).order == [0, 1, 2])
+        // A protocol that names no series leaves the order to the list.
+        var free = Layout()
+        let unordered = Self.options(rows: 1, columns: 3, hangingProtocol: true, bySeriesList: true)
+        #expect(free.arrange(viewers, on: [Self.wide], request: nil, options: unordered).order == [2, 0, 1])
+    }
+
+    @Test func viewersTheSeriesListDoesNotPlaceKeepTheirPlaces() {
+        var layout = Layout()
+        // A series that is not in the list, a viewer without a study, and two viewers of one series.
+        let viewers = [Self.viewer(0, 0, series: 2), Self.viewer(400, 0, series: nil), Self.viewer(800, 0, study: nil, series: 0),
+                       Self.viewer(1200, 0, series: 0), Self.viewer(1600, 0, series: 0)]
+        let result = layout.arrange(viewers, on: [Self.wide], request: nil, options: Self.options(bySeriesList: true))
+        #expect(result.order == [3, 1, 2, 4, 0])
     }
 
     @Test func noScreenNoPlacement() {

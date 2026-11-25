@@ -86,10 +86,20 @@ public final class ROICanvas: NSObject {
     /// Animation is not drawn into again before the next frame replaces it,
     /// so its pixels are never copied.
     private var contexts: [CGContext?] = [nil, nil]
-    private var buffers: [UnsafeMutableRawPointer?] = [nil, nil]
+    private var bitmaps: [Bitmap?] = [nil, nil]
+    private var buffers: [UnsafeMutableRawPointer?] { bitmaps.map { $0?.bytes } }
 
-    deinit {
-        buffers.forEach { free($0) }
+    /// The memory of one bitmap. The image a frame hands to Core Animation
+    /// reads it without a copy and keeps it: a layer can still hold that image
+    /// when the canvas is resized or released - a viewer closing while its
+    /// window is still on screen - and the next commit reads its pixels.
+    private final class Bitmap {
+        let bytes: UnsafeMutableRawPointer
+        init?(width: Int, height: Int) {
+            guard width > 0, height > 0, let bytes = calloc(width * height, 4) else { return nil }
+            self.bytes = bytes
+        }
+        deinit { free(bytes) }
     }
     /// The tiles each bitmap drew in, to clear before it is drawn again: the
     /// pieces a frame draws overlap - labels over their ROIs, a disc at every
@@ -109,8 +119,7 @@ public final class ROICanvas: NSObject {
             self.width = max(0, width)
             self.height = max(0, height)
             self.space = space
-            buffers.forEach { free($0) }
-            buffers = (0..<2).map { _ in self.width > 0 && self.height > 0 ? calloc(self.width * self.height, 4) : nil }
+            bitmaps = (0..<2).map { _ in Bitmap(width: self.width, height: self.height) }
             contexts = buffers.map { buffer in
                 buffer.flatMap {
                     CGContext(data: $0, width: self.width, height: self.height, bitsPerComponent: 8, bytesPerRow: self.width * 4,
@@ -151,13 +160,22 @@ public final class ROICanvas: NSObject {
         let rect = dirty.integral.intersection(CGRect(x: 0, y: 0, width: width, height: height))
         dirty = .null
         // The image reads the bitmap where the frame drew, without a copy: the
-        // bitmap is not drawn into again until the next frame has replaced it.
-        guard let data = buffers[current], !rect.isNull, !rect.isEmpty else { return nil }
+        // bitmap is not drawn into again until the next frame has replaced it,
+        // and the image keeps its memory for as long as a layer shows it.
+        guard let bitmap = bitmaps[current], !rect.isNull, !rect.isEmpty else { return nil }
+        let data = bitmap.bytes
         let x0 = Int(rect.minX), y0 = Int(rect.minY), w = Int(rect.width), h = Int(rect.height)
         let rowBytes = width * 4
-        guard let provider = CGDataProvider(dataInfo: nil, data: data + y0 * rowBytes + x0 * 4, size: rowBytes * (h - 1) + w * 4,
-                                            releaseData: { _, _, _ in }),
-              let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: rowBytes, space: space,
+        let kept = Unmanaged.passRetained(bitmap)
+        guard let provider = CGDataProvider(dataInfo: kept.toOpaque(), data: data + y0 * rowBytes + x0 * 4,
+                                            size: rowBytes * (h - 1) + w * 4,
+                                            releaseData: { info, _, _ in
+                                                if let info { Unmanaged<Bitmap>.fromOpaque(info).release() }
+                                            }) else {
+            kept.release()
+            return nil
+        }
+        guard let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: rowBytes, space: space,
                                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
                                   provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
         else { return nil }

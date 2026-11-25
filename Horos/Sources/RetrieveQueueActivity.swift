@@ -14,7 +14,7 @@ import AppKit
 
 /// The queue of Query & Retrieve downloads as Activity shows it: a waiting
 /// retrieve's line gives its place, and its context menu moves it in the
-/// queue or names it.
+/// queue, starts it ahead of the download in progress, or names it.
 @objc(HorosRetrieveQueueActivity)
 public final class RetrieveQueueActivity: NSObject {
 
@@ -25,11 +25,25 @@ public final class RetrieveQueueActivity: NSObject {
         String(format: NSLocalizedString("Waiting in queue (%ld) - %@", comment: "Activity status of a Query & Retrieve download waiting for its turn: its place in the queue, then what it retrieves"), position, status)
     }
 
+    /// The status of a retrieve that yielded to one moved to the top, and
+    /// waits to resume: its place and what it retrieves.
+    @objc(resumingStatus:position:)
+    public static func resumingStatus(_ status: String, position: Int) -> String {
+        String(format: NSLocalizedString("Interrupted, waiting to resume (%ld) - %@", comment: "Activity status of a Query & Retrieve download that was interrupted so that another one could start first, and waits for its turn to resume: its place in the queue, then what it retrieves"), position, status)
+    }
+
+    /// What Move to Top does to the download in progress, and what that one
+    /// asks for again: said where the command is.
+    static var moveToTopHelp: String {
+        NSLocalizedString("Starts this download now. Unless downloads run in parallel without a limit, the download in progress is interrupted, stays in Activity and resumes afterwards. It then asks only for what is missing: the missing instances with DICOMweb and WADO; series by series with C-MOVE and C-GET, without asking again for complete series. A node that does not list its instances is asked for the whole study again.", comment: "Activity menu: help tag of Move to Top on a waiting download")
+    }
+
     @MainActor private static let shared = RetrieveQueueActivity()
 
     /// The context menu of an Activity line: Move to Top, Up and Down while
     /// the retrieve waits, and Rename… until it ends. Nil for a line that is
-    /// not a queued retrieve.
+    /// not a queued retrieve. Move to Top also serves the first in line,
+    /// which it starts ahead of the download in progress.
     @MainActor @objc(menuForThread:)
     public static func menu(for thread: Thread) -> NSMenu? {
         guard !thread.isFinished, let ticket = RetrieveQueue.ticket(of: thread) else { return nil }
@@ -39,7 +53,7 @@ public final class RetrieveQueueActivity: NSObject {
         menu.autoenablesItems = false
         if position > 0 {
             let moves: [(String, RetrieveQueue.Move, Bool)] = [
-                (NSLocalizedString("Move to Top", comment: "Activity menu: a waiting download goes first in the queue"), .top, position > 1),
+                (NSLocalizedString("Move to Top", comment: "Activity menu: a waiting download goes first in the queue"), .top, queue.canMoveToTop(ticket)),
                 (NSLocalizedString("Move Up", comment: "Activity menu: a waiting download goes one place ahead in the queue"), .up, position > 1),
                 (NSLocalizedString("Move Down", comment: "Activity menu: a waiting download goes one place back in the queue"), .down, position < queue.waitingCount),
             ]
@@ -49,6 +63,7 @@ public final class RetrieveQueueActivity: NSObject {
                 item.tag = move.rawValue
                 item.representedObject = ticket
                 item.isEnabled = enabled
+                if move == .top { item.toolTip = moveToTopHelp }
                 menu.addItem(item)
             }
             menu.addItem(.separator())

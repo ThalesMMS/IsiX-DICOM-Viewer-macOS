@@ -129,7 +129,8 @@ import Metal
                     if nearest { intensity=scalar(Int(floor(x)),Int(floor(y)),channel) }
                     else if cubic {
                         let a=Double(frame.window.x)-Double(frame.window.y)/2, b=Double(frame.window.x)+Double(frame.window.y)/2
-                        func shown(_ v:Double) -> Double { min(max(v,min(a,b)),max(a,b)) }
+                        let margin=abs(Double(frame.window.y))/2
+                        func shown(_ v:Double) -> Double { min(max(v,min(a,b)-margin),max(a,b)+margin) }
                         let xx=x-0.5, yy=y-0.5, x0=Int(floor(xx)), y0=Int(floor(yy))
                         let wx=catmullRom(xx-floor(xx)), wy=catmullRom(yy-floor(yy))
                         var sum=0.0, low=shown(scalar(x0,y0,channel)), high=low
@@ -230,11 +231,13 @@ import Metal
                 let brightest=stride(from:0,to:shown.count,by:4).map { Int(shown[$0]) }.max()!
                 precondition(brightest <= tissue, "the edge of the field of view rang to \(brightest), tissue is \(tissue)")
                 precondition(Int(shown[4*(ew*8*16+ew*8-2)]) == tissue, "tissue away from the edge is not itself")
-                // Held within the window first, the padding is the window's
-                // bottom: the edge ramps over the texel, as windowed bytes would.
+                // Held within the widened window first, the padding is half a
+                // window below its bottom: the edge still ramps over part of
+                // the texel, eight pixels wide here, where the padding as it
+                // is would cross the window within a hundredth of it.
                 let row=(0..<ew*8).map { Int(shown[4*(ew*8*16+$0)]) }
                 let ramp=row.filter { $0 > 0 && $0 < tissue }.count
-                precondition(ramp >= scale*2, "the edge snaps to the texel grid: \(ramp) intermediate pixels")
+                precondition(ramp >= 3, "the edge snaps to the texel grid: \(ramp) intermediate pixels")
                 checked += ew*eh*64
             }
         }

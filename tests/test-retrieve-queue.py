@@ -9,7 +9,12 @@ threads wait their turn and one cancelled while waiting leaves the line.
 Activity moves a waiting retrieve to the top, up or down without touching
 those under way, a moved retrieve keeps its place as the others end, a waiting
 thread hears its place each time it changes, and a name given to a retrieve
-lasts until it ends. Finally checks that the Q&R window sends its retrieves
+lasts until it ends. Move to Top starts a waiting retrieve ahead of those
+under way: the one started last yields and resumes right after it, in
+Sequential and in Parallel with a limit, nothing yields in Parallel without
+one, and a request to yield that is no longer needed is withdrawn; a real
+thread under way stops its transfer, waits in line again and resumes, and one
+cancelled by the user ends. Finally checks that the Q&R window sends its retrieves
 through the queue, that Command turns the arrows and queues the clicked row,
 that Activity offers the moves and the name on a queued line, and that
 Settings › Locations installs the two rows.
@@ -122,6 +127,63 @@ check(m.remove(1, policy: sequential) == [4], "the one moved to the top starts n
 check(m.remove(3, policy: sequential).isEmpty && m.waiting.map { $0.id } == [2], "removing a waiting one keeps the order")
 check(m.remove(4, policy: sequential) == [2], "and the last one is promoted")
 
+// Move to Top starts a retrieve ahead of the one under way, in Sequential:
+// that one is asked to yield, counts as under way until its transfer has
+// stopped, and then waits first in line to resume.
+var p = RetrieveQueue.State()
+_ = (1...3).map { p.submit($0, explicitlyQueued: false, policy: sequential) }
+check(p.canStartAhead(2) && p.canStartAhead(3) && !p.canStartAhead(1) && !p.canStartAhead(9), "any waiting retrieve can start ahead, the first in line too")
+check(p.startAhead(3, policy: sequential) && p.waiting.map { $0.id } == [3, 2], "put ahead: first in line")
+check(p.mustYield(1) && p.isRunning(1) && !p.isRunning(3), "the one under way is asked to yield and counts until it has")
+check(!p.startAhead(3, policy: sequential) && !p.canStartAhead(3) && !p.startAhead(1, policy: sequential), "nothing to do twice, nor for one under way")
+check(!p.move(2, to: 0) && p.waiting.map { $0.id } == [3, 2], "another waiting retrieve does not pass the one put ahead")
+check(p.yielded(1, policy: sequential) == [3] && p.waiting.map { $0.id } == [1, 2], "it yields: the other starts, and it waits first in line")
+check(p.isInterrupted(1) && !p.mustYield(1) && !p.isInterrupted(2) && p.position(1) == 1, "it waits to resume")
+check(p.remove(3, policy: sequential) == [1] && !p.isInterrupted(1), "and resumes when the other ends")
+check(p.remove(1, policy: sequential) == [2] && p.remove(2, policy: sequential).isEmpty && p.running.isEmpty, "then the rest of the line")
+// The first in line starts ahead too.
+var f = RetrieveQueue.State()
+_ = (1...2).map { f.submit($0, explicitlyQueued: false, policy: sequential) }
+check(f.startAhead(2, policy: sequential) && f.mustYield(1) && f.yielded(1, policy: sequential) == [2] && f.isInterrupted(1), "first in line, ahead of the one under way")
+// A request to yield is withdrawn when it is no longer needed: the retrieve
+// under way ended first, the one put ahead was cancelled, or moved back down.
+var w = RetrieveQueue.State()
+_ = (1...3).map { w.submit($0, explicitlyQueued: false, policy: sequential) }
+check(w.startAhead(3, policy: sequential) && w.remove(1, policy: sequential) == [3] && w.yielding.isEmpty && !w.mustYield(3), "the one under way ended first")
+check(w.startAhead(2, policy: sequential) && w.mustYield(3) && w.remove(2, policy: sequential).isEmpty && !w.mustYield(3), "the one put ahead was cancelled")
+var v = RetrieveQueue.State()
+_ = (1...3).map { v.submit($0, explicitlyQueued: false, policy: sequential) }
+check(v.startAhead(3, policy: sequential) && v.move(3, to: 1) && v.waiting.map { $0.id } == [2, 3] && !v.mustYield(1), "moved back down: it waits its turn")
+// A transfer that stopped after the request was withdrawn goes on at once.
+check(v.yielded(1, policy: sequential) == [1] && v.isRunning(1) && !v.isInterrupted(1) && v.waiting.map { $0.id } == [2, 3], "stopped for nothing: it starts again")
+check(v.yielded(9, policy: sequential).isEmpty, "only a retrieve under way yields")
+// Parallel with a limit of 2: the one started last yields; a second one put
+// ahead takes the other; those that yielded resume as there is room.
+var k = RetrieveQueue.State()
+_ = (1...4).map { k.submit($0, explicitlyQueued: false, policy: limit2) }
+check(k.startAhead(4, policy: limit2) && k.mustYield(2) && !k.mustYield(1), "limit 2: the one started last yields")
+check(k.startAhead(3, policy: limit2) && k.mustYield(1) && k.mustYield(2) && k.waiting.map { $0.id } == [3, 4], "a second one: the other yields too")
+check(k.yielded(2, policy: limit2) == [3] && k.mustYield(1) && k.waiting.map { $0.id } == [4, 2], "one yields, the first put ahead starts")
+check(k.yielded(1, policy: limit2) == [4] && k.waiting.map { $0.id } == [1, 2] && k.yielding.isEmpty, "the other yields, the second starts")
+check(k.remove(3, policy: limit2) == [1] && k.remove(4, policy: limit2) == [2], "those that yielded resume")
+// A retrieve started after another is the one that yields, whatever its number.
+var n = RetrieveQueue.State()
+_ = [5, 6, 7].map { n.submit($0, explicitlyQueued: false, policy: limit2) }
+check(n.remove(5, policy: limit2) == [7] && n.submit(8, explicitlyQueued: false, policy: limit2) == false, "6 and 7 under way, 8 waits")
+check(n.startAhead(8, policy: limit2) && n.mustYield(7) && !n.mustYield(6), "the last started yields")
+// A raised limit makes room: nobody yields any more.
+check(n.promote(policy: P(sequential: false, limit: 3)) == [8] && n.yielding.isEmpty, "room made by the preferences withdraws the request")
+// Parallel without a limit: the one moved to the top starts, nothing yields.
+var u = RetrieveQueue.State()
+check(u.submit(1, explicitlyQueued: false, policy: unlimited) && !u.submit(2, explicitlyQueued: true, policy: unlimited) && !u.submit(3, explicitlyQueued: true, policy: unlimited), "two Command retrieves wait")
+check(u.startAhead(3, policy: unlimited) && u.isRunning(3) && u.isRunning(1) && u.yielding.isEmpty && u.waiting.map { $0.id } == [2], "no limit: it just starts")
+// What a retrieve of several items had ended before it yielded.
+let itemA = NSObject(), itemB = NSObject()
+let turns = RetrieveQueue.Turns([itemA, itemB])
+check(turns.remaining.count == 2 && !turns.hasEnded(itemA), "nothing ended yet")
+turns.markEnded(itemA)
+check(turns.hasEnded(itemA) && !turns.hasEnded(itemB) && turns.remaining.count == 1 && (turns.remaining[0] as AnyObject) === itemB, "the ended item is not asked for again")
+
 // The rows of Activity: the waiting ones trade the places they hold among
 // themselves, in the order of the line; the others stay where they are.
 let rows = ["running", "third", "import", "first", "second"]
@@ -178,10 +240,92 @@ shared.finish(third)
 check(shared.isRunning(second), "then the last")
 shared.finish(second)
 check(shared.label(of: second) == nil, "the name ends with the retrieve")
+
+// Real threads, still in Sequential: the retrieve under way yields to the one
+// moved to the top, waits in line again and resumes right after it.
+var story: [String] = []
+let storyLock = NSLock()
+func tell(_ line: String) { storyLock.lock(); story.append(line); storyLock.unlock() }
+let told = DispatchGroup()
+// The thread of a transfer, as the window starts it: handed over before it starts.
+func startThread(_ configure: (Thread) -> Void, _ transfer: @escaping @Sendable () -> Void) -> Thread {
+    let thread = Thread(block: transfer)
+    configure(thread)
+    thread.start()
+    return thread
+}
+func retrieve(_ name: String, _ ticket: RetrieveQueue.Ticket, work: TimeInterval) {
+    told.enter()
+    Thread {
+        var turn = 0
+        while true {
+            let resumed = shared.isInterrupted(ticket)
+            guard shared.waitForTurn(ticket) else { tell("\(name) left"); break }
+            turn += 1
+            let number = turn
+            let back = shared.runTurn(ticket, pollInterval: 0.02, start: startThread, willYield: { tell("\(name) asked") }) {
+                tell("\(name) turn \(number)\(resumed ? " resumed" : "")")
+                let end = Date().addingTimeInterval(work)
+                while Date() < end && !Thread.current.isCancelled { Thread.sleep(forTimeInterval: 0.01) }
+                tell(Thread.current.isCancelled ? "\(name) stopped" : "\(name) ended")
+            }
+            if !back { break }
+        }
+        shared.finish(ticket)
+        told.leave()
+    }.start()
+}
+let yielder = shared.ticket(explicitlyQueued: false)
+let patient = shared.ticket(explicitlyQueued: false)
+let urgent = shared.ticket(explicitlyQueued: false)
+retrieve("first", yielder, work: 0.8)
+retrieve("patient", patient, work: 0.1)
+retrieve("urgent", urgent, work: 0.2)
+Thread.sleep(forTimeInterval: 0.3)
+check(shared.canMoveToTop(urgent) && shared.canMoveToTop(patient) && !shared.canMoveToTop(yielder), "Move to Top serves the waiting ones")
+check(shared.move(.top, urgent) && !shared.canMoveToTop(urgent) && !shared.move(.top, urgent), "Move to Top, once")
+check(told.wait(timeout: .now() + 10) == .success, "the retrieves ended")
+check(story == ["first turn 1", "first asked", "first stopped", "urgent turn 1", "urgent ended",
+                "first turn 2 resumed", "first ended", "patient turn 1", "patient ended"], "the one under way yields and resumes: \(story)")
+check(shared.waitingCount == 0 && !shared.isInterrupted(yielder), "the queue is empty again")
+// Stopped by the user in its turn, a retrieve cancels its transfer and ends;
+// one with nothing left to ask for does not go back in line.
+story = []
+let stopped = shared.ticket(explicitlyQueued: false)
+let nothingLeft = shared.ticket(explicitlyQueued: false)
+var looks = 0
+let stoppedRow = Thread {
+    let back = shared.runTurn(stopped, pollInterval: 0.02, start: startThread, whileRunning: { thread in if RetrieveQueue.ticket(of: thread) === stopped { looks += 1 } }) {
+        while !Thread.current.isCancelled { Thread.sleep(forTimeInterval: 0.01) }
+        tell("stopped transfer cancelled")
+    }
+    tell("stopped back in line: \(back)")
+    shared.finish(stopped)
+}
+told.enter()
+Thread {
+    _ = shared.waitForTurn(nothingLeft)
+    let back = shared.runTurn(nothingLeft, pollInterval: 0.02, start: startThread, resumes: { false }) {
+        while !Thread.current.isCancelled { Thread.sleep(forTimeInterval: 0.01) }
+    }
+    tell("nothing left back in line: \(back)")
+    shared.finish(nothingLeft)
+    told.leave()
+}.start()
+stoppedRow.start()
+Thread.sleep(forTimeInterval: 0.2)
+stoppedRow.cancel()
+Thread.sleep(forTimeInterval: 0.3)
+let last = shared.ticket(explicitlyQueued: false)
+check(shared.isRunning(nothingLeft) && shared.move(.top, last), "a retrieve put ahead of one that has all it asked for")
+check(told.wait(timeout: .now() + 10) == .success, "it ended")
+check(story == ["stopped transfer cancelled", "stopped back in line: false", "nothing left back in line: false"], "cancelled or complete, not back in line: \(story)")
+check(looks > 2 && shared.isRunning(last), "the transfer's thread is looked at while it runs; the one put ahead starts")
+shared.finish(last)
 UserDefaults.standard.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
 
 if failures > 0 { exit(1) }
-print("PASS: Parallel, limit, Sequential and Command follow the rule; waiting threads run in turn or leave when cancelled; Activity reorders and names the waiting ones")
+print("PASS: Parallel, limit, Sequential and Command follow the rule; waiting threads run in turn or leave when cancelled; Activity reorders and names the waiting ones; a retrieve under way yields to one moved to the top and resumes")
 '''
 
 failures = []
@@ -205,15 +349,27 @@ for needle, what in [
     ('if showGUI && !forViewing && !onlyIfNotAvailable {', 'only the retrieves asked for in the window are queued'),
     ('RetrieveQueue.shared.ticket(explicitlyQueued: explicitlyQueued)', 'a ticket per retrieve'),
     ('self.performQueuedRetrieve(items.items, ticket: ticket, status: status)', 'the thread waits for its turn'),
-    ('RetrieveQueue.shared.waitForTurn(ticket, whileWaiting:', 'performQueuedRetrieve: waits'),
-    ('RetrieveQueue.shared.finish(ticket)', 'performQueuedRetrieve: makes room'),
+    ('queue.waitForTurn(ticket, whileWaiting:', 'performQueuedRetrieve: waits'),
+    ('queue.finish(ticket)', 'performQueuedRetrieve: makes room'),
+    ('let back = queue.runTurn(ticket, start: { configure, transfer in', 'performQueuedRetrieve: the transfer has a thread of its own each turn'),
+    ('ActivityThread.startUnlisted(name: retrieve.name ?? "", configure: { thread in', 'the thread of a transfer is not a second line in Activity'),
+    ('thread.status = retrieve.status', 'the thread of a transfer begins with what the line shows'),
+    ('}, resumes: { !turns.remaining.isEmpty }) {', 'a retrieve with nothing left to ask for does not go back in line'),
+    ('self.performRetrieve(handed.items, turns: turns)', 'each turn knows what the ones before it ended'),
+    ('guard back else { break }', 'a retrieve that yielded waits for its turn again'),
+    ('RetrieveQueueActivity.resumingStatus(status, position: position)', 'a line that yielded says it waits to resume'),
+    ('node?.setShowErrorMessage(false)', 'a transfer cancelled to yield raises no cancellation notice'),
+    ('retrieve.progressDetails = transfer.progressDetails', "the line shows what the transfer's thread reports"),
+    ('if turns?.hasEnded(object) == true {', 'an item that ended before the retrieve yielded is not asked for again'),
+    ('if !Thread.current.isCancelled { turns?.markEnded(object) }', 'only a transfer that was not cancelled has ended'),
+    ('for (item, count) in zip(items, inTransfer) where !turns.hasEnded(item as AnyObject) {', 'what waits to resume stays in transfer'),
     ('RetrieveQueueArrows.install(on: outlineView, column: "Button")', 'the arrows follow Command'),
     ('@objc(queueRetrieveOfItem:)\n    func queueRetrieveOfItem(_ item: Any?) {', 'Command queues the clicked row'),
 ]:
     if needle not in controller:
         failures.append(f'QueryController: {what}')
 queued = controller[controller.index('nonisolated func performQueuedRetrieve('):controller.index('public nonisolated func performRetrieve(_ array: [Any]!)')]
-if queued.index('finish(ticket)') < queued.index('performRetrieve(items)'):
+if queued.index('queue.finish(ticket)') < queued.index('self.performRetrieve(handed.items, turns: turns)'):
     failures.append('performQueuedRetrieve: makes room before its retrieve ends')
 
 for needle, what in [
@@ -243,6 +399,13 @@ menu = source_text('RetrieveQueueActivity')
 for title in ['"Move to Top"', '"Move Up"', '"Move Down"', '"Rename…"']:
     if title not in menu:
         failures.append(f'the Activity menu lacks {title}')
+for needle, what in [
+    ('.top, queue.canMoveToTop(ticket)),', 'Move to Top serves the first in line too, ahead of the download in progress'),
+    ('if move == .top { item.toolTip = moveToTopHelp }', 'Move to Top says what it does to the download in progress'),
+    ('"Interrupted, waiting to resume (%ld) - %@"', 'the status of a download that waits to resume'),
+]:
+    if needle not in menu:
+        failures.append(f'Activity menu: {what}')
 
 outline = source_text('QueryOutlineView')
 if not ('#selector(QueryController.queueRetrieveOfItem(_:))' in outline or 'Selector(("queueRetrieveOfItem:"))' in outline) or 'tableColumns[clickedColumn].identifier.rawValue == "Button"' not in outline:

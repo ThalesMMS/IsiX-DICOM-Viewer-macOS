@@ -3433,6 +3433,8 @@
 "Always resample" = "Ricampiona sempre";
 "%@: not retrieved. Click its thumbnail to try again." = "%@: non recuperata. Fai clic sulla sua miniatura per riprovare.";
 "Waiting in queue (%ld) - %@" = "In coda (%ld) - %@";
+"Interrupted, waiting to resume (%ld) - %@" = "Interrotto, in attesa di riprendere (%ld) - %@";
+"Starts this download now. Unless downloads run in parallel without a limit, the download in progress is interrupted, stays in Activity and resumes afterwards. It then asks only for what is missing: the missing instances with DICOMweb and WADO; series by series with C-MOVE and C-GET, without asking again for complete series. A node that does not list its instances is asked for the whole study again." = "Avvia subito questo download. A meno che i download non vengano eseguiti in parallelo senza limite, il download in corso viene interrotto, resta in Attività e riprende in seguito. Richiede allora solo ciò che manca: le istanze mancanti con DICOMweb e WADO; serie per serie con C-MOVE e C-GET, senza richiedere di nuovo le serie a cui non manca nulla. A un nodo che non elenca le proprie istanze viene richiesto di nuovo l'intero studio.";
 "Move to Top" = "Sposta in cima";
 "Move Up" = "Sposta su";
 "Move Down" = "Sposta giù";
@@ -4196,6 +4198,7 @@
 "Stretch last windows to fill the entire screen" = "Allarga le ultime finestre per riempire lo schermo";
 "Single Series List per screen" = "Un solo elenco serie per schermo";
 "Order windows from most recent to oldest studies" = "Ordina le finestre dallo studio più recente al più vecchio";
+"Order windows of the same study as the series list" = "Ordina le finestre dello stesso studio come nell'elenco serie";
 "Reversed order" = "Ordine inverso";
 "Automatically enable 12 Bit Totoku Display support for CR, MG, DX, DR, XA and RF" = "Attiva automaticamente i monitor Totoku a 12 bit per CR, MG, DX, DR, XA e RF";
 "Always 'scale to fit' when displaying or resizing windows" = "Adatta sempre alla finestra quando si mostra o ridimensiona";
@@ -4376,7 +4379,7 @@
 "Open Links with IsiX…" = "Apri i link con IsiX…";
 "Always Allow %@" = "Consenti sempre %@";
 "“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "“Consenti sempre” aggiunge %@ agli host attendibili delle impostazioni Listener (Apri i link con IsiX…): i suoi link di download vengono poi eseguiti senza chiedere.";
-"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Questo link non è cifrato (http): ciò che scarica può essere letto o sostituito sulla rete. “Consenti sempre” accetta anche i link non cifrati di questo host.";
+"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Questo link non è cifrato (HTTP): ciò che scarica può essere letto o sostituito sulla rete. “Consenti sempre” accetta anche i link non cifrati di questo host.";
 "Trusted hosts for download links" = "Host attendibili per i link di download";
 "A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "Un link di download (DownloadURL) verso un host di questo elenco viene eseguito senza chiedere. L’host è confrontato esattamente, con la porta: un sottodominio è un altro host. Elenca solo host di cui ti fidi, come il portale della tua struttura.";
 "Allow HTTP" = "Consenti HTTP";

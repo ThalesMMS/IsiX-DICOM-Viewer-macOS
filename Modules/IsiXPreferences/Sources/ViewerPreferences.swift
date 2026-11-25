@@ -206,6 +206,9 @@ public enum ViewerPreferences {
     public static let syntheticDWIBValue = PreferenceKey<Double>("SyntheticDWIBValue", registered: "1600")
     public static let suvConversion = PreferenceKey<Int>("SUVCONVERSION", registered: "0")
     public static let tileWindowsOrderByStudyDate = PreferenceKey<Bool>("tileWindowsOrderByStudyDate", registered: "1")
+    /// The windows of one study are tiled in the order of the series list, whatever the order they were
+    /// opened in. Off until the user turns it on in the Viewers pane.
+    public static let tileWindowsOrderBySeriesList = PreferenceKey<Bool>("tileWindowsOrderBySeriesList")
     /// Two keys no pane writes, which a user sets by hand: the order by study date starts from the earliest
     /// study, and the database's screen goes last when there are fewer viewers than screens.
     public static let reversesTileWindowsOrderByStudyDate = PreferenceKey<Bool>("reversedTileWindowsOrderByStudyDate")
@@ -369,7 +372,8 @@ public enum ViewerPreferences {
         scrollThroughSeriesForMG, scrollThroughSeriesForOT, scrollThroughSeriesForRF, selectWindowScrollWheel,
         seriesListVisible, showPreviousExamLabel, showScrollPositionPreview,
         softwareInterpolation, softwareInterpolationMaximum, splineForROI, squareWindowForPrinting, stackThickness,
-        strechWindows, suvConversion, syntheticDWIBValue, tileWindowsOrderByStudyDate, reversesTileWindowsOrderByStudyDate,
+        strechWindows, suvConversion, syntheticDWIBValue, tileWindowsOrderByStudyDate, tileWindowsOrderBySeriesList,
+        reversesTileWindowsOrderByStudyDate,
         usesDatabaseScreenLast, toolPaletteSelectionStyle, transitionEffect,
         transitionType, twoClickLengthMeasurement, alwaysUsesToolbarPanel, useFloatingThumbnailsList, useFrameofReferenceUID, useShutter,
         useVOILUT, viewerWindowSize, zoomWithHorizonScroll,

@@ -83,6 +83,16 @@ if swift_methods:
 elif found < 4:
     failures.append('expected the main-volume FTo16U conversion at least four times, found %d' % found)
 
+if swift_methods:
+    # A plugin of the former SDKs writes into the copy it reaches through
+    # -volume: the copy is made before the handle leaves, so that the first
+    # frame does not replace what the plugin wrote.
+    view = (root / 'Horos/Sources/VRView.swift').read_text()
+    accessor = re.search(r'@objc public func volume\(\) -> UnsafeMutableRawPointer! \{(.*?)\n    \}', view, re.S)
+    if (not accessor or 'horosEnsureData8()' not in accessor.group(1)
+                 or accessor.group(1).index('horosEnsureData8()') > accessor.group(1).index('volumeHandle')):
+        failures.append('-[VRView volume] hands the volume before its 16-bit copy is made')
+
 if any(re.search(r'horos_data\??\[[^\]\n]*pwidth[^\]\n]*\] = [^\n]*minimumValue\(\)', text) for text in extensions.values()):
     failures.append('the float volume shared with the 2D viewer is still patched with the 4D guard')
 

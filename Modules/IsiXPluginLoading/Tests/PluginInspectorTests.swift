@@ -233,6 +233,11 @@ final class SyntheticBundle {
         let fourD = try inspect(info { $0["IsiXPluginCapabilities"] = ["database.read", "viewer.read", "viewer.4d"] })
         #expect(fourD.isLoadable)
         #expect(fourD.manifest?.capabilities == ["database.read", "viewer.read", "viewer.4d"])
+        // ROI colour and opacity: an application that cannot set them refuses
+        // the plugin before loading it.
+        let roiColor = try inspect(info { $0["IsiXPluginCapabilities"] = ["viewer.read", "roi", "roi.color"] })
+        #expect(roiColor.isLoadable)
+        #expect(roiColor.manifest?.capabilities == ["viewer.read", "roi", "roi.color"])
     }
 
     @Test func architecture() throws {

@@ -360,6 +360,24 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
         NSPoint(x: point.x + 0.5, y: point.y + 0.5)
     }
 
+    /// The application keeps each colour component with 16 bits.
+    static func hostColor(_ color: IsiXROIColor) -> RGBColor {
+        func component(_ value: Double) -> UInt16 { UInt16((min(max(value, 0), 1) * 65535).rounded()) }
+        return RGBColor(red: component(color.red), green: component(color.green), blue: component(color.blue))
+    }
+
+    static func pluginColor(_ color: RGBColor) -> IsiXROIColor {
+        IsiXROIColor(red: Double(color.red) / 65535, green: Double(color.green) / 65535, blue: Double(color.blue) / 65535)
+    }
+
+    /// Gives the ROI a plugin's colour and opacity; nil keeps what it has. The
+    /// ROI alone changes: the colour and opacity of the next ROI the user
+    /// draws stay as they were.
+    static func applyStyle(color: IsiXROIColor?, opacity: Double?, to roi: ROI) {
+        if let color { roi.setColor(hostColor(color), globally: false) }
+        if let opacity { roi.setOpacity(Float(opacity), globally: false) }
+    }
+
     private func snapshot(_ roi: ROI, slice: Int, phase: Int, pix: DCMPix) -> IsiXROI {
         let kind = Self.kind(of: roi.type)
         let points: [IsiXPixelPoint]
@@ -377,7 +395,8 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
         let selected = roi.roImode == Int(ROI_selected) || roi.roImode == Int(ROI_selectedModify)
         return IsiXROI(id: identities.id(of: roi, in: viewerID), kind: kind, name: roi.name ?? "", comment: roi.comments ?? "",
                        slice: slice, phase: phase, points: points, patientPoints: points.map { geometry.patientPoint(of: $0) },
-                       isSelected: selected, showsTextBox: roi.displayTextualData)
+                       isSelected: selected, showsTextBox: roi.displayTextualData,
+                       color: Self.pluginColor(roi.rgbcolor), opacity: Double(roi.opacity))
     }
 
     func rois(slice: Int?, phase: Int?) throws -> [IsiXROI] {
@@ -419,6 +438,7 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
             for point in points { roi.addPoint(point) }
         }
         if let name = draft.name { roi.name = name }
+        Self.applyStyle(color: draft.color, opacity: draft.opacity, to: roi)
         roi.pix = pix
         let view = located.viewer.imageView()
         view?.roiSet(roi)
@@ -456,6 +476,7 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
         guard let roi = made else { throw IsiXPluginError.hostFailure("The ROI could not be created.") }
         if roi.reduceTextureIfPossible() { throw IsiXPluginError.invalidROI("The mask has no pixel inside the image.") }
         roi.sliceThickness = pix.sliceThickness
+        Self.applyStyle(color: draft.color, opacity: draft.opacity, to: roi)
         roi.pix = pix
         let view = located.viewer.imageView()
         view?.roiSet(roi)
@@ -536,6 +557,7 @@ final class IsiXViewerAdapter: IsiXViewerBackend {
         if let comment = update.comment { roi.comments = comment }
         if let selected = update.isSelected { roi.roImode = selected ? Int(ROI_selected) : Int(ROI_sleep) }
         if let shows = update.showsTextBox { roi.displayTextualData = shows }
+        Self.applyStyle(color: update.color, opacity: update.opacity, to: roi)
         roi.postChange()
         located.viewer.needsDisplayUpdate()
         return snapshot(roi, slice: located.slice, phase: located.phase, pix: located.pix)

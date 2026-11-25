@@ -3432,6 +3432,8 @@
 "Always resample" = "Remuestrear siempre";
 "%@: not retrieved. Click its thumbnail to try again." = "%@: no recuperada. Haga clic en su miniatura para volver a intentarlo.";
 "Waiting in queue (%ld) - %@" = "En cola (%ld) - %@";
+"Interrupted, waiting to resume (%ld) - %@" = "Interrumpida, en espera de reanudarse (%ld) - %@";
+"Starts this download now. Unless downloads run in parallel without a limit, the download in progress is interrupted, stays in Activity and resumes afterwards. It then asks only for what is missing: the missing instances with DICOMweb and WADO; series by series with C-MOVE and C-GET, without asking again for complete series. A node that does not list its instances is asked for the whole study again." = "Inicia esta descarga ahora. Salvo que las descargas se ejecuten en paralelo sin límite, la descarga en curso se interrumpe, permanece en Actividad y se reanuda después. Entonces solo pide lo que falta: las instancias que faltan con DICOMweb y WADO; serie por serie con C-MOVE y C-GET, sin volver a pedir las series completas. A un nodo que no lista sus instancias se le vuelve a pedir el estudio entero.";
 "Move to Top" = "Mover al principio";
 "Move Up" = "Subir";
 "Move Down" = "Bajar";
@@ -4210,6 +4212,7 @@
 "Stretch last windows to fill the entire screen" = "Estirar las últimas ventanas para llenar la pantalla";
 "Single Series List per screen" = "Una sola lista de series por pantalla";
 "Order windows from most recent to oldest studies" = "Ordenar las ventanas del estudio más reciente al más antiguo";
+"Order windows of the same study as the series list" = "Ordenar las ventanas del mismo estudio como en la lista de series";
 "Reversed order" = "Orden inverso";
 "Automatically enable 12 Bit Totoku Display support for CR, MG, DX, DR, XA and RF" = "Activar automáticamente las pantallas Totoku de 12 bits para CR, MG, DX, DR, XA y RF";
 "Always 'scale to fit' when displaying or resizing windows" = "Ajustar siempre a la ventana al mostrar o redimensionar";
@@ -4390,12 +4393,12 @@
 "The links are still opened by another application" = "Los enlaces los sigue abriendo otra aplicación";
 "Open Links with IsiX…" = "Abrir enlaces con IsiX…";
 "Always Allow %@" = "Permitir siempre %@";
-"“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "«Permitir siempre» añade %@ a los hosts de confianza de los ajustes de Receptor (Abrir enlaces con IsiX…): sus enlaces de descarga se ejecutan desde entonces sin preguntar.";
-"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Este enlace no está cifrado (http): lo que descarga puede leerse o sustituirse en la red. «Permitir siempre» acepta también los enlaces sin cifrar de este host.";
-"Trusted hosts for download links" = "Hosts de confianza para enlaces de descarga";
-"A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "Un enlace de descarga (DownloadURL) a un host de esta lista se ejecuta sin preguntar. El host se compara de forma exacta, con su puerto: un subdominio es otro host. Incluya solo hosts en los que confíe, como el portal de su institución.";
+"“Always Allow” adds %@ to the trusted hosts of the Listener settings (Open Links with IsiX…): its download links are then carried out without asking." = "«Permitir siempre» añade %@ a los equipos de confianza de los ajustes de Receptor (Abrir enlaces con IsiX…): sus enlaces de descarga se ejecutan desde entonces sin preguntar.";
+"This link is not encrypted (http): what it downloads can be read or replaced on the network. “Always Allow” also accepts links that are not encrypted from this host." = "Este enlace no está cifrado (HTTP): lo que descarga puede leerse o sustituirse en la red. «Permitir siempre» acepta también los enlaces sin cifrar de este equipo.";
+"Trusted hosts for download links" = "Equipos de confianza para enlaces de descarga";
+"A download link (DownloadURL) to a host listed here is carried out without asking. A host is matched exactly, with its port: a subdomain is another host. List only hosts you trust, such as the portal of your institution." = "Un enlace de descarga (DownloadURL) a un equipo de esta lista se ejecuta sin preguntar. El equipo se compara de forma exacta, con su puerto: un subdominio es otro equipo. Incluya solo equipos en los que confíe, como el portal de su institución.";
 "Allow HTTP" = "Permitir HTTP";
-"%@ is not a host name. Type a host, with its port when it is not the usual one: pacs.example.com or pacs.example.com:8443." = "%@ no es un nombre de host. Escriba un host, con su puerto cuando no sea el habitual: pacs.example.com o pacs.example.com:8443.";
+"%@ is not a host name. Type a host, with its port when it is not the usual one: pacs.example.com or pacs.example.com:8443." = "%@ no es un nombre de equipo. Escriba un equipo, con su puerto cuando no sea el habitual: pacs.example.com o pacs.example.com:8443.";
 "Open links with IsiX" = "Abrir enlaces con IsiX";
 "A ticked scheme is opened by this copy of IsiX DICOM Viewer. An application that also declares a scheme can take it again later; isix:// links are declared by IsiX DICOM Viewer alone." = "Un esquema marcado lo abre esta copia de IsiX DICOM Viewer. Una aplicación que también declare un esquema puede volver a tomarlo más adelante; los enlaces isix:// solo los declara IsiX DICOM Viewer.";
 "At startup, when another application opens these links:" = "Al iniciar, si otra aplicación abre estos enlaces:";

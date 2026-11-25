@@ -65,6 +65,7 @@ adopt `IsiXPlugin`; otherwise the plugin is refused too.
 | `xmlrpc` | XML-RPC methods of the plugin's own, answered through the application's XML-RPC interface |
 | `report` | commands in the Report menu of the application's plugins (`IsiXCommand.Placement.report`) |
 | `viewer.4d` | opening several series of the database together in one viewer, each a phase (`IsiXDatabase.open4DViewer(forSeries:)`) |
+| `roi.color` | with `roi`, setting the colour and opacity of a ROI when it is created and later (`IsiXROIDraft.color` and `opacity`, `IsiXROIUpdate.color` and `opacity`) |
 
 A call that needs a capability the plugin did not declare throws
 `IsiXPluginError.capabilityNotDeclared`.
@@ -210,7 +211,27 @@ polyline from an `IsiXROIDraft`; rectangles and ovals take two opposite
 corners. `IsiXROIDraft(mask:)` creates a brush ROI from an `IsiXROIMask`: the
 values of a rectangle of the image, non-zero inside, from its top left pixel;
 the pixels outside the image are left out, and a mask with nothing inside is
-refused. A brush ROI's mask is not read back. `statistics(of:)` asks the application for mean, standard deviation,
+refused. A brush ROI's mask is not read back.
+
+A ROI's colour and opacity are set when it is created, with `color` and
+`opacity` of the draft, and changed later, with `color` and `opacity` of an
+`IsiXROIUpdate`; both need the `roi.color` capability. `IsiXROIColor` takes
+red, green and blue from 0 to 1, and an opacity goes from 0 (transparent) to
+1; a value outside that range is refused with `invalidROI`. Left nil, the ROI
+keeps the application's default for its kind and an update keeps what the
+ROI has; setting them for a plugin's ROI does not change that default. The
+colour is a text ROI's text, a brush ROI's region and the outline of the
+other kinds. `IsiXROI`
+reports the colour and opacity it has; the application keeps each component
+with 16 bits, so a colour read back can differ from the one set by less than
+1/65535:
+
+    let draft = IsiXROIDraft(mask: mask, name: "liver", slice: 12,
+                             color: IsiXROIColor(red: 0.8, green: 0.3, blue: 0.2), opacity: 0.5)
+    let roi = try viewer.addROI(draft)
+    try viewer.updateROI(roi.id, IsiXROIUpdate(opacity: 0.8))
+
+`statistics(of:)` asks the application for mean, standard deviation,
 minimum, maximum and sum, area in mm² for closed shapes and length in mm for
 lines. A ROI's identifier stays the same while the ROI exists.
 `statistics(of:slice:phase:)` measures the same outline on another image of
@@ -488,6 +509,7 @@ in place of a load that fails on a missing symbol.
 | --- | --- | --- |
 | `IsiXCommand.Placement.report`, the Report menu | `report` | after 6.0.3 |
 | `IsiXDatabase.open4DViewer(forSeries:)`, several series in one 4D viewer | `viewer.4d` | after 6.0.7 |
+| `IsiXROIColor`; `color` and `opacity` of `IsiXROIDraft`, `IsiXROIUpdate` and `IsiXROI` | `roi.color` | after 6.0.9 |
 
 ## Installing
 

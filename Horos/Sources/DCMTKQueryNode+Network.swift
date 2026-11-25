@@ -492,10 +492,43 @@ extension DCMTKQueryNode {
                                                    sopInstanceUIDs: request.utf8Values(.sopInstanceUID))
     }
 
+    /// The place in a study of a request for the instances it is missing, on
+    /// the request's thread, and the thread of the retrieve whose bar shows it.
+    ///
+    /// @unchecked Sendable: made on the retrieve's thread and read on the
+    /// request's; a thread's progress is written from other threads as it is
+    /// read by Activity.
+    final class RetrievePartReport: @unchecked Sendable {
+        static let key = "IsiXRetrievePartReport"
+        private let owner: Thread
+        private let part: RetrievePartProgress
+
+        init(owner: Thread, part: RetrievePartProgress) {
+            self.owner = owner
+            self.part = part
+        }
+
+        /// Shows on the retrieve's thread how much of the study is here: never
+        /// less than it showed, a retrieve that resumes begins where it stopped.
+        func report(accounted: UInt, finished: UInt) {
+            guard let whole = part.ofWhole(accounted: accounted, finished: finished) else { return }
+            let fraction = CGFloat(whole.done) / CGFloat(whole.total)
+            guard fraction >= owner.progress else { return }
+            owner.progress = fraction
+            ActivityProgressCount.set(done: whole.done, total: whole.total, on: owner)
+        }
+    }
+
     /// The progress of a retrieval, as a fraction of the sub-operations the
     /// peer has accounted for.
     static func reportProgress(accounted: UInt, finished: UInt) {
         let thread = Thread.current
+        // A request for what a study is missing runs on a thread of its own:
+        // the bar is the retrieve's, and shows the study.
+        if let part = thread.threadDictionary[RetrievePartReport.key] as? RetrievePartReport {
+            part.report(accounted: accounted, finished: finished)
+            return
+        }
         thread.progress = CGFloat(RetrieveProgress.fraction(accounted: accounted, finished: finished))
         ActivityProgressCount.set(done: Int(finished), total: Int(accounted), on: thread)
     }

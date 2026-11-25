@@ -51,6 +51,46 @@ public enum WADOURITransferSyntax {
     }
 }
 
+/// Where a request for the instances a study is missing stands in the whole
+/// study: a study partly here - one whose retrieve was interrupted and
+/// resumes, one retrieved again - is asked for at the IMAGE level, a series
+/// at a time, and its bar shows the study, not the request.
+public struct RetrievePartProgress: Sendable, Equatable {
+    /// The study's instances that are here or that earlier requests of this
+    /// retrieve asked for.
+    public let before: Int
+    /// The instances this request asks for.
+    public let asked: Int
+    /// The study's instances: the ones here and every one asked for.
+    public let whole: Int
+
+    public init(before: Int, asked: Int, whole: Int) {
+        self.before = max(0, before)
+        self.asked = max(0, asked)
+        self.whole = max(self.before + self.asked, whole)
+    }
+
+    /// The requests of one retrieve, in order, each with its place: `here`
+    /// instances of the study are in the database, and each request asks for
+    /// so many more.
+    public static func parts(here: Int, asked: [Int]) -> [RetrievePartProgress] {
+        let whole = max(0, here) + asked.reduce(0) { $0 + max(0, $1) }
+        var before = max(0, here)
+        return asked.map { count in
+            defer { before += max(0, count) }
+            return RetrievePartProgress(before: before, asked: count, whole: whole)
+        }
+    }
+
+    /// The study's instances done and its total, from what the request's own
+    /// report accounts for; nil when the study has none.
+    public func ofWhole(accounted: UInt, finished: UInt) -> (done: Int, total: Int)? {
+        guard whole > 0 else { return nil }
+        let share = accounted > 0 ? Double(min(finished, accounted)) / Double(accounted) : 0
+        return (min(whole, before + Int((Double(asked) * share).rounded(.down))), whole)
+    }
+}
+
 /// The progress bar of a C-MOVE or C-GET. Pending responses and the counts
 /// they carry are optional: until the peer counts its sub-operations, a
 /// confirmed listing gives the fraction, of what this operation asked for, how

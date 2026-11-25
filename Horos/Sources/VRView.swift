@@ -630,7 +630,15 @@ public class VRView: VTKView, NSDraggingSource, NSMenuItemValidation {
     @objc(setMapper:)
     public func setMapper(_ mapper: UnsafeMutableRawPointer!) { horos_vtk.takeMapperHandle(mapper) }
 
-    @objc public func volume() -> UnsafeMutableRawPointer! { horos_vtk.volumeHandle }
+    /// A plugin of the former SDKs reaches the 16-bit copy through the volume's
+    /// mapper and writes into it, its segment masks for one: the copy is made
+    /// before the handle is given, or the first frame, which makes it when
+    /// nothing has, would replace what the plugin wrote. Nothing in the
+    /// application asks for the volume this way.
+    @objc public func volume() -> UnsafeMutableRawPointer! {
+        horosEnsureData8()
+        return horos_vtk.volumeHandle
+    }
 
     @objc(setVolume:)
     public func setVolume(_ aVolume: UnsafeMutableRawPointer!) { horos_vtk.takeVolumeHandle(aVolume) }

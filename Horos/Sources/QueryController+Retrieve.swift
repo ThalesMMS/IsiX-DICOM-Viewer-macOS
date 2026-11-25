@@ -356,20 +356,86 @@ extension QueryController {
     /// A retrieve of the queue: waits for its turn, retrieves, and makes room
     /// for the next. Stopped in Activity while it waits, it ends as a cancelled
     /// retrieve, without having asked the node for anything.
+    ///
+    /// Its transfer runs on a thread of its own in each turn. When another
+    /// retrieve is moved to the top in Activity and this one must yield, that
+    /// thread is cancelled, as Stop cancels a retrieve, and this one waits in
+    /// line again on the same Activity line. In its next turn it asks again
+    /// for what had not ended: each node then asks only for the instances
+    /// that are not in the database, when it lists them (the missing ones
+    /// with DICOMweb and WADO; with C-MOVE and C-GET at the IMAGE level, one
+    /// request per series, none for a series that is complete). A node that
+    /// does not list its instances is asked for the study again.
     nonisolated func performQueuedRetrieve(_ items: [Any], ticket: RetrieveQueue.Ticket, status: String) {
         autoreleasepool {
-            // The line shows the retrieve's place, which moves as the ones
-            // ahead end or the user reorders the queue in Activity.
-            if RetrieveQueue.shared.waitForTurn(ticket, whileWaiting: { position in
-                Thread.current.status = RetrieveQueueActivity.waitingStatus(status, position: position)
-            }) {
-                Thread.current.status = status
-                performRetrieve(items)
-            } else {
-                forgetRetrieveInTransfer(items)
-                settleRetrieveViewing(forItems: items, cancelled: true)
+            let queue = RetrieveQueue.shared
+            let turns = RetrieveQueue.Turns(items)
+            let handed = QueryAnswers(items: items)
+            // What the items are in transfer with, to stay so while they wait
+            // to resume: the end of a transfer forgets it.
+            let inTransfer = RetrieveInTransfer.withLock { counts in
+                items.map { counts[QueryController.stringID(forStudy: $0)] }
             }
-            RetrieveQueue.shared.finish(ticket)
+            let retrieve = Thread.current
+            while true {
+                // The line shows the retrieve's place, which moves as the ones
+                // ahead end or the user reorders the queue in Activity.
+                let interrupted = queue.isInterrupted(ticket)
+                guard queue.waitForTurn(ticket, whileWaiting: { position in
+                    Thread.current.status = interrupted ? RetrieveQueueActivity.resumingStatus(status, position: position)
+                        : RetrieveQueueActivity.waitingStatus(status, position: position)
+                }) else {
+                    forgetRetrieveInTransfer(turns.remaining)
+                    settleRetrieveViewing(forItems: items, cancelled: true)
+                    break
+                }
+                Thread.current.status = status
+                // A transfer cancelled to yield is no cancellation by the
+                // user: its nodes raise no notice of one.
+                var shown: [Bool] = []
+                let back = queue.runTurn(ticket, start: { configure, transfer in
+                    // Not a second line in Activity: the transfer's thread
+                    // reports on itself, beginning with what the line shows.
+                    ActivityThread.startUnlisted(name: retrieve.name ?? "", configure: { thread in
+                        configure(thread)
+                        thread.status = retrieve.status
+                        thread.progress = retrieve.progress
+                    }) { _ in transfer() }
+                }, willYield: {
+                    for item in items {
+                        let node = item as? DCMTKQueryNode
+                        shown.append(node?.showErrorMessage() ?? false)
+                        node?.setShowErrorMessage(false)
+                    }
+                }, whileRunning: { transfer in
+                    // The line is this thread: it shows what the transfer's reports.
+                    retrieve.status = transfer.status
+                    retrieve.progress = transfer.progress
+                    retrieve.progressDetails = transfer.progressDetails
+                }, resumes: { !turns.remaining.isEmpty }) {
+                    self.performRetrieve(handed.items, turns: turns)
+                }
+                for (item, value) in zip(items, shown) { (item as? DCMTKQueryNode)?.setShowErrorMessage(value) }
+                guard back else { break }
+                RetrieveInTransfer.withLock { counts in
+                    for (item, count) in zip(items, inTransfer) where !turns.hasEnded(item as AnyObject) {
+                        counts[QueryController.stringID(forStudy: item)] = count
+                    }
+                }
+            }
+            queue.finish(ticket)
+        }
+    }
+
+    /// One turn of a queued retrieve, on the thread of its transfer: `turns`
+    /// knows what the turns before it ended, which is not asked for again.
+    nonisolated func performRetrieve(_ array: [Any], turns: RetrieveQueue.Turns) {
+        guard workerGraph?.browserDatabase != nil else { // During DB rebuild
+            return
+        }
+
+        autoreleasepool {
+            performRetrieveOnThisThread(array, turns: turns)
         }
     }
 
@@ -383,11 +449,11 @@ extension QueryController {
         }
 
         autoreleasepool {
-            performRetrieveOnThisThread(array ?? [])
+            performRetrieveOnThisThread(array ?? [], turns: nil)
         }
     }
 
-    private nonisolated func performRetrieveOnThisThread(_ given: [Any]) {
+    private nonisolated func performRetrieveOnThisThread(_ given: [Any], turns: RetrieveQueue.Turns?) {
         // A retrieve the user renamed in Activity keeps its name.
         let ticket = RetrieveQueue.ticket(of: Thread.current)
         let label = ticket.flatMap { RetrieveQueue.shared.label(of: $0) }
@@ -486,6 +552,7 @@ extension QueryController {
                         destination?.address != nil &&
                         destination?.address == (dictionary.value(forKey: "hostname") as? String) {
                         NSLog("move source == move destination -> Do Nothing")
+                        turns?.markEnded(object)
                     } else {
                         let d = NSMutableDictionary()
                         d["query"] = object
@@ -516,6 +583,13 @@ extension QueryController {
                 for case let d as NSDictionary in moveArray {
                     if Thread.current.isCancelled { break }
                     guard let object = d.object(forKey: "query") as? DCMTKQueryNode else { continue }
+
+                    // Ended in a turn before this retrieve yielded.
+                    if turns?.hasEnded(object) == true {
+                        i += 1
+                        Thread.current.progress = CGFloat(Float(i) / Float(moveArray.count))
+                        continue
+                    }
 
                     var status: String?
 
@@ -564,6 +638,8 @@ extension QueryController {
                     }
 
                     RetrieveInTransfer.withLock { $0[QueryController.stringID(forStudy: object)] = nil }
+                    // A transfer cancelled, to yield or by the user, has not ended.
+                    if !Thread.current.isCancelled { turns?.markEnded(object) }
 
                     i += 1
                     Thread.current.progress = CGFloat(Float(i) / Float(moveArray.count))

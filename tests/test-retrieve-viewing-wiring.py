@@ -98,7 +98,7 @@ if 'browser.showEntireDatabase()\n' not in check or 'browser.refreshStudyList(wh
     failures.append('checkAndView: a study in the database stays unlisted, and unopened, while the server mode hides the browser')
 
 perform = method(query, '    public nonisolated func performRetrieve(_ array: [Any]!) {\n', END) + \
-    method(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any]) {\n', END)
+    method(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any], turns: RetrieveQueue.Turns?) {\n', END)
 settle = method(query, '    nonisolated func settleRetrieveViewing(forItems items: [Any]!, cancelled: Bool) {\n', END)
 # Cancellation is read on the transfer thread, as the argument; settling hops
 # to the main thread itself.

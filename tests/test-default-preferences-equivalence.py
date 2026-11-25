@@ -18,7 +18,9 @@ default annotations, which they look up in their main bundle, and with a
 super-sampling above the default in their argument domain, so that neither
 writes one into its preferences. A key the application dropped on purpose
 since that revision (DROPPED, with its reason) is taken out of the reference,
-and one it added since (ADDED, with its reason) out of what it registers.
+and one it added since (ADDED, with its reason) out of what it registers. A
+key whose registered value the application changed on purpose (CHANGED, with
+the new value and its reason) is compared with that value.
 
     python3 tests/test-default-preferences-equivalence.py [--reference REV]
 """
@@ -63,6 +65,13 @@ ADDED = {
     'SyntheticDWIBValue': 'the b-value the last synthetic diffusion-weighted image was asked at, an export made since',
     'PatientNameAnyWordOrder': 'the choice of whether a patient name is found whatever the order of its words, made since',
     'InvertsDocumentPagesInDarkMode': 'the choice of whether PDF pages and rendered structured reports are shown inverted in Dark Mode, made since',
+    'LinkSchemeSupport': 'the switch of the isix://, horos:// and osirix:// links, which that revision turned on with the XML-RPC server',
+}
+
+# Keys whose registered value the application changed on purpose since, with
+# the value it registers now and the reason. The reference is given that value.
+CHANGED = {
+    'httpXMLRPCServerAccessScope': ('0', 'the XML-RPC server answers this Mac only until told otherwise; it answered any address'),
 }
 
 parser = argparse.ArgumentParser()
@@ -172,6 +181,11 @@ with tempfile.TemporaryDirectory(prefix='horos-default-preferences-') as name:
         reference_xml = run([str(probe), *ARGUMENTS], bin)
         for key in DROPPED:
             reference_xml = re.sub(r'\n\t<key>%s</key>\n\t(?:<(?:true|false)/>|<integer>-?\d+</integer>)' % re.escape(key), '', reference_xml)
+        for key, (value, _) in CHANGED.items():
+            reference_xml, count = re.subn(r'(\n\t<key>%s</key>\n\t<string>)[^<]*(</string>)' % re.escape(key),
+                                           lambda match: match[1] + value + match[2], reference_xml)
+            if count != 1:
+                sys.exit(f'FAIL: {key} is not a string the reference registers once')
         references[label] = reference_xml
 
     modules = work / 'modules'

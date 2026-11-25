@@ -2618,6 +2618,7 @@
 "Options" = "Optionen";
 "Options:" = "Optionen:";
 "Order windows from most recent to oldest studies" = "Fenster nach Studien von neu nach alt ordnen";
+"Order windows of the same study as the series list" = "Fenster derselben Studie wie in der Serienliste ordnen";
 "Orientation" = "Ausrichtung";
 "Orientation Cube" = "Orientierungswürfel";
 "Orientations" = "Ausrichtungen";
@@ -4762,6 +4763,8 @@
 "Always resample" = "Immer neu berechnen";
 "%@: not retrieved. Click its thumbnail to try again." = "%@: nicht abgerufen. Klicken Sie auf die Miniatur, um es erneut zu versuchen.";
 "Waiting in queue (%ld) - %@" = "In der Warteschlange (%ld) – %@";
+"Interrupted, waiting to resume (%ld) - %@" = "Unterbrochen, wartet auf Fortsetzung (%ld) – %@";
+"Starts this download now. Unless downloads run in parallel without a limit, the download in progress is interrupted, stays in Activity and resumes afterwards. It then asks only for what is missing: the missing instances with DICOMweb and WADO; series by series with C-MOVE and C-GET, without asking again for complete series. A node that does not list its instances is asked for the whole study again." = "Startet diesen Download jetzt. Sofern Downloads nicht ohne Limit parallel laufen, wird der laufende Download unterbrochen, bleibt in der Aktivität und wird danach fortgesetzt. Er fordert dann nur an, was fehlt: bei DICOMweb und WADO die fehlenden Instanzen; bei C-MOVE und C-GET Serie für Serie, ohne vollständige Serien erneut anzufordern. Von einem Knoten, der seine Instanzen nicht auflistet, wird die ganze Studie erneut angefordert.";
 "Move to Top" = "Nach ganz oben";
 "Move Up" = "Nach oben";
 "Move Down" = "Nach unten";

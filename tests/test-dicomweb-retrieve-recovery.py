@@ -135,7 +135,7 @@ check('lastRetrieveIncomplete = !Thread.current.isCancelled && (incomplete || re
       'each retrieve says whether it ended incomplete')
 # The Query window is Swift; its retrieves are in QueryController+Retrieve.swift.
 query = (ROOT / 'Horos/Sources/QueryController+Retrieve.swift').read_text()
-perform = block(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any]) {')
+perform = block(query, '    private nonisolated func performRetrieveOnThisThread(_ given: [Any], turns: RetrieveQueue.Turns?) {')
 check('let batch = moveArray.count > 1' in perform and '(d.object(forKey: "query") as? DCMTKQueryNode)?.deferFailureNotice = true' in perform,
       'several studies defer their notices')
 check(perform.index('deferFailureNotice = true') < perform.index('object.move(d as? [AnyHashable: Any], retrieveMode:') < perform.index('var incomplete: [String] = []'),

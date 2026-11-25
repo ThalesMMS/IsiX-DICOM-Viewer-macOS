@@ -135,6 +135,50 @@ public final class FourDPlugin: IsiXPlugin, CustomStringConvertible {
     public func deactivate() {}
 }
 
+/// Colours ROIs of the frontmost viewer: one left to the application's
+/// colour, one created with a colour and an opacity, the same ROI recoloured
+/// and then renamed, and colours and opacities out of 0...1.
+public final class ROIColorPlugin: IsiXPlugin, CustomStringConvertible {
+    private let summary = Mutex("")
+
+    public init() {}
+
+    public nonisolated var description: String { summary.withLock { $0 } }
+
+    private static func style(_ roi: IsiXROI) -> String {
+        let color = roi.color.map { "\($0.red),\($0.green),\($0.blue)" } ?? "nil"
+        return "\(roi.name) \(color) \(roi.opacity.map { "\($0)" } ?? "nil")"
+    }
+
+    public func activate(with context: IsiXPluginContext) throws {
+        guard let viewer = try context.frontmostViewer() else { return }
+        let corners = [IsiXPixelPoint(x: 1, y: 1), IsiXPixelPoint(x: 3, y: 3)]
+        var lines: [String] = []
+        func attempt(_ body: () throws -> IsiXROI) {
+            do { lines.append(Self.style(try body())) } catch { lines.append("\(error)") }
+        }
+        attempt { try viewer.addROI(IsiXROIDraft(kind: .rectangle, points: corners, name: "default")) }
+        var colored: IsiXROI?
+        attempt {
+            let roi = try viewer.addROI(IsiXROIDraft(kind: .rectangle, points: corners, name: "orange",
+                                                     color: IsiXROIColor(red: 1, green: 0.5, blue: 0), opacity: 0.25))
+            colored = roi
+            return roi
+        }
+        if let id = colored?.id {
+            attempt { try viewer.updateROI(id, IsiXROIUpdate(color: IsiXROIColor(red: 0, green: 0, blue: 1), opacity: 0.75)) }
+            attempt { try viewer.updateROI(id, IsiXROIUpdate(name: "renamed")) }
+            attempt { try viewer.updateROI(id, IsiXROIUpdate(opacity: 1.5)) }
+        }
+        attempt { try viewer.addROI(IsiXROIDraft(kind: .rectangle, points: corners, color: IsiXROIColor(red: 1.5, green: 0, blue: 0))) }
+        attempt { try viewer.addROI(IsiXROIDraft(kind: .rectangle, points: corners, opacity: .nan)) }
+        lines.append("listed " + ((try? viewer.rois().map(Self.style).joined(separator: ";")) ?? "none"))
+        summary.withLock { $0 = lines.joined(separator: "|") }
+    }
+
+    public func deactivate() {}
+}
+
 /// Takes clicks in the left half of the image and the key x, draws over the
 /// viewer of a command, and gives its input handler and overlay up when asked.
 public final class InteractionPlugin: IsiXPlugin, CustomStringConvertible {

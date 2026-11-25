@@ -24713,6 +24713,51 @@
       "usr": "s:13IsiXPluginKit0A11XCapabilityV8viewer4DACvpZ"
      },
      {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXCapability",
+          "printedName": "IsiXPluginKit.IsiXCapability",
+          "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A11XCapabilityV8roiColorACvgZ",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "static": true,
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV8roiColorACvgZ"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXCapability",
+        "printedName": "IsiXPluginKit.IsiXCapability",
+        "usr": "s:13IsiXPluginKit0A11XCapabilityV"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "isLet": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A11XCapabilityV8roiColorACvpZ",
+      "moduleName": "IsiXPluginKit",
+      "name": "roiColor",
+      "printedName": "roiColor",
+      "static": true,
+      "usr": "s:13IsiXPluginKit0A11XCapabilityV8roiColorACvpZ"
+     },
+     {
       "children": [
        {
         "kind": "TypeNominal",
@@ -27507,6 +27552,424 @@
         "children": [
          {
           "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV3redSdvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV3redSdvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV3redSdvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV3redSdvs"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV3redSdvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "red",
+      "printedName": "red",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV3redSdvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV5greenSdvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV5greenSdvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV5greenSdvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV5greenSdvs"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV5greenSdvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "green",
+      "printedName": "green",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV5greenSdvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV4blueSdvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV4blueSdvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV4blueSdvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV4blueSdvs"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       }
+      ],
+      "declAttributes": [
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV4blueSdvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "blue",
+      "printedName": "blue",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV4blueSdvp"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIColor",
+        "printedName": "IsiXPluginKit.IsiXROIColor",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "Double",
+        "printedName": "Swift.Double",
+        "usr": "s:Sd"
+       }
+      ],
+      "declKind": "Constructor",
+      "init_kind": "Designated",
+      "kind": "Constructor",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV3red5green4blueACSd_S2dtcfc",
+      "moduleName": "IsiXPluginKit",
+      "name": "init",
+      "printedName": "init(red:green:blue:)",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV3red5green4blueACSd_S2dtcfc"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Bool",
+          "printedName": "Swift.Bool",
+          "usr": "s:Sb"
+         }
+        ],
+        "declKind": "Accessor",
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV7isValidSbvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV7isValidSbvg"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Bool",
+        "printedName": "Swift.Bool",
+        "usr": "s:Sb"
+       }
+      ],
+      "declKind": "Var",
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV7isValidSbvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "isValid",
+      "printedName": "isValid",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV7isValidSbvp"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Bool",
+        "printedName": "Swift.Bool",
+        "usr": "s:Sb"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIColor",
+        "printedName": "IsiXPluginKit.IsiXROIColor",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIColor",
+        "printedName": "IsiXPluginKit.IsiXROIColor",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV"
+       }
+      ],
+      "declKind": "Func",
+      "funcSelfKind": "NonMutating",
+      "kind": "Function",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV2eeoiySbAC_ACtFZ",
+      "moduleName": "IsiXPluginKit",
+      "name": "==",
+      "printedName": "==(_:_:)",
+      "static": true,
+      "usr": "s:13IsiXPluginKit0A9XROIColorV2eeoiySbAC_ACtFZ"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Void",
+        "printedName": "()"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "Hasher",
+        "paramValueOwnership": "InOut",
+        "printedName": "Swift.Hasher",
+        "usr": "s:s6HasherV"
+       }
+      ],
+      "declKind": "Func",
+      "funcSelfKind": "NonMutating",
+      "kind": "Function",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV4hash4intoys6HasherVz_tF",
+      "moduleName": "IsiXPluginKit",
+      "name": "hash",
+      "printedName": "hash(into:)",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV4hash4intoys6HasherVz_tF"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Int",
+          "printedName": "Swift.Int",
+          "usr": "s:Si"
+         }
+        ],
+        "declKind": "Accessor",
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIColorV9hashValueSivg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIColorV9hashValueSivg"
+       }
+      ],
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "Int",
+        "printedName": "Swift.Int",
+        "usr": "s:Si"
+       }
+      ],
+      "declKind": "Var",
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIColorV9hashValueSivp",
+      "moduleName": "IsiXPluginKit",
+      "name": "hashValue",
+      "printedName": "hashValue",
+      "usr": "s:13IsiXPluginKit0A9XROIColorV9hashValueSivp"
+     }
+    ],
+    "conformances": [
+     {
+      "kind": "Conformance",
+      "mangledName": "$ss8CopyableP",
+      "name": "Copyable",
+      "printedName": "Copyable",
+      "usr": "s:s8CopyableP"
+     },
+     {
+      "kind": "Conformance",
+      "mangledName": "$sSQ",
+      "name": "Equatable",
+      "printedName": "Equatable",
+      "usr": "s:SQ"
+     },
+     {
+      "kind": "Conformance",
+      "mangledName": "$ss9EscapableP",
+      "name": "Escapable",
+      "printedName": "Escapable",
+      "usr": "s:s9EscapableP"
+     },
+     {
+      "kind": "Conformance",
+      "mangledName": "$sSH",
+      "name": "Hashable",
+      "printedName": "Hashable",
+      "usr": "s:SH"
+     },
+     {
+      "kind": "Conformance",
+      "mangledName": "$ss8SendableP",
+      "name": "Sendable",
+      "printedName": "Sendable",
+      "usr": "s:s8SendableP"
+     },
+     {
+      "kind": "Conformance",
+      "mangledName": "$ss16SendableMetatypeP",
+      "name": "SendableMetatype",
+      "printedName": "SendableMetatype",
+      "usr": "s:s16SendableMetatypeP"
+     }
+    ],
+    "declKind": "Struct",
+    "kind": "TypeDecl",
+    "mangledName": "$s13IsiXPluginKit0A9XROIColorV",
+    "moduleName": "IsiXPluginKit",
+    "name": "IsiXROIColor",
+    "printedName": "IsiXROIColor",
+    "usr": "s:13IsiXPluginKit0A9XROIColorV"
+   },
+   {
+    "children": [
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "kind": "TypeNominal",
           "name": "IsiXROIID",
           "printedName": "IsiXPluginKit.IsiXROIID",
           "usr": "s:13IsiXPluginKit0A6XROIIDV"
@@ -28207,6 +28670,188 @@
       "name": "showsTextBox",
       "printedName": "showsTextBox",
       "usr": "s:13IsiXPluginKit0A4XROIV12showsTextBoxSbvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "color",
+      "printedName": "color",
+      "usr": "s:13IsiXPluginKit0A4XROIV5colorAA0A9XROIColorVSgvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A4XROIV7opacitySdSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A4XROIV7opacitySdSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A4XROIV7opacitySdSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A4XROIV7opacitySdSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A4XROIV7opacitySdSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "opacity",
+      "printedName": "opacity",
+      "usr": "s:13IsiXPluginKit0A4XROIV7opacitySdSgvp"
      },
      {
       "children": [
@@ -28926,6 +29571,188 @@
       "usr": "s:13IsiXPluginKit0A10XROIUpdateV12showsTextBoxSbSgvp"
      },
      {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "color",
+      "printedName": "color",
+      "usr": "s:13IsiXPluginKit0A10XROIUpdateV5colorAA0A9XROIColorVSgvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "opacity",
+      "printedName": "opacity",
+      "usr": "s:13IsiXPluginKit0A10XROIUpdateV7opacitySdSgvp"
+     },
+     {
       "children": [
        {
         "kind": "TypeNominal",
@@ -29032,6 +29859,9 @@
         "usr": "s:Sq"
        }
       ],
+      "declAttributes": [
+       "DisfavoredOverload"
+      ],
       "declKind": "Constructor",
       "init_kind": "Designated",
       "kind": "Constructor",
@@ -29040,6 +29870,152 @@
       "name": "init",
       "printedName": "init(points:kind:name:comment:isSelected:showsTextBox:)",
       "usr": "s:13IsiXPluginKit0A10XROIUpdateV6points4kind4name7comment10isSelected12showsTextBoxACSayAA0A11XPixelPointVGSg_AA0A8XROIKindOSgSSSgAQSbSgARtcfc"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIUpdate",
+        "printedName": "IsiXPluginKit.IsiXROIUpdate",
+        "usr": "s:13IsiXPluginKit0A10XROIUpdateV"
+       },
+       {
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXPixelPoint",
+            "printedName": "IsiXPluginKit.IsiXPixelPoint",
+            "usr": "s:13IsiXPluginKit0A11XPixelPointV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Array",
+          "printedName": "[IsiXPluginKit.IsiXPixelPoint]",
+          "usr": "s:Sa"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "[IsiXPluginKit.IsiXPixelPoint]?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIKind",
+          "printedName": "IsiXPluginKit.IsiXROIKind",
+          "usr": "s:13IsiXPluginKit0A8XROIKindO"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIKind?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "String",
+          "printedName": "Swift.String",
+          "usr": "s:SS"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.String?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "String",
+          "printedName": "Swift.String",
+          "usr": "s:SS"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.String?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Bool",
+          "printedName": "Swift.Bool",
+          "usr": "s:Sb"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Bool?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Bool",
+          "printedName": "Swift.Bool",
+          "usr": "s:Sb"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Bool?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declKind": "Constructor",
+      "init_kind": "Designated",
+      "kind": "Constructor",
+      "mangledName": "$s13IsiXPluginKit0A10XROIUpdateV6points4kind4name7comment10isSelected12showsTextBox5color7opacityACSayAA0A11XPixelPointVGSg_AA0A8XROIKindOSgSSSgASSbSgAtA0A9XROIColorVSgSdSgtcfc",
+      "moduleName": "IsiXPluginKit",
+      "name": "init",
+      "printedName": "init(points:kind:name:comment:isSelected:showsTextBox:color:opacity:)",
+      "usr": "s:13IsiXPluginKit0A10XROIUpdateV6points4kind4name7comment10isSelected12showsTextBox5color7opacityACSayAA0A11XPixelPointVGSg_AA0A8XROIKindOSgSSSgASSbSgAtA0A9XROIColorVSgSdSgtcfc"
      },
      {
       "children": [
@@ -30183,6 +31159,188 @@
       "usr": "s:13IsiXPluginKit0A9XROIDraftV4maskAA0A8XROIMaskVSgvp"
      },
      {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "IsiXROIColor",
+            "printedName": "IsiXPluginKit.IsiXROIColor",
+            "usr": "s:13IsiXPluginKit0A9XROIColorV"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "IsiXPluginKit.IsiXROIColor?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "color",
+      "printedName": "color",
+      "usr": "s:13IsiXPluginKit0A9XROIDraftV5colorAA0A9XROIColorVSgvp"
+     },
+     {
+      "accessors": [
+       {
+        "accessorKind": "get",
+        "children": [
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIDraftV7opacitySdSgvg",
+        "moduleName": "IsiXPluginKit",
+        "name": "Get",
+        "printedName": "Get()",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV7opacitySdSgvg"
+       },
+       {
+        "accessorKind": "set",
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Void",
+          "printedName": "()"
+         },
+         {
+          "children": [
+           {
+            "kind": "TypeNominal",
+            "name": "Double",
+            "printedName": "Swift.Double",
+            "usr": "s:Sd"
+           }
+          ],
+          "kind": "TypeNominal",
+          "name": "Optional",
+          "printedName": "Swift.Double?",
+          "usr": "s:Sq"
+         }
+        ],
+        "declKind": "Accessor",
+        "implicit": true,
+        "kind": "Accessor",
+        "mangledName": "$s13IsiXPluginKit0A9XROIDraftV7opacitySdSgvs",
+        "moduleName": "IsiXPluginKit",
+        "name": "Set",
+        "printedName": "Set()",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV7opacitySdSgvs"
+       }
+      ],
+      "children": [
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declAttributes": [
+       "HasInitialValue",
+       "HasStorage"
+      ],
+      "declKind": "Var",
+      "hasStorage": true,
+      "kind": "Var",
+      "mangledName": "$s13IsiXPluginKit0A9XROIDraftV7opacitySdSgvp",
+      "moduleName": "IsiXPluginKit",
+      "name": "opacity",
+      "printedName": "opacity",
+      "usr": "s:13IsiXPluginKit0A9XROIDraftV7opacitySdSgvp"
+     },
+     {
       "children": [
        {
         "kind": "TypeNominal",
@@ -30256,6 +31414,9 @@
         "usr": "s:Sq"
        }
       ],
+      "declAttributes": [
+       "DisfavoredOverload"
+      ],
       "declKind": "Constructor",
       "init_kind": "Designated",
       "kind": "Constructor",
@@ -30325,6 +31486,9 @@
         "usr": "s:Sq"
        }
       ],
+      "declAttributes": [
+       "DisfavoredOverload"
+      ],
       "declKind": "Constructor",
       "init_kind": "Designated",
       "kind": "Constructor",
@@ -30333,6 +31497,218 @@
       "name": "init",
       "printedName": "init(mask:name:slice:phase:)",
       "usr": "s:13IsiXPluginKit0A9XROIDraftV4mask4name5slice5phaseAcA0A8XROIMaskV_SSSgSiSgAKtcfc"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIDraft",
+        "printedName": "IsiXPluginKit.IsiXROIDraft",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIKind",
+        "printedName": "IsiXPluginKit.IsiXROIKind",
+        "usr": "s:13IsiXPluginKit0A8XROIKindO"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXPixelPoint",
+          "printedName": "IsiXPluginKit.IsiXPixelPoint",
+          "usr": "s:13IsiXPluginKit0A11XPixelPointV"
+         }
+        ],
+        "kind": "TypeNominal",
+        "name": "Array",
+        "printedName": "[IsiXPluginKit.IsiXPixelPoint]",
+        "usr": "s:Sa"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "String",
+          "printedName": "Swift.String",
+          "usr": "s:SS"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.String?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Int",
+          "printedName": "Swift.Int",
+          "usr": "s:Si"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Int?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Int",
+          "printedName": "Swift.Int",
+          "usr": "s:Si"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Int?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declKind": "Constructor",
+      "init_kind": "Designated",
+      "kind": "Constructor",
+      "mangledName": "$s13IsiXPluginKit0A9XROIDraftV4kind6points4name5slice5phase5color7opacityAcA0A8XROIKindO_SayAA0A11XPixelPointVGSSSgSiSgAqA0A9XROIColorVSgSdSgtcfc",
+      "moduleName": "IsiXPluginKit",
+      "name": "init",
+      "printedName": "init(kind:points:name:slice:phase:color:opacity:)",
+      "usr": "s:13IsiXPluginKit0A9XROIDraftV4kind6points4name5slice5phase5color7opacityAcA0A8XROIKindO_SayAA0A11XPixelPointVGSSSgSiSgAqA0A9XROIColorVSgSdSgtcfc"
+     },
+     {
+      "children": [
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIDraft",
+        "printedName": "IsiXPluginKit.IsiXROIDraft",
+        "usr": "s:13IsiXPluginKit0A9XROIDraftV"
+       },
+       {
+        "kind": "TypeNominal",
+        "name": "IsiXROIMask",
+        "printedName": "IsiXPluginKit.IsiXROIMask",
+        "usr": "s:13IsiXPluginKit0A8XROIMaskV"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "String",
+          "printedName": "Swift.String",
+          "usr": "s:SS"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.String?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Int",
+          "printedName": "Swift.Int",
+          "usr": "s:Si"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Int?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Int",
+          "printedName": "Swift.Int",
+          "usr": "s:Si"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Int?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "IsiXROIColor",
+          "printedName": "IsiXPluginKit.IsiXROIColor",
+          "usr": "s:13IsiXPluginKit0A9XROIColorV"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "IsiXPluginKit.IsiXROIColor?",
+        "usr": "s:Sq"
+       },
+       {
+        "children": [
+         {
+          "kind": "TypeNominal",
+          "name": "Double",
+          "printedName": "Swift.Double",
+          "usr": "s:Sd"
+         }
+        ],
+        "hasDefaultArg": true,
+        "kind": "TypeNominal",
+        "name": "Optional",
+        "printedName": "Swift.Double?",
+        "usr": "s:Sq"
+       }
+      ],
+      "declKind": "Constructor",
+      "init_kind": "Designated",
+      "kind": "Constructor",
+      "mangledName": "$s13IsiXPluginKit0A9XROIDraftV4mask4name5slice5phase5color7opacityAcA0A8XROIMaskV_SSSgSiSgAmA0A9XROIColorVSgSdSgtcfc",
+      "moduleName": "IsiXPluginKit",
+      "name": "init",
+      "printedName": "init(mask:name:slice:phase:color:opacity:)",
+      "usr": "s:13IsiXPluginKit0A9XROIDraftV4mask4name5slice5phase5color7opacityAcA0A8XROIMaskV_SSSgSiSgAmA0A9XROIColorVSgSdSgtcfc"
      },
      {
       "children": [

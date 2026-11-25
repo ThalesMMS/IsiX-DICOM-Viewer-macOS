@@ -2612,6 +2612,7 @@
 "Options" = "옵션";
 "Options:" = "옵션 :";
 "Order windows from most recent to oldest studies" = "최신 검사부터 오래된 검사 순으로 창 정렬";
+"Order windows of the same study as the series list" = "같은 검사의 창을 시리즈 목록 순서로 정렬";
 "Orientation" = "방향";
 "Orientation Cube" = "오리엔테이션 큐브";
 "Orientations" = "방향";
@@ -4757,6 +4758,8 @@
 "Always resample" = "항상 리샘플";
 "%@: not retrieved. Click its thumbnail to try again." = "%@: 가져오지 못했습니다. 썸네일을 클릭하여 다시 시도하세요.";
 "Waiting in queue (%ld) - %@" = "대기 중 (%ld) - %@";
+"Interrupted, waiting to resume (%ld) - %@" = "중단됨, 재개 대기 중 (%ld) - %@";
+"Starts this download now. Unless downloads run in parallel without a limit, the download in progress is interrupted, stays in Activity and resumes afterwards. It then asks only for what is missing: the missing instances with DICOMweb and WADO; series by series with C-MOVE and C-GET, without asking again for complete series. A node that does not list its instances is asked for the whole study again." = "이 다운로드를 지금 시작합니다. 다운로드를 제한 없이 병렬로 실행하는 경우가 아니면 진행 중인 다운로드는 중단되어 활동에 남아 있다가 나중에 재개됩니다. 재개할 때는 빠진 것만 요청합니다. DICOMweb과 WADO에서는 빠진 인스턴스를, C-MOVE와 C-GET에서는 시리즈별로 요청하며 완전한 시리즈는 다시 요청하지 않습니다. 인스턴스를 나열하지 않는 노드에는 검사 전체를 다시 요청합니다.";
 "Move to Top" = "맨 위로 이동";
 "Move Up" = "위로 이동";
 "Move Down" = "아래로 이동";

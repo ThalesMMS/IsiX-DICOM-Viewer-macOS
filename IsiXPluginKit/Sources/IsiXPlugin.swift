@@ -83,6 +83,9 @@ public struct IsiXCapability: RawRepresentable, Hashable, Sendable, CustomString
     /// Opening several series of the database together in one viewer, each a
     /// phase of it (`IsiXDatabase.open4DViewer(forSeries:)`).
     public static let viewer4D = IsiXCapability(rawValue: "viewer.4d")
+    /// Setting the colour and opacity of a ROI (`IsiXROIDraft.color` and
+    /// `opacity`, `IsiXROIUpdate.color` and `opacity`), with `roi`.
+    public static let roiColor = IsiXCapability(rawValue: "roi.color")
 }
 
 /// The plugin's identity, as its Info.plist declares it.

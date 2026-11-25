@@ -75,9 +75,13 @@ public struct ViewerTilingLayout: Sendable, Equatable {
         public var studyInstanceUID: String?
         /// The date of that study; nil when it has none.
         public var studyDate: Date?
+        /// The place of the series the viewer shows among the series of its
+        /// study, in the order of the viewer's series list; nil when the
+        /// tiling does not read it, or the series is not in that list.
+        public var seriesListPlace: Int?
 
         public init(frame: CGRect, isVisible: Bool, isKey: Bool, orderedScreenIndex: Int?, screenVisibleOriginY: CGFloat,
-                    tilingScreenIndex: Int?, studyInstanceUID: String?, studyDate: Date?) {
+                    tilingScreenIndex: Int?, studyInstanceUID: String?, studyDate: Date?, seriesListPlace: Int? = nil) {
             self.frame = frame
             self.isVisible = isVisible
             self.isKey = isKey
@@ -86,6 +90,7 @@ public struct ViewerTilingLayout: Sendable, Equatable {
             self.tilingScreenIndex = tilingScreenIndex
             self.studyInstanceUID = studyInstanceUID
             self.studyDate = studyDate
+            self.seriesListPlace = seriesListPlace
         }
     }
 
@@ -142,9 +147,19 @@ public struct ViewerTilingLayout: Sendable, Equatable {
         /// first, or the earliest first when `reversesStudyDateOrder`.
         public var ordersByStudyDate: Bool
         public var reversesStudyDateOrder: Bool
+        /// The viewers of one study are ordered as the series list orders
+        /// their series, whatever the order they were opened in.
+        public var ordersBySeriesList: Bool
+        /// The hanging protocol shown gives the series an order of its own,
+        /// which prevails over the order of the series list.
+        public var protocolOrdersSeries: Bool
+
+        /// The viewers of one study take the order of the series list.
+        public var followsSeriesList: Bool { ordersBySeriesList && !protocolOrdersSeries }
 
         public init(rows: Int32, columns: Int32, hasHangingProtocol: Bool, keepsStudiesOnSameScreen: Bool,
-                    stretchesWindows: Bool, ordersByStudyDate: Bool, reversesStudyDateOrder: Bool) {
+                    stretchesWindows: Bool, ordersByStudyDate: Bool, reversesStudyDateOrder: Bool,
+                    ordersBySeriesList: Bool = false, protocolOrdersSeries: Bool = false) {
             self.rows = rows
             self.columns = columns
             self.hasHangingProtocol = hasHangingProtocol
@@ -152,6 +167,8 @@ public struct ViewerTilingLayout: Sendable, Equatable {
             self.stretchesWindows = stretchesWindows
             self.ordersByStudyDate = ordersByStudyDate
             self.reversesStudyDateOrder = reversesStudyDateOrder
+            self.ordersBySeriesList = ordersBySeriesList
+            self.protocolOrdersSeries = protocolOrdersSeries
         }
     }
 
@@ -294,6 +311,13 @@ public struct ViewerTilingLayout: Sendable, Equatable {
             }
         }
 
+        // Within a study, the order of the series list: after the dates, so
+        // that the studies keep theirs.
+        if options.followsSeriesList {
+            hidden.removeAll()
+            order = Self.orderedBySeriesList(order, viewers)
+        }
+
         // The studies, when their viewers stay together and there are several.
         var keepsStudiesTogether = options.keepsStudiesOnSameScreen
         var identical = true
@@ -421,8 +445,9 @@ public struct ViewerTilingLayout: Sendable, Equatable {
         }
 
         // One window added to a single screen goes where the new column
-        // starts, and the others keep their places.
-        if numberOfMonitors == 1 && lastColumns != columns && Int(lastCount) == order.count - 1 && Int(columns) < order.count
+        // starts, and the others keep their places. Not when the series list
+        // gives the order: the last viewer is then not the one added.
+        if !options.followsSeriesList && numberOfMonitors == 1 && lastColumns != columns && Int(lastCount) == order.count - 1 && Int(columns) < order.count
             && lastColumns >= 0 && Int(lastColumns) < order.count {
             let added = order.removeLast()
             order.insert(added, at: Int(lastColumns))
@@ -688,6 +713,34 @@ public struct ViewerTilingLayout: Sendable, Equatable {
     static func sameStudy(_ first: String?, _ second: String?) -> Bool {
         guard let first, let second else { return false }
         return first == second
+    }
+
+    /// `order` with the viewers of each study in the order of the series
+    /// list: they share among them the places they already had, so the
+    /// viewers of other studies stay where they were. A viewer without a
+    /// study, or whose series the list does not have, keeps its place; two
+    /// viewers of one series keep their order.
+    static func orderedBySeriesList(_ order: [Int], _ viewers: [Viewer]) -> [Int] {
+        var studies: [String] = []
+        var slots: [String: [Int]] = [:]
+        for (slot, place) in order.enumerated() {
+            guard let studyUID = viewers[place].studyInstanceUID, viewers[place].seriesListPlace != nil else { continue }
+            if slots[studyUID] == nil { studies.append(studyUID) }
+            slots[studyUID, default: []].append(slot)
+        }
+
+        var result = order
+        for studyUID in studies {
+            guard let taken = slots[studyUID], taken.count > 1 else { continue }
+            let sorted = mergeSorted(taken.map { order[$0] }) { first, second in
+                let earlier = viewers[first].seriesListPlace ?? 0, later = viewers[second].seriesListPlace ?? 0
+                return earlier < later ? .orderedAscending : (earlier > later ? .orderedDescending : .orderedSame)
+            }
+            for (slot, place) in zip(taken, sorted) {
+                result[slot] = place
+            }
+        }
+        return result
     }
 
     /// The comparison of two study dates; a missing date compares as equal

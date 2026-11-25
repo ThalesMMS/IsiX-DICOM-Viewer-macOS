@@ -555,11 +555,16 @@ final class ViewerWindowArranger: NSObject {
                                                  keepsStudiesOnSameScreen: preferences[ViewerPreferences.keepStudiesTogetherOnSameScreen],
                                                  stretchesWindows: preferences[ViewerPreferences.strechWindows],
                                                  ordersByStudyDate: preferences[ViewerPreferences.tileWindowsOrderByStudyDate],
-                                                 reversesStudyDateOrder: preferences[Self.reversesStudyDateOrder])
+                                                 reversesStudyDateOrder: preferences[Self.reversesStudyDateOrder],
+                                                 ordersBySeriesList: preferences[ViewerPreferences.tileWindowsOrderBySeriesList],
+                                                 protocolOrdersSeries: Self.ordersSeries(windowLayout?.currentHangingProtocol as? [AnyHashable: Any]))
         let ordered = Self.orderedScreens()
+        // The series of a study as its series list has them, read once per study.
+        var listedSeries: [ObjectIdentifier: [Any]] = [:]
         let viewers = controllers.map { controller in
             Self.describe(controller, orderedScreens: ordered, tilingScreens: screens,
-                          study: options.keepsStudiesOnSameScreen, date: options.ordersByStudyDate)
+                          study: options.keepsStudiesOnSameScreen, date: options.ordersByStudyDate,
+                          series: options.followsSeriesList, listedSeries: &listedSeries)
         }
         let tilingScreens = screens.map { screen in
             ViewerTilingLayout.Screen(visibleFrame: screen.visibleFrame,
@@ -597,15 +602,32 @@ final class ViewerWindowArranger: NSObject {
         return arrangement
     }
 
-    /// A viewer as `ViewerTilingLayout` sees it; its study and the study's
-    /// date only when the tiling reads them.
+    /// The hanging protocol names its series in the order it opens them.
+    private static func ordersSeries(_ hangingProtocol: [AnyHashable: Any]?) -> Bool {
+        guard let order = hangingProtocol?["SeriesOrder"] as? String else { return false }
+        return !order.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// A viewer as `ViewerTilingLayout` sees it; its study, the study's date
+    /// and the place of its series in the series list (among the series of
+    /// its study as the database lists them, kept in `listedSeries`) only
+    /// when the tiling reads them.
     private static func describe(_ controller: NSWindowController, orderedScreens: [NSScreen], tilingScreens: [NSScreen],
-                                 study: Bool, date: Bool) -> ViewerTilingLayout.Viewer {
+                                 study: Bool, date: Bool, series: Bool,
+                                 listedSeries: inout [ObjectIdentifier: [Any]]) -> ViewerTilingLayout.Viewer {
         let window = controller.window
         let screen = window?.screen
         var studyInstanceUID: String? = nil
-        if study, let files = ViewerMessages.object(controller, "fileList") as? [Any], let image = files.first as? DicomImage {
-            studyInstanceUID = image.series?.study?.studyInstanceUID
+        var seriesListPlace: Int? = nil
+        if study || series, let files = ViewerMessages.object(controller, "fileList") as? [Any], let image = files.first as? DicomImage {
+            let shown = image.series
+            studyInstanceUID = shown?.study?.studyInstanceUID
+            if series, let shown, let shownStudy = shown.study {
+                let key = ObjectIdentifier(shownStudy)
+                let listed = listedSeries[key] ?? DatabaseItemChildren.children(of: shownStudy) ?? []
+                listedSeries[key] = listed
+                seriesListPlace = listed.firstIndex { ($0 as AnyObject) === shown }
+            }
         }
         let studyDate: Date? = date ? (controller as? OSIWindowController)?.currentStudy()?.date : nil
         return ViewerTilingLayout.Viewer(frame: window?.frame ?? .zero, isVisible: window?.isVisible ?? false,
@@ -613,7 +635,7 @@ final class ViewerWindowArranger: NSObject {
                                          orderedScreenIndex: screen.flatMap { screen in orderedScreens.firstIndex { $0 === screen } },
                                          screenVisibleOriginY: screen?.visibleFrame.origin.y ?? 0,
                                          tilingScreenIndex: screen.flatMap { screen in tilingScreens.firstIndex { $0 === screen } },
-                                         studyInstanceUID: studyInstanceUID, studyDate: studyDate)
+                                         studyInstanceUID: studyInstanceUID, studyDate: studyDate, seriesListPlace: seriesListPlace)
     }
 
     // MARK: - Tiling put off
