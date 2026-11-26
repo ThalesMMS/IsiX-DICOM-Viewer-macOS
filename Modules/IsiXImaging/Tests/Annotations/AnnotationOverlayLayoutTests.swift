@@ -712,6 +712,28 @@ struct AnnotationOverlayLayoutTests {
         #expect(empty == LowerCornerText())
     }
 
+    @Test func aLabelAtTheBottomStandsAboveTheBottomLetter() {
+        func letterBaseline(_ layout: AnnotationOverlayLayout) -> Double? {
+            guard case let .text(_, _, y, _)? = layout.orientationCommands(left: "R", right: "L", top: "A", bottom: "P", notices: []).last else { return nil }
+            return Double(y)
+        }
+        for scale: Float in [1, 2] {
+            for reserve in [0.0, 5.0] {
+                let layout = AnnotationOverlayLayout(originX: 0, originY: 0, width: 800, height: 600, scale: scale,
+                                                     characterWidth: 8 * Double(scale), lineHeight: 12 * Double(scale), edgeReserve: reserve)
+                let labelHeight = 26 * Double(scale)
+                let top = layout.bottomLabelTop(labelHeight: labelHeight)
+                guard let baseline = letterBaseline(layout) else { Issue.record("no bottom letter"); continue }
+                // The letter's top is a line above its baseline: the label ends 3 points above it.
+                #expect(baseline - layout.lineHeight - (top + labelHeight) == 3 * Double(scale))
+            }
+        }
+        // The frame reserve lifts the label as far as it lifts the letter.
+        let plain = AnnotationOverlayLayout(originX: 0, originY: 0, width: 800, height: 600, scale: 2, characterWidth: 16, lineHeight: 24)
+        let framed = AnnotationOverlayLayout(originX: 0, originY: 0, width: 800, height: 600, scale: 2, characterWidth: 16, lineHeight: 24, edgeReserve: 5)
+        #expect(plain.bottomLabelTop(labelHeight: 52) - framed.bottomLabelTop(labelHeight: 52) == 10)
+    }
+
     @Test func theOrientationLettersAreTheFormerCStrings() {
         let components: [Float] = [0, 0.2, 0.2000001, -0.2000001, 0.5, -0.5, 0.7071, -0.7071, 1, -1, .nan, -0.0]
         for x in components {

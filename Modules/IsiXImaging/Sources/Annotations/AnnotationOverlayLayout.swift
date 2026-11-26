@@ -213,8 +213,19 @@ public struct AnnotationOverlayLayout: Sendable, Equatable {
             y = Float(Double(y) + (lineHeight + 3 * sf))
         }
         commands.append(.text(bottom, x: DrawingGeometry.cLong(originX + width / 2),
-                              y: DrawingGeometry.cLong(originY + 2 * sf + height - 6 * sf - reserve), alignment: .left))
+                              y: DrawingGeometry.cLong(bottomLetterBaseline), alignment: .left))
         return commands
+    }
+
+    /// The baseline of the bottom orientation letter, in from the edge by the
+    /// reserve like the rest.
+    private var bottomLetterBaseline: Double { originY + 2 * Double(scale) + height - 6 * Double(scale) - reserve }
+
+    /// The top of a label `labelHeight` tall centred at the bottom of the
+    /// view, a line plus 3 points above the bottom letter's baseline, so that
+    /// it never covers the letter, the frame reserve included.
+    public func bottomLabelTop(labelHeight: Double) -> Double {
+        bottomLetterBaseline - lineHeight - 3 * Double(scale) - labelHeight
     }
 
     // MARK: - Study number box and signature

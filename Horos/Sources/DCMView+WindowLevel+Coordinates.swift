@@ -791,14 +791,15 @@ extension DCMView {
             }
 
             // An older study of the patient than another open viewer: centred at
-            // the bottom, above the lower orientation letter, and above the lines
-            // of the lower corners where a narrow view brings them under it.
+            // the bottom, above the lower orientation letter where the layout
+            // puts it (in by the frame reserve), and above the lines of the
+            // lower corners where a narrow view brings them under it.
             if self.horos_stringID == nil && self.is2DViewer() && PreviousStudyMark.isEnabled
                 && PreviousStudyMark.isPrevious(self.windowController() as AnyObject?) {
                 let label = PreviousStudyMark.label
                 let labelSize = self.convertToBacking(label.frameSize)
                 let x = size.origin.x + (size.size.width - labelSize.width) / 2
-                let top = lowerCorners.labelTop(preferred: Double(size.origin.y + size.size.height - labelSize.height - stringSize.height - CGFloat(6 * sf)),
+                let top = lowerCorners.labelTop(preferred: layout.bottomLabelTop(labelHeight: Double(labelSize.height)),
                                                 minX: Double(x), maxX: Double(x + labelSize.width), height: Double(labelSize.height), gap: Double(6 * sf))
                 self.horosDraw(label, bounds: NSMakeRect(x, CGFloat(top), labelSize.width, labelSize.height))
             }

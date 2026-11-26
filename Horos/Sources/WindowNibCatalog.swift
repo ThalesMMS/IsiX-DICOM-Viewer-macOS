@@ -64,9 +64,28 @@ enum WindowNibCatalog {
         var loaded: NSArray?
         guard nib.instantiate(withOwner: owner, topLevelObjects: &loaded) else { return nil }
         let objects = loaded.map { Array($0) } ?? []
+        NibOwnedWindows.keep(objects)
         CatalogTranslation.translate(objects, with: CatalogTranslation.mainCatalog)
         WindowNibFit.makeRoom(in: objects)
         return objects
+    }
+}
+
+/// The windows among the top-level objects of a nib that the caller keeps.
+///
+/// A nib loaded with its top-level objects handed back gives them to the
+/// array, which is then the windows' only owner. A window whose nib has
+/// "Release When Closed" on releases itself as well when it is closed, and
+/// the application closes every window when it quits: that release is one
+/// the window was never given, and the array, freed with the viewer or
+/// controller that keeps it, then releases a window already deallocated.
+/// The windows are kept by the array alone, and close without releasing.
+@MainActor
+enum NibOwnedWindows {
+    static func keep(_ objects: [Any]) {
+        for case let window as NSWindow in objects {
+            window.isReleasedWhenClosed = false
+        }
     }
 }
 

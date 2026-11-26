@@ -24,6 +24,10 @@
     IsiXLegacyImageInfo *info;
     float *ownPixels;
     BOOL hasOwnPixels, ownIsRGB;
+    // The range of the image, kept once read: a legacy plugin reads fullww
+    // inside its loop over the pixels, and the host kept it too.
+    BOOL rangeKnown;
+    float rangeLow, rangeHigh;
     double orientation[9], origin[3];
     float localWW, localWL;
 }
@@ -118,6 +122,7 @@
     ownPixels = pixels;
     ownIsRGB = self.isRGB;
     hasOwnPixels = YES;
+    rangeKnown = NO;
 }
 
 - (BOOL) isRGB
@@ -138,9 +143,11 @@
     return pixels[y * pwidth + x];
 }
 
-/// The lowest and highest value of the image.
+/// The lowest and highest value of the image, read once and kept until
+/// -computePixMinPixMax or new pixels.
 - (BOOL) isixRange: (float*) lowest :(float*) highest
 {
+    if (rangeKnown) { *lowest = rangeLow; *highest = rangeHigh; return YES; }
     float *pixels = self.fImage;
     long count = pwidth * pheight;
     if (!pixels || count <= 0) return NO;
@@ -151,8 +158,9 @@
         if (pixels[i] < low) low = pixels[i];
         if (pixels[i] > high) high = pixels[i];
     }
-    *lowest = low;
-    *highest = high;
+    *lowest = rangeLow = low;
+    *highest = rangeHigh = high;
+    rangeKnown = YES;
     return YES;
 }
 
@@ -168,7 +176,12 @@
     return [self isixRange: &low :&high] ? (high + low) / 2 : 0;
 }
 
-- (void) computePixMinPixMax {}
+- (void) computePixMinPixMax
+{
+    float low, high;
+    rangeKnown = NO;
+    (void) [self isixRange: &low :&high];
+}
 - (void) CheckLoad { (void) self.fImage; }
 - (void) compute8bitRepresentation {}
 

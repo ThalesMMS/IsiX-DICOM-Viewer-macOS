@@ -138,6 +138,18 @@ import AppKit
                 let header = table.headerView!
                 let headerFrame = header.convert(header.bounds, to: scroll)
                 precondition(!headerFrame.intersects(scroll.contentView.frame), "Header overlaps scrollable rows")
+                // The pane's title names it and does nothing: no control look, no tracking, no resizing.
+                precondition(header is DatabaseSidebarHeaderView, "Sidebar title is still a clickable column header")
+                precondition(!(table.tableColumns.first?.headerCell.stringValue ?? "").isEmpty, "Sidebar title lost")
+                precondition(!header.acceptsFirstMouse(for: nil))
+                precondition(header.trackingAreas.allSatisfy { $0.owner !== header }, "Sidebar title tracks the mouse")
+                precondition(!table.allowsColumnResizing && !table.allowsColumnReordering && !table.allowsColumnSelection)
+                precondition(table.tableColumns.allSatisfy { !$0.resizingMask.contains(.userResizingMask) })
+                let press = NSEvent.mouseEvent(with: .leftMouseDown, location: header.convert(NSPoint(x: header.bounds.midX, y: header.bounds.midY), to: nil),
+                                               modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                                               eventNumber: 0, clickCount: 1, pressure: 1)!
+                header.mouseDown(with: press)
+                precondition(table.selectedColumn == -1 && table.highlightedTableColumn == nil, "Sidebar title reacted to a click")
                 precondition(scroll.frame.width <= scroll.superview!.bounds.width)
             }
             for mode in [NSToolbar.DisplayMode.iconAndLabel, .iconOnly] {

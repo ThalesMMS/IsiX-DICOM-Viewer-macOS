@@ -74,6 +74,7 @@ enum ViewerPanelsNib {
             NSLog("---- ViewerPanels.nib could not be loaded")
             return
         }
+        NibOwnedWindows.keep(objects.map { Array($0) } ?? [])
         objc_setAssociatedObject(viewer, key.key, objects ?? [], .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         // The texts of the sheets and panels come from the catalog in a language that has no copy of the nib.
         WindowNibCatalog.read(objects.map { Array($0) } ?? [], ofNibNamed: "ViewerPanels", owner: viewer)

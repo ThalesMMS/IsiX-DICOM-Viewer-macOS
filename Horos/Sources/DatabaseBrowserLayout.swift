@@ -254,6 +254,7 @@ public final class DatabaseSidebarScrollView: NSScrollView {
     private var reservesHeader = false
 
     func reserveHeaderSpace() {
+        if let table = documentView as? NSTableView { DatabaseSidebarHeaderView.install(in: table) }
         automaticallyAdjustsContentInsets = false
         contentInsets = NSEdgeInsetsZero
         contentView.automaticallyAdjustsContentInsets = false
@@ -278,5 +279,41 @@ public final class DatabaseSidebarScrollView: NSScrollView {
         }
         contentView.frame = frame
         contentView.scroll(to: contentView.constrainBoundsRect(contentView.bounds).origin)
+    }
+}
+
+/// The title of a sidebar pane (Albums, Sources, Activity), which the nib
+/// draws as the column header of the pane's table. It only names the pane:
+/// the column has no sort and no action, so the header must not look like a
+/// control. It takes no clicks, keeps no hover or resize tracking, and the
+/// column can be neither resized, reordered nor selected from it.
+@MainActor
+@objc(HorosDatabaseSidebarHeaderView)
+final class DatabaseSidebarHeaderView: NSTableHeaderView {
+    static func install(in table: NSTableView) {
+        guard let current = table.headerView, !(current is DatabaseSidebarHeaderView) else { return }
+        let header = DatabaseSidebarHeaderView(frame: current.frame)
+        header.autoresizingMask = current.autoresizingMask
+        header.menu = current.menu
+        table.headerView = header
+        table.allowsColumnResizing = false
+        table.allowsColumnReordering = false
+        table.allowsColumnSelection = false
+        // The single column still follows the pane's width, but not the mouse.
+        for column in table.tableColumns { column.resizingMask.remove(.userResizingMask) }
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
+    override func mouseDown(with event: NSEvent) {}
+    override func mouseDragged(with event: NSEvent) {}
+    override func mouseUp(with event: NSEvent) {}
+    override func mouseEntered(with event: NSEvent) {}
+    override func mouseExited(with event: NSEvent) {}
+    override func mouseMoved(with event: NSEvent) {}
+    override func resetCursorRects() {}
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
     }
 }
